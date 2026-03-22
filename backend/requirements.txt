@@ -1,11 +1,3 @@
-
----
-
-# Backend
-
-## `backend/requirements.txt`
-
-```txt
 alembic==1.14.1
 email-validator==2.2.0
 fastapi==0.115.8
