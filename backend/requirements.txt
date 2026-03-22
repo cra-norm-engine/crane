@@ -1,0 +1,22 @@
+
+---
+
+# Backend
+
+## `backend/requirements.txt`
+
+```txt
+alembic==1.14.1
+email-validator==2.2.0
+fastapi==0.115.8
+httpx==0.28.1
+passlib[bcrypt]==1.7.4
+psycopg[binary]==3.2.5
+pydantic==2.10.6
+pydantic-settings==2.7.1
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.20
+SQLAlchemy==2.0.38
+uvicorn[standard]==0.34.0
+pytest==8.3.4
+pytest-asyncio==0.25.3

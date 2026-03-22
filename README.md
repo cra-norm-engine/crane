@@ -1,6 +1,10 @@
 # CRA Compliance Tool
 
+<<<<<<< HEAD
 Self-hosted CRA compliance management foundation for manufacturers of products with digital elements.
+=======
+Self-hosted Cyber Resilience Act (CRA) compliance management foundation for manufacturers of products with digital elements.
+>>>>>>> 6df5d77 (Project Structure Created)
 
 ## Stack
 

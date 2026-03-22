@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cra-compliance-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cra_compliance}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-cra_compliance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: python:3.12-slim
+    container_name: cra-compliance-backend
+    working_dir: /workspace/backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/cra_compliance}
+      BACKEND_HOST: ${BACKEND_HOST:-0.0.0.0}
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      BACKEND_DEBUG: ${BACKEND_DEBUG:-true}
+      BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
+      BACKEND_API_PREFIX: ${BACKEND_API_PREFIX:-/api/v1}
+      BACKEND_PROJECT_NAME: ${BACKEND_PROJECT_NAME:-CRA Compliance Tool}
+      BACKEND_SECRET_KEY: ${BACKEND_SECRET_KEY:-change-me-in-production}
+      BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES: ${BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      BACKEND_LOG_LEVEL: ${BACKEND_LOG_LEVEL:-INFO}
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/workspace/backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-alpine
+    container_name: cra-compliance-frontend
+    working_dir: /workspace/frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      VITE_APP_NAME: ${VITE_APP_NAME:-CRA Compliance Tool}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+      VITE_REQUEST_TIMEOUT_MS: ${VITE_REQUEST_TIMEOUT_MS:-15000}
+    command: >
+      sh -c "npm install &&
+             npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - frontend_node_modules:/workspace/frontend/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  frontend_node_modules:
