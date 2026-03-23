@@ -79,12 +79,30 @@ def upgrade() -> None:
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("roles", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("email", name="uq_users_email"),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=False)
+
+    op.create_table(
+        "roles",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("description", sa.String(length=255), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.UniqueConstraint("name", name="uq_roles_name"),
+    )
+    op.create_index("ix_roles_name", "roles", ["name"], unique=False)
+
+    op.create_table(
+        "user_roles",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("role_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("roles.id", ondelete="CASCADE"), nullable=False),
+        sa.UniqueConstraint("user_id", "role_id", name="uq_user_role"),
+    )
 
     op.create_table(
         "products",
@@ -123,17 +141,22 @@ def upgrade() -> None:
     op.create_table(
         "audit_log_events",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("actor_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("action", sa.String(length=120), nullable=False),
-        sa.Column("entity_name", sa.String(length=120), nullable=False),
+        sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("actor_user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("action_type", sa.String(length=120), nullable=False),
+        sa.Column("entity_type", sa.String(length=120), nullable=False),
         sa.Column("entity_id", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("correlation_id", sa.String(length=64), nullable=True),
+        sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("ip_address", sa.String(length=64), nullable=True),
-        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("user_agent", sa.String(length=255), nullable=True),
+        sa.Column("details_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("checksum", sa.String(length=64), nullable=False),
     )
-    op.create_index("ix_audit_log_events_created_at", "audit_log_events", ["created_at"], unique=False)
-    op.create_index("ix_audit_log_events_entity_name", "audit_log_events", ["entity_name"], unique=False)
+    op.create_index("ix_audit_log_events_occurred_at", "audit_log_events", ["occurred_at"], unique=False)
+    op.create_index("ix_audit_log_events_actor_user_id", "audit_log_events", ["actor_user_id"], unique=False)
+    op.create_index("ix_audit_log_events_action_type", "audit_log_events", ["action_type"], unique=False)
+    op.create_index("ix_audit_log_events_entity_type", "audit_log_events", ["entity_type"], unique=False)
+    op.create_index("ix_audit_log_events_entity_id", "audit_log_events", ["entity_id"], unique=False)
 
     op.create_table(
         "domain_placeholders",
@@ -148,13 +171,25 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("domain_placeholders")
-    op.drop_index("ix_audit_log_events_entity_name", table_name="audit_log_events")
-    op.drop_index("ix_audit_log_events_created_at", table_name="audit_log_events")
+
+    op.drop_index("ix_audit_log_events_entity_id", table_name="audit_log_events")
+    op.drop_index("ix_audit_log_events_entity_type", table_name="audit_log_events")
+    op.drop_index("ix_audit_log_events_action_type", table_name="audit_log_events")
+    op.drop_index("ix_audit_log_events_actor_user_id", table_name="audit_log_events")
+    op.drop_index("ix_audit_log_events_occurred_at", table_name="audit_log_events")
     op.drop_table("audit_log_events")
+
     op.drop_table("product_releases")
+
     op.drop_index("ix_products_product_code", table_name="products")
     op.drop_index("ix_products_name", table_name="products")
     op.drop_table("products")
+
+    op.drop_table("user_roles")
+
+    op.drop_index("ix_roles_name", table_name="roles")
+    op.drop_table("roles")
+
     op.drop_index("ix_users_email", table_name="users")
     op.drop_table("users")
 

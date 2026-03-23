@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -19,7 +18,9 @@ services:
       retries: 10
 
   backend:
-    image: python:3.12-slim
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: cra-compliance-backend
     working_dir: /workspace/backend
     restart: unless-stopped
@@ -35,11 +36,9 @@ services:
       BACKEND_PROJECT_NAME: ${BACKEND_PROJECT_NAME:-CRA Compliance Tool}
       BACKEND_SECRET_KEY: ${BACKEND_SECRET_KEY:-change-me-in-production}
       BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES: ${BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      BACKEND_REFRESH_TOKEN_EXPIRE_DAYS: ${BACKEND_REFRESH_TOKEN_EXPIRE_DAYS:-7}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       BACKEND_LOG_LEVEL: ${BACKEND_LOG_LEVEL:-INFO}
-    command: >
-      sh -c "pip install --no-cache-dir -r requirements.txt &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

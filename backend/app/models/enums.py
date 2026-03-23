@@ -64,3 +64,29 @@ class ConformityRoute(StrEnum):
     third_party_assessment = "third_party_assessment"
     not_applicable = "not_applicable"
     undecided = "undecided"
+
+
+class AuditActionType(StrEnum):
+    login = "login"
+    logout = "logout"
+    failed_login = "failed_login"
+    create = "create"
+    update = "update"
+    delete = "delete"
+    export = "export"
+    release_approval = "release_approval"
+    release_block = "release_block"
+    role_change = "role_change"
+
+
+class AuditStatus(StrEnum):
+    success = "success"
+    failure = "failure"
+
+
+class EntityType(StrEnum):
+    user = "user"
+    role = "role"
+    product = "product"
+    release = "release"
+    audit_log_event = "audit_log_event"

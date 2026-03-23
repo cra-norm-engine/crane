@@ -53,16 +53,30 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
 
-  if (authStore.isInitialized === false) {
+  if (!authStore.isInitialized) {
     authStore.initializeFromStorage();
   }
 
+  // Public routes (login, 404)
   if (to.meta.public) {
+    // Prevent accessing login when already authenticated
+    if (to.name === "login" && authStore.isAuthenticated) {
+      return { name: "dashboard" };
+    }
     return true;
   }
 
+  // Require authentication
   if (!authStore.isAuthenticated) {
     return { name: "login", query: { redirect: to.fullPath } };
+  }
+
+  // Optional role-based protection via route meta
+  if (to.meta.roles) {
+    const requiredRoles = to.meta.roles as string[];
+    if (!authStore.hasAnyRole(requiredRoles)) {
+      return { name: "dashboard" };
+    }
   }
 
   return true;

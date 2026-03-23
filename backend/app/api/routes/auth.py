@@ -1,15 +1,62 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.schemas.auth import LoginRequest, TokenRead
+from app.models.user import User
+from app.schemas.auth import CurrentUserRead, LoginRequest, RefreshTokenRequest, TokenRead
 from app.services.auth_service import AuthService
 
 router = APIRouter()
 
 
 @router.post("/login", response_model=TokenRead, status_code=status.HTTP_200_OK)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenRead:
-    return AuthService(db).authenticate(payload)
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> TokenRead:
+    return AuthService(db).login(
+        payload=payload,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+@router.post("/refresh", response_model=TokenRead, status_code=status.HTTP_200_OK)
+def refresh(
+    payload: RefreshTokenRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> TokenRead:
+    return AuthService(db).refresh(
+        refresh_token=payload.refresh_token,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    AuthService(db).logout(
+        user=current_user,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+@router.get("/me", response_model=CurrentUserRead, status_code=status.HTTP_200_OK)
+def me(current_user: User = Depends(get_current_user)) -> CurrentUserRead:
+    return CurrentUserRead(
+        id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        roles=current_user.role_names,
+        is_active=current_user.is_active,
+    )

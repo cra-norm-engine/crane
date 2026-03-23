@@ -1,38 +1,71 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
-from app.core.permissions import Permission
+from app.core.database import get_db
+from app.core.permissions import Permission, require_permissions
+from app.core.security import decode_access_token, get_token_subject
+from app.models.user import User
+from app.repositories.user_repository import UserRepository
 
-CurrentUser = dict[str, object]
-
-
-def get_current_user(x_user_email: Annotated[str | None, Header(alias="X-User-Email")] = None) -> CurrentUser:
-    if not x_user_email:
-        return {
-            "id": "00000000-0000-0000-0000-000000000000",
-            "email": "admin@example.com",
-            "roles": ["admin"],
-        }
-
-    return {
-        "id": "00000000-0000-0000-0000-000000000000",
-        "email": x_user_email,
-        "roles": ["admin"],
-    }
+security_scheme = HTTPBearer(auto_error=False)
 
 
-def require_permission(permission: Permission) -> Callable[..., CurrentUser]:
-    def dependency(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-        roles = user.get("roles", [])
-        if "admin" in roles:
-            return user
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_scheme)],
+    db: Session = Depends(get_db),
+) -> User:
+    if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Missing permission: {permission.value}",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
+    payload = decode_access_token(credentials.credentials)
+    subject = get_token_subject(payload)
+
+    try:
+        user_id = UUID(subject)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    user = UserRepository(db).get_by_id(user_id)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
+
+
+def require_permission(permission: Permission):
+    def dependency(current_user: User = Depends(get_current_user)) -> User:
+        require_permissions(current_user.role_names, {permission})
+        return current_user
+
     return dependency
+
+
+def require_permissions_dependency(*permissions: Permission):
+    required = set(permissions)
+
+    def dependency(current_user: User = Depends(get_current_user)) -> User:
+        require_permissions(current_user.role_names, required)
+        return current_user
+
+    return dependency
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
