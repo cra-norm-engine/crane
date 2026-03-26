@@ -3,57 +3,104 @@ import { defineStore } from "pinia";
 
 const STORAGE_KEY = "cra-compliance-auth";
 
+interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  roles: string[];
+  is_active: boolean;
+}
+
 interface AuthState {
   accessToken: string | null;
-  userEmail: string | null;
+  refreshToken: string | null;
+  user: AuthUser | null;
 }
 
 export const useAuthStore = defineStore("auth", () => {
   const accessToken = ref<string | null>(null);
-  const userEmail = ref<string | null>(null);
+  const refreshToken = ref<string | null>(null);
+  const user = ref<AuthUser | null>(null);
   const isInitialized = ref(false);
 
   const isAuthenticated = computed(() => Boolean(accessToken.value));
+  const userRoles = computed(() => user.value?.roles ?? []);
+  const roles = computed(() => user.value?.roles ?? []);
+  const userEmail = computed(() => user.value?.email ?? "");
+  const userFullName = computed(() => user.value?.full_name ?? "");
+
+  function hasRole(role: string): boolean {
+    return userRoles.value.includes(role);
+  }
+
+  function hasAnyRole(roleNames: string[]): boolean {
+    return roleNames.some((role) => userRoles.value.includes(role));
+  }
 
   function initializeFromStorage(): void {
     const raw = window.localStorage.getItem(STORAGE_KEY);
+
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as AuthState;
         accessToken.value = parsed.accessToken;
-        userEmail.value = parsed.userEmail;
+        refreshToken.value = parsed.refreshToken;
+        user.value = parsed.user;
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
       }
     }
+
     isInitialized.value = true;
   }
 
-  function login(email: string, token: string): void {
-    accessToken.value = token;
-    userEmail.value = email;
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        accessToken: token,
-        userEmail: email,
-      }),
-    );
+  function setAuthState(state: AuthState): void {
+    accessToken.value = state.accessToken;
+    refreshToken.value = state.refreshToken;
+    user.value = state.user;
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function clearAuthState(): void {
+    accessToken.value = null;
+    refreshToken.value = null;
+    user.value = null;
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function login(
+    accessTokenValue: string,
+    refreshTokenValue: string,
+    userData: AuthUser | null,
+  ): void {
+    setAuthState({
+      accessToken: accessTokenValue,
+      refreshToken: refreshTokenValue,
+      user: userData,
+    });
   }
 
   function logout(): void {
-    accessToken.value = null;
-    userEmail.value = null;
-    window.localStorage.removeItem(STORAGE_KEY);
+    clearAuthState();
   }
 
   return {
     accessToken,
-    userEmail,
+    refreshToken,
+    user,
     isInitialized,
     isAuthenticated,
+    userRoles,
+    roles,
+    userEmail,
+    userFullName,
+    hasRole,
+    hasAnyRole,
     initializeFromStorage,
     login,
     logout,
+    setAuthState,
+    clearAuthState,
   };
 });

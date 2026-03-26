@@ -1,21 +1,49 @@
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #f3f4f6;
+  color: #e9eefc;
+  background:
+    radial-gradient(1200px 600px at 20% 10%, rgba(139, 92, 246, 0.2), transparent 55%),
+    radial-gradient(1000px 700px at 80% 20%, rgba(110, 168, 254, 0.16), transparent 55%),
+    #0b1220;
   line-height: 1.5;
   font-weight: 400;
+
+  --color-bg: #0b1220;
+  --color-panel: rgba(15, 26, 46, 0.72);
+  --color-surface: rgba(255, 255, 255, 0.04);
+  --color-surface-soft: rgba(255, 255, 255, 0.03);
+  --color-border: rgba(233, 238, 252, 0.14);
+  --color-text: #e9eefc;
+  --color-text-muted: rgba(233, 238, 252, 0.72);
+  --color-primary: #6ea8fe;
+  --color-primary-2: #8b5cf6;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #fb7185;
+  --shadow-lg: 0 18px 60px rgba(0, 0, 0, 0.35);
+  --radius-lg: 16px;
+  --radius-md: 12px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f3f4f6;
-  color: #111827;
+  background:
+    radial-gradient(1200px 600px at 20% 10%, rgba(139, 92, 246, 0.2), transparent 55%),
+    radial-gradient(1000px 700px at 80% 20%, rgba(110, 168, 254, 0.16), transparent 55%),
+    #0b1220;
+  color: var(--color-text);
 }
 
 a {
@@ -30,8 +58,13 @@ textarea {
   font: inherit;
 }
 
-#app {
-  min-height: 100vh;
+button {
+  color: inherit;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 .page {
@@ -42,23 +75,25 @@ textarea {
 
 .page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .page-title {
   margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.9rem;
+  font-weight: 800;
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  box-shadow: 0 6px 24px rgba(17, 24, 39, 0.06);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
 }
 
 .grid {
@@ -71,43 +106,72 @@ textarea {
 }
 
 .muted {
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.2rem 0.65rem;
+  padding: 0.28rem 0.72rem;
   font-size: 0.75rem;
   font-weight: 600;
-  background: #e5e7eb;
-  color: #111827;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 .button {
-  border: none;
-  background: #111827;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(110, 168, 254, 0.95));
   color: #ffffff;
-  border-radius: 10px;
-  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  padding: 0.72rem 1rem;
   cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
 }
 
 .button.secondary {
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .input,
 .select,
 .textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  border-radius: 12px;
   padding: 0.75rem 0.9rem;
+  outline: none;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(110, 168, 254, 0.55);
+  box-shadow: 0 0 0 4px rgba(110, 168, 254, 0.14);
+}
+
+.textarea,
+textarea {
+  resize: vertical;
 }
 
 .table {
@@ -118,8 +182,14 @@ textarea {
 .table th,
 .table td {
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 0.8rem 0.5rem;
+  border-bottom: 1px solid rgba(233, 238, 252, 0.08);
+  padding: 0.85rem 0.6rem;
+}
+
+.table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .auth-shell {
@@ -131,11 +201,15 @@ textarea {
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
 }
 
 @media (max-width: 960px) {
   .grid-3 {
     grid-template-columns: 1fr;
+  }
+
+  .page-title {
+    font-size: 1.6rem;
   }
 }

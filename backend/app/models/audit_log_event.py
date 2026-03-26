@@ -67,6 +67,9 @@ class AuditLogEvent(Base):
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
     def set_checksum(self) -> None:
+        if self.occurred_at is None:
+            self.occurred_at = utc_now()
+
         self.checksum = self.compute_checksum(
             occurred_at=self.occurred_at,
             actor_user_id=self.actor_user_id,

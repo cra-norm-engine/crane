@@ -34,6 +34,45 @@ class AssessmentStatus(StrEnum):
     archived = "archived"
 
 
+class RiskAssessmentStatus(StrEnum):
+    draft = "draft"
+    in_review = "in_review"
+    approved = "approved"
+    archived = "archived"
+
+
+class RiskItemStatus(StrEnum):
+    open = "open"
+    in_progress = "in_progress"
+    mitigated = "mitigated"
+    accepted = "accepted"
+    closed = "closed"
+
+
+class RequirementImplementationStatus(StrEnum):
+    planned = "planned"
+    in_progress = "in_progress"
+    implemented = "implemented"
+    verified = "verified"
+    not_applicable = "not_applicable"
+
+
+class AnnexPart(StrEnum):
+    part_i = "part_i"
+    part_ii = "part_ii"
+
+
+class SdlActivity(StrEnum):
+    requirements = "requirements"
+    design = "design"
+    implementation = "implementation"
+    verification = "verification"
+    validation = "validation"
+    vulnerability_management = "vulnerability_management"
+    documentation = "documentation"
+    post_market = "post_market"
+
+
 class EvidenceType(StrEnum):
     document = "document"
     test_report = "test_report"
@@ -77,6 +116,8 @@ class AuditActionType(StrEnum):
     release_approval = "release_approval"
     release_block = "release_block"
     role_change = "role_change"
+    duplicate = "duplicate"
+    approve = "approve"
 
 
 class AuditStatus(StrEnum):
@@ -88,5 +129,12 @@ class EntityType(StrEnum):
     user = "user"
     role = "role"
     product = "product"
-    release = "release"
+    product_release = "product_release"
+    remote_processing_element = "remote_processing_element"
+    product_scope_evaluation = "product_scope_evaluation"
     audit_log_event = "audit_log_event"
+    risk_assessment = "risk_assessment"
+    risk_item = "risk_item"
+    annex_requirement = "annex_requirement"
+    requirement_mapping = "requirement_mapping"
+    evidence_item = "evidence_item"

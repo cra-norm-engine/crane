@@ -1,18 +1,53 @@
 <template>
-  <section class="page">
-    <div class="card" style="max-width: 420px; margin: 48px auto;">
-      <h1 class="page-title">Login</h1>
-      <p class="muted">Sign in to your account</p>
+  <section class="auth-shell">
+    <div class="auth-card card login-card">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">ALI</div>
+        <div>
+          <div class="brand-title">Audit-Linked Integrity</div>
+          <div class="brand-sub">A CRA Compliance Tool</div>
+        </div>
+      </div>
 
-      <form @submit.prevent="handleLogin" style="display: grid; gap: 12px; margin-top: 16px;">
-        <input v-model="email" type="email" placeholder="Email" required />
-        <input v-model="password" type="password" placeholder="Password" required minlength="8" />
-        <button type="submit" :disabled="loading">
+      <div class="separator"></div>
+
+      <div class="heading-block">
+        <h1 class="page-title">Sign in</h1>
+        <p class="muted">Access your CRA compliance workspace.</p>
+      </div>
+
+      <form class="login-form" @submit.prevent="handleLogin">
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input
+            v-model.trim="email"
+            class="input"
+            type="email"
+            placeholder="admin@example.com"
+            required
+            autocomplete="username"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Password</span>
+          <input
+            v-model="password"
+            class="input"
+            type="password"
+            placeholder="Enter your password"
+            required
+            minlength="8"
+            autocomplete="current-password"
+          />
+        </label>
+
+        <button class="button" type="submit" :disabled="loading">
           {{ loading ? "Signing in..." : "Sign in" }}
         </button>
       </form>
 
-      <p v-if="error" class="error" style="margin-top: 12px;">
+      <p v-if="error" class="error-text">
         {{ error }}
       </p>
     </div>
@@ -22,8 +57,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+
+import { fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
-import { loginRequest, fetchCurrentUser } from "@/services/auth-service";
 
 const email = ref("");
 const password = ref("");
@@ -46,18 +82,16 @@ async function handleLogin(): Promise<void> {
 
     const user = await fetchCurrentUser(tokenResponse.access_token);
 
-    authStore.login(
-      tokenResponse.access_token,
-      tokenResponse.refresh_token,
-      user,
-    );
+    authStore.login(tokenResponse.access_token, tokenResponse.refresh_token, user);
 
-    const redirect =
-      typeof route.query.redirect === "string" ? route.query.redirect : "/";
-
+    const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/";
     await router.push(redirect);
-  } catch (err: any) {
-    error.value = err?.response?.data?.detail ?? "Login failed";
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      error.value = err.message;
+    } else {
+      error.value = "Login failed";
+    }
   } finally {
     loading.value = false;
   }
@@ -65,8 +99,66 @@ async function handleLogin(): Promise<void> {
 </script>
 
 <style scoped>
-.error {
-  color: #d32f2f;
-  font-size: 0.9rem;
+.login-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.brand {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--color-primary-2), var(--color-primary));
+  box-shadow: 0 10px 30px rgba(110, 168, 254, 0.18);
+  font-weight: 900;
+  color: white;
+}
+
+.brand-title {
+  font-weight: 800;
+}
+
+.brand-sub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.separator {
+  height: 1px;
+  background: var(--color-border);
+}
+
+.heading-block {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.login-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.error-text {
+  margin: 0;
+  color: #fda4af;
+  font-size: 0.95rem;
 }
 </style>

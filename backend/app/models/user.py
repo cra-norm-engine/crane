@@ -37,6 +37,22 @@ class User(UUIDTimestampMixin, Base):
         passive_deletes=True,
     )
 
+    owned_risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
+        "RiskAssessment",
+        foreign_keys="RiskAssessment.owner_user_id",
+        passive_deletes=True,
+    )
+    owned_risk_items: Mapped[list["RiskItem"]] = relationship(
+        "RiskItem",
+        foreign_keys="RiskItem.owner_user_id",
+        passive_deletes=True,
+    )
+    uploaded_evidence_items: Mapped[list["EvidenceItem"]] = relationship(
+        "EvidenceItem",
+        foreign_keys="EvidenceItem.uploaded_by_user_id",
+        passive_deletes=True,
+    )
+
     @property
     def role_names(self) -> list[str]:
         return [ur.role.name for ur in self.roles if ur.role]

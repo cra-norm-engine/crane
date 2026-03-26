@@ -7,7 +7,17 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.models.base import Base
-from app.models import audit_log_event, placeholders, product, user  # noqa: F401
+from app.models import (  # noqa: F401
+    annex_requirement,
+    audit_log_event,
+    evidence_item,
+    placeholders,
+    product,
+    requirement_mapping,
+    risk_assessment,
+    risk_item,
+    user,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

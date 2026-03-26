@@ -1,18 +1,46 @@
 <template>
-  <div style="min-height: 100vh; font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a;">
-    <header style="padding: 16px 24px; border-bottom: 1px solid #e2e8f0; background: white;">
-      <nav style="display: flex; gap: 16px; align-items: center;">
-        <RouterLink to="/">Dashboard</RouterLink>
-        <RouterLink to="/products">Products</RouterLink>
-      </nav>
-    </header>
+  <div class="app-shell">
+    <AppSidebar />
 
-    <main style="padding: 24px;">
-      <router-view />
-    </main>
+    <div class="app-main">
+      <AppHeader />
+      <main class="app-content">
+        <router-view />
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
+import AppHeader from "@/components/AppHeader.vue";
+import AppSidebar from "@/components/AppSidebar.vue";
 </script>
+
+<style scoped>
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  background: transparent;
+}
+
+.app-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  padding: 1.25rem;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-content {
+    padding: 1rem;
+  }
+}
+</style>
