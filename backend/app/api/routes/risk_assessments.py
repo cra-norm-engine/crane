@@ -33,7 +33,7 @@ def list_risk_assessments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[RiskAssessmentRead]:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_read})
+    require_permissions(current_user, {Permission.risk_assessment_read})
 
     if product_id is None and product_release_id is None:
         raise HTTPException(
@@ -54,7 +54,7 @@ def get_risk_assessment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskAssessmentDetailRead:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_read})
+    require_permissions(current_user, {Permission.risk_assessment_read})
 
     service = RiskAssessmentService(db)
     try:
@@ -70,7 +70,7 @@ def create_risk_assessment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskAssessmentRead:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_write})
+    require_permissions(current_user, {Permission.risk_assessment_write})
 
     service = RiskAssessmentService(db)
     try:
@@ -94,7 +94,7 @@ def update_risk_assessment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskAssessmentRead:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_write})
+    require_permissions(current_user, {Permission.risk_assessment_write})
 
     service = RiskAssessmentService(db)
     try:
@@ -119,7 +119,7 @@ def approve_risk_assessment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskAssessmentRead:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_write})
+    require_permissions(current_user, {Permission.risk_assessment_write})
 
     service = RiskAssessmentService(db)
     try:
@@ -146,7 +146,7 @@ def duplicate_risk_assessment_version(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskAssessmentRead:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_write})
+    require_permissions(current_user, {Permission.risk_assessment_write})
 
     service = RiskAssessmentService(db)
     try:
@@ -170,7 +170,7 @@ def delete_risk_assessment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    require_permissions(current_user.role_names, {Permission.risk_assessment_write})
+    require_permissions(current_user, {Permission.risk_assessment_write})
 
     service = RiskAssessmentService(db)
     try:

@@ -15,4 +15,5 @@ export interface UserRead {
   full_name: string;
   is_active: boolean;
   roles: string[];
+  permissions: string[];
 }

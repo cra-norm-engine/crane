@@ -76,12 +76,12 @@
 
         <label class="field">
           <span>Methodology</span>
-          <input v-model="createForm.methodology" type="text" required maxlength="255" />
+          <input v-model="createForm.methodology" type="text" required />
         </label>
 
         <label class="field field-full">
           <span>Summary</span>
-          <textarea v-model="createForm.summary" rows="4" />
+          <textarea v-model="createForm.summary" rows="4" required />
         </label>
 
         <div class="form-actions field-full">
@@ -149,16 +149,18 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+
+import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { useAuthStore } from "@/stores/auth";
-import riskService from "@/services/risk-service";
 import type {
   RiskAssessmentCreate,
   RiskAssessmentRead,
   RiskAssessmentStatus,
-} from "@/types/risk";
+} from "@/types/risk-assessment";
 
 const router = useRouter();
 const authStore = useAuthStore();
+
 const loading = ref(false);
 const creating = ref(false);
 const openCreateForm = ref(false);
@@ -185,10 +187,9 @@ const createForm = reactive<RiskAssessmentCreate>({
   version_label: "",
   status: "draft",
   methodology: "STRIDE",
-  summary: null,
+  summary: "",
   owner_user_id: authStore.user?.id ?? "",
 });
-createForm.owner_user_id = authStore.user?.id ?? "";
 
 function normalizeOptional(value: string | null | undefined): string | null {
   const trimmed = (value ?? "").trim();
@@ -223,7 +224,7 @@ async function loadAssessments(): Promise<void> {
       return;
     }
 
-    assessments.value = await riskService.listRiskAssessments({
+    assessments.value = await riskAssessmentService.list({
       product_id: productId || undefined,
       product_release_id: productReleaseId || undefined,
     });
@@ -248,11 +249,11 @@ async function createAssessment(): Promise<void> {
       version_label: createForm.version_label.trim(),
       status: createForm.status,
       methodology: createForm.methodology.trim(),
-      summary: normalizeOptional(createForm.summary),
+      summary: createForm.summary.trim(),
       owner_user_id: createForm.owner_user_id.trim(),
     };
 
-    const created = await riskService.createRiskAssessment(payload);
+    const created = await riskAssessmentService.create(payload);
 
     successMessage.value = "Risk assessment created successfully.";
     openCreateForm.value = false;
@@ -263,8 +264,8 @@ async function createAssessment(): Promise<void> {
     createForm.version_label = "";
     createForm.status = "draft";
     createForm.methodology = "STRIDE";
-    createForm.summary = null;
-    createForm.owner_user_id = "";
+    createForm.summary = "";
+    createForm.owner_user_id = authStore.user?.id ?? "";
 
     if (filters.productId.trim() || filters.productReleaseId.trim()) {
       await loadAssessments();
@@ -294,6 +295,7 @@ function goToDetail(assessmentId: string): void {
 }
 
 onMounted(() => {
+  createForm.owner_user_id = authStore.user?.id ?? "";
   assessments.value = [];
 });
 </script>

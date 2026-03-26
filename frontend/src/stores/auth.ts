@@ -8,6 +8,7 @@ interface AuthUser {
   email: string;
   full_name: string;
   roles: string[];
+  permissions: string[];
   is_active: boolean;
 }
 
@@ -26,6 +27,7 @@ export const useAuthStore = defineStore("auth", () => {
   const isAuthenticated = computed(() => Boolean(accessToken.value));
   const userRoles = computed(() => user.value?.roles ?? []);
   const roles = computed(() => user.value?.roles ?? []);
+  const permissions = computed(() => user.value?.permissions ?? []);
   const userEmail = computed(() => user.value?.email ?? "");
   const userFullName = computed(() => user.value?.full_name ?? "");
 
@@ -35,6 +37,14 @@ export const useAuthStore = defineStore("auth", () => {
 
   function hasAnyRole(roleNames: string[]): boolean {
     return roleNames.some((role) => userRoles.value.includes(role));
+  }
+
+  function hasPermission(permission: string): boolean {
+    return permissions.value.includes(permission);
+  }
+
+  function hasAnyPermission(permissionNames: string[]): boolean {
+    return permissionNames.some((permission) => permissions.value.includes(permission));
   }
 
   function initializeFromStorage(): void {
@@ -93,10 +103,13 @@ export const useAuthStore = defineStore("auth", () => {
     isAuthenticated,
     userRoles,
     roles,
+    permissions,
     userEmail,
     userFullName,
     hasRole,
     hasAnyRole,
+    hasPermission,
+    hasAnyPermission,
     initializeFromStorage,
     login,
     logout,

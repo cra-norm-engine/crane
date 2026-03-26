@@ -7,13 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.core.exceptions import ConflictException, NotFoundException
-from app.core.permissions import (
-    Permission,
-    ROLE_ADMIN,
-    ROLE_CYBERSECURITY_ENGINEER,
-    ROLE_PRODUCT_OWNER,
-    require_permissions,
-)
+from app.core.permissions import Permission, require_permissions
 from app.models.user import User
 from app.schemas.requirement_mapping import (
     RequirementMappingCreate,
@@ -37,7 +31,7 @@ def list_requirement_mappings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[RequirementMappingRead]:
-    require_permissions(current_user.role_names, {Permission.requirement_mapping_read})
+    require_permissions(current_user, {Permission.requirement_mapping_read})
 
     service = RequirementMappingService(db)
     try:
@@ -56,7 +50,7 @@ def get_requirement_mapping(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequirementMappingRead:
-    require_permissions(current_user.role_names, {Permission.requirement_mapping_read})
+    require_permissions(current_user, {Permission.requirement_mapping_read})
 
     service = RequirementMappingService(db)
     try:
@@ -72,7 +66,7 @@ def create_requirement_mapping(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequirementMappingRead:
-    require_permissions(current_user.role_names, {Permission.requirement_mapping_write})
+    require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
     try:
@@ -98,9 +92,9 @@ def update_requirement_mapping(
 ) -> RequirementMappingRead:
     user_roles = set(current_user.role_names)
 
-    if ROLE_ADMIN in user_roles or ROLE_CYBERSECURITY_ENGINEER in user_roles:
+    if "admin" in user_roles or "cybersecurity_engineer" in user_roles:
         pass
-    elif ROLE_PRODUCT_OWNER in user_roles:
+    elif "product_owner" in user_roles:
         update_data = payload.model_dump(exclude_unset=True)
         allowed_fields = {"engineering_requirement_ref"}
         disallowed_fields = set(update_data.keys()) - allowed_fields
@@ -110,7 +104,7 @@ def update_requirement_mapping(
                 detail="Product owners may only update engineering_requirement_ref.",
             )
     else:
-        require_permissions(current_user.role_names, {Permission.requirement_mapping_write})
+        require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
     try:
@@ -138,7 +132,7 @@ def delete_requirement_mapping(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    require_permissions(current_user.role_names, {Permission.requirement_mapping_write})
+    require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
     try:

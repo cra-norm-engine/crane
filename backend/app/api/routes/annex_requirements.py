@@ -31,7 +31,7 @@ def list_annex_requirements(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[AnnexRequirementRead]:
-    require_permissions(current_user.role_names, {Permission.annex_requirement_read})
+    require_permissions(current_user, {Permission.annex_requirement_read})
 
     service = AnnexRequirementService(db)
     return service.list(
@@ -46,7 +46,7 @@ def get_annex_requirement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AnnexRequirementRead:
-    require_permissions(current_user.role_names, {Permission.annex_requirement_read})
+    require_permissions(current_user, {Permission.annex_requirement_read})
 
     service = AnnexRequirementService(db)
     try:
@@ -62,7 +62,7 @@ def create_annex_requirement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AnnexRequirementRead:
-    require_permissions(current_user.role_names, {Permission.annex_requirement_write})
+    require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
     try:
@@ -84,7 +84,7 @@ def update_annex_requirement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AnnexRequirementRead:
-    require_permissions(current_user.role_names, {Permission.annex_requirement_write})
+    require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
     try:
@@ -112,7 +112,7 @@ def delete_annex_requirement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    require_permissions(current_user.role_names, {Permission.annex_requirement_write})
+    require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
     try:

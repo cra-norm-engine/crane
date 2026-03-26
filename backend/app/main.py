@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import api_router
 from app.core.config import settings
-from app.core.database import check_database_connection
+from app.core.database import SessionLocal, check_database_connection
 from app.core.exceptions import register_exception_handlers
+from app.core.seed import seed_initial_data
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +26,15 @@ def configure_logging() -> None:
 async def lifespan(_: FastAPI):
     configure_logging()
     LOGGER.info("Starting application: %s", settings.project_name)
+
+    db = SessionLocal()
+    try:
+        seed_initial_data(db)
+    finally:
+        db.close()
+
     yield
+
     LOGGER.info("Shutting down application: %s", settings.project_name)
 
 

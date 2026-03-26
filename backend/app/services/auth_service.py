@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import AuditLogger
 from app.core.exceptions import AppException
+from app.core.permissions import get_permissions_from_user
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -64,9 +65,15 @@ class AuthService:
             )
             raise AppException("User account is inactive", status_code=403)
 
+        permissions = sorted(permission.value for permission in get_permissions_from_user(user))
+
         access_token = create_access_token(
             str(user.id),
-            extra_claims={"roles": user.role_names, "email": user.email},
+            extra_claims={
+                "roles": user.role_names,
+                "permissions": permissions,
+                "email": user.email,
+            },
         )
         refresh_token = create_refresh_token(str(user.id))
 
@@ -78,7 +85,11 @@ class AuthService:
             status=AuditStatus.success.value,
             ip_address=ip_address,
             user_agent=user_agent,
-            details_json={"email": user.email, "roles": user.role_names},
+            details_json={
+                "email": user.email,
+                "roles": user.role_names,
+                "permissions": permissions,
+            },
             commit=True,
         )
 
@@ -114,9 +125,15 @@ class AuthService:
             )
             raise AppException("User not found or inactive", status_code=401)
 
+        permissions = sorted(permission.value for permission in get_permissions_from_user(user))
+
         new_access_token = create_access_token(
             str(user.id),
-            extra_claims={"roles": user.role_names, "email": user.email},
+            extra_claims={
+                "roles": user.role_names,
+                "permissions": permissions,
+                "email": user.email,
+            },
         )
         new_refresh_token = create_refresh_token(str(user.id))
 
@@ -128,7 +145,13 @@ class AuthService:
             status=AuditStatus.success.value,
             ip_address=ip_address,
             user_agent=user_agent,
-            details_json={"email": user.email, "event": "token_refresh", "refresh_jti": refresh_jti},
+            details_json={
+                "email": user.email,
+                "event": "token_refresh",
+                "refresh_jti": refresh_jti,
+                "roles": user.role_names,
+                "permissions": permissions,
+            },
             commit=True,
         )
 

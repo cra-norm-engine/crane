@@ -12,7 +12,8 @@ from app.models.annex_requirement import AnnexRequirement
 from app.models.requirement_mapping import RequirementMapping
 from app.models.evidence_item import EvidenceItem
 from app.models.user import Role, User, UserRole
-
+from app.models.permission import Permission
+from app.models.role_permission import RolePermission
 
 __all__ = [
     "AuditLogEvent",
@@ -29,4 +30,6 @@ __all__ = [
     "Role",
     "User",
     "UserRole",
+    "Permission",
+    "RolePermission",
 ]

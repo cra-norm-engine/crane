@@ -27,7 +27,7 @@ def list_evidence_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EvidenceItemRead]:
-    require_permissions(current_user.role_names, {Permission.evidence_item_read})
+    require_permissions(current_user, {Permission.evidence_item_read})
 
     if not any([product_release_id, risk_assessment_id, requirement_mapping_id]):
         raise HTTPException(
@@ -52,7 +52,7 @@ def get_evidence_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EvidenceItemRead:
-    require_permissions(current_user.role_names, {Permission.evidence_item_read})
+    require_permissions(current_user, {Permission.evidence_item_read})
 
     service = EvidenceItemService(db)
     try:
@@ -68,7 +68,7 @@ def create_evidence_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EvidenceItemRead:
-    require_permissions(current_user.role_names, {Permission.evidence_item_write})
+    require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
     try:
@@ -92,7 +92,7 @@ def update_evidence_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EvidenceItemRead:
-    require_permissions(current_user.role_names, {Permission.evidence_item_write})
+    require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
     try:
@@ -120,7 +120,7 @@ def delete_evidence_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    require_permissions(current_user.role_names, {Permission.evidence_item_write})
+    require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
     try:

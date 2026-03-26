@@ -10,6 +10,7 @@ from app.api.routes.remote_processing_elements import router as remote_processin
 from app.api.routes.requirement_mappings import router as requirement_mappings_router
 from app.api.routes.risk_assessments import router as risk_assessments_router
 from app.api.routes.risk_items import router as risk_items_router
+from app.api.routes.admin import router as admin_router  # ✅ add this
 
 api_router = APIRouter()
 
@@ -50,3 +51,6 @@ api_router.include_router(
     prefix="/evidence-items",
     tags=["evidence-items"],
 )
+
+# Admin
+api_router.include_router(admin_router)  # ✅ add this

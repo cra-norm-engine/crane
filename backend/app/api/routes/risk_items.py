@@ -25,7 +25,7 @@ def list_risk_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[RiskItemRead]:
-    require_permissions(current_user.role_names, {Permission.risk_item_read})
+    require_permissions(current_user, {Permission.risk_item_read})
 
     service = RiskItemService(db)
     return service.list_by_assessment(risk_assessment_id)
@@ -37,7 +37,7 @@ def get_risk_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskItemRead:
-    require_permissions(current_user.role_names, {Permission.risk_item_read})
+    require_permissions(current_user, {Permission.risk_item_read})
 
     service = RiskItemService(db)
     try:
@@ -53,7 +53,7 @@ def create_risk_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskItemRead:
-    require_permissions(current_user.role_names, {Permission.risk_item_write})
+    require_permissions(current_user, {Permission.risk_item_write})
 
     service = RiskItemService(db)
     try:
@@ -77,7 +77,7 @@ def update_risk_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RiskItemRead:
-    require_permissions(current_user.role_names, {Permission.risk_item_write})
+    require_permissions(current_user, {Permission.risk_item_write})
 
     service = RiskItemService(db)
     try:
@@ -105,7 +105,7 @@ def delete_risk_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    require_permissions(current_user.role_names, {Permission.risk_item_write})
+    require_permissions(current_user, {Permission.risk_item_write})
 
     service = RiskItemService(db)
     try:

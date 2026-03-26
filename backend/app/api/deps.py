@@ -52,7 +52,7 @@ def get_current_user(
 
 def require_permission(permission: Permission):
     def dependency(current_user: User = Depends(get_current_user)) -> User:
-        require_permissions(current_user.role_names, {permission})
+        require_permissions(current_user, {permission})
         return current_user
 
     return dependency
@@ -62,7 +62,7 @@ def require_permissions_dependency(*permissions: Permission):
     required = set(permissions)
 
     def dependency(current_user: User = Depends(get_current_user)) -> User:
-        require_permissions(current_user.role_names, required)
+        require_permissions(current_user, required)
         return current_user
 
     return dependency

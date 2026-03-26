@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
         name: "risk-assessments",
         component: RiskAssessmentsView,
         meta: {
-          roles: ["admin", "cybersecurity_engineer", "product_owner", "legal_team"],
+          permissions: ["risk_assessment_read"],
         },
       },
       {
@@ -54,7 +54,7 @@ const routes: RouteRecordRaw[] = [
         component: RiskAssessmentDetailView,
         props: true,
         meta: {
-          roles: ["admin", "cybersecurity_engineer", "product_owner", "legal_team"],
+          permissions: ["risk_assessment_read"],
         },
       },
       {
@@ -62,7 +62,23 @@ const routes: RouteRecordRaw[] = [
         name: "annex-matrix",
         component: AnnexMatrixView,
         meta: {
-          roles: ["admin", "cybersecurity_engineer", "product_owner", "legal_team"],
+          permissions: ["annex_requirement_read", "requirement_mapping_read"],
+        },
+      },
+      {
+        path: "admin/users",
+        name: "admin-users",
+        component: () => import("@/views/admin/AdminUsersView.vue"),
+        meta: {
+          permissions: ["admin_manage_users"],
+        },
+      },
+      {
+        path: "admin/roles",
+        name: "admin-roles",
+        component: () => import("@/views/admin/AdminRolesView.vue"),
+        meta: {
+          permissions: ["admin_manage_users"],
         },
       },
     ],
@@ -101,9 +117,9 @@ router.beforeEach(async (to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
 
-  if (to.meta.roles) {
-    const requiredRoles = to.meta.roles as string[];
-    if (!authStore.hasAnyRole(requiredRoles)) {
+  if (to.meta.permissions) {
+    const requiredPermissions = to.meta.permissions as string[];
+    if (!authStore.hasAnyPermission(requiredPermissions)) {
       return { name: "dashboard" };
     }
   }

@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
-
+from app.models.role_permission import RolePermission  # optional
 
 class Role(UUIDTimestampMixin, Base):
     __tablename__ = "roles"
@@ -22,6 +22,11 @@ class Role(UUIDTimestampMixin, Base):
         passive_deletes=True,
     )
 
+    permissions: Mapped[List["RolePermission"]] = relationship(
+        back_populates="role",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 class User(UUIDTimestampMixin, Base):
     __tablename__ = "users"

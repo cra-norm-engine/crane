@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.permissions import get_permissions_from_user
 from app.models.user import User
 from app.schemas.auth import CurrentUserRead, LoginRequest, RefreshTokenRequest, TokenRead
 from app.services.auth_service import AuthService
@@ -53,10 +54,13 @@ def logout(
 
 @router.get("/me", response_model=CurrentUserRead, status_code=status.HTTP_200_OK)
 def me(current_user: User = Depends(get_current_user)) -> CurrentUserRead:
+    permissions = sorted(permission.value for permission in get_permissions_from_user(current_user))
+
     return CurrentUserRead(
         id=str(current_user.id),
         email=current_user.email,
         full_name=current_user.full_name,
         roles=current_user.role_names,
+        permissions=permissions,
         is_active=current_user.is_active,
     )

@@ -137,3 +137,4 @@ LIMIT 20;
 Run the Alembic migration inside the backend container:
 
 docker compose exec backend alembic upgrade head
+docker compose exec backend alembic -c alembic.ini upgrade head

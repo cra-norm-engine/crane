@@ -20,7 +20,7 @@
       </RouterLink>
 
       <RouterLink
-        v-if="canViewRiskDomain"
+        v-if="canViewRiskAssessments"
         :to="{ name: 'risk-assessments' }"
         class="nav-link"
         active-class="nav-link-active"
@@ -29,12 +29,30 @@
       </RouterLink>
 
       <RouterLink
-        v-if="canViewRiskDomain"
+        v-if="canViewAnnexMatrix"
         :to="{ name: 'annex-matrix' }"
         class="nav-link"
         active-class="nav-link-active"
       >
         Annex I matrix
+      </RouterLink>
+
+      <RouterLink
+        v-if="canManageAdmin"
+        :to="{ name: 'admin-users' }"
+        class="nav-link"
+        active-class="nav-link-active"
+      >
+        Admin · Users
+      </RouterLink>
+
+      <RouterLink
+        v-if="canManageAdmin"
+        :to="{ name: 'admin-roles' }"
+        class="nav-link"
+        active-class="nav-link-active"
+      >
+        Admin · Roles & access
       </RouterLink>
     </nav>
 
@@ -57,17 +75,18 @@ import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
 
-const riskDomainRoles = new Set([
-  "admin",
-  "cybersecurity_engineer",
-  "product_owner",
-  "legal_team",
-  "lifecycle_manager",
-  "product_management",
-]);
+const canViewRiskAssessments = computed(() =>
+  authStore.hasPermission("risk_assessment_read"),
+);
 
-const canViewRiskDomain = computed(() =>
-  (authStore.roles ?? []).some((role) => riskDomainRoles.has(role)),
+const canViewAnnexMatrix = computed(
+  () =>
+    authStore.hasPermission("annex_requirement_read") ||
+    authStore.hasPermission("requirement_mapping_read"),
+);
+
+const canManageAdmin = computed(() =>
+  authStore.hasPermission("admin_manage_users"),
 );
 
 const primaryRoleLabel = computed(() => {
@@ -78,16 +97,16 @@ const primaryRoleLabel = computed(() => {
       return "Admin";
     case "product_owner":
       return "Product Owner";
-    case "product_management":
-      return "Product Management";
     case "cybersecurity_engineer":
       return "Cybersecurity Engineer";
     case "legal_team":
       return "Legal Team";
-    case "lifecycle_manager":
-      return "Lifecycle Manager";
     case "development_team":
       return "Development Team";
+    case "product_management":
+      return "Product Management";
+    case "lifecycle_manager":
+      return "Lifecycle Manager";
     default:
       return "User";
   }

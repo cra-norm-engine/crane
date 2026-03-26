@@ -106,7 +106,7 @@
 
             <label class="field">
               <span>Methodology</span>
-              <input v-model="editForm.methodology" type="text" maxlength="255" />
+              <input v-model="editForm.methodology" type="text" />
             </label>
 
             <label class="field">
@@ -346,26 +346,20 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import riskService from "@/services/risk-service";
+import { riskAssessmentService } from "@/services/risk-assessment-service";
+import { riskItemService } from "@/services/risk-item-service";
 import type {
+  RiskAssessmentDetailRead,
   RiskAssessmentDuplicateRequest,
-  RiskAssessmentRead,
   RiskAssessmentStatus,
   RiskAssessmentUpdate,
-  RiskItemRead,
-  RiskItemStatus,
-  RiskLevel,
-} from "@/types/risk";
-
-type RiskAssessmentDetail = RiskAssessmentRead & {
-  risk_items_count?: number;
-  evidence_items_count?: number;
-};
+} from "@/types/risk-assessment";
+import type { RiskItemCreate, RiskItemRead, RiskItemStatus, RiskLevel } from "@/types/risk-item";
 
 const route = useRoute();
 const router = useRouter();
 
-const assessment = ref<RiskAssessmentDetail | null>(null);
+const assessment = ref<RiskAssessmentDetailRead | null>(null);
 const riskItems = ref<RiskItemRead[]>([]);
 const loading = ref(false);
 const riskItemsLoading = ref(false);
@@ -448,7 +442,7 @@ async function loadAssessment(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    assessment.value = (await riskService.getRiskAssessment(assessmentId.value)) as RiskAssessmentDetail;
+    assessment.value = await riskAssessmentService.get(assessmentId.value);
     syncEditForm();
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load assessment.";
@@ -461,7 +455,7 @@ async function loadRiskItems(): Promise<void> {
   riskItemsLoading.value = true;
 
   try {
-    riskItems.value = await riskService.listRiskItems(assessmentId.value);
+    riskItems.value = await riskItemService.listByAssessment(assessmentId.value);
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load risk items.";
   } finally {
@@ -480,12 +474,12 @@ async function updateAssessment(): Promise<void> {
       version_label: editForm.version_label.trim() || undefined,
       status: editForm.status || undefined,
       methodology: editForm.methodology.trim() || undefined,
-      summary: normalizeOptional(editForm.summary),
+      summary: editForm.summary.trim() || undefined,
       owner_user_id: editForm.owner_user_id.trim() || undefined,
       product_release_id: normalizeOptional(editForm.product_release_id),
     };
 
-    await riskService.updateRiskAssessment(assessmentId.value, payload);
+    await riskAssessmentService.update(assessmentId.value, payload);
     successMessage.value = "Assessment updated.";
     await loadAssessment();
   } catch (error: any) {
@@ -501,7 +495,7 @@ async function approveAssessment(): Promise<void> {
   successMessage.value = "";
 
   try {
-    await riskService.approveRiskAssessment(assessmentId.value);
+    await riskAssessmentService.approve(assessmentId.value, {});
     successMessage.value = "Assessment approved.";
     await loadAssessment();
   } catch (error: any) {
@@ -529,7 +523,7 @@ async function duplicateAssessment(): Promise<void> {
       copy_evidence_links: duplicateForm.copy_evidence_links,
     };
 
-    const duplicated = await riskService.duplicateRiskAssessmentVersion(assessmentId.value, payload);
+    const duplicated = await riskAssessmentService.duplicateVersion(assessmentId.value, payload);
 
     successMessage.value = "Assessment version duplicated.";
     router.push({
@@ -549,7 +543,7 @@ async function createRiskItem(): Promise<void> {
   successMessage.value = "";
 
   try {
-    await riskService.createRiskItem({
+    const payload: RiskItemCreate = {
       risk_assessment_id: assessmentId.value,
       title: riskItemForm.title.trim(),
       description: riskItemForm.description.trim(),
@@ -562,7 +556,9 @@ async function createRiskItem(): Promise<void> {
       residual_risk_level: riskItemForm.residual_risk_level || null,
       status: riskItemForm.status,
       owner_user_id: normalizeOptional(riskItemForm.owner_user_id),
-    });
+    };
+
+    await riskItemService.create(payload);
 
     successMessage.value = "Risk item created.";
     showRiskItemForm.value = false;

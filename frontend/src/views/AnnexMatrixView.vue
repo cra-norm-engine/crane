@@ -159,7 +159,12 @@
 
             <label class="field field-full">
               <span>SDL Activity</span>
-              <input v-model="editForm.sdl_activity" type="text" maxlength="255" />
+              <select v-model="editForm.sdl_activity">
+                <option value="">No change</option>
+                <option v-for="option in sdlActivities" :key="option" :value="option">
+                  {{ option }}
+                </option>
+              </select>
             </label>
 
             <label class="field field-full">
@@ -202,21 +207,30 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 
-import riskService from "@/services/risk-service";
+import { requirementMappingService } from "@/services/requirement-mapping-service";
+import type { AnnexRequirementRead, AnnexPart } from "@/types/annex-requirement";
+import type { EvidenceItemSummaryRead } from "@/types/evidence-item";
 import type {
-  AnnexPart,
   RequirementImplementationStatus,
   RequirementMappingRead,
   RequirementMappingUpdate,
-} from "@/types/risk";
+  SdlActivity,
+} from "@/types/requirement-mapping";
+import type { RiskItemSummaryRead } from "@/types/risk-item";
+
+type RequirementMappingMatrixRead = RequirementMappingRead & {
+  annex_requirement?: AnnexRequirementRead | null;
+  risk_item?: RiskItemSummaryRead | null;
+  evidence_items?: EvidenceItemSummaryRead[];
+};
 
 const loading = ref(false);
 const saving = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 
-const mappings = ref<RequirementMappingRead[]>([]);
-const selectedMapping = ref<RequirementMappingRead | null>(null);
+const mappings = ref<RequirementMappingMatrixRead[]>([]);
+const selectedMapping = ref<RequirementMappingMatrixRead | null>(null);
 
 const implementationStatuses: RequirementImplementationStatus[] = [
   "planned",
@@ -224,6 +238,17 @@ const implementationStatuses: RequirementImplementationStatus[] = [
   "implemented",
   "verified",
   "not_applicable",
+];
+
+const sdlActivities: SdlActivity[] = [
+  "requirements",
+  "design",
+  "implementation",
+  "verification",
+  "validation",
+  "vulnerability_management",
+  "documentation",
+  "post_market",
 ];
 
 const filters = reactive({
@@ -235,7 +260,7 @@ const filters = reactive({
 const editForm = reactive({
   engineering_requirement_ref: "",
   implementation_status: "" as RequirementImplementationStatus | "",
-  sdl_activity: "",
+  sdl_activity: "" as SdlActivity | "",
   evidence_summary: "",
 });
 
@@ -287,7 +312,7 @@ function syncEditForm(): void {
   editForm.evidence_summary = selectedMapping.value.evidence_summary ?? "";
 }
 
-function selectMapping(mapping: RequirementMappingRead): void {
+function selectMapping(mapping: RequirementMappingMatrixRead): void {
   selectedMapping.value = mapping;
   syncEditForm();
 }
@@ -298,10 +323,13 @@ async function loadData(): Promise<void> {
   successMessage.value = "";
 
   try {
-    mappings.value = await riskService.listRequirementMappings({ matrix: true });
+    mappings.value = (await requirementMappingService.list({
+      matrix: true,
+    })) as RequirementMappingMatrixRead[];
 
     if (selectedMapping.value) {
-      const refreshed = mappings.value.find((item) => item.id === selectedMapping.value?.id) ?? null;
+      const refreshed =
+        mappings.value.find((item) => item.id === selectedMapping.value?.id) ?? null;
       selectedMapping.value = refreshed;
       if (refreshed) {
         syncEditForm();
@@ -327,11 +355,11 @@ async function updateSelectedMapping(): Promise<void> {
     const payload: RequirementMappingUpdate = {
       engineering_requirement_ref: editForm.engineering_requirement_ref.trim() || null,
       implementation_status: editForm.implementation_status || undefined,
-      sdl_activity: editForm.sdl_activity.trim() || undefined,
+      sdl_activity: editForm.sdl_activity || undefined,
       evidence_summary: editForm.evidence_summary.trim() || null,
     };
 
-    await riskService.updateRequirementMapping(selectedMapping.value.id, payload);
+    await requirementMappingService.update(selectedMapping.value.id, payload);
     successMessage.value = "Requirement mapping updated.";
     await loadData();
   } catch (error: any) {
