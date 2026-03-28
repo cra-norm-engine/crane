@@ -15,8 +15,13 @@
     <section class="panel filters-panel">
       <div class="filters-grid">
         <label class="field">
-          <span>Product ID</span>
-          <input v-model="filters.productId" type="text" placeholder="Filter by product UUID" />
+          <span>Product</span>
+          <select v-model="filters.productId">
+            <option value="">All products</option>
+            <option v-for="product in products" :key="product.id" :value="product.id">
+              {{ getProductLabel(product) }}
+            </option>
+          </select>
         </label>
 
         <label class="field">
@@ -46,8 +51,13 @@
 
       <form class="form-grid" @submit.prevent="createAssessment">
         <label class="field">
-          <span>Product ID</span>
-          <input v-model="createForm.product_id" type="text" required />
+          <span>Product</span>
+          <select v-model="createForm.product_id" required>
+            <option value="" disabled>Select a product</option>
+            <option v-for="product in products" :key="product.id" :value="product.id">
+              {{ getProductLabel(product) }}
+            </option>
+          </select>
         </label>
 
         <label class="field">
@@ -134,7 +144,7 @@
                 <span class="status-pill">{{ assessment.status }}</span>
               </td>
               <td>{{ assessment.methodology }}</td>
-              <td class="uuid-cell">{{ assessment.product_id }}</td>
+              <td>{{ getProductName(assessment.product_id) }}</td>
               <td class="uuid-cell">{{ assessment.product_release_id ?? "—" }}</td>
               <td>{{ formatDate(assessment.approved_at) }}</td>
               <td>{{ formatDate(assessment.updated_at) }}</td>
@@ -150,6 +160,7 @@
 import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import { productService } from "@/services/product-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { useAuthStore } from "@/stores/auth";
 import type {
@@ -157,6 +168,7 @@ import type {
   RiskAssessmentRead,
   RiskAssessmentStatus,
 } from "@/types/risk-assessment";
+import type { ProductSummaryRead } from "@/types/product";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -167,6 +179,7 @@ const openCreateForm = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const assessments = ref<RiskAssessmentRead[]>([]);
+const products = ref<ProductSummaryRead[]>([]);
 
 const assessmentStatuses: RiskAssessmentStatus[] = [
   "draft",
@@ -209,6 +222,30 @@ function formatDate(value: string | null): string {
   return date.toLocaleString();
 }
 
+function getProductLabel(product: ProductSummaryRead): string {
+  return "name" in product && product.name
+    ? `${product.name} (${product.id})`
+    : product.id;
+}
+
+function getProductName(productId: string): string {
+  const product = products.value.find((item) => item.id === productId);
+
+  if (!product) {
+    return productId;
+  }
+
+  return "name" in product && product.name ? product.name : product.id;
+}
+
+async function loadProducts(): Promise<void> {
+  try {
+    products.value = await productService.list();
+  } catch (error) {
+    console.error("Failed to load products.", error);
+  }
+}
+
 async function loadAssessments(): Promise<void> {
   loading.value = true;
   errorMessage.value = "";
@@ -220,7 +257,7 @@ async function loadAssessments(): Promise<void> {
 
     if (!productId && !productReleaseId) {
       assessments.value = [];
-      errorMessage.value = "Provide a product ID or product release ID to load assessments.";
+      errorMessage.value = "Provide a product or product release ID to load assessments.";
       return;
     }
 
@@ -294,9 +331,10 @@ function goToDetail(assessmentId: string): void {
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
   createForm.owner_user_id = authStore.user?.id ?? "";
   assessments.value = [];
+  await loadProducts();
 });
 </script>
 
@@ -305,6 +343,14 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+.panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem;
+
+  color: #0f172a; /* 👈 ADD THIS */
 }
 
 .page-header,

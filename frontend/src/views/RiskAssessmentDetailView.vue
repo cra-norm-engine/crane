@@ -36,6 +36,10 @@
               <dd class="mono">{{ assessment.id }}</dd>
             </div>
             <div>
+              <dt>Product</dt>
+              <dd>{{ getProductName(assessment.product_id) }}</dd>
+            </div>
+            <div>
               <dt>Product ID</dt>
               <dd class="mono">{{ assessment.product_id }}</dd>
             </div>
@@ -56,8 +60,8 @@
               <dd>{{ assessment.methodology }}</dd>
             </div>
             <div>
-              <dt>Owner User ID</dt>
-              <dd class="mono">{{ assessment.owner_user_id }}</dd>
+              <dt>Owner</dt>
+              <dd>{{ getUserDisplay(assessment.owner_user_id) }}</dd>
             </div>
             <div>
               <dt>Approved At</dt>
@@ -115,8 +119,13 @@
             </label>
 
             <label class="field">
-              <span>Owner User ID</span>
-              <input v-model="editForm.owner_user_id" type="text" />
+              <span>Owner</span>
+              <select v-model="editForm.owner_user_id">
+                <option value="">No owner</option>
+                <option v-for="user in users" :key="user.id" :value="user.id">
+                  {{ getUserDisplay(user.id) }}
+                </option>
+              </select>
             </label>
 
             <label class="field field-full">
@@ -164,8 +173,13 @@
             </label>
 
             <label class="field">
-              <span>Owner User ID</span>
-              <input v-model="duplicateForm.owner_user_id" type="text" />
+              <span>Owner</span>
+              <select v-model="duplicateForm.owner_user_id">
+                <option value="">Keep / no override</option>
+                <option v-for="user in users" :key="user.id" :value="user.id">
+                  {{ getUserDisplay(user.id) }}
+                </option>
+              </select>
             </label>
 
             <label class="field field-full">
@@ -280,8 +294,13 @@
             </label>
 
             <label class="field">
-              <span>Owner User ID</span>
-              <input v-model="riskItemForm.owner_user_id" type="text" />
+              <span>Owner</span>
+              <select v-model="riskItemForm.owner_user_id">
+                <option value="">No owner</option>
+                <option v-for="user in users" :key="user.id" :value="user.id">
+                  {{ getUserDisplay(user.id) }}
+                </option>
+              </select>
             </label>
 
             <label class="field field-full">
@@ -333,7 +352,7 @@
               <div><strong>Likelihood:</strong> {{ item.likelihood }}</div>
               <div><strong>Impact:</strong> {{ item.impact }}</div>
               <div><strong>Residual:</strong> {{ item.residual_risk_level ?? "—" }}</div>
-              <div><strong>Owner:</strong> <span class="mono">{{ item.owner_user_id ?? "—" }}</span></div>
+              <div><strong>Owner:</strong> {{ getUserDisplay(item.owner_user_id) }}</div>
             </div>
           </article>
         </div>
@@ -346,8 +365,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { adminService } from "@/services/admin-service";
+import { productService } from "@/services/product-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { riskItemService } from "@/services/risk-item-service";
+import type { AdminUserRead } from "@/types/admin";
+import type { ProductSummaryRead } from "@/types/product";
 import type {
   RiskAssessmentDetailRead,
   RiskAssessmentDuplicateRequest,
@@ -361,6 +384,8 @@ const router = useRouter();
 
 const assessment = ref<RiskAssessmentDetailRead | null>(null);
 const riskItems = ref<RiskItemRead[]>([]);
+const users = ref<AdminUserRead[]>([]);
+const products = ref<ProductSummaryRead[]>([]);
 const loading = ref(false);
 const riskItemsLoading = ref(false);
 const savingAssessment = ref(false);
@@ -426,6 +451,41 @@ function formatDate(value: string | null): string {
   return date.toLocaleString();
 }
 
+function getUserDisplay(userId: string | null | undefined): string {
+  if (!userId) return "—";
+
+  const user = users.value.find((item) => item.id === userId);
+  if (!user) return userId;
+
+  const fullName = user.full_name?.trim();
+  return fullName ? `${fullName} (${user.email})` : user.email;
+}
+
+function getProductName(productId: string | null | undefined): string {
+  if (!productId) return "—";
+
+  const product = products.value.find((item) => item.id === productId);
+  if (!product) return productId;
+
+  return "name" in product && product.name ? product.name : product.id;
+}
+
+async function loadUsers(): Promise<void> {
+  try {
+    users.value = await adminService.listUsers();
+  } catch (error: any) {
+    console.error("Failed to load users.", error);
+  }
+}
+
+async function loadProducts(): Promise<void> {
+  try {
+    products.value = await productService.list();
+  } catch (error: any) {
+    console.error("Failed to load products.", error);
+  }
+}
+
 function syncEditForm(): void {
   if (!assessment.value) return;
   editForm.title = assessment.value.title;
@@ -433,7 +493,7 @@ function syncEditForm(): void {
   editForm.status = assessment.value.status;
   editForm.methodology = assessment.value.methodology;
   editForm.summary = assessment.value.summary ?? "";
-  editForm.owner_user_id = assessment.value.owner_user_id;
+  editForm.owner_user_id = assessment.value.owner_user_id ?? "";
   editForm.product_release_id = assessment.value.product_release_id ?? "";
 }
 
@@ -475,7 +535,7 @@ async function updateAssessment(): Promise<void> {
       status: editForm.status || undefined,
       methodology: editForm.methodology.trim() || undefined,
       summary: editForm.summary.trim() || undefined,
-      owner_user_id: editForm.owner_user_id.trim() || undefined,
+      owner_user_id: normalizeOptional(editForm.owner_user_id) ?? undefined,
       product_release_id: normalizeOptional(editForm.product_release_id),
     };
 
@@ -589,6 +649,8 @@ function goBack(): void {
 }
 
 onMounted(async () => {
+  await loadUsers();
+  await loadProducts();
   await loadAssessment();
   await loadRiskItems();
 });
@@ -646,6 +708,7 @@ onMounted(async () => {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 1rem;
+  color: #0f172a;
 }
 
 .detail-list {
@@ -704,6 +767,7 @@ onMounted(async () => {
   padding: 0.75rem 0.85rem;
   font: inherit;
   background: #fff;
+  color: #0f172a;
   box-sizing: border-box;
 }
 
@@ -792,6 +856,7 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 1rem;
   background: #fcfcfd;
+  color: #0f172a;
 }
 
 .risk-meta {
@@ -816,6 +881,11 @@ onMounted(async () => {
 .error-text,
 .success-text {
   padding: 0.75rem 0;
+}
+
+.empty-state,
+.loading-state {
+  color: #0f172a;
 }
 
 .error-text {

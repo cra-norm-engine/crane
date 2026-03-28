@@ -43,7 +43,7 @@
         class="nav-link"
         active-class="nav-link-active"
       >
-        Admin · Users
+        Users
       </RouterLink>
 
       <RouterLink
@@ -52,7 +52,7 @@
         class="nav-link"
         active-class="nav-link-active"
       >
-        Admin · Roles & access
+        Roles & access
       </RouterLink>
     </nav>
 

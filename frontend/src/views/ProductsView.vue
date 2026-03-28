@@ -4,14 +4,14 @@
       <div>
         <h1 class="page-title">Products</h1>
         <p class="muted">
-          Manage CRA products, search by product code or name, and jump into releases,
-          scope evaluation, and remote processing details.
+          Manage CRA products, search by product code or name, and filter by scope, classification,
+          and latest update date.
         </p>
       </div>
 
       <div class="page-actions">
         <button class="button secondary" type="button" @click="loadProducts" :disabled="isLoading">
-          Refresh
+          {{ isLoading ? "Refreshing..." : "Refresh" }}
         </button>
         <button class="button" type="button" @click="toggleCreateForm">
           {{ showCreateForm ? "Close" : "Add product" }}
@@ -35,15 +35,68 @@
     </div>
 
     <div class="card filters-card">
-      <div class="filters-row">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Filters</h2>
+          <p class="muted">Narrow the inventory by search, scope, classification, and recency.</p>
+        </div>
+        <button class="button secondary" type="button" @click="resetFilters">
+          Reset filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
         <label class="field search-field">
           <span class="field-label">Search</span>
           <input
-            v-model.trim="searchTerm"
+            v-model.trim="filters.search"
             class="input"
             type="search"
-            placeholder="Search by product code or name"
+            placeholder="Search by product code, name, manufacturer, or type"
           />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Scope status</span>
+          <select v-model="filters.scopeStatus" class="select">
+            <option value="">All</option>
+            <option value="in_scope">In scope</option>
+            <option value="out_of_scope">Out of scope</option>
+            <option value="undecided">Undecided</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Classification</span>
+          <select v-model="filters.classification" class="select">
+            <option value="">All</option>
+            <option value="normal">Normal</option>
+            <option value="important_class_1">Important Class I</option>
+            <option value="important_class_2">Important Class II</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Updated</span>
+          <select v-model="filters.updatedWithin" class="select">
+            <option value="">Any time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Sort by</span>
+          <select v-model="filters.sortBy" class="select">
+            <option value="updated_desc">Latest updated</option>
+            <option value="updated_asc">Oldest updated</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="name_desc">Name Z–A</option>
+            <option value="code_asc">Code A–Z</option>
+            <option value="code_desc">Code Z–A</option>
+          </select>
         </label>
       </div>
     </div>
@@ -131,7 +184,7 @@
 
       <div v-else-if="filteredProducts.length === 0" class="empty-state">
         <h3>No products found</h3>
-        <p class="muted">Try a different search or create your first product.</p>
+        <p class="muted">Try different filters or create your first product.</p>
       </div>
 
       <div v-else class="table-wrapper">
@@ -199,12 +252,19 @@ import type {
 const router = useRouter();
 
 const products = ref<ProductSummaryRead[]>([]);
-const searchTerm = ref("");
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const errorMessage = ref("");
 const formError = ref("");
 const showCreateForm = ref(false);
+
+const filters = reactive({
+  search: "",
+  scopeStatus: "" as ScopeStatus | "",
+  classification: "" as ProductClassification | "",
+  updatedWithin: "",
+  sortBy: "updated_desc",
+});
 
 const form = reactive<ProductCreate>({
   product_code: "",
@@ -219,17 +279,51 @@ const form = reactive<ProductCreate>({
 });
 
 const filteredProducts = computed(() => {
-  const query = searchTerm.value.toLowerCase();
+  const query = filters.search.trim().toLowerCase();
+  const updatedWithinDays = filters.updatedWithin ? Number(filters.updatedWithin) : null;
+  const now = Date.now();
 
-  if (!query) {
-    return products.value;
-  }
+  const filtered = products.value.filter((product) => {
+    const matchesSearch = !query
+      ? true
+      : [
+          product.product_code,
+          product.name,
+          product.manufacturer_name,
+          product.product_type,
+          "description" in product ? (product.description ?? "") : "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
 
-  return products.value.filter((product) => {
-    return (
-      product.product_code.toLowerCase().includes(query) ||
-      product.name.toLowerCase().includes(query)
-    );
+    const matchesScope = !filters.scopeStatus || product.scope_status === filters.scopeStatus;
+    const matchesClassification =
+      !filters.classification || product.current_classification === filters.classification;
+
+    const matchesUpdated = !updatedWithinDays
+      ? true
+      : now - new Date(product.updated_at).getTime() <= updatedWithinDays * 24 * 60 * 60 * 1000;
+
+    return matchesSearch && matchesScope && matchesClassification && matchesUpdated;
+  });
+
+  return [...filtered].sort((a, b) => {
+    switch (filters.sortBy) {
+      case "updated_asc":
+        return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+      case "name_asc":
+        return a.name.localeCompare(b.name);
+      case "name_desc":
+        return b.name.localeCompare(a.name);
+      case "code_asc":
+        return a.product_code.localeCompare(b.product_code);
+      case "code_desc":
+        return b.product_code.localeCompare(a.product_code);
+      case "updated_desc":
+      default:
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    }
   });
 });
 
@@ -296,6 +390,14 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+function resetFilters(): void {
+  filters.search = "";
+  filters.scopeStatus = "";
+  filters.classification = "";
+  filters.updatedWithin = "";
+  filters.sortBy = "updated_desc";
+}
+
 function resetForm(): void {
   form.product_code = "";
   form.name = "";
@@ -321,7 +423,7 @@ async function loadProducts(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    products.value = await productService.list(searchTerm.value || undefined);
+    products.value = await productService.list();
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load products.";
@@ -369,7 +471,6 @@ onMounted(() => {
 
 .page-header,
 .section-header,
-.filters-row,
 .form-actions {
   display: flex;
   align-items: center;
@@ -419,8 +520,15 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
 .search-field {
-  min-width: min(100%, 26rem);
+  min-width: 0;
 }
 
 .field {
@@ -439,6 +547,23 @@ onMounted(() => {
 
 .field-span-2 {
   grid-column: span 2;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+  color: inherit;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+}
+
+.textarea {
+  resize: vertical;
 }
 
 .feedback,
@@ -494,6 +619,15 @@ onMounted(() => {
   font-size: 0.85rem;
 }
 
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .badge-neutral {
   background: rgba(148, 163, 184, 0.15);
   color: #cbd5e1;
@@ -514,9 +648,20 @@ onMounted(() => {
   color: #fda4af;
 }
 
+.muted {
+  color: var(--color-text-muted, #94a3b8);
+}
+
+@media (max-width: 1200px) {
+  .filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .stats-grid,
-  .form-grid {
+  .form-grid,
+  .filters-grid {
     grid-template-columns: 1fr;
   }
 

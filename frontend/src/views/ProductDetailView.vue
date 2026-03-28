@@ -1,22 +1,48 @@
 <template>
   <section class="page">
-    <div class="page-header">
+    <header class="page-header card">
       <div>
         <h1 class="page-title">{{ product?.name || "Product Detail" }}</h1>
-        <p class="muted">
-          Review CRA scope, classification, releases, and remote processing elements.
+        <p class="muted page-subtitle">
+          Review CRA scope, classification, releases, remote processing elements, and edit core product details.
         </p>
       </div>
 
       <div class="page-actions">
-        <button class="btn btn-secondary" type="button" @click="loadProduct" :disabled="isLoading">
-          Refresh
+        <button class="btn btn-secondary" type="button" @click="loadProduct" :disabled="isLoading || isSaving">
+          {{ isLoading ? "Refreshing..." : "Refresh" }}
         </button>
+        <button
+          v-if="product && !isEditing"
+          class="btn btn-primary"
+          type="button"
+          @click="startEditing"
+          :disabled="isLoading || isSaving"
+        >
+          Edit product
+        </button>
+        <template v-else-if="product && isEditing">
+          <button
+            class="btn btn-secondary"
+            type="button"
+            @click="cancelEditing"
+            :disabled="isSaving"
+          >
+            Cancel
+          </button>
+          <button class="btn btn-primary" type="button" @click="saveProduct" :disabled="isSaving">
+            {{ isSaving ? "Saving..." : "Save changes" }}
+          </button>
+        </template>
       </div>
-    </div>
+    </header>
 
     <div v-if="errorMessage" class="card feedback feedback-error">
       {{ errorMessage }}
+    </div>
+
+    <div v-if="successMessage" class="card feedback feedback-success">
+      {{ successMessage }}
     </div>
 
     <div v-else-if="isLoading" class="card feedback">
@@ -29,6 +55,7 @@
           <span class="stat-label">Product code</span>
           <strong class="stat-value stat-value-code">{{ product.product_code }}</strong>
         </article>
+
         <article class="card stat-card">
           <span class="stat-label">Classification</span>
           <strong class="stat-value">
@@ -37,6 +64,7 @@
             </span>
           </strong>
         </article>
+
         <article class="card stat-card">
           <span class="stat-label">Scope</span>
           <strong class="stat-value">
@@ -47,232 +75,375 @@
         </article>
       </div>
 
-      <div class="detail-grid">
-        <div class="card">
-          <h2 class="section-title">Product information</h2>
-          <div class="detail-list">
-            <div>
-              <span class="detail-label">Manufacturer</span>
-              <p>{{ product.manufacturer_name }}</p>
+      <div class="workspace">
+        <main class="main-column">
+          <section class="card info-card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Product information</h2>
+                <p class="muted">Core identity and lifecycle metadata.</p>
+              </div>
+              <span v-if="isEditing" class="badge badge-warning">Editing enabled</span>
             </div>
-            <div>
-              <span class="detail-label">Type</span>
-              <p>{{ product.product_type }}</p>
-            </div>
-            <div>
-              <span class="detail-label">Description</span>
-              <p>{{ product.description || "No description provided" }}</p>
-            </div>
-            <div>
-              <span class="detail-label">Intended use</span>
-              <p>{{ product.intended_use }}</p>
-            </div>
-            <div>
-              <span class="detail-label">Parent product</span>
-              <p>{{ product.parent_product_id || "None" }}</p>
-            </div>
-            <div>
-              <span class="detail-label">Updated</span>
-              <p>{{ formatDateTime(product.updated_at) }}</p>
-            </div>
-          </div>
-        </div>
 
-        <div class="card">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">CRA scope wizard</h2>
-              <p class="muted">Run the backend rule engine and store the evaluation result.</p>
+            <div v-if="!isEditing" class="info-grid">
+              <div class="info-item">
+                <span class="detail-label">Manufacturer</span>
+                <p>{{ product.manufacturer_name }}</p>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">Type</span>
+                <p>{{ product.product_type }}</p>
+              </div>
+
+              <div class="info-item info-item-span-2">
+                <span class="detail-label">Description</span>
+                <p>{{ product.description || "No description provided" }}</p>
+              </div>
+
+              <div class="info-item info-item-span-2">
+                <span class="detail-label">Intended use</span>
+                <p>{{ product.intended_use }}</p>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">Parent product</span>
+                <p>{{ product.parent_product_id || "None" }}</p>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">Updated</span>
+                <p>{{ formatDateTime(product.updated_at) }}</p>
+              </div>
             </div>
-          </div>
 
-          <form class="wizard-grid" @submit.prevent="runScopeEvaluation">
-            <label class="check-field">
-              <input v-model="scopeForm.is_digital_product" type="checkbox" />
-              <span>Digital product</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.has_network_connectivity" type="checkbox" />
-              <span>Has network connectivity</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.performs_remote_data_processing" type="checkbox" />
-              <span>Performs remote data processing</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.safety_component" type="checkbox" />
-              <span>Safety component</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.used_in_critical_sector" type="checkbox" />
-              <span>Used in critical sector</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.handles_sensitive_functions" type="checkbox" />
-              <span>Handles sensitive functions</span>
-            </label>
-            <label class="check-field">
-              <input v-model="scopeForm.excluded_category" type="checkbox" />
-              <span>Excluded category</span>
-            </label>
+            <form v-else class="edit-grid" @submit.prevent="saveProduct">
+              <label class="field">
+                <span class="field-label">Name</span>
+                <input v-model.trim="editForm.name" type="text" maxlength="255" />
+              </label>
 
-            <label class="field field-span-2">
-              <span class="field-label">Notes</span>
-              <textarea v-model.trim="scopeForm.notes" rows="3" />
-            </label>
+              <label class="field">
+                <span class="field-label">Product code</span>
+                <input v-model.trim="editForm.product_code" type="text" maxlength="100" />
+              </label>
 
-            <div class="field-span-2 form-actions">
-              <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
-              <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope">
-                {{ isEvaluatingScope ? "Evaluating..." : "Run scope evaluation" }}
-              </button>
+              <label class="field">
+                <span class="field-label">Manufacturer</span>
+                <input v-model.trim="editForm.manufacturer_name" type="text" maxlength="255" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Type</span>
+                <input v-model.trim="editForm.product_type" type="text" maxlength="100" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Description</span>
+                <textarea v-model.trim="editForm.description" rows="4" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Intended use</span>
+                <textarea v-model.trim="editForm.intended_use" rows="4" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Parent product ID</span>
+                <input v-model.trim="editForm.parent_product_id" type="text" maxlength="36" placeholder="Optional" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Current classification</span>
+                <select v-model="editForm.current_classification">
+                  <option value="normal">Normal</option>
+                  <option value="important_class_1">Important Class I</option>
+                  <option value="important_class_2">Important Class II</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Scope status</span>
+                <select v-model="editForm.scope_status">
+                  <option value="undecided">Undecided</option>
+                  <option value="in_scope">In scope</option>
+                  <option value="out_of_scope">Out of scope</option>
+                </select>
+              </label>
+
+              <div class="field field-span-2 inline-actions">
+                <button class="btn btn-secondary" type="button" @click="cancelEditing" :disabled="isSaving">
+                  Cancel
+                </button>
+                <button class="btn btn-primary" type="submit" :disabled="isSaving">
+                  {{ isSaving ? "Saving..." : "Save changes" }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Releases</h2>
+                <p class="muted">{{ product.releases.length }} release(s)</p>
+              </div>
             </div>
-          </form>
 
-          <div v-if="scopeResult" class="result-panel">
-            <div class="result-row">
-              <span class="detail-label">In scope</span>
-              <span class="badge" :class="scopeResult.in_scope ? 'badge-success' : 'badge-danger'">
-                {{ scopeResult.in_scope ? "Yes" : "No" }}
-              </span>
+            <div v-if="product.releases.length === 0" class="empty-panel">
+              No releases yet.
             </div>
-            <div class="result-row">
-              <span class="detail-label">Recommended classification</span>
-              <span class="badge" :class="classificationClass(scopeResult.recommended_classification)">
-                {{ formatClassification(scopeResult.recommended_classification) }}
-              </span>
+
+            <div v-else class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Classification</th>
+                    <th>Conformity route</th>
+                    <th>Planned</th>
+                    <th>Actual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="release in product.releases" :key="release.id">
+                    <td><strong>{{ release.version }}</strong></td>
+                    <td>
+                      <span class="badge badge-neutral">
+                        {{ formatReleaseStatus(release.release_status) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" :class="classificationClass(release.classification_snapshot)">
+                        {{ formatClassification(release.classification_snapshot) }}
+                      </span>
+                    </td>
+                    <td>{{ formatConformityRoute(release.conformity_route_snapshot) }}</td>
+                    <td>{{ formatDate(release.planned_release_date) }}</td>
+                    <td>{{ formatDate(release.actual_release_date) }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div class="result-row">
-              <span class="detail-label">Suggested conformity route</span>
-              <span class="badge badge-neutral">
-                {{ formatConformityRoute(scopeResult.suggested_conformity_route) }}
-              </span>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Remote processing elements</h2>
+                <p class="muted">{{ product.remote_processing_elements.length }} element(s)</p>
+              </div>
             </div>
-            <div>
-              <span class="detail-label">Rationale</span>
-              <p class="result-rationale">{{ scopeResult.rationale }}</p>
+
+            <div v-if="product.remote_processing_elements.length === 0" class="empty-panel">
+              No remote processing elements yet.
             </div>
-          </div>
-        </div>
-      </div>
 
-      <div class="detail-grid">
-        <div class="card">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Releases</h2>
-              <p class="muted">{{ product.releases.length }} release(s)</p>
+            <div v-else class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Provider</th>
+                    <th>Location</th>
+                    <th>Criticality</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="element in product.remote_processing_elements" :key="element.id">
+                    <td><strong>{{ element.name }}</strong></td>
+                    <td>{{ element.provider_name || "—" }}</td>
+                    <td>{{ element.geographic_location || "—" }}</td>
+                    <td>{{ element.criticality || "—" }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
+          </section>
 
-          <div v-if="product.releases.length === 0" class="empty-panel">
-            No releases yet.
-          </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Status</th>
-                  <th>Classification</th>
-                  <th>Conformity route</th>
-                  <th>Planned</th>
-                  <th>Actual</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="release in product.releases" :key="release.id">
-                  <td><strong>{{ release.version }}</strong></td>
-                  <td>
-                    <span class="badge badge-neutral">{{ formatReleaseStatus(release.release_status) }}</span>
-                  </td>
-                  <td>
-                    <span class="badge" :class="classificationClass(release.classification_snapshot)">
-                      {{ formatClassification(release.classification_snapshot) }}
-                    </span>
-                  </td>
-                  <td>{{ formatConformityRoute(release.conformity_route_snapshot) }}</td>
-                  <td>{{ formatDate(release.planned_release_date) }}</td>
-                  <td>{{ formatDate(release.actual_release_date) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Remote processing elements</h2>
-              <p class="muted">{{ product.remote_processing_elements.length }} element(s)</p>
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Child products</h2>
+                <p class="muted">{{ product.child_products.length }} child product(s)</p>
+              </div>
             </div>
-          </div>
 
-          <div v-if="product.remote_processing_elements.length === 0" class="empty-panel">
-            No remote processing elements yet.
-          </div>
-          <div v-else class="table-wrapper">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Provider</th>
-                  <th>Location</th>
-                  <th>Criticality</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="element in product.remote_processing_elements" :key="element.id">
-                  <td><strong>{{ element.name }}</strong></td>
-                  <td>{{ element.provider_name || "—" }}</td>
-                  <td>{{ element.geographic_location || "—" }}</td>
-                  <td>{{ element.criticality || "—" }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+            <div v-if="product.child_products.length === 0" class="empty-panel">
+              No child products linked.
+            </div>
 
-      <div class="card">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Child products</h2>
-            <p class="muted">{{ product.child_products.length }} child product(s)</p>
-          </div>
-        </div>
+            <div v-else class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Code</th>
+                    <th>Classification</th>
+                    <th>Scope</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="child in product.child_products" :key="child.id">
+                    <td>{{ child.name }}</td>
+                    <td><code>{{ child.product_code }}</code></td>
+                    <td>
+                      <span class="badge" :class="classificationClass(child.current_classification)">
+                        {{ formatClassification(child.current_classification) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" :class="scopeClass(child.scope_status)">
+                        {{ formatScopeStatus(child.scope_status) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
 
-        <div v-if="product.child_products.length === 0" class="empty-panel">
-          No child products linked.
-        </div>
-        <div v-else class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Code</th>
-                <th>Classification</th>
-                <th>Scope</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="child in product.child_products" :key="child.id">
-                <td>{{ child.name }}</td>
-                <td><code>{{ child.product_code }}</code></td>
-                <td>
-                  <span class="badge" :class="classificationClass(child.current_classification)">
-                    {{ formatClassification(child.current_classification) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="badge" :class="scopeClass(child.scope_status)">
-                    {{ formatScopeStatus(child.scope_status) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <aside class="side-column">
+          <section class="card summary-card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Summary</h2>
+                <p class="muted">At-a-glance product status.</p>
+              </div>
+            </div>
+
+            <div class="summary-list">
+              <div class="summary-row">
+                <span class="detail-label">Name</span>
+                <strong>{{ product.name }}</strong>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Code</span>
+                <strong class="summary-code">{{ product.product_code }}</strong>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Classification</span>
+                <span class="badge" :class="classificationClass(product.current_classification)">
+                  {{ formatClassification(product.current_classification) }}
+                </span>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Scope</span>
+                <span class="badge" :class="scopeClass(product.scope_status)">
+                  {{ formatScopeStatus(product.scope_status) }}
+                </span>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Releases</span>
+                <strong>{{ product.releases.length }}</strong>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Remote elements</span>
+                <strong>{{ product.remote_processing_elements.length }}</strong>
+              </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Child products</span>
+                <strong>{{ product.child_products.length }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">CRA scope wizard</h2>
+                <p class="muted">Run the backend rule engine and store the evaluation result.</p>
+              </div>
+            </div>
+
+            <form class="wizard-grid" @submit.prevent="runScopeEvaluation">
+              <label class="check-field">
+                <input v-model="scopeForm.is_digital_product" type="checkbox" />
+                <span>Digital product</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.has_network_connectivity" type="checkbox" />
+                <span>Has network connectivity</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.performs_remote_data_processing" type="checkbox" />
+                <span>Performs remote data processing</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.safety_component" type="checkbox" />
+                <span>Safety component</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.used_in_critical_sector" type="checkbox" />
+                <span>Used in critical sector</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.handles_sensitive_functions" type="checkbox" />
+                <span>Handles sensitive functions</span>
+              </label>
+
+              <label class="check-field">
+                <input v-model="scopeForm.excluded_category" type="checkbox" />
+                <span>Excluded category</span>
+              </label>
+
+              <label class="field field-span-full">
+                <span class="field-label">Notes</span>
+                <textarea v-model.trim="scopeForm.notes" rows="3" />
+              </label>
+
+              <div class="form-actions field-span-full">
+                <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
+                <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope">
+                  {{ isEvaluatingScope ? "Evaluating..." : "Run scope evaluation" }}
+                </button>
+              </div>
+            </form>
+
+            <div v-if="scopeResult" class="result-panel">
+              <div class="result-row">
+                <span class="detail-label">In scope</span>
+                <span class="badge" :class="scopeResult.in_scope ? 'badge-success' : 'badge-danger'">
+                  {{ scopeResult.in_scope ? "Yes" : "No" }}
+                </span>
+              </div>
+
+              <div class="result-row">
+                <span class="detail-label">Recommended classification</span>
+                <span class="badge" :class="classificationClass(scopeResult.recommended_classification)">
+                  {{ formatClassification(scopeResult.recommended_classification) }}
+                </span>
+              </div>
+
+              <div class="result-row">
+                <span class="detail-label">Suggested conformity route</span>
+                <span class="badge badge-neutral">
+                  {{ formatConformityRoute(scopeResult.suggested_conformity_route) }}
+                </span>
+              </div>
+
+              <div>
+                <span class="detail-label">Rationale</span>
+                <p class="result-rationale">{{ scopeResult.rationale }}</p>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
     </template>
   </section>
@@ -288,6 +459,7 @@ import type {
   ProductDetailRead,
   ProductScopeEvaluationRead,
   ProductScopeEvaluationRequest,
+  ProductUpdate,
 } from "@/types/product";
 
 const props = defineProps<{
@@ -296,8 +468,11 @@ const props = defineProps<{
 
 const product = ref<ProductDetailRead | null>(null);
 const isLoading = ref(false);
+const isSaving = ref(false);
+const isEditing = ref(false);
 const isEvaluatingScope = ref(false);
 const errorMessage = ref("");
+const successMessage = ref("");
 const scopeError = ref("");
 const scopeResult = ref<ProductScopeEvaluationRead | null>(null);
 
@@ -311,6 +486,44 @@ const scopeForm = reactive<ProductScopeEvaluationRequest>({
   excluded_category: false,
   notes: "",
 });
+
+const editForm = reactive({
+  name: "",
+  product_code: "",
+  manufacturer_name: "",
+  product_type: "",
+  description: "",
+  intended_use: "",
+  parent_product_id: "",
+  current_classification: "normal" as ProductClassification,
+  scope_status: "undecided",
+});
+
+function syncEditForm(): void {
+  if (!product.value) return;
+
+  editForm.name = product.value.name ?? "";
+  editForm.product_code = product.value.product_code ?? "";
+  editForm.manufacturer_name = product.value.manufacturer_name ?? "";
+  editForm.product_type = product.value.product_type ?? "";
+  editForm.description = product.value.description ?? "";
+  editForm.intended_use = product.value.intended_use ?? "";
+  editForm.parent_product_id = product.value.parent_product_id ?? "";
+  editForm.current_classification = product.value.current_classification;
+  editForm.scope_status = product.value.scope_status;
+}
+
+function startEditing(): void {
+  syncEditForm();
+  successMessage.value = "";
+  errorMessage.value = "";
+  isEditing.value = true;
+}
+
+function cancelEditing(): void {
+  syncEditForm();
+  isEditing.value = false;
+}
 
 function formatClassification(value: ProductClassification): string {
   switch (value) {
@@ -401,11 +614,44 @@ async function loadProduct(): Promise<void> {
 
   try {
     product.value = await productService.get(props.productId);
+    syncEditForm();
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function saveProduct(): Promise<void> {
+  if (!product.value) return;
+
+  errorMessage.value = "";
+  successMessage.value = "";
+  isSaving.value = true;
+
+  try {
+    const payload: ProductUpdate = {
+      name: editForm.name.trim(),
+      product_code: editForm.product_code.trim(),
+      manufacturer_name: editForm.manufacturer_name.trim(),
+      product_type: editForm.product_type.trim(),
+      description: editForm.description.trim() || null,
+      intended_use: editForm.intended_use.trim(),
+      parent_product_id: editForm.parent_product_id.trim() || null,
+      current_classification: editForm.current_classification,
+      scope_status: editForm.scope_status,
+    };
+
+    await productService.update(props.productId, payload);
+    successMessage.value = "Product updated.";
+    isEditing.value = false;
+    await loadProduct();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "Failed to save product.";
+  } finally {
+    isSaving.value = false;
   }
 }
 
@@ -431,6 +677,8 @@ watch(
   () => props.productId,
   () => {
     scopeResult.value = null;
+    isEditing.value = false;
+    successMessage.value = "";
     void loadProduct();
   },
   { immediate: true },
@@ -445,9 +693,10 @@ watch(
 
 .page-header,
 .section-header,
-.form-actions {
+.form-actions,
+.inline-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
@@ -456,11 +705,16 @@ watch(
 .page-actions {
   display: flex;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .page-title,
 .section-title {
   margin: 0;
+}
+
+.page-subtitle {
+  margin-top: 0.35rem;
 }
 
 .stats-grid {
@@ -469,16 +723,28 @@ watch(
   gap: 1rem;
 }
 
-.detail-grid {
+.workspace {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 420px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.main-column,
+.side-column {
+  display: grid;
   gap: 1rem;
 }
 
-.stat-card,
-.card {
+.side-column {
+  position: sticky;
+  top: 1rem;
+}
+
+.card,
+.stat-card {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
 }
 
 .stat-label,
@@ -493,25 +759,52 @@ watch(
   font-weight: 700;
 }
 
-.stat-value-code {
+.stat-value-code,
+.summary-code {
   word-break: break-word;
 }
 
-.detail-list {
+.info-grid,
+.edit-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.detail-list p,
-.result-rationale {
-  margin: 0.35rem 0 0;
+.info-item {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.info-item-span-2,
+.field-span-2 {
+  grid-column: span 2;
+}
+
+.info-item p,
+.result-rationale,
+.summary-row strong,
+.summary-row span:last-child {
+  margin: 0;
   line-height: 1.5;
+}
+
+.summary-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .wizard-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.9rem;
 }
 
@@ -525,21 +818,28 @@ watch(
   background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
 }
 
-.field-span-2 {
-  grid-column: span 2;
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field-span-full {
+  grid-column: span 1;
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
-}
-
-textarea {
   padding: 0.75rem 0.9rem;
   border-radius: 0.85rem;
   border: 1px solid var(--color-border, rgba(148, 163, 184, 0.25));
   background: var(--color-surface-soft, rgba(15, 23, 42, 0.5));
   color: inherit;
+  box-sizing: border-box;
+}
+
+textarea {
   resize: vertical;
 }
 
@@ -579,6 +879,10 @@ textarea {
   color: #fda4af;
 }
 
+.feedback-success {
+  color: #86efac;
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -600,6 +904,7 @@ textarea {
   color: var(--color-text-muted, #94a3b8);
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badge {
@@ -650,14 +955,24 @@ textarea {
   color: var(--color-text-muted, #94a3b8);
 }
 
-@media (max-width: 960px) {
-  .stats-grid,
-  .detail-grid,
-  .detail-list,
-  .wizard-grid {
+@media (max-width: 1100px) {
+  .workspace {
     grid-template-columns: 1fr;
   }
 
+  .side-column {
+    position: static;
+  }
+}
+
+@media (max-width: 800px) {
+  .stats-grid,
+  .info-grid,
+  .edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-item-span-2,
   .field-span-2 {
     grid-column: span 1;
   }
