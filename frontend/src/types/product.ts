@@ -127,3 +127,139 @@ export interface ProductScopeEvaluationRead extends ProductScopeEvaluationReques
   created_at: string;
   updated_at: string;
 }
+export type SupportType = "standard" | "limited" | "extended" | "custom";
+
+export type DistributionMechanism =
+  | "automatic_update"
+  | "in_app_update"
+  | "package_repository"
+  | "vendor_download"
+  | "manual_install"
+  | "field_service"
+  | "other";
+
+export type LifecycleNotificationType = "end_of_support_upcoming";
+
+export type LifecycleNotificationStatus = "pending" | "sent" | "dismissed";
+
+export interface SupportPeriodRecordRead {
+  id: string;
+  product_id: string;
+  support_start_date: string;
+  support_end_date: string;
+  support_type: SupportType;
+  justification_text: string;
+  expected_use_time_text: string | null;
+  comparable_products_text: string | null;
+  third_party_support_constraints_text: string | null;
+  user_facing_summary: string | null;
+  packaging_summary: string | null;
+  eos_notification_sent_at: string | null;
+  is_active: boolean;
+  superseded_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportPeriodRecordCreate {
+  product_id: string;
+  support_start_date: string;
+  support_end_date: string;
+  support_type: SupportType;
+  justification_text: string;
+  expected_use_time_text?: string | null;
+  comparable_products_text?: string | null;
+  third_party_support_constraints_text?: string | null;
+  user_facing_summary?: string | null;
+  packaging_summary?: string | null;
+}
+
+export interface SupportPeriodRecordUpdate {
+  support_start_date?: string;
+  support_end_date?: string;
+  support_type?: SupportType;
+  justification_text?: string;
+  expected_use_time_text?: string | null;
+  comparable_products_text?: string | null;
+  third_party_support_constraints_text?: string | null;
+  user_facing_summary?: string | null;
+  packaging_summary?: string | null;
+}
+
+export interface SupportPeriodRecordHistoryRead {
+  product_id: string;
+  records: SupportPeriodRecordRead[];
+}
+
+export interface SupportPeriodSnippetGenerateRequest {
+  product_id: string;
+  support_start_date: string;
+  support_end_date: string;
+  support_type: SupportType;
+  justification_text: string;
+  expected_use_time_text?: string | null;
+  comparable_products_text?: string | null;
+  third_party_support_constraints_text?: string | null;
+}
+
+export interface SupportPeriodSnippetRead {
+  user_facing_summary: string;
+  packaging_summary: string;
+}
+
+export interface SecurityUpdateRead {
+  id: string;
+  product_release_id: string;
+  title: string;
+  description: string | null;
+  cves_addressed_json: string[] | Record<string, unknown>;
+  affected_versions_json: string[] | Record<string, unknown>;
+  distribution_mechanism: DistributionMechanism;
+  available_until: string | null;
+  released_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecurityUpdateCreate {
+  product_release_id: string;
+  title: string;
+  description?: string | null;
+  cves_addressed_json: string[] | Record<string, unknown>;
+  affected_versions_json: string[] | Record<string, unknown>;
+  distribution_mechanism: DistributionMechanism;
+  available_until?: string | null;
+  released_at?: string | null;
+}
+
+export interface SecurityUpdateUpdate {
+  title?: string;
+  description?: string | null;
+  cves_addressed_json?: string[] | Record<string, unknown>;
+  affected_versions_json?: string[] | Record<string, unknown>;
+  distribution_mechanism?: DistributionMechanism;
+  available_until?: string | null;
+  released_at?: string | null;
+}
+
+export interface LifecycleNotificationRead {
+  id: string;
+  support_period_record_id: string;
+  notification_type: LifecycleNotificationType;
+  status: LifecycleNotificationStatus;
+  scheduled_for: string;
+  sent_at: string | null;
+  dismissed_at: string | null;
+  title: string;
+  message: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LifecycleNotificationMarkSentRequest {
+  sent_at?: string | null;
+}
+
+export interface LifecycleNotificationDismissRequest {
+  dismissed_at?: string | null;
+}

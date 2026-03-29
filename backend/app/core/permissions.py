@@ -43,10 +43,16 @@ class Permission(StrEnum):
     evidence_item_read = "evidence_item_read"
     evidence_item_write = "evidence_item_write"
 
+    support_period_read = "support_period_read"
+    support_period_write = "support_period_write"
+    security_update_read = "security_update_read"
+    security_update_write = "security_update_write"
+    lifecycle_notification_read = "lifecycle_notification_read"
+    lifecycle_notification_write = "lifecycle_notification_write"
+
     audit_read = "audit_read"
     authority_package_generate = "authority_package_generate"
     admin_manage_users = "admin_manage_users"
-
 
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()

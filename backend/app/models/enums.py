@@ -105,6 +105,33 @@ class ConformityRoute(StrEnum):
     undecided = "undecided"
 
 
+class SupportType(StrEnum):
+    standard = "standard"
+    limited = "limited"
+    extended = "extended"
+    custom = "custom"
+
+
+class DistributionMechanism(StrEnum):
+    automatic_update = "automatic_update"
+    in_app_update = "in_app_update"
+    package_repository = "package_repository"
+    vendor_download = "vendor_download"
+    manual_install = "manual_install"
+    field_service = "field_service"
+    other = "other"
+
+
+class LifecycleNotificationType(StrEnum):
+    end_of_support_upcoming = "end_of_support_upcoming"
+
+
+class LifecycleNotificationStatus(StrEnum):
+    pending = "pending"
+    sent = "sent"
+    dismissed = "dismissed"
+
+
 class AuditActionType(StrEnum):
     login = "login"
     logout = "logout"
@@ -118,6 +145,7 @@ class AuditActionType(StrEnum):
     role_change = "role_change"
     duplicate = "duplicate"
     approve = "approve"
+    notify = "notify"
 
 
 class AuditStatus(StrEnum):
@@ -138,3 +166,6 @@ class EntityType(StrEnum):
     annex_requirement = "annex_requirement"
     requirement_mapping = "requirement_mapping"
     evidence_item = "evidence_item"
+    support_period_record = "support_period_record"
+    security_update = "security_update"
+    lifecycle_notification = "lifecycle_notification"

@@ -20,6 +20,24 @@
       </RouterLink>
 
       <RouterLink
+        v-if="canViewSecurityUpdates"
+        :to="{ name: 'security-updates' }"
+        class="nav-link"
+        active-class="nav-link-active"
+      >
+        Security updates
+      </RouterLink>
+
+      <RouterLink
+        v-if="canViewLifecycleNotifications"
+        :to="{ name: 'lifecycle-notifications' }"
+        class="nav-link"
+        active-class="nav-link-active"
+      >
+        Lifecycle alerts
+      </RouterLink>
+
+      <RouterLink
         v-if="canViewRiskAssessments"
         :to="{ name: 'risk-assessments' }"
         class="nav-link"
@@ -74,6 +92,14 @@ import { RouterLink } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
+
+const canViewSecurityUpdates = computed(() =>
+  authStore.hasPermission("security_update_read"),
+);
+
+const canViewLifecycleNotifications = computed(() =>
+  authStore.hasPermission("lifecycle_notification_read"),
+);
 
 const canViewRiskAssessments = computed(() =>
   authStore.hasPermission("risk_assessment_read"),

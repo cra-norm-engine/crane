@@ -8,7 +8,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
-from app.models.role_permission import RolePermission  # optional
+from app.models.role_permission import RolePermission
+
 
 class Role(UUIDTimestampMixin, Base):
     __tablename__ = "roles"
@@ -28,6 +29,7 @@ class Role(UUIDTimestampMixin, Base):
         passive_deletes=True,
     )
 
+
 class User(UUIDTimestampMixin, Base):
     __tablename__ = "users"
 
@@ -45,16 +47,19 @@ class User(UUIDTimestampMixin, Base):
     owned_risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
         "RiskAssessment",
         foreign_keys="RiskAssessment.owner_user_id",
+        back_populates="owner_user",
         passive_deletes=True,
     )
     owned_risk_items: Mapped[list["RiskItem"]] = relationship(
         "RiskItem",
         foreign_keys="RiskItem.owner_user_id",
+        back_populates="owner_user",
         passive_deletes=True,
     )
     uploaded_evidence_items: Mapped[list["EvidenceItem"]] = relationship(
         "EvidenceItem",
         foreign_keys="EvidenceItem.uploaded_by_user_id",
+        back_populates="uploaded_by_user",
         passive_deletes=True,
     )
 

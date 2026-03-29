@@ -6,10 +6,11 @@ import LoginView from "@/views/LoginView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 import ProductDetailView from "@/views/ProductDetailView.vue";
 import ProductsView from "@/views/ProductsView.vue";
-
 import RiskAssessmentsView from "@/views/RiskAssessmentsView.vue";
 import RiskAssessmentDetailView from "@/views/RiskAssessmentDetailView.vue";
 import AnnexMatrixView from "@/views/AnnexMatrixView.vue";
+import LifecycleNotificationsView from "@/views/LifecycleNotificationsView.vue";
+import SecurityUpdateHistoryView from "@/views/SecurityUpdateHistoryView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -39,6 +40,22 @@ const routes: RouteRecordRaw[] = [
         name: "product-detail",
         component: ProductDetailView,
         props: true,
+      },
+      {
+        path: "security-updates",
+        name: "security-updates",
+        component: SecurityUpdateHistoryView,
+        meta: {
+          permissions: ["security_update_read"],
+        },
+      },
+      {
+        path: "lifecycle-notifications",
+        name: "lifecycle-notifications",
+        component: LifecycleNotificationsView,
+        meta: {
+          permissions: ["lifecycle_notification_read"],
+        },
       },
       {
         path: "risk-assessments",

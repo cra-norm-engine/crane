@@ -9,7 +9,7 @@
       </div>
 
       <div class="page-actions">
-        <button class="btn btn-secondary" type="button" @click="loadProduct" :disabled="isLoading || isSaving">
+        <button class="btn btn-secondary" type="button" @click="loadProduct" :disabled="isLoading || isSaving || isSavingSupportPeriod">
           {{ isLoading ? "Refreshing..." : "Refresh" }}
         </button>
         <button
@@ -17,7 +17,7 @@
           class="btn btn-primary"
           type="button"
           @click="startEditing"
-          :disabled="isLoading || isSaving"
+          :disabled="isLoading || isSaving || isSavingSupportPeriod"
         >
           Edit product
         </button>
@@ -179,6 +179,97 @@
                 </button>
                 <button class="btn btn-primary" type="submit" :disabled="isSaving">
                   {{ isSaving ? "Saving..." : "Save changes" }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Support period</h2>
+                <p class="muted">
+                  Guided lifecycle record for support duration, rationale, user-facing summary,
+                  packaging text, and versioned history.
+                </p>
+              </div>
+              <span class="badge badge-neutral">
+                {{ supportHistoryCount }} record(s)
+              </span>
+            </div>
+
+            <div v-if="supportPeriodError" class="feedback feedback-error">
+              {{ supportPeriodError }}
+            </div>
+
+            <div v-if="supportPeriodSuccess" class="feedback feedback-success">
+              {{ supportPeriodSuccess }}
+            </div>
+
+            <form class="edit-grid" @submit.prevent="saveSupportPeriod">
+              <label class="field">
+                <span class="field-label">Support start date</span>
+                <input v-model="supportForm.support_start_date" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Support end date</span>
+                <input v-model="supportForm.support_end_date" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Support type</span>
+                <select v-model="supportForm.support_type">
+                  <option value="standard">Standard</option>
+                  <option value="limited">Limited</option>
+                  <option value="extended">Extended</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+
+              <div class="info-item">
+                <span class="detail-label">Current status</span>
+                <p>
+                  {{ activeSupportPeriod ? "Active record loaded" : "No support period recorded yet" }}
+                </p>
+              </div>
+
+              <label class="field field-span-2">
+                <span class="field-label">Justification text</span>
+                <textarea v-model.trim="supportForm.justification_text" rows="4" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Expected use time</span>
+                <textarea v-model.trim="supportForm.expected_use_time_text" rows="3" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Comparable products</span>
+                <textarea v-model.trim="supportForm.comparable_products_text" rows="3" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Third-party support constraints</span>
+                <textarea v-model.trim="supportForm.third_party_support_constraints_text" rows="3" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">User-facing summary</span>
+                <textarea v-model.trim="supportForm.user_facing_summary" rows="4" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Packaging summary</span>
+                <textarea v-model.trim="supportForm.packaging_summary" rows="3" />
+              </label>
+
+              <div class="field field-span-2 inline-actions">
+                <button class="btn btn-secondary" type="button" @click="generateSupportSnippets" :disabled="isSavingSupportPeriod">
+                  Generate snippets
+                </button>
+                <button class="btn btn-primary" type="submit" :disabled="isSavingSupportPeriod">
+                  {{ isSavingSupportPeriod ? "Saving..." : activeSupportPeriod ? "Save new version" : "Create support period" }}
                 </button>
               </div>
             </form>
@@ -355,6 +446,11 @@
                 <span class="detail-label">Child products</span>
                 <strong>{{ product.child_products.length }}</strong>
               </div>
+
+              <div class="summary-row">
+                <span class="detail-label">Active support period</span>
+                <strong>{{ activeSupportPeriod ? formatDate(activeSupportPeriod.support_end_date) : "—" }}</strong>
+              </div>
             </div>
           </section>
 
@@ -453,6 +549,7 @@
 import { reactive, ref, watch } from "vue";
 
 import { productService } from "@/services/product-service";
+import { supportPeriodService } from "@/services/support-period-service";
 import type {
   ConformityRoute,
   ProductClassification,
@@ -460,6 +557,8 @@ import type {
   ProductScopeEvaluationRead,
   ProductScopeEvaluationRequest,
   ProductUpdate,
+  SupportPeriodRecordRead,
+  SupportType,
 } from "@/types/product";
 
 const props = defineProps<{
@@ -467,12 +566,19 @@ const props = defineProps<{
 }>();
 
 const product = ref<ProductDetailRead | null>(null);
+const activeSupportPeriod = ref<SupportPeriodRecordRead | null>(null);
+const supportHistoryCount = ref(0);
+
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isEditing = ref(false);
 const isEvaluatingScope = ref(false);
+const isSavingSupportPeriod = ref(false);
+
 const errorMessage = ref("");
 const successMessage = ref("");
+const supportPeriodError = ref("");
+const supportPeriodSuccess = ref("");
 const scopeError = ref("");
 const scopeResult = ref<ProductScopeEvaluationRead | null>(null);
 
@@ -499,6 +605,18 @@ const editForm = reactive({
   scope_status: "undecided",
 });
 
+const supportForm = reactive({
+  support_start_date: "",
+  support_end_date: "",
+  support_type: "standard" as SupportType,
+  justification_text: "",
+  expected_use_time_text: "",
+  comparable_products_text: "",
+  third_party_support_constraints_text: "",
+  user_facing_summary: "",
+  packaging_summary: "",
+});
+
 function syncEditForm(): void {
   if (!product.value) return;
 
@@ -511,6 +629,32 @@ function syncEditForm(): void {
   editForm.parent_product_id = product.value.parent_product_id ?? "";
   editForm.current_classification = product.value.current_classification;
   editForm.scope_status = product.value.scope_status;
+}
+
+function syncSupportForm(): void {
+  if (!activeSupportPeriod.value) {
+    supportForm.support_start_date = "";
+    supportForm.support_end_date = "";
+    supportForm.support_type = "standard";
+    supportForm.justification_text = "";
+    supportForm.expected_use_time_text = "";
+    supportForm.comparable_products_text = "";
+    supportForm.third_party_support_constraints_text = "";
+    supportForm.user_facing_summary = "";
+    supportForm.packaging_summary = "";
+    return;
+  }
+
+  supportForm.support_start_date = activeSupportPeriod.value.support_start_date ?? "";
+  supportForm.support_end_date = activeSupportPeriod.value.support_end_date ?? "";
+  supportForm.support_type = activeSupportPeriod.value.support_type;
+  supportForm.justification_text = activeSupportPeriod.value.justification_text ?? "";
+  supportForm.expected_use_time_text = activeSupportPeriod.value.expected_use_time_text ?? "";
+  supportForm.comparable_products_text = activeSupportPeriod.value.comparable_products_text ?? "";
+  supportForm.third_party_support_constraints_text =
+    activeSupportPeriod.value.third_party_support_constraints_text ?? "";
+  supportForm.user_facing_summary = activeSupportPeriod.value.user_facing_summary ?? "";
+  supportForm.packaging_summary = activeSupportPeriod.value.packaging_summary ?? "";
 }
 
 function startEditing(): void {
@@ -608,6 +752,27 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+async function loadSupportPeriod(): Promise<void> {
+  if (!props.productId) return;
+
+  supportPeriodError.value = "";
+
+  try {
+    activeSupportPeriod.value = await supportPeriodService.getActiveForProduct(props.productId);
+  } catch {
+    activeSupportPeriod.value = null;
+  }
+
+  try {
+    const history = await supportPeriodService.getHistoryForProduct(props.productId);
+    supportHistoryCount.value = history.records.length;
+  } catch {
+    supportHistoryCount.value = activeSupportPeriod.value ? 1 : 0;
+  }
+
+  syncSupportForm();
+}
+
 async function loadProduct(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
@@ -615,6 +780,7 @@ async function loadProduct(): Promise<void> {
   try {
     product.value = await productService.get(props.productId);
     syncEditForm();
+    await loadSupportPeriod();
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
@@ -655,6 +821,82 @@ async function saveProduct(): Promise<void> {
   }
 }
 
+async function generateSupportSnippets(): Promise<void> {
+  if (!props.productId) return;
+
+  supportPeriodError.value = "";
+  supportPeriodSuccess.value = "";
+
+  try {
+    const snippets = await supportPeriodService.generateSnippets({
+      product_id: props.productId,
+      support_start_date: supportForm.support_start_date,
+      support_end_date: supportForm.support_end_date,
+      support_type: supportForm.support_type,
+      justification_text: supportForm.justification_text.trim(),
+      expected_use_time_text: supportForm.expected_use_time_text.trim() || null,
+      comparable_products_text: supportForm.comparable_products_text.trim() || null,
+      third_party_support_constraints_text:
+        supportForm.third_party_support_constraints_text.trim() || null,
+    });
+
+    supportForm.user_facing_summary = snippets.user_facing_summary;
+    supportForm.packaging_summary = snippets.packaging_summary;
+    supportPeriodSuccess.value = "Support snippets generated.";
+  } catch (error) {
+    supportPeriodError.value =
+      error instanceof Error ? error.message : "Failed to generate support snippets.";
+  }
+}
+
+async function saveSupportPeriod(): Promise<void> {
+  if (!props.productId) return;
+
+  isSavingSupportPeriod.value = true;
+  supportPeriodError.value = "";
+  supportPeriodSuccess.value = "";
+
+  try {
+    if (activeSupportPeriod.value) {
+      await supportPeriodService.update(activeSupportPeriod.value.id, {
+        support_start_date: supportForm.support_start_date,
+        support_end_date: supportForm.support_end_date,
+        support_type: supportForm.support_type,
+        justification_text: supportForm.justification_text.trim(),
+        expected_use_time_text: supportForm.expected_use_time_text.trim() || null,
+        comparable_products_text: supportForm.comparable_products_text.trim() || null,
+        third_party_support_constraints_text:
+          supportForm.third_party_support_constraints_text.trim() || null,
+        user_facing_summary: supportForm.user_facing_summary.trim() || null,
+        packaging_summary: supportForm.packaging_summary.trim() || null,
+      });
+      supportPeriodSuccess.value = "Support period version recorded.";
+    } else {
+      await supportPeriodService.create({
+        product_id: props.productId,
+        support_start_date: supportForm.support_start_date,
+        support_end_date: supportForm.support_end_date,
+        support_type: supportForm.support_type,
+        justification_text: supportForm.justification_text.trim(),
+        expected_use_time_text: supportForm.expected_use_time_text.trim() || null,
+        comparable_products_text: supportForm.comparable_products_text.trim() || null,
+        third_party_support_constraints_text:
+          supportForm.third_party_support_constraints_text.trim() || null,
+        user_facing_summary: supportForm.user_facing_summary.trim() || null,
+        packaging_summary: supportForm.packaging_summary.trim() || null,
+      });
+      supportPeriodSuccess.value = "Support period created.";
+    }
+
+    await loadSupportPeriod();
+  } catch (error) {
+    supportPeriodError.value =
+      error instanceof Error ? error.message : "Failed to save support period.";
+  } finally {
+    isSavingSupportPeriod.value = false;
+  }
+}
+
 async function runScopeEvaluation(): Promise<void> {
   scopeError.value = "";
   isEvaluatingScope.value = true;
@@ -679,6 +921,10 @@ watch(
     scopeResult.value = null;
     isEditing.value = false;
     successMessage.value = "";
+    supportPeriodSuccess.value = "";
+    supportPeriodError.value = "";
+    activeSupportPeriod.value = null;
+    supportHistoryCount.value = 0;
     void loadProduct();
   },
   { immediate: true },

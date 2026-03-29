@@ -2,10 +2,28 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="app-title">{{ appName }}</div>
-      <div class="muted">CRA inventory, scope evaluation, releases, and audit readiness</div>
+      <div class="muted">
+        CRA inventory, scope evaluation, releases, lifecycle support, security updates, and audit readiness
+      </div>
     </div>
 
     <div class="topbar-right">
+      <RouterLink
+        v-if="canViewLifecycleNotifications"
+        :to="{ name: 'lifecycle-notifications' }"
+        class="button secondary nav-shortcut"
+      >
+        Lifecycle alerts
+      </RouterLink>
+
+      <RouterLink
+        v-if="canViewSecurityUpdates"
+        :to="{ name: 'security-updates' }"
+        class="button secondary nav-shortcut"
+      >
+        Security updates
+      </RouterLink>
+
       <span class="badge">
         Signed in as
         <strong class="badge-strong">{{ authStore.userEmail || "anonymous" }}</strong>
@@ -20,7 +38,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRouter } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
@@ -30,6 +48,14 @@ const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const appName = computed(() => appStore.appName);
+
+const canViewLifecycleNotifications = computed(() =>
+  authStore.hasPermission("lifecycle_notification_read"),
+);
+
+const canViewSecurityUpdates = computed(() =>
+  authStore.hasPermission("security_update_read"),
+);
 
 function logout() {
   authStore.logout();
@@ -68,6 +94,10 @@ function logout() {
   gap: 0.75rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.nav-shortcut {
+  text-decoration: none;
 }
 
 .badge-strong {

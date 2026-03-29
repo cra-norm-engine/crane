@@ -5,7 +5,7 @@
         <h1 class="page-title">Products</h1>
         <p class="muted">
           Manage CRA products, search by product code or name, and filter by scope, classification,
-          and latest update date.
+          support period, and latest update date.
         </p>
       </div>
 
@@ -32,13 +32,17 @@
         <span class="stat-label">Critical</span>
         <strong class="stat-value">{{ criticalCount }}</strong>
       </article>
+      <article class="card stat-card">
+        <span class="stat-label">Active support set</span>
+        <strong class="stat-value">{{ productsWithSupportCount }}</strong>
+      </article>
     </div>
 
     <div class="card filters-card">
       <div class="section-header">
         <div>
           <h2 class="section-title">Filters</h2>
-          <p class="muted">Narrow the inventory by search, scope, classification, and recency.</p>
+          <p class="muted">Narrow the inventory by search, scope, classification, support period, and recency.</p>
         </div>
         <button class="button secondary" type="button" @click="resetFilters">
           Reset filters
@@ -78,6 +82,18 @@
         </label>
 
         <label class="field">
+          <span class="field-label">Support status</span>
+          <select v-model="filters.supportStatus" class="select">
+            <option value="">All</option>
+            <option value="set">Support set</option>
+            <option value="missing">Not set</option>
+            <option value="active">Active</option>
+            <option value="approaching_eos">Approaching EOS</option>
+            <option value="expired">Expired</option>
+          </select>
+        </label>
+
+        <label class="field">
           <span class="field-label">Updated</span>
           <select v-model="filters.updatedWithin" class="select">
             <option value="">Any time</option>
@@ -96,6 +112,8 @@
             <option value="name_desc">Name Z–A</option>
             <option value="code_asc">Code A–Z</option>
             <option value="code_desc">Code Z–A</option>
+            <option value="support_end_asc">Support end date</option>
+            <option value="support_end_desc">Support end date (latest)</option>
           </select>
         </label>
       </div>
@@ -197,6 +215,7 @@
               <th>Type</th>
               <th>Classification</th>
               <th>Scope</th>
+              <th>Support period</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -228,6 +247,23 @@
                   {{ formatScopeStatus(product.scope_status) }}
                 </span>
               </td>
+              <td>
+                <div class="support-cell">
+                  <template v-if="supportByProductId[product.id]">
+                    <span class="badge" :class="supportStatusClass(getSupportStatus(product.id))">
+                      {{ formatSupportStatus(getSupportStatus(product.id)) }}
+                    </span>
+                    <span class="support-meta">
+                      {{ formatSupportType(supportByProductId[product.id]!.support_type) }}
+                      · ends {{ formatDate(supportByProductId[product.id]!.support_end_date) }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="badge badge-neutral">Not set</span>
+                    <span class="support-meta muted">No active support period</span>
+                  </template>
+                </div>
+              </td>
               <td>{{ formatDate(product.updated_at) }}</td>
             </tr>
           </tbody>
@@ -242,16 +278,20 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import { productService } from "@/services/product-service";
+import { supportPeriodService } from "@/services/support-period-service";
 import type {
   ProductClassification,
   ProductCreate,
   ProductSummaryRead,
   ScopeStatus,
+  SupportPeriodRecordRead,
+  SupportType,
 } from "@/types/product";
 
 const router = useRouter();
 
 const products = ref<ProductSummaryRead[]>([]);
+const supportByProductId = ref<Record<string, SupportPeriodRecordRead | null>>({});
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const errorMessage = ref("");
@@ -262,6 +302,7 @@ const filters = reactive({
   search: "",
   scopeStatus: "" as ScopeStatus | "",
   classification: "" as ProductClassification | "",
+  supportStatus: "" as "" | "set" | "missing" | "active" | "approaching_eos" | "expired",
   updatedWithin: "",
   sortBy: "updated_desc",
 });
@@ -284,6 +325,9 @@ const filteredProducts = computed(() => {
   const now = Date.now();
 
   const filtered = products.value.filter((product) => {
+    const supportRecord = supportByProductId.value[product.id] ?? null;
+    const supportStatus = getSupportStatus(product.id);
+
     const matchesSearch = !query
       ? true
       : [
@@ -291,7 +335,8 @@ const filteredProducts = computed(() => {
           product.name,
           product.manufacturer_name,
           product.product_type,
-          "description" in product ? (product.description ?? "") : "",
+          supportRecord?.support_type ?? "",
+          supportRecord?.support_end_date ?? "",
         ]
           .join(" ")
           .toLowerCase()
@@ -301,11 +346,19 @@ const filteredProducts = computed(() => {
     const matchesClassification =
       !filters.classification || product.current_classification === filters.classification;
 
+    const matchesSupportStatus =
+      !filters.supportStatus ||
+      (filters.supportStatus === "set" && Boolean(supportRecord)) ||
+      (filters.supportStatus === "missing" && !supportRecord) ||
+      (filters.supportStatus === "active" && supportStatus === "active") ||
+      (filters.supportStatus === "approaching_eos" && supportStatus === "approaching_eos") ||
+      (filters.supportStatus === "expired" && supportStatus === "expired");
+
     const matchesUpdated = !updatedWithinDays
       ? true
       : now - new Date(product.updated_at).getTime() <= updatedWithinDays * 24 * 60 * 60 * 1000;
 
-    return matchesSearch && matchesScope && matchesClassification && matchesUpdated;
+    return matchesSearch && matchesScope && matchesClassification && matchesSupportStatus && matchesUpdated;
   });
 
   return [...filtered].sort((a, b) => {
@@ -320,6 +373,10 @@ const filteredProducts = computed(() => {
         return a.product_code.localeCompare(b.product_code);
       case "code_desc":
         return b.product_code.localeCompare(a.product_code);
+      case "support_end_asc":
+        return supportEndTimestamp(a.id) - supportEndTimestamp(b.id);
+      case "support_end_desc":
+        return supportEndTimestamp(b.id) - supportEndTimestamp(a.id);
       case "updated_desc":
       default:
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
@@ -334,6 +391,79 @@ const inScopeCount = computed(() =>
 const criticalCount = computed(() =>
   products.value.filter((product) => product.current_classification === "critical").length,
 );
+
+const productsWithSupportCount = computed(() =>
+  products.value.filter((product) => Boolean(supportByProductId.value[product.id])).length,
+);
+
+function supportEndTimestamp(productId: string): number {
+  const support = supportByProductId.value[productId];
+  if (!support?.support_end_date) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return new Date(support.support_end_date).getTime();
+}
+
+function getSupportStatus(productId: string): "not_set" | "active" | "approaching_eos" | "expired" {
+  const support = supportByProductId.value[productId];
+  if (!support) {
+    return "not_set";
+  }
+
+  const endDate = new Date(`${support.support_end_date}T00:00:00`);
+  const now = new Date();
+  const sixMonthsFromNow = new Date();
+  sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+  if (endDate.getTime() < now.getTime()) {
+    return "expired";
+  }
+
+  if (endDate.getTime() <= sixMonthsFromNow.getTime()) {
+    return "approaching_eos";
+  }
+
+  return "active";
+}
+
+function formatSupportStatus(value: "not_set" | "active" | "approaching_eos" | "expired"): string {
+  switch (value) {
+    case "active":
+      return "Active";
+    case "approaching_eos":
+      return "Approaching EOS";
+    case "expired":
+      return "Expired";
+    default:
+      return "Not set";
+  }
+}
+
+function supportStatusClass(value: "not_set" | "active" | "approaching_eos" | "expired"): string {
+  switch (value) {
+    case "active":
+      return "badge-success";
+    case "approaching_eos":
+      return "badge-warning";
+    case "expired":
+      return "badge-danger";
+    default:
+      return "badge-neutral";
+  }
+}
+
+function formatSupportType(value: SupportType): string {
+  switch (value) {
+    case "limited":
+      return "Limited";
+    case "extended":
+      return "Extended";
+    case "custom":
+      return "Custom";
+    default:
+      return "Standard";
+  }
+}
 
 function formatClassification(value: ProductClassification): string {
   switch (value) {
@@ -394,6 +524,7 @@ function resetFilters(): void {
   filters.search = "";
   filters.scopeStatus = "";
   filters.classification = "";
+  filters.supportStatus = "";
   filters.updatedWithin = "";
   filters.sortBy = "updated_desc";
 }
@@ -418,12 +549,29 @@ function toggleCreateForm(): void {
   }
 }
 
+async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<void> {
+  const entries = await Promise.all(
+    productList.map(async (product) => {
+      try {
+        const record = await supportPeriodService.getActiveForProduct(product.id);
+        return [product.id, record] as const;
+      } catch {
+        return [product.id, null] as const;
+      }
+    }),
+  );
+
+  supportByProductId.value = Object.fromEntries(entries);
+}
+
 async function loadProducts(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
 
   try {
-    products.value = await productService.list();
+    const loadedProducts = await productService.list();
+    products.value = loadedProducts;
+    await loadSupportPeriods(loadedProducts);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load products.";
@@ -495,7 +643,7 @@ onMounted(() => {
 }
 
 .stats-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .stat-card {
@@ -522,7 +670,7 @@ onMounted(() => {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1rem;
   align-items: end;
 }
@@ -610,12 +758,14 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.product-cell {
+.product-cell,
+.support-cell {
   display: grid;
   gap: 0.25rem;
 }
 
-.product-description {
+.product-description,
+.support-meta {
   font-size: 0.85rem;
 }
 
@@ -626,6 +776,7 @@ onMounted(() => {
   padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
+  width: fit-content;
 }
 
 .badge-neutral {
@@ -652,9 +803,9 @@ onMounted(() => {
   color: var(--color-text-muted, #94a3b8);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .filters-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

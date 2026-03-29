@@ -66,6 +66,13 @@ class Product(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(RiskAssessment.created_at)",
     )
+    support_period_records: Mapped[list["SupportPeriodRecord"]] = relationship(
+        "SupportPeriodRecord",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(SupportPeriodRecord.created_at)",
+    )
 
 
 class ProductRelease(UUIDTimestampMixin, Base):
@@ -107,6 +114,13 @@ class ProductRelease(UUIDTimestampMixin, Base):
         back_populates="product_release",
         passive_deletes=True,
         order_by="desc(EvidenceItem.created_at)",
+    )
+    security_updates: Mapped[list["SecurityUpdate"]] = relationship(
+        "SecurityUpdate",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(SecurityUpdate.created_at)",
     )
 
 
