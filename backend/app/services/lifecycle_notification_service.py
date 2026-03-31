@@ -50,57 +50,68 @@ class LifecycleNotificationService:
         today: date | None = None,
     ) -> list[LifecycleNotificationRead]:
         effective_today = today or datetime.now(UTC).date()
-        notify_on_or_after = effective_today + timedelta(days=183)
-
-        records = self.support_period_repository.list_due_for_eos_notification(
-            today=effective_today,
-            notify_on_or_after=notify_on_or_after,
-        )
+        records = self.support_period_repository.list_all(active_only=True)
 
         created_notifications: list[LifecycleNotification] = []
 
         for record in records:
-            existing = self.repository.get_by_record_and_type(
-                support_period_record_id=record.id,
-                notification_type=LifecycleNotificationType.end_of_support_upcoming,
-            )
-            if existing is not None:
+            if record.eos_notification_sent_at is not None:
                 continue
 
-            scheduled_for = datetime.combine(effective_today, time.min, tzinfo=UTC)
-            notification = LifecycleNotification(
-                support_period_record_id=record.id,
-                notification_type=LifecycleNotificationType.end_of_support_upcoming,
-                status=LifecycleNotificationStatus.pending,
-                scheduled_for=scheduled_for,
-                title="End of support approaching",
-                message=(
-                    f"Product support ends on {record.support_end_date.isoformat()} for product "
-                    f"{record.product_id}. Review user-facing communication and lifecycle planning."
-                ),
-            )
+            if not record.notification_recipients:
+                continue
 
-            try:
-                self.repository.add(notification)
-                created_notifications.append(notification)
+            scheduled_date = record.support_end_date - timedelta(days=record.notify_before_days)
+            if scheduled_date > effective_today:
+                continue
 
-                create_audit_event(
-                    self.db,
-                    actor_user_id=getattr(actor, "id", None) if actor is not None else None,
-                    action_type=AuditActionType.notify,
-                    entity_type=EntityType.lifecycle_notification,
-                    entity_id=notification.id,
-                    status=AuditStatus.success,
-                    details_json={
-                        "support_period_record_id": str(record.id),
-                        "product_id": str(record.product_id),
-                        "notification_type": notification.notification_type.value,
-                        "scheduled_for": notification.scheduled_for.isoformat(),
-                    },
+            scheduled_for = datetime.combine(scheduled_date, time.min, tzinfo=UTC)
+
+            for recipient in record.notification_recipients:
+                existing = self.repository.get_by_record_and_type(
+                    support_period_record_id=record.id,
+                    notification_type=LifecycleNotificationType.end_of_support_upcoming,
+                    recipient_user_id=recipient.user_id,
                 )
-            except IntegrityError:
-                self.db.rollback()
-                continue
+                if existing is not None:
+                    continue
+
+                product_name = getattr(record.product, "name", "this product")
+                notification = LifecycleNotification(
+                    support_period_record_id=record.id,
+                    recipient_user_id=recipient.user_id,
+                    notification_type=LifecycleNotificationType.end_of_support_upcoming,
+                    status=LifecycleNotificationStatus.pending,
+                    scheduled_for=scheduled_for,
+                    title="End of support approaching",
+                    message=(
+                        f"{product_name} reaches end of support on {record.support_end_date.isoformat()}. "
+                        f"Review lifecycle communication and support planning."
+                    ),
+                )
+
+                try:
+                    self.repository.add(notification)
+                    created_notifications.append(notification)
+
+                    create_audit_event(
+                        self.db,
+                        actor_user_id=getattr(actor, "id", None) if actor is not None else None,
+                        action_type=AuditActionType.notify,
+                        entity_type=EntityType.lifecycle_notification,
+                        entity_id=notification.id,
+                        status=AuditStatus.success,
+                        details_json={
+                            "support_period_record_id": str(record.id),
+                            "product_id": str(record.product_id),
+                            "recipient_user_id": str(recipient.user_id),
+                            "notification_type": notification.notification_type.value,
+                            "scheduled_for": notification.scheduled_for.isoformat(),
+                        },
+                    )
+                except IntegrityError:
+                    self.db.rollback()
+                    continue
 
         if created_notifications:
             self.db.commit()

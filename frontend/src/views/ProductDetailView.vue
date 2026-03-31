@@ -227,11 +227,64 @@
                 </select>
               </label>
 
+              <label class="field">
+                <span class="field-label">Notify before EOS</span>
+                <input v-model.number="supportForm.notify_before_days" type="number" min="1" max="3650" step="1" />
+              </label>
+
               <div class="info-item">
                 <span class="detail-label">Current status</span>
                 <p>
                   {{ activeSupportPeriod ? "Active record loaded" : "No support period recorded yet" }}
                 </p>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">Alert schedule preview</span>
+                <p>{{ notificationSchedulePreview }}</p>
+              </div>
+
+              <div class="field field-span-2 recipient-dropdown-field">
+                <span class="field-label">Notification recipients</span>
+                <div v-if="notificationRecipientOptions.length === 0" class="checkbox-panel muted">
+                  No active users are currently available.
+                </div>
+                <div v-else ref="recipientDropdownRef" class="recipient-dropdown">
+                  <button
+                    class="recipient-trigger"
+                    type="button"
+                    :aria-expanded="isRecipientDropdownOpen ? 'true' : 'false'"
+                    @click="toggleRecipientDropdown"
+                  >
+                    <span class="recipient-trigger-copy">
+                      <strong>{{ selectedRecipientsSummary }}</strong>
+                      <small class="muted">
+                        Choose one or more users to receive end-of-support alerts.
+                      </small>
+                    </span>
+                    <span class="recipient-trigger-icon">{{ isRecipientDropdownOpen ? "▲" : "▼" }}</span>
+                  </button>
+
+                  <div v-if="isRecipientDropdownOpen" class="recipient-menu">
+                    <label
+                      v-for="option in notificationRecipientOptions"
+                      :key="option.id"
+                      class="recipient-option"
+                    >
+                      <input
+                        class="recipient-checkbox"
+                        :checked="supportForm.recipient_user_ids.includes(option.id)"
+                        type="checkbox"
+                        @change="toggleRecipient(option.id)"
+                      />
+                      <span class="recipient-copy">
+                        <strong class="recipient-name">{{ option.full_name }}</strong>
+                        <small class="recipient-meta">{{ option.email }}</small>
+                        <small class="recipient-meta">{{ option.roles.join(", ") }}</small>
+                      </span>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <label class="field field-span-2">
@@ -546,7 +599,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 
 import { productService } from "@/services/product-service";
 import { supportPeriodService } from "@/services/support-period-service";
@@ -556,6 +609,7 @@ import type {
   ProductDetailRead,
   ProductScopeEvaluationRead,
   ProductScopeEvaluationRequest,
+  SupportPeriodNotificationRecipientOptionRead,
   ProductUpdate,
   SupportPeriodRecordRead,
   SupportType,
@@ -568,6 +622,9 @@ const props = defineProps<{
 const product = ref<ProductDetailRead | null>(null);
 const activeSupportPeriod = ref<SupportPeriodRecordRead | null>(null);
 const supportHistoryCount = ref(0);
+const notificationRecipientOptions = ref<SupportPeriodNotificationRecipientOptionRead[]>([]);
+const recipientDropdownRef = ref<HTMLElement | null>(null);
+const isRecipientDropdownOpen = ref(false);
 
 const isLoading = ref(false);
 const isSaving = ref(false);
@@ -608,13 +665,52 @@ const editForm = reactive({
 const supportForm = reactive({
   support_start_date: "",
   support_end_date: "",
+  notify_before_days: 180,
   support_type: "standard" as SupportType,
+  recipient_user_ids: [] as string[],
   justification_text: "",
   expected_use_time_text: "",
   comparable_products_text: "",
   third_party_support_constraints_text: "",
   user_facing_summary: "",
   packaging_summary: "",
+});
+
+const notificationSchedulePreview = computed(() => {
+  if (!supportForm.support_end_date) {
+    return "Select a support end date to preview the alert timing.";
+  }
+
+  const endDate = new Date(`${supportForm.support_end_date}T00:00:00`);
+  if (Number.isNaN(endDate.getTime())) {
+    return "Enter a valid support end date.";
+  }
+
+  const previewDate = new Date(endDate);
+  previewDate.setDate(previewDate.getDate() - Number(supportForm.notify_before_days || 0));
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(previewDate);
+});
+
+const selectedRecipientsSummary = computed(() => {
+  const count = supportForm.recipient_user_ids.length;
+
+  if (count === 0) {
+    return "Select users";
+  }
+
+  if (count === 1) {
+    const selected = notificationRecipientOptions.value.find(
+      (option) => option.id === supportForm.recipient_user_ids[0],
+    );
+    return selected?.full_name ?? "1 user selected";
+  }
+
+  return `${count} users selected`;
 });
 
 function syncEditForm(): void {
@@ -635,7 +731,9 @@ function syncSupportForm(): void {
   if (!activeSupportPeriod.value) {
     supportForm.support_start_date = "";
     supportForm.support_end_date = "";
+    supportForm.notify_before_days = 180;
     supportForm.support_type = "standard";
+    supportForm.recipient_user_ids = [];
     supportForm.justification_text = "";
     supportForm.expected_use_time_text = "";
     supportForm.comparable_products_text = "";
@@ -647,7 +745,9 @@ function syncSupportForm(): void {
 
   supportForm.support_start_date = activeSupportPeriod.value.support_start_date ?? "";
   supportForm.support_end_date = activeSupportPeriod.value.support_end_date ?? "";
+  supportForm.notify_before_days = activeSupportPeriod.value.notify_before_days ?? 180;
   supportForm.support_type = activeSupportPeriod.value.support_type;
+  supportForm.recipient_user_ids = [...activeSupportPeriod.value.recipient_user_ids];
   supportForm.justification_text = activeSupportPeriod.value.justification_text ?? "";
   supportForm.expected_use_time_text = activeSupportPeriod.value.expected_use_time_text ?? "";
   supportForm.comparable_products_text = activeSupportPeriod.value.comparable_products_text ?? "";
@@ -667,6 +767,40 @@ function startEditing(): void {
 function cancelEditing(): void {
   syncEditForm();
   isEditing.value = false;
+}
+
+function toggleRecipientDropdown(): void {
+  isRecipientDropdownOpen.value = !isRecipientDropdownOpen.value;
+}
+
+function closeRecipientDropdown(): void {
+  isRecipientDropdownOpen.value = false;
+}
+
+function toggleRecipient(userId: string): void {
+  if (supportForm.recipient_user_ids.includes(userId)) {
+    supportForm.recipient_user_ids = supportForm.recipient_user_ids.filter((value) => value !== userId);
+    return;
+  }
+
+  supportForm.recipient_user_ids = [...supportForm.recipient_user_ids, userId];
+}
+
+function handleWindowClick(event: MouseEvent): void {
+  if (!isRecipientDropdownOpen.value) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof Node)) {
+    return;
+  }
+
+  if (recipientDropdownRef.value?.contains(target)) {
+    return;
+  }
+
+  closeRecipientDropdown();
 }
 
 function formatClassification(value: ProductClassification): string {
@@ -773,6 +907,14 @@ async function loadSupportPeriod(): Promise<void> {
   syncSupportForm();
 }
 
+async function loadNotificationRecipients(): Promise<void> {
+  try {
+    notificationRecipientOptions.value = await supportPeriodService.listNotificationRecipients();
+  } catch {
+    notificationRecipientOptions.value = [];
+  }
+}
+
 async function loadProduct(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
@@ -780,7 +922,7 @@ async function loadProduct(): Promise<void> {
   try {
     product.value = await productService.get(props.productId);
     syncEditForm();
-    await loadSupportPeriod();
+    await Promise.all([loadSupportPeriod(), loadNotificationRecipients()]);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
@@ -861,7 +1003,9 @@ async function saveSupportPeriod(): Promise<void> {
       await supportPeriodService.update(activeSupportPeriod.value.id, {
         support_start_date: supportForm.support_start_date,
         support_end_date: supportForm.support_end_date,
+        notify_before_days: supportForm.notify_before_days,
         support_type: supportForm.support_type,
+        recipient_user_ids: supportForm.recipient_user_ids,
         justification_text: supportForm.justification_text.trim(),
         expected_use_time_text: supportForm.expected_use_time_text.trim() || null,
         comparable_products_text: supportForm.comparable_products_text.trim() || null,
@@ -876,7 +1020,9 @@ async function saveSupportPeriod(): Promise<void> {
         product_id: props.productId,
         support_start_date: supportForm.support_start_date,
         support_end_date: supportForm.support_end_date,
+        notify_before_days: supportForm.notify_before_days,
         support_type: supportForm.support_type,
+        recipient_user_ids: supportForm.recipient_user_ids,
         justification_text: supportForm.justification_text.trim(),
         expected_use_time_text: supportForm.expected_use_time_text.trim() || null,
         comparable_products_text: supportForm.comparable_products_text.trim() || null,
@@ -924,11 +1070,20 @@ watch(
     supportPeriodSuccess.value = "";
     supportPeriodError.value = "";
     activeSupportPeriod.value = null;
+    closeRecipientDropdown();
     supportHistoryCount.value = 0;
     void loadProduct();
   },
   { immediate: true },
 );
+
+onMounted(() => {
+  window.addEventListener("click", handleWindowClick);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("click", handleWindowClick);
+});
 </script>
 
 <style scoped>
@@ -952,6 +1107,100 @@ watch(
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.checkbox-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.recipient-dropdown-field {
+  position: relative;
+}
+
+.recipient-dropdown {
+  position: relative;
+}
+
+.recipient-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.25));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.5));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recipient-trigger-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.recipient-trigger-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.8rem;
+}
+
+.recipient-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 0.65rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 0.95rem;
+  background: rgba(248, 250, 252, 0.98);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.22);
+}
+
+.recipient-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+}
+
+.recipient-checkbox {
+  width: auto;
+  margin-top: 0.2rem;
+}
+
+.recipient-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.recipient-name {
+  color: #0f172a;
+}
+
+.recipient-meta {
+  display: block;
+  color: rgba(15, 23, 42, 0.64);
+  overflow-wrap: anywhere;
 }
 
 .page-title,

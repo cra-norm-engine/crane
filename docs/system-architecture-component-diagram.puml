@@ -1,0 +1,108 @@
+@startuml
+title CRA Compliance Tool - Abstract System Architecture
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam wrapWidth 220
+skinparam maxMessageSize 180
+left to right direction
+
+actor "Compliance User" as User
+actor "Administrator" as Admin
+
+rectangle "Client Layer" {
+  component "Vue 3 Web Application" as Frontend
+  component "Views & UI Components" as UI
+  component "Pinia Stores\nAuth + App State" as Stores
+  component "API Service Layer\nAxios + Error Handling" as ApiClient
+  component "Vue Router\nRoute Guards + Permissions" as Router
+}
+
+rectangle "Application Layer" {
+  component "FastAPI Application" as Backend
+  component "REST API Routes\n/api/v1" as ApiRoutes
+  component "Authentication & RBAC\nJWT + Permissions" as Auth
+  component "CRA Domain Services" as DomainServices
+  component "Audit & Exception Handling" as CrossCutting
+}
+
+rectangle "CRA Domain Services" {
+  component "Product & Release\nManagement" as ProductDomain
+  component "Security Update\nTracking" as SecurityDomain
+  component "Lifecycle Notification\nManagement" as LifecycleDomain
+  component "Risk Assessment\nManagement" as RiskDomain
+  component "Annex Requirement &\nEvidence Mapping" as ComplianceDomain
+  component "Admin User & Role\nManagement" as AdminDomain
+}
+
+rectangle "Persistence Layer" {
+  component "Repository Layer" as Repositories
+  component "SQLAlchemy ORM\nModels + Sessions" as ORM
+  database "PostgreSQL" as Postgres
+  component "Alembic Migrations" as Migrations
+  component "Seed Data" as Seed
+}
+
+node "Deployment / Runtime" {
+  component "Frontend Container\nVite Dev Server" as FrontendRuntime
+  component "Backend Container\nFastAPI Service" as BackendRuntime
+  component "Postgres Container" as PostgresRuntime
+}
+
+User --> Frontend
+Admin --> Frontend
+
+Frontend --> UI
+Frontend --> Stores
+Frontend --> Router
+UI --> ApiClient
+Stores --> ApiClient
+Router --> Stores
+Router --> Auth : permission checks
+
+ApiClient --> Backend : HTTPS / JSON
+Backend --> ApiRoutes
+ApiRoutes --> Auth
+ApiRoutes --> DomainServices
+ApiRoutes --> CrossCutting
+
+DomainServices --> ProductDomain
+DomainServices --> SecurityDomain
+DomainServices --> LifecycleDomain
+DomainServices --> RiskDomain
+DomainServices --> ComplianceDomain
+DomainServices --> AdminDomain
+
+ProductDomain --> Repositories
+SecurityDomain --> Repositories
+LifecycleDomain --> Repositories
+RiskDomain --> Repositories
+ComplianceDomain --> Repositories
+AdminDomain --> Repositories
+Auth --> Repositories
+CrossCutting --> Repositories
+
+Repositories --> ORM
+ORM --> Postgres
+Migrations --> Postgres
+Seed --> ORM
+
+FrontendRuntime -[hidden]-> BackendRuntime
+BackendRuntime -[hidden]-> PostgresRuntime
+
+FrontendRuntime ..> Frontend : hosts
+BackendRuntime ..> Backend : runs
+PostgresRuntime ..> Postgres : stores data
+
+note right of DomainServices
+  Core compliance capabilities are grouped
+  into bounded domains to keep the diagram
+  abstract while showing the main business areas.
+end note
+
+note bottom of Auth
+  Shared by UI route protection and API authorization.
+end note
+
+@enduml

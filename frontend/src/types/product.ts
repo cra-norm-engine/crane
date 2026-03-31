@@ -147,7 +147,9 @@ export interface SupportPeriodRecordRead {
   product_id: string;
   support_start_date: string;
   support_end_date: string;
+  notify_before_days: number;
   support_type: SupportType;
+  recipient_user_ids: string[];
   justification_text: string;
   expected_use_time_text: string | null;
   comparable_products_text: string | null;
@@ -157,6 +159,7 @@ export interface SupportPeriodRecordRead {
   eos_notification_sent_at: string | null;
   is_active: boolean;
   superseded_by_id: string | null;
+  recipients: SupportPeriodNotificationRecipientRead[];
   created_at: string;
   updated_at: string;
 }
@@ -165,7 +168,9 @@ export interface SupportPeriodRecordCreate {
   product_id: string;
   support_start_date: string;
   support_end_date: string;
+  notify_before_days: number;
   support_type: SupportType;
+  recipient_user_ids: string[];
   justification_text: string;
   expected_use_time_text?: string | null;
   comparable_products_text?: string | null;
@@ -177,7 +182,9 @@ export interface SupportPeriodRecordCreate {
 export interface SupportPeriodRecordUpdate {
   support_start_date?: string;
   support_end_date?: string;
+  notify_before_days?: number;
   support_type?: SupportType;
+  recipient_user_ids?: string[];
   justification_text?: string;
   expected_use_time_text?: string | null;
   comparable_products_text?: string | null;
@@ -189,6 +196,20 @@ export interface SupportPeriodRecordUpdate {
 export interface SupportPeriodRecordHistoryRead {
   product_id: string;
   records: SupportPeriodRecordRead[];
+}
+
+export interface SupportPeriodNotificationRecipientRead {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+}
+
+export interface SupportPeriodNotificationRecipientOptionRead {
+  id: string;
+  email: string;
+  full_name: string;
+  roles: string[];
 }
 
 export interface SupportPeriodSnippetGenerateRequest {
@@ -245,6 +266,7 @@ export interface SecurityUpdateUpdate {
 export interface LifecycleNotificationRead {
   id: string;
   support_period_record_id: string;
+  recipient_user_id: string | null;
   notification_type: LifecycleNotificationType;
   status: LifecycleNotificationStatus;
   scheduled_for: string;
@@ -252,6 +274,11 @@ export interface LifecycleNotificationRead {
   dismissed_at: string | null;
   title: string;
   message: string;
+  recipient_user: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }

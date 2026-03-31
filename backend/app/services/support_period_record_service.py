@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -9,12 +9,18 @@ from sqlalchemy.orm import Session
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, NotFoundException
 from app.models.enums import AuditActionType, AuditStatus, EntityType
-from app.models.support_period_record import SupportPeriodRecord
+from app.models.support_period_record import (
+    SupportPeriodNotificationRecipient,
+    SupportPeriodRecord,
+)
 from app.repositories.product_repository import ProductRepository
 from app.repositories.support_period_record_repository import SupportPeriodRecordRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.support_period_record import (
     SupportPeriodRecordCreate,
     SupportPeriodRecordHistoryRead,
+    SupportPeriodNotificationRecipientOptionRead,
+    SupportPeriodNotificationRecipientRead,
     SupportPeriodRecordRead,
     SupportPeriodRecordUpdate,
     SupportPeriodSnippetGenerateRequest,
@@ -27,6 +33,78 @@ class SupportPeriodRecordService:
         self.db = db
         self.repository = SupportPeriodRecordRepository(db)
         self.product_repository = ProductRepository(db)
+        self.user_repository = UserRepository(db)
+
+    def _serialize_record(self, record: SupportPeriodRecord) -> SupportPeriodRecordRead:
+        recipients = [
+            SupportPeriodNotificationRecipientRead(
+                id=recipient.id,
+                user_id=recipient.user_id,
+                full_name=recipient.user.full_name,
+                email=recipient.user.email,
+            )
+            for recipient in record.notification_recipients
+            if recipient.user is not None
+        ]
+
+        payload = {
+            "id": record.id,
+            "product_id": record.product_id,
+            "support_start_date": record.support_start_date,
+            "support_end_date": record.support_end_date,
+            "notify_before_days": record.notify_before_days,
+            "support_type": record.support_type,
+            "recipient_user_ids": [recipient.user_id for recipient in record.notification_recipients],
+            "justification_text": record.justification_text,
+            "expected_use_time_text": record.expected_use_time_text,
+            "comparable_products_text": record.comparable_products_text,
+            "third_party_support_constraints_text": record.third_party_support_constraints_text,
+            "user_facing_summary": record.user_facing_summary,
+            "packaging_summary": record.packaging_summary,
+            "eos_notification_sent_at": record.eos_notification_sent_at,
+            "is_active": record.is_active,
+            "superseded_by_id": record.superseded_by_id,
+            "recipients": recipients,
+            "created_at": record.created_at,
+            "updated_at": record.updated_at,
+        }
+        return SupportPeriodRecordRead.model_validate(payload)
+
+    def list_notification_recipient_options(self) -> list[SupportPeriodNotificationRecipientOptionRead]:
+        users = self.user_repository.list_active_users()
+        return [
+            SupportPeriodNotificationRecipientOptionRead(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                roles=user.role_names,
+            )
+            for user in users
+        ]
+
+    def _validate_recipient_user_ids(self, recipient_user_ids: list[UUID]) -> list[UUID]:
+        if not recipient_user_ids:
+            return []
+
+        unique_ids: list[UUID] = []
+        seen: set[UUID] = set()
+        for user_id in recipient_user_ids:
+            if user_id not in seen:
+                seen.add(user_id)
+                unique_ids.append(user_id)
+
+        users = self.user_repository.list_active_users_by_ids(unique_ids)
+        users_by_id = {user.id: user for user in users}
+
+        invalid_ids = [
+            user_id
+            for user_id in unique_ids
+            if user_id not in users_by_id
+        ]
+        if invalid_ids:
+            raise ConflictException("One or more selected notification recipients do not exist or are inactive")
+
+        return unique_ids
 
     def list_records(
         self,
@@ -35,25 +113,25 @@ class SupportPeriodRecordService:
         active_only: bool = False,
     ) -> list[SupportPeriodRecordRead]:
         records = self.repository.list_all(product_id=product_id, active_only=active_only)
-        return [SupportPeriodRecordRead.model_validate(record) for record in records]
+        return [self._serialize_record(record) for record in records]
 
     def get_record(self, record_id: UUID) -> SupportPeriodRecordRead:
         record = self.repository.get_or_404(record_id)
-        return SupportPeriodRecordRead.model_validate(record)
+        return self._serialize_record(record)
 
     def get_active_record_for_product(self, product_id: UUID) -> SupportPeriodRecordRead:
         self.product_repository.get_or_404(product_id)
         record = self.repository.get_active_by_product_id(product_id)
         if record is None:
             raise NotFoundException("Active support period record not found for product")
-        return SupportPeriodRecordRead.model_validate(record)
+        return self._serialize_record(record)
 
     def get_history_for_product(self, product_id: UUID) -> SupportPeriodRecordHistoryRead:
         self.product_repository.get_or_404(product_id)
         records = self.repository.list_current_or_historical_for_product(product_id)
         return SupportPeriodRecordHistoryRead(
             product_id=product_id,
-            records=[SupportPeriodRecordRead.model_validate(record) for record in records],
+            records=[self._serialize_record(record) for record in records],
         )
 
     def create_record(self, payload: SupportPeriodRecordCreate, actor: object) -> SupportPeriodRecordRead:
@@ -65,7 +143,13 @@ class SupportPeriodRecordService:
                 "An active support period record already exists for this product. Use update/versioning instead."
             )
 
-        record = SupportPeriodRecord(**payload.model_dump())
+        recipient_user_ids = self._validate_recipient_user_ids(payload.recipient_user_ids)
+        record_payload = payload.model_dump(exclude={"recipient_user_ids"})
+        record = SupportPeriodRecord(**record_payload)
+        record.notification_recipients = [
+            SupportPeriodNotificationRecipient(user_id=user_id)
+            for user_id in recipient_user_ids
+        ]
 
         try:
             self.repository.add(record)
@@ -80,7 +164,9 @@ class SupportPeriodRecordService:
                     "product_id": str(record.product_id),
                     "support_start_date": record.support_start_date.isoformat(),
                     "support_end_date": record.support_end_date.isoformat(),
+                    "notify_before_days": record.notify_before_days,
                     "support_type": record.support_type.value,
+                    "recipient_user_ids": [str(user_id) for user_id in recipient_user_ids],
                     "is_active": record.is_active,
                 },
             )
@@ -90,7 +176,8 @@ class SupportPeriodRecordService:
             self.db.rollback()
             raise ConflictException("Unable to create support period record due to constraint conflict") from exc
 
-        return SupportPeriodRecordRead.model_validate(record)
+        record = self.repository.get_or_404(record.id)
+        return self._serialize_record(record)
 
     def update_record_versioned(
         self,
@@ -105,12 +192,13 @@ class SupportPeriodRecordService:
 
         updates = payload.model_dump(exclude_unset=True)
         if not updates:
-            return SupportPeriodRecordRead.model_validate(current_record)
+            return self._serialize_record(current_record)
 
         next_values = {
             "product_id": current_record.product_id,
             "support_start_date": current_record.support_start_date,
             "support_end_date": current_record.support_end_date,
+            "notify_before_days": current_record.notify_before_days,
             "support_type": current_record.support_type,
             "justification_text": current_record.justification_text,
             "expected_use_time_text": current_record.expected_use_time_text,
@@ -120,11 +208,22 @@ class SupportPeriodRecordService:
             "packaging_summary": current_record.packaging_summary,
         }
         next_values.update(updates)
+        next_recipient_user_ids = updates.get(
+            "recipient_user_ids",
+            [recipient.user_id for recipient in current_record.notification_recipients],
+        )
+        next_recipient_user_ids = self._validate_recipient_user_ids(next_recipient_user_ids)
 
         if next_values["support_end_date"] < next_values["support_start_date"]:
             raise ConflictException("support_end_date must be on or after support_start_date")
 
-        replacement_record = SupportPeriodRecord(**next_values)
+        replacement_record = SupportPeriodRecord(
+            **{key: value for key, value in next_values.items() if key != "recipient_user_ids"}
+        )
+        replacement_record.notification_recipients = [
+            SupportPeriodNotificationRecipient(user_id=user_id)
+            for user_id in next_recipient_user_ids
+        ]
 
         try:
             current_record.is_active = False
@@ -147,7 +246,9 @@ class SupportPeriodRecordService:
                     "updated_fields": sorted(updates.keys()),
                     "support_start_date": replacement_record.support_start_date.isoformat(),
                     "support_end_date": replacement_record.support_end_date.isoformat(),
+                    "notify_before_days": replacement_record.notify_before_days,
                     "support_type": replacement_record.support_type.value,
+                    "recipient_user_ids": [str(user_id) for user_id in next_recipient_user_ids],
                 },
             )
             self.db.commit()
@@ -156,7 +257,8 @@ class SupportPeriodRecordService:
             self.db.rollback()
             raise ConflictException("Unable to version support period record due to constraint conflict") from exc
 
-        return SupportPeriodRecordRead.model_validate(replacement_record)
+        replacement_record = self.repository.get_or_404(replacement_record.id)
+        return self._serialize_record(replacement_record)
 
     def generate_snippets(self, payload: SupportPeriodSnippetGenerateRequest) -> SupportPeriodSnippetRead:
         self.product_repository.get_or_404(payload.product_id)

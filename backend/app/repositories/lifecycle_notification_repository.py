@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import NotFoundException
 from app.models.lifecycle_notification import LifecycleNotification
@@ -16,6 +16,12 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
     def __init__(self, db: Session) -> None:
         super().__init__(db, LifecycleNotification)
 
+    def _default_options(self):
+        return (
+            selectinload(LifecycleNotification.recipient_user),
+            selectinload(LifecycleNotification.support_period_record),
+        )
+
     def list_all(
         self,
         *,
@@ -23,7 +29,11 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         notification_type: LifecycleNotificationType | None = None,
         support_period_record_id: UUID | None = None,
     ) -> list[LifecycleNotification]:
-        statement = select(LifecycleNotification).order_by(LifecycleNotification.created_at.desc())
+        statement = (
+            select(LifecycleNotification)
+            .options(*self._default_options())
+            .order_by(LifecycleNotification.created_at.desc())
+        )
 
         if status is not None:
             statement = statement.where(LifecycleNotification.status == status)
@@ -49,16 +59,23 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         *,
         support_period_record_id: UUID,
         notification_type: LifecycleNotificationType,
+        recipient_user_id: UUID | None,
     ) -> LifecycleNotification | None:
-        statement = select(LifecycleNotification).where(
-            LifecycleNotification.support_period_record_id == support_period_record_id,
-            LifecycleNotification.notification_type == notification_type,
+        statement = (
+            select(LifecycleNotification)
+            .options(*self._default_options())
+            .where(
+                LifecycleNotification.support_period_record_id == support_period_record_id,
+                LifecycleNotification.notification_type == notification_type,
+                LifecycleNotification.recipient_user_id == recipient_user_id,
+            )
         )
         return self.db.scalar(statement)
 
     def list_pending_due(self, now: datetime) -> list[LifecycleNotification]:
         statement = (
             select(LifecycleNotification)
+            .options(*self._default_options())
             .where(
                 LifecycleNotification.status == LifecycleNotificationStatus.pending,
                 LifecycleNotification.scheduled_for <= now,

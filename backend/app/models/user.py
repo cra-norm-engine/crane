@@ -62,6 +62,17 @@ class User(UUIDTimestampMixin, Base):
         back_populates="uploaded_by_user",
         passive_deletes=True,
     )
+    support_period_notification_assignments: Mapped[list["SupportPeriodNotificationRecipient"]] = relationship(
+        "SupportPeriodNotificationRecipient",
+        back_populates="user",
+        passive_deletes=True,
+    )
+    assigned_lifecycle_notifications: Mapped[list["LifecycleNotification"]] = relationship(
+        "LifecycleNotification",
+        foreign_keys="LifecycleNotification.recipient_user_id",
+        back_populates="recipient_user",
+        passive_deletes=True,
+    )
 
     @property
     def role_names(self) -> list[str]:

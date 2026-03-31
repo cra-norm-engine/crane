@@ -6,13 +6,30 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import SupportType
+from app.schemas.common import ORMBaseModel
+
+
+class SupportPeriodNotificationRecipientRead(ORMBaseModel):
+    id: UUID
+    user_id: UUID
+    full_name: str
+    email: str
+
+
+class SupportPeriodNotificationRecipientOptionRead(ORMBaseModel):
+    id: UUID
+    email: str
+    full_name: str
+    roles: list[str]
 
 
 class SupportPeriodRecordBase(BaseModel):
     product_id: UUID
     support_start_date: date
     support_end_date: date
+    notify_before_days: int = Field(default=180, ge=1, le=3650)
     support_type: SupportType = SupportType.standard
+    recipient_user_ids: list[UUID] = Field(default_factory=list)
 
     justification_text: str = Field(min_length=1)
     expected_use_time_text: str | None = None
@@ -36,7 +53,9 @@ class SupportPeriodRecordCreate(SupportPeriodRecordBase):
 class SupportPeriodRecordUpdate(BaseModel):
     support_start_date: date | None = None
     support_end_date: date | None = None
+    notify_before_days: int | None = Field(default=None, ge=1, le=3650)
     support_type: SupportType | None = None
+    recipient_user_ids: list[UUID] | None = None
 
     justification_text: str | None = Field(default=None, min_length=1)
     expected_use_time_text: str | None = None
@@ -64,6 +83,7 @@ class SupportPeriodRecordRead(SupportPeriodRecordBase):
     eos_notification_sent_at: datetime | None
     is_active: bool
     superseded_by_id: UUID | None
+    recipients: list[SupportPeriodNotificationRecipientRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

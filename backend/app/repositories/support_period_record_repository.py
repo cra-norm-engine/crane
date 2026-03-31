@@ -4,10 +4,10 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import NotFoundException
-from app.models.support_period_record import SupportPeriodRecord
+from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.repositories.base import BaseRepository
 
 
@@ -15,13 +15,25 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
     def __init__(self, db: Session) -> None:
         super().__init__(db, SupportPeriodRecord)
 
+    def _default_options(self):
+        return (
+            selectinload(SupportPeriodRecord.product),
+            selectinload(SupportPeriodRecord.notification_recipients).selectinload(
+                SupportPeriodNotificationRecipient.user
+            ),
+        )
+
     def list_all(
         self,
         *,
         product_id: UUID | None = None,
         active_only: bool = False,
     ) -> list[SupportPeriodRecord]:
-        statement = select(SupportPeriodRecord).order_by(SupportPeriodRecord.created_at.desc())
+        statement = (
+            select(SupportPeriodRecord)
+            .options(*self._default_options())
+            .order_by(SupportPeriodRecord.created_at.desc())
+        )
 
         if product_id:
             statement = statement.where(SupportPeriodRecord.product_id == product_id)
@@ -44,6 +56,7 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
                 SupportPeriodRecord.product_id == product_id,
                 SupportPeriodRecord.is_active.is_(True),
             )
+            .options(*self._default_options())
             .order_by(SupportPeriodRecord.created_at.desc())
         )
         return self.db.scalar(statement)
@@ -62,6 +75,7 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
                 SupportPeriodRecord.support_end_date <= notify_on_or_after,
                 SupportPeriodRecord.eos_notification_sent_at.is_(None),
             )
+            .options(*self._default_options())
             .order_by(SupportPeriodRecord.support_end_date.asc(), SupportPeriodRecord.created_at.desc())
         )
         return list(self.db.scalars(statement).all())
@@ -73,9 +87,13 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
         support_end_date_to: date | None = None,
         active_only: bool = False,
     ) -> list[SupportPeriodRecord]:
-        statement = select(SupportPeriodRecord).order_by(
-            SupportPeriodRecord.support_end_date.asc(),
-            SupportPeriodRecord.created_at.desc(),
+        statement = (
+            select(SupportPeriodRecord)
+            .options(*self._default_options())
+            .order_by(
+                SupportPeriodRecord.support_end_date.asc(),
+                SupportPeriodRecord.created_at.desc(),
+            )
         )
 
         conditions = []
@@ -96,6 +114,7 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
         statement = (
             select(SupportPeriodRecord)
             .where(SupportPeriodRecord.product_id == product_id)
+            .options(*self._default_options())
             .order_by(
                 SupportPeriodRecord.is_active.desc(),
                 SupportPeriodRecord.created_at.desc(),

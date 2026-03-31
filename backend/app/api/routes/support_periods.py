@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.support_period_record import (
     SupportPeriodRecordCreate,
     SupportPeriodRecordHistoryRead,
+    SupportPeriodNotificationRecipientOptionRead,
     SupportPeriodRecordRead,
     SupportPeriodRecordUpdate,
     SupportPeriodSnippetGenerateRequest,
@@ -20,6 +21,14 @@ from app.schemas.support_period_record import (
 from app.services.support_period_record_service import SupportPeriodRecordService
 
 router = APIRouter()
+
+
+@router.get("/notification-recipients", response_model=list[SupportPeriodNotificationRecipientOptionRead])
+def list_support_period_notification_recipients(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.support_period_read)),
+) -> list[SupportPeriodNotificationRecipientOptionRead]:
+    return SupportPeriodRecordService(db).list_notification_recipient_options()
 
 
 @router.get("/", response_model=list[SupportPeriodRecordRead])

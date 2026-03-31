@@ -2,6 +2,7 @@ import { apiClient } from "@/services/api";
 import type {
   SupportPeriodRecordCreate,
   SupportPeriodRecordHistoryRead,
+  SupportPeriodNotificationRecipientOptionRead,
   SupportPeriodRecordRead,
   SupportPeriodRecordUpdate,
   SupportPeriodSnippetGenerateRequest,
@@ -21,6 +22,13 @@ export const supportPeriodService = {
 
   async get(recordId: string): Promise<SupportPeriodRecordRead> {
     const { data } = await apiClient.get<SupportPeriodRecordRead>(`/support-periods/${recordId}`);
+    return data;
+  },
+
+  async listNotificationRecipients(): Promise<SupportPeriodNotificationRecipientOptionRead[]> {
+    const { data } = await apiClient.get<SupportPeriodNotificationRecipientOptionRead[]>(
+      "/support-periods/notification-recipients",
+    );
     return data;
   },
 

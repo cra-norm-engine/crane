@@ -46,6 +46,26 @@ class UserRepository(BaseRepository[User]):
         )
         return list(self.db.scalars(statement).all())
 
+    def list_active_users(self) -> list[User]:
+        statement = (
+            select(User)
+            .where(User.is_active.is_(True))
+            .options(*self._user_rbac_options())
+            .order_by(User.full_name.asc(), User.email.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
+    def list_active_users_by_ids(self, user_ids: list[UUID]) -> list[User]:
+        if not user_ids:
+            return []
+
+        statement = (
+            select(User)
+            .where(User.id.in_(user_ids), User.is_active.is_(True))
+            .options(*self._user_rbac_options())
+        )
+        return list(self.db.scalars(statement).all())
+
     def create_user(
         self,
         *,

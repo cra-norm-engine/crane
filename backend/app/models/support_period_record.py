@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,6 +22,7 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
 
     support_start_date: Mapped[date] = mapped_column(Date, nullable=False)
     support_end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notify_before_days: Mapped[int] = mapped_column(Integer, nullable=False, default=180)
 
     support_type: Mapped[SupportType] = mapped_column(
         nullable=False,
@@ -65,4 +66,43 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="desc(LifecycleNotification.created_at)",
+    )
+
+    notification_recipients: Mapped[list["SupportPeriodNotificationRecipient"]] = relationship(
+        "SupportPeriodNotificationRecipient",
+        back_populates="support_period_record",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="SupportPeriodNotificationRecipient.created_at.asc()",
+    )
+
+
+class SupportPeriodNotificationRecipient(UUIDTimestampMixin, Base):
+    __tablename__ = "support_period_notification_recipients"
+    __table_args__ = (
+        UniqueConstraint(
+            "support_period_record_id",
+            "user_id",
+            name="uq_support_period_notification_recipients_record_user",
+        ),
+    )
+
+    support_period_record_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("support_period_records.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    support_period_record: Mapped["SupportPeriodRecord"] = relationship(
+        "SupportPeriodRecord",
+        back_populates="notification_recipients",
+    )
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="support_period_notification_assignments",
     )

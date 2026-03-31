@@ -16,13 +16,19 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
         UniqueConstraint(
             "support_period_record_id",
             "notification_type",
-            name="uq_lifecycle_notifications_record_type",
+            "recipient_user_id",
+            name="uq_lifecycle_notifications_record_type_recipient",
         ),
     )
 
     support_period_record_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("support_period_records.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 
@@ -45,4 +51,9 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
     support_period_record: Mapped["SupportPeriodRecord"] = relationship(
         "SupportPeriodRecord",
         back_populates="lifecycle_notifications",
+    )
+    recipient_user: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys=[recipient_user_id],
+        back_populates="assigned_lifecycle_notifications",
     )

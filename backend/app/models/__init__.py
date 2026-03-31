@@ -13,7 +13,7 @@ from app.models.risk_item import RiskItem
 from app.models.annex_requirement import AnnexRequirement
 from app.models.evidence_item import EvidenceItem
 from app.models.security_update import SecurityUpdate
-from app.models.support_period_record import SupportPeriodRecord
+from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.user import Role, User, UserRole
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
@@ -35,7 +35,7 @@ from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
 from app.models.role_permission import RolePermission
 from app.models.security_update import SecurityUpdate
-from app.models.support_period_record import SupportPeriodRecord
+from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.user import Role, User, UserRole
 
 __all__ = [
@@ -55,6 +55,7 @@ __all__ = [
     "RolePermission",
     "SecurityUpdate",
     "SupportPeriodRecord",
+    "SupportPeriodNotificationRecipient",
     "Role",
     "User",
     "UserRole",
