@@ -4,19 +4,12 @@
       <div>
         <h1 class="page-title">Lifecycle notifications</h1>
         <p class="muted page-subtitle">
-          Review approaching end-of-support alerts and manage in-app notification state.
+          Run EOS analysis from active support periods and review products nearing end of support.
         </p>
       </div>
 
       <div class="page-actions">
-        <select v-model="statusFilter">
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="sent">Sent</option>
-          <option value="dismissed">Dismissed</option>
-        </select>
-
-        <button class="btn btn-secondary" type="button" @click="loadNotifications" :disabled="isLoading">
+        <button class="btn btn-secondary" type="button" @click="loadPageData" :disabled="isLoading">
           {{ isLoading ? "Refreshing..." : "Refresh" }}
         </button>
 
@@ -25,6 +18,103 @@
         </button>
       </div>
     </header>
+
+    <section class="card filters-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Analysis filters</h2>
+          <p class="muted">
+            Filter EOS results by threshold, classification, EOS state, and search.
+          </p>
+        </div>
+
+        <button class="btn btn-secondary" type="button" @click="resetFilters">
+          Reset filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <label class="field field-search">
+          <span class="field-label">Search</span>
+          <input
+            v-model.trim="filters.search"
+            type="search"
+            class="input"
+            placeholder="Search by code, product, manufacturer, or type"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Threshold</span>
+          <select v-model="filters.thresholdPreset" class="select">
+            <option value="180">Less than 6 months</option>
+            <option value="365">Less than 1 year</option>
+            <option value="30">Less than 30 days</option>
+            <option value="90">Less than 3 months</option>
+            <option value="custom">Custom</option>
+            <option value="expired">Expired only</option>
+            <option value="">All products with support</option>
+          </select>
+        </label>
+
+        <label v-if="filters.thresholdPreset === 'custom'" class="field">
+          <span class="field-label">Custom days</span>
+          <input
+            v-model.number="filters.customThresholdDays"
+            type="number"
+            min="1"
+            step="1"
+            class="input"
+            placeholder="120"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Classification</span>
+          <select v-model="filters.classification" class="select">
+            <option value="">All</option>
+            <option value="normal">Normal</option>
+            <option value="important_class_1">Important Class I</option>
+            <option value="important_class_2">Important Class II</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">EOS state</span>
+          <select v-model="filters.eosStatus" class="select">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="approaching_eos">Approaching EOS</option>
+            <option value="expired">Expired</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Sort by</span>
+          <select v-model="filters.sortBy" class="select">
+            <option value="days_left_asc">Days left</option>
+            <option value="support_end_asc">Support end date</option>
+            <option value="support_end_desc">Support end date (latest)</option>
+            <option value="updated_desc">Latest updated</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="code_asc">Code A–Z</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="card stat-card">
+        <p class="muted stat-label">Products with support</p>
+        <strong class="stat-value">{{ eosRows.length }}</strong>
+      </article>
+
+      <article class="card stat-card">
+        <p class="muted stat-label">Expired</p>
+        <strong class="stat-value">{{ expiredCount }}</strong>
+      </article>
+    </section>
 
     <div v-if="errorMessage" class="card feedback feedback-error">
       {{ errorMessage }}
@@ -37,64 +127,63 @@
     <section class="card">
       <div class="section-header">
         <div>
-          <h2 class="section-title">Alerts</h2>
-          <p class="muted">{{ notifications.length }} notification(s)</p>
+          <h2 class="section-title">EOS analysis</h2>
+          <p class="muted">{{ filteredRows.length }} result(s)</p>
         </div>
       </div>
 
       <div v-if="isLoading" class="empty-panel">
-        Loading lifecycle notifications…
+        Loading EOS analysis…
       </div>
 
-      <div v-else-if="notifications.length === 0" class="empty-panel">
-        No lifecycle notifications found.
+      <div v-else-if="filteredRows.length === 0" class="empty-panel">
+        No products matched the current EOS criteria.
       </div>
 
       <div v-else class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Scheduled</th>
-              <th>Message</th>
-              <th>Actions</th>
+              <th>Product</th>
+              <th>Code</th>
+              <th>Manufacturer</th>
+              <th>Classification</th>
+              <th>Support ends</th>
+              <th>Days left</th>
+              <th>EOS status</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr v-for="notification in notifications" :key="notification.id">
-              <td>{{ formatNotificationType(notification.notification_type) }}</td>
+            <tr v-for="row in filteredRows" :key="row.product.id">
               <td>
-                <span class="badge" :class="statusClass(notification.status)">
-                  {{ formatStatus(notification.status) }}
+                <div class="product-cell">
+                  <strong>{{ row.product.name }}</strong>
+                  <p class="muted">{{ row.product.product_type }}</p>
+                </div>
+              </td>
+
+              <td><code>{{ row.product.product_code }}</code></td>
+              <td>{{ row.product.manufacturer_name }}</td>
+
+              <td>
+                <span class="badge" :class="classificationClass(row.product.current_classification)">
+                  {{ formatClassification(row.product.current_classification) }}
                 </span>
               </td>
-              <td>{{ formatDateTime(notification.scheduled_for) }}</td>
-              <td class="message-cell">
-                <strong>{{ notification.title }}</strong>
-                <p>{{ notification.message }}</p>
-              </td>
+
+              <td>{{ formatDate(row.support.support_end_date) }}</td>
+
               <td>
-                <div class="table-actions">
-                  <button
-                    v-if="notification.status === 'pending'"
-                    class="btn btn-secondary btn-small"
-                    type="button"
-                    @click="markSent(notification.id)"
-                  >
-                    Mark sent
-                  </button>
-                  <button
-                    v-if="notification.status === 'pending'"
-                    class="btn btn-secondary btn-small"
-                    type="button"
-                    @click="dismiss(notification.id)"
-                  >
-                    Dismiss
-                  </button>
-                  <span v-if="notification.status !== 'pending'" class="muted">No actions</span>
-                </div>
+                <span :class="daysLeftClass(row.daysLeft)">
+                  {{ formatDaysLeft(row.daysLeft) }}
+                </span>
+              </td>
+
+              <td>
+                <span class="badge" :class="supportStatusClass(row.eosStatus)">
+                  {{ formatSupportStatus(row.eosStatus) }}
+                </span>
               </td>
             </tr>
           </tbody>
@@ -105,60 +194,271 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
-import type { LifecycleNotificationRead, LifecycleNotificationStatus } from "@/types/product";
+import { productService } from "@/services/product-service";
+import { supportPeriodService } from "@/services/support-period-service";
 
-const notifications = ref<LifecycleNotificationRead[]>([]);
+import type {
+  ProductClassification,
+  ProductSummaryRead,
+  SupportPeriodRecordRead,
+} from "@/types/product";
+
+type ThresholdPreset = "" | "30" | "90" | "180" | "365" | "custom" | "expired";
+type EosStatus = "active" | "approaching_eos" | "expired";
+
+type EosRow = {
+  product: ProductSummaryRead;
+  support: SupportPeriodRecordRead;
+  daysLeft: number;
+  eosStatus: EosStatus;
+};
+
+const products = ref<ProductSummaryRead[]>([]);
+const supportByProductId = ref<Record<string, SupportPeriodRecordRead | null>>({});
+
 const isLoading = ref(false);
 const isRunningScheduler = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
-const statusFilter = ref<"" | LifecycleNotificationStatus>("");
 
-function formatNotificationType(value: string): string {
-  return value.replaceAll("_", " ");
+const filters = reactive({
+  search: "",
+  thresholdPreset: "180" as ThresholdPreset,
+  customThresholdDays: 120,
+  classification: "" as ProductClassification | "",
+  eosStatus: "" as EosStatus | "",
+  sortBy: "days_left_asc" as
+    | "days_left_asc"
+    | "support_end_asc"
+    | "support_end_desc"
+    | "updated_desc"
+    | "name_asc"
+    | "code_asc",
+});
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function formatStatus(value: string): string {
-  return value.replaceAll("_", " ");
+function getDaysLeft(endDateValue: string): number {
+  const today = startOfDay(new Date());
+  const end = startOfDay(new Date(`${endDateValue}T00:00:00`));
+  const diffMs = end.getTime() - today.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
-function statusClass(value: string): string {
+function getThresholdDays(): number | null {
+  switch (filters.thresholdPreset) {
+    case "30":
+      return 30;
+    case "90":
+      return 90;
+    case "180":
+      return 180;
+    case "365":
+      return 365;
+    case "custom":
+      return filters.customThresholdDays > 0 ? filters.customThresholdDays : null;
+    default:
+      return null;
+  }
+}
+
+function getEosStatusFromSupport(support: SupportPeriodRecordRead): EosStatus {
+  const daysLeft = getDaysLeft(support.support_end_date);
+
+  if (daysLeft < 0) {
+    return "expired";
+  }
+
+  if (daysLeft <= 180) {
+    return "approaching_eos";
+  }
+
+  return "active";
+}
+
+const eosRows = computed<EosRow[]>(() =>
+  products.value
+    .map((product) => {
+      const support = supportByProductId.value[product.id];
+      if (!support) return null;
+
+      const daysLeft = getDaysLeft(support.support_end_date);
+      const eosStatus = getEosStatusFromSupport(support);
+
+      return {
+        product,
+        support,
+        daysLeft,
+        eosStatus,
+      };
+    })
+    .filter((row): row is EosRow => Boolean(row)),
+);
+
+const filteredRows = computed(() => {
+  const query = filters.search.trim().toLowerCase();
+  const thresholdDays = getThresholdDays();
+
+  const filtered = eosRows.value.filter((row) => {
+    const matchesSearch =
+      !query ||
+      [
+        row.product.product_code,
+        row.product.name,
+        row.product.manufacturer_name,
+        row.product.product_type,
+        row.support.support_end_date,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+
+    const matchesClassification =
+      !filters.classification || row.product.current_classification === filters.classification;
+
+    const matchesEosStatus =
+      !filters.eosStatus || row.eosStatus === filters.eosStatus;
+
+    const matchesThreshold =
+      filters.thresholdPreset === ""
+        ? true
+        : filters.thresholdPreset === "expired"
+          ? row.daysLeft < 0
+          : thresholdDays !== null
+            ? row.daysLeft >= 0 && row.daysLeft < thresholdDays
+            : true;
+
+    return matchesSearch && matchesClassification && matchesEosStatus && matchesThreshold;
+  });
+
+  return [...filtered].sort((a, b) => {
+    switch (filters.sortBy) {
+      case "support_end_asc":
+        return new Date(a.support.support_end_date).getTime() - new Date(b.support.support_end_date).getTime();
+      case "support_end_desc":
+        return new Date(b.support.support_end_date).getTime() - new Date(a.support.support_end_date).getTime();
+      case "updated_desc":
+        return new Date(b.product.updated_at).getTime() - new Date(a.product.updated_at).getTime();
+      case "name_asc":
+        return a.product.name.localeCompare(b.product.name);
+      case "code_asc":
+        return a.product.product_code.localeCompare(b.product.product_code);
+      case "days_left_asc":
+      default:
+        return a.daysLeft - b.daysLeft;
+    }
+  });
+});
+
+const expiredCount = computed(() => eosRows.value.filter((row) => row.daysLeft < 0).length);
+
+function formatSupportStatus(value: EosStatus): string {
   switch (value) {
-    case "pending":
-      return "badge-warning";
-    case "sent":
+    case "active":
+      return "Active";
+    case "approaching_eos":
+      return "Approaching EOS";
+    case "expired":
+      return "Expired";
+  }
+}
+
+function supportStatusClass(value: EosStatus): string {
+  switch (value) {
+    case "active":
       return "badge-success";
-    case "dismissed":
-      return "badge-neutral";
+    case "approaching_eos":
+      return "badge-warning";
+    case "expired":
+      return "badge-danger";
+  }
+}
+
+function formatClassification(value: ProductClassification): string {
+  switch (value) {
+    case "important_class_1":
+      return "Important Class I";
+    case "important_class_2":
+      return "Important Class II";
+    case "critical":
+      return "Critical";
+    default:
+      return "Normal";
+  }
+}
+
+function classificationClass(value: ProductClassification): string {
+  switch (value) {
+    case "critical":
+      return "badge-danger";
+    case "important_class_1":
+    case "important_class_2":
+      return "badge-warning";
     default:
       return "badge-neutral";
   }
 }
 
-function formatDateTime(value: string): string {
+function formatDaysLeft(daysLeft: number): string {
+  if (daysLeft < 0) return `${Math.abs(daysLeft)} day(s) overdue`;
+  if (daysLeft === 0) return "Ends today";
+  return `${daysLeft} day(s)`;
+}
+
+function daysLeftClass(daysLeft: number): string {
+  if (daysLeft < 0) return "text-danger";
+  if (daysLeft <= 180) return "text-warning";
+  return "text-success";
+}
+
+function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
     month: "short",
     day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
   }).format(new Date(value));
 }
 
-async function loadNotifications(): Promise<void> {
+function resetFilters(): void {
+  filters.search = "";
+  filters.thresholdPreset = "180";
+  filters.customThresholdDays = 120;
+  filters.classification = "";
+  filters.eosStatus = "";
+  filters.sortBy = "days_left_asc";
+}
+
+async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<void> {
+  const entries = await Promise.all(
+    productList.map(async (product) => {
+      try {
+        const record = await supportPeriodService.getActiveForProduct(product.id);
+        return [product.id, record] as const;
+      } catch {
+        return [product.id, null] as const;
+      }
+    }),
+  );
+
+  supportByProductId.value = Object.fromEntries(entries);
+}
+
+async function loadPageData(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
 
   try {
-    notifications.value = await lifecycleNotificationService.list(
-      statusFilter.value ? { status: statusFilter.value } : undefined,
-    );
+    const loadedProducts = await productService.list();
+    products.value = loadedProducts;
+    await loadSupportPeriods(loadedProducts);
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "Failed to load lifecycle notifications.";
+      error instanceof Error ? error.message : "Failed to load EOS page.";
   } finally {
     isLoading.value = false;
   }
@@ -170,9 +470,14 @@ async function runScheduler(): Promise<void> {
   successMessage.value = "";
 
   try {
-    const created = await lifecycleNotificationService.scheduleEosCheck();
-    successMessage.value = `EOS check completed. ${created.length} notification(s) created.`;
-    await loadNotifications();
+    const thresholdDays = getThresholdDays();
+    const created = await lifecycleNotificationService.scheduleEosCheck(
+      thresholdDays ? { threshold_days: thresholdDays } : undefined,
+    );
+
+    successMessage.value = thresholdDays
+      ? `EOS check completed for threshold ${thresholdDays} day(s). ${created.length} notification(s) created.`
+      : `EOS check completed. ${created.length} notification(s) created.`;
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to run EOS scheduling check.";
@@ -181,37 +486,9 @@ async function runScheduler(): Promise<void> {
   }
 }
 
-async function markSent(notificationId: string): Promise<void> {
-  errorMessage.value = "";
-  successMessage.value = "";
-
-  try {
-    await lifecycleNotificationService.markSent(notificationId);
-    successMessage.value = "Notification marked as sent.";
-    await loadNotifications();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "Failed to mark notification as sent.";
-  }
-}
-
-async function dismiss(notificationId: string): Promise<void> {
-  errorMessage.value = "";
-  successMessage.value = "";
-
-  try {
-    await lifecycleNotificationService.dismiss(notificationId);
-    successMessage.value = "Notification dismissed.";
-    await loadNotifications();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "Failed to dismiss notification.";
-  }
-}
-
-watch(statusFilter, () => {
-  void loadNotifications();
-}, { immediate: true });
+onMounted(() => {
+  void loadPageData();
+});
 </script>
 
 <style scoped>
@@ -243,6 +520,51 @@ watch(statusFilter, () => {
 
 .page-subtitle {
   margin-top: 0.35rem;
+}
+
+.filters-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field-search {
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.stat-label {
+  margin: 0;
+}
+
+.stat-value {
+  font-size: 1.6rem;
 }
 
 .feedback,
@@ -284,15 +606,9 @@ watch(statusFilter, () => {
   white-space: nowrap;
 }
 
-.message-cell p {
-  margin: 0.35rem 0 0;
-  line-height: 1.5;
-}
-
-.table-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.product-cell {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .badge {
@@ -302,6 +618,8 @@ watch(statusFilter, () => {
   padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
+  width: fit-content;
+  text-transform: capitalize;
 }
 
 .badge-neutral {
@@ -319,16 +637,32 @@ watch(statusFilter, () => {
   color: #fde68a;
 }
 
+.badge-danger {
+  background: rgba(251, 113, 133, 0.15);
+  color: #fda4af;
+}
+
+.text-success {
+  color: #86efac;
+  font-weight: 600;
+}
+
+.text-warning {
+  color: #fde68a;
+  font-weight: 600;
+}
+
+.text-danger {
+  color: #fda4af;
+  font-weight: 600;
+}
+
 .btn {
   border: 1px solid transparent;
   border-radius: 0.85rem;
   padding: 0.75rem 1rem;
   font: inherit;
   cursor: pointer;
-}
-
-.btn-small {
-  padding: 0.5rem 0.7rem;
 }
 
 .btn-primary {
@@ -342,7 +676,33 @@ watch(statusFilter, () => {
   color: inherit;
 }
 
+.input,
+.select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 2.7rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+  color: inherit;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+}
+
 .muted {
   color: var(--color-text-muted, #94a3b8);
+}
+
+@media (max-width: 1400px) {
+  .filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .summary-grid,
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
