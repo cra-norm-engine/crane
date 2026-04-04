@@ -48,6 +48,12 @@ class Product(UUIDTimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    artifact_links: Mapped[list["ArtifactProductLink"]] = relationship(
+        "ArtifactProductLink",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     remote_processing_elements: Mapped[list["RemoteProcessingElement"]] = relationship(
         back_populates="product",
         cascade="all, delete-orphan",
@@ -114,6 +120,13 @@ class ProductRelease(UUIDTimestampMixin, Base):
         back_populates="product_release",
         passive_deletes=True,
         order_by="desc(EvidenceItem.created_at)",
+    )
+    release_gate: Mapped["ReleaseGate | None"] = relationship(
+        "ReleaseGate",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
     )
     security_updates: Mapped[list["SecurityUpdate"]] = relationship(
         "SecurityUpdate",

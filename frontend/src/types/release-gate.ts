@@ -1,0 +1,82 @@
+import type { ArtifactRevisionRead, UserSummaryRead } from "@/types/artifact";
+import type { ConformityRoute, ProductClassification } from "@/types/product";
+
+export type ReleaseGateStatus = "draft" | "in_review" | "approved" | "blocked";
+export type GateDecision = "pending_review" | "accepted" | "rejected" | "needs_update" | "waived";
+export type ReleaseGateItemCode =
+  | "technical_documentation"
+  | "risk_assessment"
+  | "sbom"
+  | "test_report"
+  | "declaration_of_conformity"
+  | "annex_mapping";
+
+export interface ProductReleaseRead {
+  id: string;
+  product_id: string;
+  version: string;
+  release_status:
+    | "draft"
+    | "in_review"
+    | "blocked"
+    | "approved"
+    | "released"
+    | "withdrawn"
+    | "recalled"
+    | "end_of_support";
+  planned_release_date: string | null;
+  actual_release_date: string | null;
+  classification_snapshot: ProductClassification;
+  conformity_route_snapshot: ConformityRoute;
+  release_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReleaseGateEvidenceLinkRead {
+  id: string;
+  decision: GateDecision;
+  rationale: string | null;
+  linked_by_user_id: string;
+  linked_by_user: UserSummaryRead | null;
+  reviewed_by_user_id: string | null;
+  reviewed_by_user: UserSummaryRead | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  artifact_revision: ArtifactRevisionRead;
+}
+
+export interface ReleaseGateItemRead {
+  id: string;
+  code: ReleaseGateItemCode;
+  title: string;
+  description: string | null;
+  is_required: boolean;
+  sort_order: number;
+  status: GateDecision;
+  evidence_links: ReleaseGateEvidenceLinkRead[];
+}
+
+export interface ReleaseGateRead {
+  id: string;
+  product_release_id: string;
+  status: ReleaseGateStatus;
+  submitted_at: string | null;
+  submitted_by_user_id: string | null;
+  submitted_by_user: UserSummaryRead | null;
+  approved_at: string | null;
+  approved_by_user_id: string | null;
+  approved_by_user: UserSummaryRead | null;
+  created_at: string;
+  updated_at: string;
+  items: ReleaseGateItemRead[];
+  required_items_count: number;
+  accepted_items_count: number;
+  pending_items_count: number;
+}
+
+export interface ReleaseGateDetailRead {
+  release: ProductReleaseRead;
+  gate: ReleaseGateRead;
+}

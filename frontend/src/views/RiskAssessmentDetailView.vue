@@ -217,19 +217,31 @@
 
         <article class="panel">
           <div class="panel-header">
-            <h2>Evidence Attachments</h2>
+            <h2>Supporting Evidence</h2>
           </div>
 
           <div class="placeholder-box">
-            <p class="placeholder-title">File upload placeholder</p>
+            <p class="placeholder-title">Add evidence through the release workflow</p>
             <p class="placeholder-text">
-              This section is compatible with later file uploads. For now, add evidence records using
-              file paths or external URLs in the backend/API.
+              To keep the workflow simple for non-experts, files and links are added from the release workflow, not as
+              generic evidence records from this screen.
             </p>
+            <div class="placeholder-actions">
+              <RouterLink
+                v-if="assessment.product_release_id"
+                class="primary-button workflow-link"
+                :to="{ name: 'release-gate', params: { releaseId: assessment.product_release_id } }"
+              >
+                Open release workflow
+              </RouterLink>
+              <p v-else class="placeholder-note">
+                Link this assessment to a product release first, then open the release workflow to add files for review.
+              </p>
+            </div>
             <ul class="placeholder-list">
               <li>Assessment-linked evidence count: {{ assessment.evidence_items_count ?? 0 }}</li>
-              <li>Future enhancement: direct uploads + storage integration</li>
-              <li>Current scope: metadata placeholder only</li>
+              <li>Best for contributors: upload evidence from the release checklist</li>
+              <li>Best for reviewers: approve or request updates from the release workflow</li>
             </ul>
           </div>
         </article>
@@ -831,6 +843,23 @@ onMounted(async () => {
 
 .placeholder-text {
   margin: 0 0 0.8rem;
+  color: #475569;
+}
+
+.placeholder-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.workflow-link {
+  text-decoration: none;
+}
+
+.placeholder-note {
+  margin: 0;
   color: #475569;
 }
 

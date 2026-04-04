@@ -331,6 +331,100 @@
           <section class="card">
             <div class="section-header">
               <div>
+                <h2 class="section-title">Release workflow</h2>
+                <p class="muted">
+                  Each release has its own evidence workspace and approval gate. Open a release to upload artifacts,
+                  submit evidence for review, and approve the gate.
+                </p>
+              </div>
+              <button class="btn btn-primary" type="button" @click="showReleaseForm = !showReleaseForm" :disabled="isCreatingRelease">
+                {{ showReleaseForm ? "Close release form" : "Create release" }}
+              </button>
+            </div>
+
+            <form v-if="showReleaseForm" class="edit-grid release-form" @submit.prevent="createRelease">
+              <label class="field">
+                <span class="field-label">Version</span>
+                <input v-model.trim="releaseForm.version" type="text" maxlength="100" required placeholder="1.0.0" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Planned release date</span>
+                <input v-model="releaseForm.planned_release_date" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Classification snapshot</span>
+                <select v-model="releaseForm.classification_snapshot">
+                  <option value="normal">Normal</option>
+                  <option value="important_class_1">Important Class I</option>
+                  <option value="important_class_2">Important Class II</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Conformity route</span>
+                <select v-model="releaseForm.conformity_route_snapshot">
+                  <option value="undecided">Undecided</option>
+                  <option value="self_assessment">Self assessment</option>
+                  <option value="third_party_assessment">Third-party assessment</option>
+                  <option value="not_applicable">Not applicable</option>
+                </select>
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Release notes</span>
+                <textarea v-model.trim="releaseForm.release_notes" rows="3" placeholder="Optional release notes" />
+              </label>
+
+              <div class="field field-span-2 inline-actions">
+                <button class="btn btn-secondary" type="button" @click="resetReleaseForm" :disabled="isCreatingRelease">
+                  Reset
+                </button>
+                <button class="btn btn-primary" type="submit" :disabled="isCreatingRelease">
+                  {{ isCreatingRelease ? "Creating..." : "Create release and open workflow" }}
+                </button>
+              </div>
+            </form>
+
+            <div v-if="product.releases.length === 0" class="empty-panel">
+              Create a release to start the release workflow for this product.
+            </div>
+
+            <div v-else class="release-workflow-grid">
+              <article v-for="release in product.releases" :key="`workflow-${release.id}`" class="release-workflow-card">
+                <div class="release-workflow-head">
+                  <div>
+                    <p class="release-workflow-version">Release {{ release.version }}</p>
+                    <p class="muted">
+                      {{ formatConformityRoute(release.conformity_route_snapshot) }}
+                      · {{ formatClassification(release.classification_snapshot) }}
+                    </p>
+                  </div>
+                  <span class="badge badge-neutral">
+                    {{ formatReleaseStatus(release.release_status) }}
+                  </span>
+                </div>
+
+                <div class="release-workflow-meta">
+                  <span>Planned: {{ formatDate(release.planned_release_date) }}</span>
+                  <span>Actual: {{ formatDate(release.actual_release_date) }}</span>
+                </div>
+
+                <RouterLink
+                  class="release-workspace-link release-workspace-link-prominent"
+                  :to="{ name: 'release-gate', params: { releaseId: release.id } }"
+                >
+                  Open release workflow
+                </RouterLink>
+              </article>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="section-header">
+              <div>
                 <h2 class="section-title">Releases</h2>
                 <p class="muted">{{ product.releases.length }} release(s)</p>
               </div>
@@ -350,11 +444,16 @@
                     <th>Conformity route</th>
                     <th>Planned</th>
                     <th>Actual</th>
+                    <th>Workflow</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="release in product.releases" :key="release.id">
-                    <td><strong>{{ release.version }}</strong></td>
+                    <td>
+                      <RouterLink class="release-link" :to="{ name: 'release-gate', params: { releaseId: release.id } }">
+                        <strong>{{ release.version }}</strong>
+                      </RouterLink>
+                    </td>
                     <td>
                       <span class="badge badge-neutral">
                         {{ formatReleaseStatus(release.release_status) }}
@@ -368,6 +467,11 @@
                     <td>{{ formatConformityRoute(release.conformity_route_snapshot) }}</td>
                     <td>{{ formatDate(release.planned_release_date) }}</td>
                     <td>{{ formatDate(release.actual_release_date) }}</td>
+                    <td>
+                      <RouterLink class="release-workspace-link" :to="{ name: 'release-gate', params: { releaseId: release.id } }">
+                        Open workspace
+                      </RouterLink>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -600,13 +704,16 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import { productService } from "@/services/product-service";
+import { productReleaseService } from "@/services/product-release-service";
 import { supportPeriodService } from "@/services/support-period-service";
 import type {
   ConformityRoute,
   ProductClassification,
   ProductDetailRead,
+  ProductReleaseCreate,
   ProductScopeEvaluationRead,
   ProductScopeEvaluationRequest,
   SupportPeriodNotificationRecipientOptionRead,
@@ -618,6 +725,7 @@ import type {
 const props = defineProps<{
   productId: string;
 }>();
+const router = useRouter();
 
 const product = ref<ProductDetailRead | null>(null);
 const activeSupportPeriod = ref<SupportPeriodRecordRead | null>(null);
@@ -631,6 +739,8 @@ const isSaving = ref(false);
 const isEditing = ref(false);
 const isEvaluatingScope = ref(false);
 const isSavingSupportPeriod = ref(false);
+const isCreatingRelease = ref(false);
+const showReleaseForm = ref(false);
 
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -674,6 +784,14 @@ const supportForm = reactive({
   third_party_support_constraints_text: "",
   user_facing_summary: "",
   packaging_summary: "",
+});
+
+const releaseForm = reactive({
+  version: "",
+  planned_release_date: "",
+  classification_snapshot: "normal" as ProductClassification,
+  conformity_route_snapshot: "undecided" as ConformityRoute,
+  release_notes: "",
 });
 
 const notificationSchedulePreview = computed(() => {
@@ -725,6 +843,7 @@ function syncEditForm(): void {
   editForm.parent_product_id = product.value.parent_product_id ?? "";
   editForm.current_classification = product.value.current_classification;
   editForm.scope_status = product.value.scope_status;
+  releaseForm.classification_snapshot = product.value.current_classification;
 }
 
 function syncSupportForm(): void {
@@ -767,6 +886,14 @@ function startEditing(): void {
 function cancelEditing(): void {
   syncEditForm();
   isEditing.value = false;
+}
+
+function resetReleaseForm(): void {
+  releaseForm.version = "";
+  releaseForm.planned_release_date = "";
+  releaseForm.classification_snapshot = product.value?.current_classification ?? "normal";
+  releaseForm.conformity_route_snapshot = "undecided";
+  releaseForm.release_notes = "";
 }
 
 function toggleRecipientDropdown(): void {
@@ -1061,6 +1188,41 @@ async function runScopeEvaluation(): Promise<void> {
   }
 }
 
+async function createRelease(): Promise<void> {
+  if (!product.value) return;
+
+  errorMessage.value = "";
+  successMessage.value = "";
+  isCreatingRelease.value = true;
+
+  try {
+    const payload: ProductReleaseCreate = {
+      product_id: product.value.id,
+      version: releaseForm.version.trim(),
+      release_status: "draft",
+      classification_snapshot: releaseForm.classification_snapshot,
+      conformity_route_snapshot: releaseForm.conformity_route_snapshot,
+      planned_release_date: releaseForm.planned_release_date
+        ? `${releaseForm.planned_release_date}T00:00:00Z`
+        : null,
+      actual_release_date: null,
+      release_notes: releaseForm.release_notes.trim() || null,
+    };
+
+    const createdRelease = await productReleaseService.create(payload);
+    successMessage.value = `Release ${createdRelease.version} created.`;
+    showReleaseForm.value = false;
+    resetReleaseForm();
+    await loadProduct();
+    await router.push({ name: "release-gate", params: { releaseId: createdRelease.id } });
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "Failed to create release.";
+  } finally {
+    isCreatingRelease.value = false;
+  }
+}
+
 watch(
   () => props.productId,
   () => {
@@ -1072,6 +1234,8 @@ watch(
     activeSupportPeriod.value = null;
     closeRecipientDropdown();
     supportHistoryCount.value = 0;
+    showReleaseForm.value = false;
+    resetReleaseForm();
     void loadProduct();
   },
   { immediate: true },
@@ -1448,6 +1612,77 @@ textarea {
 
 .muted {
   color: var(--color-text-muted, #94a3b8);
+}
+
+.release-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.release-link:hover {
+  color: #fde68a;
+}
+
+.release-workspace-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  text-decoration: none;
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfdbfe;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.release-workspace-link:hover {
+  background: rgba(59, 130, 246, 0.24);
+  color: #eff6ff;
+}
+
+.release-workflow-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.release-form {
+  margin-bottom: 1rem;
+}
+
+.release-workflow-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.release-workflow-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.release-workflow-version {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.release-workflow-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.92rem;
+}
+
+.release-workspace-link-prominent {
+  justify-self: flex-start;
 }
 
 @media (max-width: 1100px) {

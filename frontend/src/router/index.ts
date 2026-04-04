@@ -11,6 +11,7 @@ import RiskAssessmentDetailView from "@/views/RiskAssessmentDetailView.vue";
 import AnnexMatrixView from "@/views/AnnexMatrixView.vue";
 import LifecycleNotificationsView from "@/views/LifecycleNotificationsView.vue";
 import SecurityUpdateHistoryView from "@/views/SecurityUpdateHistoryView.vue";
+import ReleaseGateView from "@/views/ReleaseGateView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -40,6 +41,15 @@ const routes: RouteRecordRaw[] = [
         name: "product-detail",
         component: ProductDetailView,
         props: true,
+      },
+      {
+        path: "releases/:releaseId",
+        name: "release-gate",
+        component: ReleaseGateView,
+        props: true,
+        meta: {
+          permissions: ["release_read"],
+        },
       },
       {
         path: "security-updates",

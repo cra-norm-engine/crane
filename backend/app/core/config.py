@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = Field(default="INFO", alias="BACKEND_LOG_LEVEL")
 
+    # --- Artifact Storage ---
+    artifact_upload_dir: str = Field(
+        default="/workspace/backend/uploads/artifacts",
+        alias="BACKEND_ARTIFACT_UPLOAD_DIR",
+    )
+
     # --- Validators ---
     @field_validator("cors_origins", mode="before")
     @classmethod

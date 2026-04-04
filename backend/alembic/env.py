@@ -9,10 +9,12 @@ from app.core.config import settings
 from app.models.base import Base
 from app.models import (  # noqa: F401
     annex_requirement,
+    artifact,
     audit_log_event,
     evidence_item,
     placeholders,
     product,
+    release_gate,
     requirement_mapping,
     risk_assessment,
     risk_item,

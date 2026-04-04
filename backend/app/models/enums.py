@@ -84,6 +84,35 @@ class EvidenceType(StrEnum):
     authority_package = "authority_package"
 
 
+class ArtifactSourceType(StrEnum):
+    upload = "upload"
+    external_link = "external_link"
+
+
+class ArtifactReviewDecision(StrEnum):
+    pending_review = "pending_review"
+    accepted = "accepted"
+    rejected = "rejected"
+    needs_update = "needs_update"
+    waived = "waived"
+
+
+class ReleaseGateWorkflowStatus(StrEnum):
+    draft = "draft"
+    in_review = "in_review"
+    approved = "approved"
+    blocked = "blocked"
+
+
+class ReleaseGateItemCode(StrEnum):
+    technical_documentation = "technical_documentation"
+    risk_assessment = "risk_assessment"
+    sbom = "sbom"
+    test_report = "test_report"
+    declaration_of_conformity = "declaration_of_conformity"
+    annex_mapping = "annex_mapping"
+
+
 class VulnerabilityStatus(StrEnum):
     open = "open"
     under_review = "under_review"

@@ -52,6 +52,25 @@ export interface ProductReleaseSummaryRead {
   updated_at: string;
 }
 
+export interface ProductReleaseCreate {
+  product_id: string;
+  version: string;
+  release_status?:
+    | "draft"
+    | "in_review"
+    | "blocked"
+    | "approved"
+    | "released"
+    | "withdrawn"
+    | "recalled"
+    | "end_of_support";
+  classification_snapshot: ProductClassification;
+  conformity_route_snapshot: ConformityRoute;
+  planned_release_date?: string | null;
+  actual_release_date?: string | null;
+  release_notes?: string | null;
+}
+
 export interface RemoteProcessingElementSummaryRead {
   id: string;
   name: string;
