@@ -25,12 +25,13 @@
         </label>
 
         <label class="field">
-          <span>Product Release ID</span>
-          <input
-            v-model="filters.productReleaseId"
-            type="text"
-            placeholder="Filter by product release UUID"
-          />
+          <span>Release</span>
+          <select v-model="filters.productReleaseId" :disabled="!filters.productId">
+            <option value="">{{ filters.productId ? "All releases" : "Select a product first" }}</option>
+            <option v-for="release in filterReleases" :key="release.id" :value="release.id">
+              {{ getReleaseLabel(release) }}
+            </option>
+          </select>
         </label>
 
         <div class="filter-actions">
@@ -61,8 +62,13 @@
         </label>
 
         <label class="field">
-          <span>Product Release ID</span>
-          <input v-model="createForm.product_release_id" type="text" />
+          <span>Release</span>
+          <select v-model="createReleaseId" :disabled="!createForm.product_id">
+            <option value="">{{ createForm.product_id ? "No linked release" : "Select a product first" }}</option>
+            <option v-for="release in createReleases" :key="release.id" :value="release.id">
+              {{ getReleaseLabel(release) }}
+            </option>
+          </select>
         </label>
 
         <label class="field">
@@ -145,7 +151,7 @@
               </td>
               <td>{{ assessment.methodology }}</td>
               <td>{{ getProductName(assessment.product_id) }}</td>
-              <td class="uuid-cell">{{ assessment.product_release_id ?? "—" }}</td>
+              <td>{{ getReleaseName(assessment.product_release_id) }}</td>
               <td>{{ formatDate(assessment.approved_at) }}</td>
               <td>{{ formatDate(assessment.updated_at) }}</td>
             </tr>
@@ -157,9 +163,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { useAuthStore } from "@/stores/auth";
@@ -169,6 +176,7 @@ import type {
   RiskAssessmentStatus,
 } from "@/types/risk-assessment";
 import type { ProductSummaryRead } from "@/types/product";
+import type { ProductReleaseRead } from "@/types/release-gate";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -180,6 +188,9 @@ const errorMessage = ref("");
 const successMessage = ref("");
 const assessments = ref<RiskAssessmentRead[]>([]);
 const products = ref<ProductSummaryRead[]>([]);
+const filterReleases = ref<ProductReleaseRead[]>([]);
+const createReleases = ref<ProductReleaseRead[]>([]);
+const createReleaseId = ref("");
 
 const assessmentStatuses: RiskAssessmentStatus[] = [
   "draft",
@@ -238,11 +249,41 @@ function getProductName(productId: string): string {
   return "name" in product && product.name ? product.name : product.id;
 }
 
+function formatReleaseStatus(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function getReleaseLabel(release: ProductReleaseRead): string {
+  return `${release.version} (${formatReleaseStatus(release.release_status)})`;
+}
+
+function getReleaseName(releaseId: string | null): string {
+  if (!releaseId) {
+    return "—";
+  }
+
+  const release = [...filterReleases.value, ...createReleases.value].find((item) => item.id === releaseId);
+  return release ? release.version : releaseId;
+}
+
 async function loadProducts(): Promise<void> {
   try {
     products.value = await productService.list();
   } catch (error) {
     console.error("Failed to load products.", error);
+  }
+}
+
+async function loadReleases(productId: string): Promise<ProductReleaseRead[]> {
+  if (!productId.trim()) {
+    return [];
+  }
+
+  try {
+    return await productReleaseService.list(productId.trim());
+  } catch (error) {
+    console.error("Failed to load product releases.", error);
+    return [];
   }
 }
 
@@ -257,7 +298,7 @@ async function loadAssessments(): Promise<void> {
 
     if (!productId && !productReleaseId) {
       assessments.value = [];
-      errorMessage.value = "Provide a product or product release ID to load assessments.";
+      errorMessage.value = "Provide a product or release to load assessments.";
       return;
     }
 
@@ -281,7 +322,7 @@ async function createAssessment(): Promise<void> {
   try {
     const payload: RiskAssessmentCreate = {
       product_id: createForm.product_id.trim(),
-      product_release_id: normalizeOptional(createForm.product_release_id),
+      product_release_id: normalizeOptional(createReleaseId.value),
       title: createForm.title.trim(),
       version_label: createForm.version_label.trim(),
       status: createForm.status,
@@ -297,6 +338,8 @@ async function createAssessment(): Promise<void> {
 
     createForm.product_id = "";
     createForm.product_release_id = null;
+    createReleaseId.value = "";
+    createReleases.value = [];
     createForm.title = "";
     createForm.version_label = "";
     createForm.status = "draft";
@@ -319,6 +362,7 @@ async function createAssessment(): Promise<void> {
 function resetFilters(): void {
   filters.productId = "";
   filters.productReleaseId = "";
+  filterReleases.value = [];
   assessments.value = [];
   errorMessage.value = "";
   successMessage.value = "";
@@ -335,6 +379,27 @@ onMounted(async () => {
   createForm.owner_user_id = authStore.user?.id ?? "";
   assessments.value = [];
   await loadProducts();
+});
+
+watch(
+  () => filters.productId,
+  async (productId) => {
+    filters.productReleaseId = "";
+    filterReleases.value = await loadReleases(productId);
+  },
+);
+
+watch(
+  () => createForm.product_id,
+  async (productId) => {
+    createReleaseId.value = "";
+    createForm.product_release_id = null;
+    createReleases.value = await loadReleases(productId);
+  },
+);
+
+watch(createReleaseId, (releaseId) => {
+  createForm.product_release_id = normalizeOptional(releaseId);
 });
 </script>
 

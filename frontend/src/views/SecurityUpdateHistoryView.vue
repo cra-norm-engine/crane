@@ -10,15 +10,57 @@
       </div>
 
       <div class="page-actions">
-        <input
-          v-model.trim="productReleaseId"
-          type="text"
-          placeholder="Product release ID"
-        />
-        <button class="btn btn-secondary" type="button" @click="loadUpdates" :disabled="isLoading">
+        <label class="field">
+          <span class="field-label">Search products</span>
+          <input
+            v-model.trim="productQuery"
+            type="text"
+            placeholder="Search by product name or code"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Product</span>
+          <select v-model="selectedProductId" :disabled="isLoadingProducts || filteredProducts.length === 0">
+            <option value="">{{ isLoadingProducts ? "Loading products..." : "Select a product" }}</option>
+            <option v-for="product in filteredProducts" :key="product.id" :value="product.id">
+              {{ product.name }} ({{ product.product_code }})
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Release version</span>
+          <select
+            v-model="selectedReleaseId"
+            :disabled="!selectedProductId || isLoadingReleases || releases.length === 0"
+          >
+            <option value="">
+              {{
+                !selectedProductId
+                  ? "Select a product first"
+                  : isLoadingReleases
+                    ? "Loading releases..."
+                    : releases.length === 0
+                      ? "No releases found"
+                      : "Select a release"
+              }}
+            </option>
+            <option v-for="release in releases" :key="release.id" :value="release.id">
+              {{ formatReleaseOption(release) }}
+            </option>
+          </select>
+        </label>
+
+        <button class="btn btn-secondary" type="button" @click="loadUpdates" :disabled="isLoading || !selectedReleaseId">
           {{ isLoading ? "Refreshing..." : "Load" }}
         </button>
       </div>
+
+      <p v-if="selectedProduct && selectedRelease" class="selection-summary muted">
+        Selected release: {{ selectedProduct.name }} · {{ selectedRelease.version }}
+        ({{ formatLabel(selectedRelease.release_status) }})
+      </p>
     </header>
 
     <div v-if="errorMessage" class="card feedback feedback-error">
@@ -38,10 +80,21 @@
       </div>
 
       <form class="form-grid" @submit.prevent="createUpdate">
-        <label class="field">
-          <span class="field-label">Product release ID</span>
-          <input v-model.trim="createForm.product_release_id" type="text" required />
-        </label>
+        <div class="field field-span-2">
+          <span class="field-label">Selected release</span>
+          <div class="selection-card" :class="{ 'selection-card-empty': !selectedRelease || !selectedProduct }">
+            <template v-if="selectedRelease && selectedProduct">
+              <strong>{{ selectedProduct.name }} · Release {{ selectedRelease.version }}</strong>
+              <span class="muted">
+                Product code {{ selectedProduct.product_code }} ·
+                Status {{ formatLabel(selectedRelease.release_status) }}
+              </span>
+            </template>
+            <span v-else class="muted">
+              Search for a product above, select it, and then choose the release version you want to update.
+            </span>
+          </div>
+        </div>
 
         <label class="field">
           <span class="field-label">Title</span>
@@ -67,13 +120,13 @@
         </label>
 
         <label class="field">
-          <span class="field-label">Released at</span>
-          <input v-model="createForm.released_at" type="datetime-local" />
+          <span class="field-label">Release date</span>
+          <input v-model="createForm.released_at" type="date" />
         </label>
 
         <label class="field">
           <span class="field-label">Available until</span>
-          <input v-model="createForm.available_until" type="datetime-local" />
+          <input v-model="createForm.available_until" type="date" />
         </label>
 
         <label class="field field-span-2">
@@ -87,7 +140,7 @@
         </label>
 
         <div class="field field-span-2 inline-actions">
-          <button class="btn btn-primary" type="submit" :disabled="isCreating">
+          <button class="btn btn-primary" type="submit" :disabled="isCreating || !createForm.product_release_id.trim()">
             {{ isCreating ? "Saving..." : "Create security update" }}
           </button>
         </div>
@@ -157,17 +210,31 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import { productReleaseService } from "@/services/product-release-service";
+import { productService } from "@/services/product-service";
 import { securityUpdateService } from "@/services/security-update-service";
-import type { DistributionMechanism, SecurityUpdateCreate, SecurityUpdateRead } from "@/types/product";
+import type { ProductReleaseRead } from "@/types/release-gate";
+import type {
+  DistributionMechanism,
+  ProductSummaryRead,
+  SecurityUpdateCreate,
+  SecurityUpdateRead,
+} from "@/types/product";
 
 const updates = ref<SecurityUpdateRead[]>([]);
-const productReleaseId = ref("");
 const isLoading = ref(false);
 const isCreating = ref(false);
+const isLoadingProducts = ref(false);
+const isLoadingReleases = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+const products = ref<ProductSummaryRead[]>([]);
+const releases = ref<ProductReleaseRead[]>([]);
+const productQuery = ref("");
+const selectedProductId = ref("");
+const selectedReleaseId = ref("");
 
 const cveInput = ref("");
 const versionsInput = ref("");
@@ -181,9 +248,46 @@ const createForm = reactive({
   available_until: "",
 });
 
+const filteredProducts = computed(() => {
+  const query = productQuery.value.trim().toLowerCase();
+  const productList = [...products.value].sort((left, right) => left.name.localeCompare(right.name));
+  if (!query) {
+    return productList;
+  }
+
+  return productList.filter((product) => {
+    const haystack = [
+      product.name,
+      product.product_code,
+      product.manufacturer_name,
+      product.product_type,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(query);
+  });
+});
+
+const selectedProduct = computed(
+  () => products.value.find((product) => product.id === selectedProductId.value) ?? null,
+);
+
+const selectedRelease = computed(
+  () => releases.value.find((release) => release.id === selectedReleaseId.value) ?? null,
+);
+
 function toIsoOrNull(value: string): string | null {
   if (!value) return null;
-  return new Date(value).toISOString();
+  return new Date(`${value}T00:00:00Z`).toISOString();
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "No date";
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(value));
 }
 
 function formatDateTime(value: string | null): string {
@@ -201,6 +305,15 @@ function formatDistribution(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function formatLabel(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function formatReleaseOption(release: ProductReleaseRead): string {
+  const releaseDate = release.actual_release_date ?? release.planned_release_date;
+  return `Release ${release.version} · ${formatLabel(release.release_status)} · ${formatDate(releaseDate)}`;
+}
+
 function parseCommaSeparated(value: string): string[] {
   return value
     .split(",")
@@ -208,8 +321,50 @@ function parseCommaSeparated(value: string): string[] {
     .filter(Boolean);
 }
 
+async function loadProducts(): Promise<void> {
+  isLoadingProducts.value = true;
+
+  try {
+    products.value = await productService.list();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "Failed to load products for release selection.";
+  } finally {
+    isLoadingProducts.value = false;
+  }
+}
+
+async function loadReleasesForProduct(productId: string): Promise<void> {
+  isLoadingReleases.value = true;
+
+  try {
+    const productReleases = await productReleaseService.list(productId);
+    releases.value = productReleases;
+
+    const currentSelectionStillExists = productReleases.some(
+      (release) => release.id === selectedReleaseId.value,
+    );
+    if (currentSelectionStillExists) {
+      return;
+    }
+
+    selectedReleaseId.value =
+      productReleases.find((release) => release.release_status === "released")?.id ??
+      productReleases.find((release) => release.release_status === "approved")?.id ??
+      productReleases[0]?.id ??
+      "";
+  } catch (error) {
+    releases.value = [];
+    selectedReleaseId.value = "";
+    errorMessage.value =
+      error instanceof Error ? error.message : "Failed to load releases for the selected product.";
+  } finally {
+    isLoadingReleases.value = false;
+  }
+}
+
 async function loadUpdates(): Promise<void> {
-  if (!productReleaseId.value.trim()) {
+  if (!selectedReleaseId.value.trim()) {
     updates.value = [];
     return;
   }
@@ -218,7 +373,7 @@ async function loadUpdates(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    updates.value = await securityUpdateService.list(productReleaseId.value.trim());
+    updates.value = await securityUpdateService.list(selectedReleaseId.value.trim());
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load security updates.";
@@ -247,7 +402,6 @@ async function createUpdate(): Promise<void> {
     await securityUpdateService.create(payload);
     successMessage.value = "Security update created.";
 
-    productReleaseId.value = payload.product_release_id;
     createForm.title = "";
     createForm.description = "";
     createForm.released_at = "";
@@ -263,6 +417,37 @@ async function createUpdate(): Promise<void> {
     isCreating.value = false;
   }
 }
+
+watch(
+  selectedProductId,
+  async (productId) => {
+    releases.value = [];
+    selectedReleaseId.value = "";
+    updates.value = [];
+
+    if (!productId) {
+      return;
+    }
+
+    errorMessage.value = "";
+    await loadReleasesForProduct(productId);
+  },
+);
+
+watch(selectedReleaseId, async (releaseId) => {
+  createForm.product_release_id = releaseId;
+
+  if (!releaseId) {
+    updates.value = [];
+    return;
+  }
+
+  await loadUpdates();
+});
+
+onMounted(() => {
+  void loadProducts();
+});
 </script>
 
 <style scoped>
@@ -285,6 +470,12 @@ async function createUpdate(): Promise<void> {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  width: 100%;
+}
+
+.page-actions .field {
+  flex: 1 1 15rem;
+  min-width: 15rem;
 }
 
 .page-title,
@@ -314,6 +505,23 @@ async function createUpdate(): Promise<void> {
 .field-label {
   color: var(--color-text-muted, #94a3b8);
   font-size: 0.85rem;
+}
+
+.selection-summary {
+  margin: 0;
+}
+
+.selection-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.25));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.35));
+}
+
+.selection-card-empty {
+  border-style: dashed;
 }
 
 input,
