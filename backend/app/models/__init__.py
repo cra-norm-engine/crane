@@ -8,7 +8,11 @@ from app.models.product import (
     ProductScopeEvaluation,
     RemoteProcessingElement,
 )
-from app.models.requirement_mapping import RequirementMapping
+from app.models.requirement_mapping import (
+    ProductRequirementDecision,
+    RequirementMapping,
+    RequirementMappingArtifactLink,
+)
 from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
 from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
@@ -33,7 +37,11 @@ from app.models.product import (
     ProductScopeEvaluation,
     RemoteProcessingElement,
 )
-from app.models.requirement_mapping import RequirementMapping
+from app.models.requirement_mapping import (
+    ProductRequirementDecision,
+    RequirementMapping,
+    RequirementMappingArtifactLink,
+)
 from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
 from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
@@ -59,7 +67,9 @@ __all__ = [
     "ReleaseGateEvidenceLink",
     "ReleaseGateItem",
     "RemoteProcessingElement",
+    "ProductRequirementDecision",
     "RequirementMapping",
+    "RequirementMappingArtifactLink",
     "RiskAssessment",
     "RiskItem",
     "RolePermission",

@@ -5,7 +5,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.enums import RequirementImplementationStatus, SdlActivity
+from app.schemas.artifact import ArtifactListRead
 from app.schemas.common import ORMBaseModel, TimestampedRead
+from app.schemas.risk_item import RiskItemSummaryRead
 
 
 class RequirementMappingCreate(BaseModel):
@@ -35,6 +37,11 @@ class RequirementMappingRead(TimestampedRead):
     evidence_summary: str | None
 
 
+class RequirementMappingMatrixRead(RequirementMappingRead):
+    risk_item: RiskItemSummaryRead | None = None
+    artifacts: list[ArtifactListRead] = []
+
+
 class RequirementMappingSummaryRead(ORMBaseModel):
     id: UUID
     risk_item_id: UUID | None
@@ -42,3 +49,7 @@ class RequirementMappingSummaryRead(ORMBaseModel):
     engineering_requirement_ref: str | None
     sdl_activity: SdlActivity
     implementation_status: RequirementImplementationStatus
+
+
+class RequirementMappingArtifactLinkRequest(BaseModel):
+    artifact_id: UUID

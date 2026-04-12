@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
-from app.models.enums import RequirementImplementationStatus, SdlActivity
+from app.models.enums import (
+    RequirementApplicabilityDecision,
+    RequirementImplementationStatus,
+    SdlActivity,
+)
 
 
 class RequirementMapping(UUIDTimestampMixin, Base):
@@ -53,3 +57,68 @@ class RequirementMapping(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(EvidenceItem.created_at)",
     )
+    artifact_links: Mapped[list["RequirementMappingArtifactLink"]] = relationship(
+        "RequirementMappingArtifactLink",
+        back_populates="requirement_mapping",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class RequirementMappingArtifactLink(UUIDTimestampMixin, Base):
+    __tablename__ = "requirement_mapping_artifact_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "requirement_mapping_id",
+            "artifact_id",
+            name="uq_requirement_mapping_artifact_link",
+        ),
+    )
+
+    requirement_mapping_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("requirement_mappings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    artifact_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    requirement_mapping: Mapped["RequirementMapping"] = relationship(
+        "RequirementMapping",
+        back_populates="artifact_links",
+    )
+    artifact: Mapped["Artifact"] = relationship("Artifact")
+
+
+class ProductRequirementDecision(UUIDTimestampMixin, Base):
+    __tablename__ = "product_requirement_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "product_id",
+            "annex_requirement_id",
+            name="uq_product_requirement_decisions_product_requirement",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    annex_requirement_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("annex_requirements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    applicability_decision: Mapped[RequirementApplicabilityDecision] = mapped_column(
+        nullable=False,
+        default=RequirementApplicabilityDecision.undecided,
+        index=True,
+    )
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    product: Mapped["Product"] = relationship("Product")
+    annex_requirement: Mapped["AnnexRequirement"] = relationship("AnnexRequirement")

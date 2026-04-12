@@ -1,385 +1,588 @@
 <template>
-  <section class="page">
-    <header class="hero">
+  <section class="annex-page">
+    <header class="hero card">
       <div class="hero-copy">
-        <p class="eyebrow">Annex I Mapping Matrix</p>
-        <h1>Requirement Mapping Matrix</h1>
-        <p class="page-subtitle">
-          Trace Annex I obligations to risks, SDL activities, engineering requirements, and audit evidence.
+        <p class="eyebrow">Annex I compliance matrix</p>
+        <h1>Requirement coverage by product</h1>
+        <p class="hero-text">
+          Select a product, review every CRA Annex I requirement, and trace each one to risk items,
+          rationale, and supporting artifacts.
         </p>
       </div>
 
       <div class="hero-actions">
-        <button class="ghost-button" type="button" @click="resetFilters" :disabled="loading">
+        <button class="button secondary" type="button" :disabled="loading" @click="resetFilters">
           Reset filters
         </button>
-        <button class="primary-button" type="button" @click="loadData" :disabled="loading">
-          {{ loading ? "Refreshing..." : "Refresh data" }}
+        <button
+          class="button"
+          type="button"
+          :disabled="loading || !selectedProductId"
+          @click="loadMatrix"
+        >
+          {{ loading ? "Refreshing..." : "Refresh matrix" }}
         </button>
       </div>
     </header>
 
-    <section class="stats-grid" aria-label="Matrix overview">
-      <article class="stat-card">
-        <span class="stat-label">Visible mappings</span>
-        <strong class="stat-value">{{ filteredMappings.length }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Implemented</span>
-        <strong class="stat-value">{{ statusCounts.implemented }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Verified</span>
-        <strong class="stat-value">{{ statusCounts.verified }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Need attention</span>
-        <strong class="stat-value">{{ statusCounts.planned + statusCounts.in_progress }}</strong>
-      </article>
-    </section>
-
     <transition name="fade">
-      <div v-if="errorMessage" class="alert alert-error" role="alert">
-        <span>{{ errorMessage }}</span>
-      </div>
+      <div v-if="errorMessage" class="alert error" role="alert">{{ errorMessage }}</div>
+    </transition>
+    <transition name="fade">
+      <div v-if="successMessage" class="alert success" role="status">{{ successMessage }}</div>
     </transition>
 
-    <transition name="fade">
-      <div v-if="successMessage" class="alert alert-success" role="status">
-        <span>{{ successMessage }}</span>
-      </div>
-    </transition>
-
-    <section class="panel filters-panel">
-      <div class="panel-header panel-header-tight">
-        <div>
-          <h2>Filters</h2>
-          <p class="panel-subtitle">Refine the matrix by annex part, status, or keyword.</p>
-        </div>
-        <div class="quick-statuses" aria-label="Quick status filters">
-          <button
-            type="button"
-            class="quick-chip"
-            :class="{ active: filters.implementationStatus === '' }"
-            @click="filters.implementationStatus = ''"
-          >
-            All
-          </button>
-          <button
-            v-for="option in implementationStatuses"
-            :key="option"
-            type="button"
-            class="quick-chip"
-            :class="{ active: filters.implementationStatus === option }"
-            @click="filters.implementationStatus = option"
-          >
-            {{ formatStatus(option) }}
-          </button>
-        </div>
-      </div>
-
-      <div class="filters-grid">
-        <label class="field">
-          <span>Annex Part</span>
-          <select v-model="filters.annexPart">
-            <option value="">All parts</option>
-            <option value="part_i">Part I</option>
-            <option value="part_ii">Part II</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Implementation Status</span>
-          <select v-model="filters.implementationStatus">
-            <option value="">All statuses</option>
-            <option v-for="option in implementationStatuses" :key="option" :value="option">
-              {{ formatStatus(option) }}
-            </option>
-          </select>
-        </label>
-
-        <label class="field field-search">
-          <span>Search</span>
-          <div class="search-input-wrap">
-            <input
-              v-model="filters.search"
-              type="text"
-              placeholder="Search code, title, SDL activity, engineering ref, evidence..."
-            />
-            <button
-              v-if="filters.search"
-              type="button"
-              class="clear-search"
-              aria-label="Clear search"
-              @click="filters.search = ''"
-            >
-              ×
-            </button>
-          </div>
-        </label>
-      </div>
-    </section>
-
-    <section class="matrix-layout">
-      <article class="panel list-panel">
-        <div class="panel-header list-header">
+    <section class="controls-grid">
+      <article class="card selector-card">
+        <div class="section-heading">
           <div>
-            <h2>Mappings</h2>
-            <p class="panel-subtitle">
-              {{ filteredMappings.length }} result{{ filteredMappings.length === 1 ? "" : "s" }}
+            <h2>Product scope</h2>
+            <p class="muted">Search by name or product code, then load one matrix at a time.</p>
+          </div>
+        </div>
+
+        <div class="selector-grid">
+          <label class="field">
+            <span>Search products</span>
+            <input
+              v-model.trim="productQuery"
+              class="input"
+              type="search"
+              placeholder="Search by product name or code"
+            />
+          </label>
+
+          <label class="field">
+            <span>Select product</span>
+            <select v-model="selectedProductId" class="select">
+              <option value="">Choose a product</option>
+              <option v-for="product in filteredProducts" :key="product.id" :value="product.id">
+                {{ product.name }} · {{ product.product_code }}
+              </option>
+            </select>
+          </label>
+        </div>
+      </article>
+
+      <article class="card filter-card">
+        <div class="section-heading">
+          <div>
+            <h2>Filter matrix</h2>
+            <p class="muted">Narrow the requirement list without losing the complete product view.</p>
+          </div>
+        </div>
+
+        <div class="selector-grid">
+          <label class="field">
+            <span>Annex part</span>
+            <select v-model="filters.annexPart" class="select">
+              <option value="">All parts</option>
+              <option value="part_i">Part I</option>
+              <option value="part_ii">Part II</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Status</span>
+            <select v-model="filters.status" class="select">
+              <option value="">All statuses</option>
+              <option v-for="status in implementationStatuses" :key="status" :value="status">
+                {{ formatLabel(status) }}
+              </option>
+            </select>
+          </label>
+
+          <label class="field field-full">
+            <span>Search requirements</span>
+            <input
+              v-model.trim="filters.search"
+              class="input"
+              type="search"
+              placeholder="Search requirement text, risk title, engineering ref, notes, or artifacts"
+            />
+          </label>
+        </div>
+      </article>
+    </section>
+
+    <section v-if="selectedProduct" class="matrix-layout">
+      <article class="card matrix-card">
+        <div class="section-heading">
+          <div>
+            <h2>{{ selectedProduct.name }}</h2>
+            <p class="muted">
+              {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
+              {{ stats.verified }} verified ·
+              {{ stats.needsDecision }} need decision
             </p>
           </div>
-          <span class="count-badge">{{ filteredMappings.length }}</span>
         </div>
 
         <div v-if="loading" class="state-block">
-          <div class="skeleton-row" v-for="i in 6" :key="i"></div>
+          <div v-for="i in 7" :key="i" class="skeleton-row"></div>
         </div>
 
-        <div v-else-if="filteredMappings.length === 0" class="state-block empty-state">
-          <h3>No mappings found</h3>
-          <p>Try changing filters or clearing the search term.</p>
-          <button class="ghost-button" type="button" @click="resetFilters">Clear filters</button>
+        <div v-else-if="filteredRows.length === 0" class="state-block">
+          <h3>No requirements match these filters</h3>
+          <p class="muted">Try changing the search term or status filter.</p>
         </div>
 
-        <div v-else class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Requirement</th>
-                <th>Risk</th>
-                <th>SDL</th>
-                <th>Engineering Ref</th>
-                <th>Status</th>
-                <th>Evidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="mapping in filteredMappings"
-                :key="mapping.id"
-                class="table-row-link"
-                :class="{ selected: selectedMapping?.id === mapping.id }"
-                tabindex="0"
-                @click="selectMapping(mapping)"
-                @keydown.enter.prevent="selectMapping(mapping)"
-                @keydown.space.prevent="selectMapping(mapping)"
+        <div v-else class="matrix-list">
+          <button
+            v-for="row in filteredRows"
+            :key="row.annex_requirement.id"
+            type="button"
+            class="matrix-row"
+            :class="{ active: selectedRequirementId === row.annex_requirement.id }"
+            @click="selectRow(row)"
+          >
+            <div class="row-main">
+              <div class="row-title-wrap">
+                <span class="requirement-code">{{ row.annex_requirement.code }}</span>
+                <strong>{{ row.annex_requirement.title }}</strong>
+              </div>
+              <p class="row-description">{{ row.annex_requirement.description }}</p>
+            </div>
+
+            <div class="row-meta">
+              <span class="meta-pill" :class="`app-${row.applicability}`">
+                {{ formatApplicability(row.applicability) }}
+              </span>
+              <span
+                class="meta-pill"
+                :class="row.overall_status ? `status-${row.overall_status}` : 'status-empty'"
               >
-                <td>
-                  <div class="primary-cell">
-                    <strong class="annex-code">
-                      {{ mapping.annex_requirement?.code ?? mapping.annex_requirement_id }}
-                    </strong>
-                    <span class="cell-title">
-                      {{ mapping.annex_requirement?.title ?? "Untitled requirement" }}
-                    </span>
-                    <span class="cell-meta">
-                      {{ formatAnnexPart(mapping.annex_requirement?.annex_part) }}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <span class="truncate-2">
-                    {{ mapping.risk_item?.title ?? "Unlinked" }}
-                  </span>
-                </td>
-                <td>
-                  <span class="inline-tag">{{ formatLabel(mapping.sdl_activity) }}</span>
-                </td>
-                <td>
-                  <span class="mono truncate-2">
-                    {{ mapping.engineering_requirement_ref ?? "—" }}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    class="status-pill"
-                    :class="statusClass(mapping.implementation_status)"
-                  >
-                    {{ formatStatus(mapping.implementation_status) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="evidence-count">
-                    {{ mapping.evidence_items?.length ?? 0 }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                {{ row.overall_status ? formatLabel(row.overall_status) : "No trace record" }}
+              </span>
+              <span class="mini-stat">{{ row.risk_items.length }} risks</span>
+              <span class="mini-stat">{{ row.artifacts.length }} artifacts</span>
+            </div>
+          </button>
         </div>
       </article>
 
-      <aside class="panel side-panel">
-        <div class="panel-header">
-          <div>
-            <h2>Selected Mapping</h2>
-            <p class="panel-subtitle">
-              Inspect details and update implementation data.
-            </p>
-          </div>
-        </div>
-
-        <div v-if="!selectedMapping" class="state-block empty-state side-empty">
-          <h3>No mapping selected</h3>
-          <p>Select a row from the matrix to inspect and edit its details.</p>
+      <aside class="card detail-card">
+        <div v-if="!selectedRow" class="state-block">
+          <h3>Select a requirement</h3>
+          <p class="muted">
+            Pick a row from the matrix to review traceability, add rationale, and link artifacts.
+          </p>
         </div>
 
         <template v-else>
-          <section class="selected-summary">
-            <div class="selected-topline">
-              <strong class="selected-code">
-                {{ selectedMapping.annex_requirement?.code ?? "—" }}
-              </strong>
-              <span
-                class="status-pill"
-                :class="statusClass(selectedMapping.implementation_status)"
-              >
-                {{ formatStatus(selectedMapping.implementation_status) }}
-              </span>
+          <div class="detail-header">
+            <div>
+              <p class="eyebrow">{{ selectedRow.annex_requirement.code }}</p>
+              <h2>{{ selectedRow.annex_requirement.title }}</h2>
             </div>
+            <span
+              class="meta-pill"
+              :class="selectedRow.overall_status ? `status-${selectedRow.overall_status}` : 'status-empty'"
+            >
+              {{ selectedRow.overall_status ? formatLabel(selectedRow.overall_status) : "Unmapped" }}
+            </span>
+          </div>
 
-            <h3 class="selected-title">
-              {{ selectedMapping.annex_requirement?.title ?? "Untitled requirement" }}
-            </h3>
+          <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
 
-            <p class="selected-description">
-              {{ selectedMapping.annex_requirement?.description ?? "No annex description available." }}
-            </p>
+          <div class="summary-bar">
+            <span class="meta-pill" :class="`app-${selectedRow.applicability}`">
+              {{ formatApplicability(selectedRow.applicability) }}
+            </span>
+            <span class="mini-stat">
+              Decision: {{ formatApplicabilityDecision(selectedRow.applicability_decision) }}
+            </span>
+            <span class="mini-stat">{{ formatTraceability(selectedRow.traceability_strength) }}</span>
+            <span class="mini-stat">{{ selectedRow.risk_items.length }} risk links</span>
+            <span class="mini-stat">{{ selectedRow.artifacts.length }} artifacts</span>
+          </div>
+
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3>Applicability decision</h3>
+                <p class="muted">Decide explicitly whether this requirement applies to the selected product.</p>
+              </div>
+            </div>
+            <form class="editor-grid" @submit.prevent="saveApplicabilityDecision">
+              <label class="field">
+                <span>Decision</span>
+                <select v-model="applicabilityForm.applicability_decision" class="select">
+                  <option v-for="option in applicabilityDecisions" :key="option" :value="option">
+                    {{ formatApplicabilityDecision(option) }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field field-full">
+                <span>Rationale</span>
+                <textarea
+                  v-model.trim="applicabilityForm.rationale"
+                  class="textarea"
+                  rows="3"
+                  placeholder="Explain why this requirement applies or why it is not applicable for this product."
+                />
+              </label>
+
+              <div class="editor-actions">
+                <button class="button" type="submit" :disabled="busy">
+                  {{ busy ? "Saving..." : "Save decision" }}
+                </button>
+              </div>
+            </form>
           </section>
 
-          <dl class="detail-list">
-            <div class="detail-card">
-              <dt>Mapping ID</dt>
-              <dd class="mono">{{ selectedMapping.id }}</dd>
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3>Linked risks</h3>
+              </div>
             </div>
-            <div class="detail-card">
-              <dt>Annex Part</dt>
-              <dd>{{ formatAnnexPart(selectedMapping.annex_requirement?.annex_part) }}</dd>
+            <div v-if="selectedRow.risk_items.length === 0" class="state-block compact">
+              <p class="muted">No risk items linked yet.</p>
             </div>
-            <div class="detail-card">
-              <dt>Risk Item</dt>
-              <dd>{{ selectedMapping.risk_item?.title ?? "Unlinked" }}</dd>
+            <div v-else class="compact-list">
+              <article v-for="risk in selectedRow.risk_items" :key="risk.id" class="compact-item">
+                <strong>{{ risk.title }}</strong>
+                <span class="muted">{{ formatLabel(risk.risk_level) }} · {{ formatLabel(risk.status) }}</span>
+              </article>
             </div>
-            <div class="detail-card">
-              <dt>Risk Item ID</dt>
-              <dd class="mono">{{ selectedMapping.risk_item_id ?? "—" }}</dd>
+          </section>
+
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3>Linked artifacts</h3>
+              </div>
             </div>
-          </dl>
+            <div v-if="selectedRow.artifacts.length === 0" class="state-block compact">
+              <p class="muted">No artifacts linked yet.</p>
+            </div>
+            <div v-else class="compact-list">
+              <article
+                v-for="artifact in selectedRow.artifacts"
+                :key="artifact.id"
+                class="compact-item compact-item-actions"
+              >
+                <div class="artifact-info">
+                  <strong>{{ artifact.title }}</strong>
+                  <span class="muted">{{ formatLabel(artifact.artifact_type) }}</span>
+                </div>
+                <div class="artifact-actions-inline">
+                  <button
+                    v-if="artifact.latest_revision?.storage_path"
+                    class="button secondary small-button"
+                    type="button"
+                    @click="downloadArtifact(artifact)"
+                  >
+                    Download
+                  </button>
+                  <a
+                    v-else-if="artifact.latest_revision?.external_url"
+                    class="button secondary small-button link-button"
+                    :href="artifact.latest_revision.external_url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open
+                  </a>
+                </div>
+              </article>
+            </div>
+          </section>
 
-          <form class="form-grid" @submit.prevent="updateSelectedMapping">
-            <label class="field">
-              <span>Engineering Requirement Ref</span>
-              <input
-                v-model="editForm.engineering_requirement_ref"
-                type="text"
-                maxlength="255"
-                placeholder="e.g. ENG-SEC-014"
-              />
-            </label>
-
-            <label class="field">
-              <span>Implementation Status</span>
-              <select v-model="editForm.implementation_status">
-                <option value="">No change</option>
-                <option v-for="option in implementationStatuses" :key="option" :value="option">
-                  {{ formatStatus(option) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field field-full">
-              <span>SDL Activity</span>
-              <select v-model="editForm.sdl_activity">
-                <option value="">No change</option>
-                <option v-for="option in sdlActivities" :key="option" :value="option">
-                  {{ formatLabel(option) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field field-full">
-              <span>Evidence Summary</span>
-              <textarea
-                v-model="editForm.evidence_summary"
-                rows="5"
-                placeholder="Summarize evidence, control linkage, verification notes, or audit references..."
-              />
-            </label>
-
-            <div class="form-actions field-full">
-              <button class="primary-button" type="submit" :disabled="saving">
-                {{ saving ? "Saving changes..." : "Save mapping" }}
+          <section class="trace-section">
+            <div class="section-heading tight">
+              <div>
+                <h3>Trace records</h3>
+                <p class="muted">
+                  One requirement can map to multiple risk items, justifications, and artifacts.
+                </p>
+              </div>
+              <button class="button secondary" type="button" @click="startCreateTrace">
+                New trace record
               </button>
-            </div>
-          </form>
-
-          <section class="evidence-section">
-            <div class="section-header">
-              <h3>Evidence Links</h3>
-              <span class="count-badge subtle">
-                {{ selectedMapping.evidence_items?.length ?? 0 }}
-              </span>
             </div>
 
             <div
-              v-if="!selectedMapping.evidence_items || selectedMapping.evidence_items.length === 0"
-              class="state-block empty-state small"
+              v-if="!selectedRow.artifact_traceability_available"
+              class="alert warning"
+              role="status"
             >
-              <p>No evidence items linked yet.</p>
+              Artifact linking is temporarily unavailable because the database migration for
+              requirement-to-artifact links has not been applied yet. The matrix still works for
+              risk-based trace records and justification notes.
             </div>
 
-            <ul v-else class="evidence-list">
-              <li v-for="item in selectedMapping.evidence_items" :key="item.id" class="evidence-item">
-                <div class="evidence-title-row">
-                  <strong>{{ item.title }}</strong>
-                  <span class="inline-tag">{{ formatLabel(item.evidence_type) }}</span>
+            <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
+              <h4>No trace record yet</h4>
+              <p class="muted">
+                Create a trace record to show fulfillment or justify why this requirement is not
+                applicable for the selected product.
+              </p>
+            </div>
+
+            <div v-else class="trace-list">
+              <article
+                v-for="trace in selectedRow.trace_records"
+                :key="trace.id"
+                class="trace-card"
+                :class="{ selected: selectedTraceId === trace.id }"
+              >
+                <button class="trace-top" type="button" @click="editTrace(trace)">
+                  <div>
+                    <strong>{{ trace.risk_item?.title || "Direct requirement rationale" }}</strong>
+                    <p class="trace-subline">
+                      {{ formatLabel(trace.implementation_status) }} ·
+                      {{ formatLabel(trace.sdl_activity) }}
+                      <span v-if="trace.engineering_requirement_ref">
+                        · {{ trace.engineering_requirement_ref }}
+                      </span>
+                    </p>
+                  </div>
+                </button>
+
+                <p v-if="trace.evidence_summary" class="trace-notes">{{ trace.evidence_summary }}</p>
+
+                <div class="artifact-strip">
+                  <article
+                    v-for="artifact in trace.artifacts"
+                    :key="artifact.id"
+                    class="artifact-card"
+                  >
+                    <div class="artifact-info">
+                      <strong>{{ artifact.title }}</strong>
+                      <small>{{ formatLabel(artifact.artifact_type) }}</small>
+                    </div>
+                    <div class="artifact-actions-inline">
+                      <button
+                        v-if="artifact.latest_revision?.storage_path"
+                        class="button secondary small-button"
+                        type="button"
+                        @click="downloadArtifact(artifact)"
+                      >
+                        Download
+                      </button>
+                      <a
+                        v-else-if="artifact.latest_revision?.external_url"
+                        class="button secondary small-button link-button"
+                        :href="artifact.latest_revision.external_url"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open
+                      </a>
+                    </div>
+                  </article>
                 </div>
-                <span class="evidence-meta mono">
-                  {{ item.external_url || item.file_path || "No path available" }}
-                </span>
-              </li>
-            </ul>
+
+                <div class="trace-actions">
+                  <button
+                    class="button secondary"
+                    type="button"
+                    :disabled="busy"
+                    @click="editTrace(trace)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="button danger"
+                    type="button"
+                    :disabled="busy"
+                    @click="removeTrace(trace.id)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="editor-card">
+            <div class="section-heading tight">
+              <div>
+                <h3>{{ editingExisting ? "Edit trace record" : "Create trace record" }}</h3>
+                <p class="muted">
+                  Use notes to record implementation rationale or not-applicable justification.
+                </p>
+              </div>
+            </div>
+
+            <form class="editor-grid" @submit.prevent="saveTrace">
+              <label class="field">
+                <span>Risk item</span>
+                <select v-model="traceForm.risk_item_id" class="select">
+                  <option value="">Select a risk item</option>
+                  <option v-for="risk in productRiskItems" :key="risk.id" :value="risk.id">
+                    {{ risk.title }} · {{ formatLabel(risk.risk_level) }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Implementation status</span>
+                <select v-model="traceForm.implementation_status" class="select">
+                  <option v-for="status in implementationStatuses" :key="status" :value="status">
+                    {{ formatLabel(status) }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>SDL activity</span>
+                <select v-model="traceForm.sdl_activity" class="select">
+                  <option v-for="activity in sdlActivities" :key="activity" :value="activity">
+                    {{ formatLabel(activity) }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Engineering reference</span>
+                <input
+                  v-model.trim="traceForm.engineering_requirement_ref"
+                  class="input"
+                  type="text"
+                  placeholder="e.g. ENG-SEC-014"
+                />
+              </label>
+
+              <label class="field field-full">
+                <span>Traceability notes / justification</span>
+                <textarea
+                  v-model.trim="traceForm.evidence_summary"
+                  class="textarea"
+                  rows="5"
+                  placeholder="Explain how this requirement is fulfilled, or justify why it is not applicable based on risk."
+                />
+              </label>
+
+              <div class="field field-full">
+                <span>Supporting artifacts</span>
+                <div
+                  v-if="!selectedRow.artifact_traceability_available"
+                  class="artifact-selection-note"
+                >
+                  Apply the latest migration to select artifacts directly from the trace editor.
+                </div>
+                <div v-else-if="productArtifacts.length === 0" class="artifact-selection-note">
+                  No product artifacts found yet. Attach artifacts in the release workflow first.
+                </div>
+                <div v-else class="artifact-selector-grid">
+                  <label
+                    v-for="artifact in productArtifacts"
+                    :key="`editor-${artifact.id}`"
+                    class="artifact-option"
+                    :class="{ selected: traceForm.artifact_ids.includes(artifact.id) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="traceForm.artifact_ids.includes(artifact.id)"
+                      :disabled="busy"
+                      @change="toggleTraceArtifact(artifact.id)"
+                    />
+                    <div class="artifact-option-copy">
+                      <strong>{{ artifact.title }}</strong>
+                      <span>{{ formatLabel(artifact.artifact_type) }}</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="editor-actions">
+                <button class="button" type="submit" :disabled="busy || !selectedRow">
+                  {{ busy ? "Saving..." : editingExisting ? "Save changes" : "Create trace record" }}
+                </button>
+                <button class="button secondary" type="button" :disabled="busy" @click="resetEditor">
+                  Clear editor
+                </button>
+              </div>
+            </form>
           </section>
         </template>
       </aside>
+    </section>
+
+    <section v-else class="card state-block">
+      <h2>Select a product to start</h2>
+      <p class="muted">
+        The matrix is now product-scoped, not release-scoped, so each product can be assessed
+        against every Annex I requirement in one place.
+      </p>
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import { artifactService } from "@/services/artifact-service";
+import { productService } from "@/services/product-service";
 import { requirementMappingService } from "@/services/requirement-mapping-service";
-import type { AnnexRequirementRead, AnnexPart } from "@/types/annex-requirement";
-import type { EvidenceItemSummaryRead } from "@/types/evidence-item";
+import { riskAssessmentService } from "@/services/risk-assessment-service";
+import { riskItemService } from "@/services/risk-item-service";
+import type { AnnexPart } from "@/types/annex-requirement";
+import type { ArtifactListRead } from "@/types/artifact";
+import type { ProductSummaryRead } from "@/types/product";
 import type {
+  ProductRequirementDecisionUpdate,
+  ProductRequirementMatrixRowRead,
+  RequirementApplicabilityDecision,
   RequirementImplementationStatus,
-  RequirementMappingRead,
+  RequirementMappingCreate,
+  RequirementMappingMatrixRead,
   RequirementMappingUpdate,
   SdlActivity,
 } from "@/types/requirement-mapping";
-import type { RiskItemSummaryRead } from "@/types/risk-item";
-
-type RequirementMappingMatrixRead = RequirementMappingRead & {
-  annex_requirement?: AnnexRequirementRead | null;
-  risk_item?: RiskItemSummaryRead | null;
-  evidence_items?: EvidenceItemSummaryRead[];
-};
+import type { RiskItemRead } from "@/types/risk-item";
 
 const loading = ref(false);
-const saving = ref(false);
+const busy = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 
-const mappings = ref<RequirementMappingMatrixRead[]>([]);
-const selectedMapping = ref<RequirementMappingMatrixRead | null>(null);
+const products = ref<ProductSummaryRead[]>([]);
+const matrixRows = ref<ProductRequirementMatrixRowRead[]>([]);
+const productRiskItems = ref<RiskItemRead[]>([]);
+const productArtifacts = ref<ArtifactListRead[]>([]);
+
+const productQuery = ref("");
+const selectedProductId = ref("");
+const selectedRequirementId = ref("");
+const selectedTraceId = ref("");
+
+const filters = reactive({
+  annexPart: "" as AnnexPart | "",
+  status: "" as RequirementImplementationStatus | "",
+  search: "",
+});
+
+const traceForm = reactive({
+  id: "",
+  risk_item_id: "",
+  implementation_status: "planned" as RequirementImplementationStatus,
+  sdl_activity: "requirements" as SdlActivity,
+  engineering_requirement_ref: "",
+  evidence_summary: "",
+  artifact_ids: [] as string[],
+});
+
+const applicabilityForm = reactive({
+  applicability_decision: "undecided" as RequirementApplicabilityDecision,
+  rationale: "",
+});
 
 const implementationStatuses: RequirementImplementationStatus[] = [
   "planned",
   "in_progress",
   "implemented",
   "verified",
+  "not_applicable",
+];
+
+const applicabilityDecisions: RequirementApplicabilityDecision[] = [
+  "undecided",
+  "applicable",
   "not_applicable",
 ];
 
@@ -394,71 +597,69 @@ const sdlActivities: SdlActivity[] = [
   "post_market",
 ];
 
-const filters = reactive({
-  annexPart: "" as AnnexPart | "",
-  implementationStatus: "" as RequirementImplementationStatus | "",
-  search: "",
+const filteredProducts = computed(() => {
+  const term = productQuery.value.trim().toLowerCase();
+  if (!term) return products.value;
+  return products.value.filter((product) =>
+    [product.name, product.product_code].some((value) => value.toLowerCase().includes(term)),
+  );
 });
 
-const editForm = reactive({
-  engineering_requirement_ref: "",
-  implementation_status: "" as RequirementImplementationStatus | "",
-  sdl_activity: "" as SdlActivity | "",
-  evidence_summary: "",
-});
+const selectedProduct = computed(
+  () => products.value.find((product) => product.id === selectedProductId.value) ?? null,
+);
 
-const filteredMappings = computed(() => {
+const filteredRows = computed(() => {
   const term = filters.search.trim().toLowerCase();
+  return [...matrixRows.value]
+    .sort((a, b) => compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code))
+    .filter((row) => {
+      if (filters.annexPart && row.annex_requirement.annex_part !== filters.annexPart) {
+        return false;
+      }
+      if (filters.status && row.overall_status !== filters.status) {
+        return false;
+      }
+      if (!term) return true;
 
-  return mappings.value.filter((mapping) => {
-    if (filters.annexPart && mapping.annex_requirement?.annex_part !== filters.annexPart) {
-      return false;
-    }
+      const haystack = [
+        row.annex_requirement.code,
+        row.annex_requirement.title,
+        row.annex_requirement.description,
+        ...row.risk_items.map((risk) => risk.title),
+        ...row.artifacts.map((artifact) => artifact.title),
+        ...row.engineering_requirement_refs,
+        ...row.notes,
+      ]
+        .join(" ")
+        .toLowerCase();
 
-    if (
-      filters.implementationStatus &&
-      mapping.implementation_status !== filters.implementationStatus
-    ) {
-      return false;
-    }
-
-    if (!term) return true;
-
-    const haystack = [
-      mapping.annex_requirement?.code,
-      mapping.annex_requirement?.title,
-      mapping.annex_requirement?.description,
-      mapping.risk_item?.title,
-      mapping.sdl_activity,
-      mapping.engineering_requirement_ref,
-      mapping.evidence_summary,
-      ...(mapping.evidence_items?.map(
-        (item) => `${item.title} ${item.file_path ?? ""} ${item.external_url ?? ""}`,
-      ) ?? []),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    return haystack.includes(term);
-  });
+      return haystack.includes(term);
+    });
 });
 
-const statusCounts = computed(() => {
-  const counts: Record<RequirementImplementationStatus, number> = {
-    planned: 0,
-    in_progress: 0,
-    implemented: 0,
-    verified: 0,
-    not_applicable: 0,
-  };
+const selectedRow = computed(
+  () => filteredRows.value.find((row) => row.annex_requirement.id === selectedRequirementId.value)
+    ?? matrixRows.value.find((row) => row.annex_requirement.id === selectedRequirementId.value)
+    ?? null,
+);
 
-  for (const mapping of filteredMappings.value) {
-    counts[mapping.implementation_status] += 1;
-  }
+const editingExisting = computed(() => Boolean(traceForm.id));
 
-  return counts;
-});
+const stats = computed(() => ({
+  verified: filteredRows.value.filter((row) => row.overall_status === "verified").length,
+  needsDecision: filteredRows.value.filter((row) => row.applicability === "needs_decision").length,
+  traceGaps: filteredRows.value.filter((row) => row.traceability_strength !== "complete").length,
+}));
+
+function compareRequirementCodes(a: string, b: string): number {
+  const aMatch = a.match(/PART-(I|II)-(\d+)/);
+  const bMatch = b.match(/PART-(I|II)-(\d+)/);
+  if (!aMatch || !bMatch) return a.localeCompare(b);
+  const partDiff = aMatch[1].localeCompare(bMatch[1]);
+  if (partDiff !== 0) return partDiff;
+  return Number(aMatch[2]) - Number(bMatch[2]);
+}
 
 function formatLabel(value?: string | null): string {
   if (!value) return "—";
@@ -468,136 +669,309 @@ function formatLabel(value?: string | null): string {
     .join(" ");
 }
 
-function formatStatus(value?: RequirementImplementationStatus | ""): string {
-  if (!value) return "—";
+function formatApplicability(value: ProductRequirementMatrixRowRead["applicability"]): string {
+  if (value === "not_applicable") return "Not applicable";
+  if (value === "applicable") return "Applicable";
+  return "Needs decision";
+}
+
+function formatApplicabilityDecision(value: RequirementApplicabilityDecision): string {
   return formatLabel(value);
 }
 
-function formatAnnexPart(value?: AnnexPart | null): string {
-  if (value === "part_i") return "Part I";
-  if (value === "part_ii") return "Part II";
-  return "—";
-}
-
-function statusClass(status: RequirementImplementationStatus): string {
-  return `status-${status}`;
+function formatTraceability(value: ProductRequirementMatrixRowRead["traceability_strength"]): string {
+  if (value === "complete") return "Risk + artifact";
+  if (value === "partial") return "Partially traced";
+  if (value === "weak") return "Weak traceability";
+  return "No trace";
 }
 
 function resetFilters(): void {
   filters.annexPart = "";
-  filters.implementationStatus = "";
+  filters.status = "";
   filters.search = "";
 }
 
-function syncEditForm(): void {
-  if (!selectedMapping.value) return;
-
-  editForm.engineering_requirement_ref = selectedMapping.value.engineering_requirement_ref ?? "";
-  editForm.implementation_status = selectedMapping.value.implementation_status;
-  editForm.sdl_activity = selectedMapping.value.sdl_activity;
-  editForm.evidence_summary = selectedMapping.value.evidence_summary ?? "";
+function resetEditor(): void {
+  traceForm.id = "";
+  traceForm.risk_item_id = "";
+  traceForm.implementation_status = "planned";
+  traceForm.sdl_activity = "requirements";
+  traceForm.engineering_requirement_ref = "";
+  traceForm.evidence_summary = "";
+  traceForm.artifact_ids = [];
+  applicabilityForm.applicability_decision = "undecided";
+  applicabilityForm.rationale = "";
+  selectedTraceId.value = "";
 }
 
-function selectMapping(mapping: RequirementMappingMatrixRead): void {
-  selectedMapping.value = mapping;
-  syncEditForm();
+function selectRow(row: ProductRequirementMatrixRowRead): void {
+  selectedRequirementId.value = row.annex_requirement.id;
+  applicabilityForm.applicability_decision = row.applicability_decision;
+  applicabilityForm.rationale = row.applicability_rationale ?? "";
+  if (row.trace_records.length > 0) {
+    const matchingTrace =
+      row.trace_records.find((trace) => trace.id === selectedTraceId.value) ?? row.trace_records[0];
+    editTrace(matchingTrace);
+    return;
+  }
+  resetEditor();
 }
 
-async function loadData(): Promise<void> {
+function startCreateTrace(): void {
+  resetEditor();
+}
+
+function editTrace(trace: RequirementMappingMatrixRead): void {
+  selectedTraceId.value = trace.id;
+  traceForm.id = trace.id;
+  traceForm.risk_item_id = trace.risk_item_id ?? "";
+  traceForm.implementation_status = trace.implementation_status;
+  traceForm.sdl_activity = trace.sdl_activity;
+  traceForm.engineering_requirement_ref = trace.engineering_requirement_ref ?? "";
+  traceForm.evidence_summary = trace.evidence_summary ?? "";
+  traceForm.artifact_ids = trace.artifacts.map((artifact) => artifact.id);
+}
+
+function toggleTraceArtifact(artifactId: string): void {
+  if (traceForm.artifact_ids.includes(artifactId)) {
+    traceForm.artifact_ids = traceForm.artifact_ids.filter((id) => id !== artifactId);
+    return;
+  }
+  traceForm.artifact_ids = [...traceForm.artifact_ids, artifactId];
+}
+
+async function loadProducts(): Promise<void> {
+  products.value = await productService.list();
+}
+
+async function loadProductContext(productId: string): Promise<void> {
+  const [rows, assessments, artifacts] = await Promise.all([
+    requirementMappingService.productMatrix(productId),
+    riskAssessmentService.list({ product_id: productId }),
+    artifactService.list({ product_id: productId }),
+  ]);
+
+  matrixRows.value = rows;
+  productArtifacts.value = artifacts;
+
+  const riskLists = await Promise.all(
+    assessments.map((assessment) => riskItemService.listByAssessment(assessment.id)),
+  );
+  productRiskItems.value = riskLists.flat();
+
+  const activeRow =
+    rows.find((row) => row.annex_requirement.id === selectedRequirementId.value) ?? rows[0] ?? null;
+  if (activeRow) {
+    selectRow(activeRow);
+  } else {
+    selectedRequirementId.value = "";
+    resetEditor();
+  }
+}
+
+async function loadMatrix(): Promise<void> {
+  if (!selectedProductId.value) {
+    matrixRows.value = [];
+    productRiskItems.value = [];
+    productArtifacts.value = [];
+    selectedRequirementId.value = "";
+    resetEditor();
+    return;
+  }
+
   loading.value = true;
   errorMessage.value = "";
   successMessage.value = "";
 
   try {
-    mappings.value = (await requirementMappingService.list({
-      matrix: true,
-    })) as RequirementMappingMatrixRead[];
-
-    if (!selectedMapping.value && mappings.value.length > 0) {
-      selectedMapping.value = mappings.value[0];
-      syncEditForm();
-      return;
-    }
-
-    if (selectedMapping.value) {
-      const refreshed =
-        mappings.value.find((item) => item.id === selectedMapping.value?.id) ?? null;
-      selectedMapping.value = refreshed;
-      if (refreshed) syncEditForm();
-    }
+    await loadProductContext(selectedProductId.value);
   } catch (error: any) {
-    errorMessage.value = error?.message ?? "Failed to load requirement mapping matrix.";
-    mappings.value = [];
-    selectedMapping.value = null;
+    errorMessage.value = error?.message ?? "Failed to load Annex I matrix.";
   } finally {
     loading.value = false;
   }
 }
 
-async function updateSelectedMapping(): Promise<void> {
-  if (!selectedMapping.value) return;
+async function saveTrace(): Promise<void> {
+  if (!selectedRow.value) return;
+  if (!traceForm.risk_item_id) {
+    errorMessage.value = "Select a product risk item so the trace record stays linked to this product.";
+    return;
+  }
 
-  saving.value = true;
+  busy.value = true;
   errorMessage.value = "";
   successMessage.value = "";
 
   try {
-    const payload: RequirementMappingUpdate = {
-      engineering_requirement_ref: editForm.engineering_requirement_ref.trim() || null,
-      implementation_status: editForm.implementation_status || undefined,
-      sdl_activity: editForm.sdl_activity || undefined,
-      evidence_summary: editForm.evidence_summary.trim() || null,
-    };
+    let savedTraceId = traceForm.id;
+    const existingArtifactIds = editingExisting.value
+      ? selectedRow.value.trace_records.find((trace) => trace.id === traceForm.id)?.artifacts.map((artifact) => artifact.id) ?? []
+      : [];
 
-    await requirementMappingService.update(selectedMapping.value.id, payload);
-    successMessage.value = "Requirement mapping updated successfully.";
-    await loadData();
+    if (editingExisting.value) {
+      const payload: RequirementMappingUpdate = {
+        risk_item_id: traceForm.risk_item_id || null,
+        engineering_requirement_ref: traceForm.engineering_requirement_ref || null,
+        implementation_status: traceForm.implementation_status,
+        sdl_activity: traceForm.sdl_activity,
+        evidence_summary: traceForm.evidence_summary || null,
+      };
+      const updated = await requirementMappingService.update(traceForm.id, payload);
+      savedTraceId = updated.id;
+      successMessage.value = "Trace record updated.";
+    } else {
+      const payload: RequirementMappingCreate = {
+        annex_requirement_id: selectedRow.value.annex_requirement.id,
+        risk_item_id: traceForm.risk_item_id || null,
+        engineering_requirement_ref: traceForm.engineering_requirement_ref || null,
+        implementation_status: traceForm.implementation_status,
+        sdl_activity: traceForm.sdl_activity,
+        evidence_summary: traceForm.evidence_summary || null,
+      };
+      const created = await requirementMappingService.create(payload);
+      savedTraceId = created.id;
+      successMessage.value = "Trace record created.";
+    }
+
+    if (selectedRow.value.artifact_traceability_available && savedTraceId) {
+      await syncTraceArtifacts(savedTraceId, existingArtifactIds, traceForm.artifact_ids);
+    }
+
+    await loadMatrix();
   } catch (error: any) {
-    errorMessage.value = error?.message ?? "Failed to update mapping.";
+    errorMessage.value = error?.message ?? "Failed to save trace record.";
   } finally {
-    saving.value = false;
+    busy.value = false;
   }
 }
 
+async function removeTrace(traceId: string): Promise<void> {
+  busy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    await requirementMappingService.remove(traceId);
+    successMessage.value = "Trace record deleted.";
+    await loadMatrix();
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to delete trace record.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function syncTraceArtifacts(
+  traceId: string,
+  existingArtifactIds: string[],
+  desiredArtifactIds: string[],
+): Promise<void> {
+  const existing = new Set(existingArtifactIds);
+  const desired = new Set(desiredArtifactIds);
+
+  for (const artifactId of desiredArtifactIds) {
+    if (!existing.has(artifactId)) {
+      await requirementMappingService.attachArtifact(traceId, { artifact_id: artifactId });
+    }
+  }
+
+  for (const artifactId of existingArtifactIds) {
+    if (!desired.has(artifactId)) {
+      await requirementMappingService.detachArtifact(traceId, artifactId);
+    }
+  }
+}
+
+async function downloadArtifact(artifact: ArtifactListRead): Promise<void> {
+  const revision = artifact.latest_revision;
+  if (!revision?.id || !revision.storage_path) return;
+
+  errorMessage.value = "";
+  try {
+    await artifactService.downloadRevision(
+      revision.id,
+      revision.original_filename || artifact.title || "artifact",
+    );
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to download artifact.";
+  }
+}
+
+async function saveApplicabilityDecision(): Promise<void> {
+  if (!selectedRow.value || !selectedProductId.value) return;
+
+  busy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    const payload: ProductRequirementDecisionUpdate = {
+      applicability_decision: applicabilityForm.applicability_decision,
+      rationale: applicabilityForm.rationale.trim() || null,
+    };
+    await requirementMappingService.updateProductRequirementDecision(
+      selectedProductId.value,
+      selectedRow.value.annex_requirement.id,
+      payload,
+    );
+    successMessage.value = "Applicability decision saved.";
+    await loadMatrix();
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to save applicability decision.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+watch(selectedProductId, async () => {
+  resetEditor();
+  await loadMatrix();
+});
+
 onMounted(async () => {
-  await loadData();
+  try {
+    await loadProducts();
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to load products.";
+  }
 });
 </script>
 
 <style scoped>
-:root {
-  color-scheme: light;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.page {
+.annex-page {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  color: #0f172a;
 }
 
 .hero {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  padding: 1.25rem 1.25rem 0.25rem;
-  border-radius: 20px;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 1.4rem;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 32%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid #e2e8f0;
+    radial-gradient(circle at top left, rgba(110, 168, 254, 0.24), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
 }
 
-.hero-copy h1 {
+.hero-copy {
+  max-width: 56rem;
+}
+
+.hero-copy h1,
+.detail-header h2,
+.section-heading h2,
+.section-heading h3 {
   margin: 0;
-  font-size: 1.9rem;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+}
+
+.hero-text,
+.detail-description,
+.row-description,
+.trace-notes,
+.trace-subline {
+  color: var(--color-text-muted);
 }
 
 .eyebrow {
@@ -605,682 +979,403 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.74rem;
+  color: var(--color-primary);
   font-weight: 700;
-  color: #2563eb;
-}
-
-.page-subtitle,
-.panel-subtitle {
-  margin: 0.45rem 0 0;
-  color: #64748b;
-  line-height: 1.5;
 }
 
 .hero-actions,
-.form-actions {
+.editor-actions,
+.trace-actions {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  align-items: end;
 }
 
-.stats-grid {
+.controls-grid,
+.matrix-layout,
+.selector-grid,
+.editor-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
-.stat-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 1rem 1.1rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+.controls-grid {
+  grid-template-columns: 1.15fr 1fr;
 }
 
-.stat-label {
-  display: block;
-  color: #64748b;
-  font-size: 0.88rem;
-  margin-bottom: 0.45rem;
+.selector-grid,
+.editor-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.stat-value {
-  font-size: 1.5rem;
-  line-height: 1;
-  letter-spacing: -0.03em;
+.matrix-layout {
+  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+  align-items: start;
 }
 
-.panel {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 1rem;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
-}
-
-.filters-panel {
-  position: sticky;
-  top: 1rem;
-  z-index: 5;
-  backdrop-filter: blur(10px);
-}
-
-.panel-header {
+.section-heading {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: flex-start;
+  align-items: start;
   margin-bottom: 1rem;
 }
 
-.panel-header-tight {
+.section-heading.tight {
   margin-bottom: 0.85rem;
-}
-
-.panel-header h2,
-.section-header h3,
-.evidence-section h3 {
-  margin: 0;
-}
-
-.quick-statuses {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.quick-chip {
-  appearance: none;
-  border: 1px solid #dbe4f0;
-  background: #f8fafc;
-  color: #334155;
-  border-radius: 999px;
-  padding: 0.5rem 0.8rem;
-  font: inherit;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: all 140ms ease;
-}
-
-.quick-chip:hover,
-.quick-chip.active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-}
-
-.filters-grid,
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .field span {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  min-height: 46px;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
-  padding: 0.8rem 0.9rem;
-  font: inherit;
-  background: #fff;
-  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-
-.field textarea {
-  resize: vertical;
-  min-height: 120px;
-}
-
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  outline: none;
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.18);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .field-full {
   grid-column: 1 / -1;
 }
 
-.field-search {
-  grid-column: span 1;
-}
-
-.search-input-wrap {
-  position: relative;
-}
-
-.search-input-wrap input {
-  padding-right: 2.5rem;
-}
-
-.clear-search {
-  position: absolute;
-  top: 50%;
-  right: 0.65rem;
-  transform: translateY(-50%);
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 999px;
-  border: none;
-  background: #e2e8f0;
-  color: #334155;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.primary-button,
-.ghost-button {
-  border-radius: 14px;
-  padding: 0.78rem 1rem;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-
-.primary-button:hover,
-.ghost-button:hover {
-  transform: translateY(-1px);
-}
-
-.primary-button:disabled,
-.ghost-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.primary-button {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-  color: #fff;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
-}
-
-.ghost-button {
-  background: #fff;
-  color: #0f172a;
-  border-color: #dbe4f0;
-}
-
-.alert {
+.matrix-list,
+.trace-list {
   display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
-  border: 1px solid;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 
-.alert-error {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
-}
-
-.alert-success {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #15803d;
-}
-
-.matrix-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.95fr);
-  gap: 1rem;
-  align-items: start;
-}
-
-.list-panel,
-.side-panel {
-  min-width: 0;
-}
-
-.side-panel {
-  position: sticky;
-  top: 7.5rem;
-}
-
-.list-header {
-  align-items: center;
-}
-
-.count-badge {
-  min-width: 2rem;
-  text-align: center;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  background: #e2e8f0;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.count-badge.subtle {
-  background: #f1f5f9;
-}
-
-.table-wrapper {
-  overflow: auto;
-  border: 1px solid #e8eef5;
-  border-radius: 16px;
-}
-
-.data-table {
+.matrix-row {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  min-width: 980px;
-}
-
-.data-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.95rem 0.8rem;
-  border-bottom: 1px solid #e2e8f0;
+  border: 1px solid rgba(233, 238, 252, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  border-radius: 16px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease, background 0.12s ease;
   text-align: left;
 }
 
-.data-table td {
-  padding: 0.95rem 0.8rem;
-  border-bottom: 1px solid #eef2f7;
-  vertical-align: top;
-  background: #fff;
+.matrix-row:hover,
+.matrix-row.active,
+.trace-card.selected {
+  border-color: rgba(110, 168, 254, 0.42);
+  background: rgba(110, 168, 254, 0.08);
+  transform: translateY(-1px);
 }
 
-.table-row-link {
-  cursor: pointer;
-  transition: background 120ms ease, box-shadow 120ms ease;
-}
-
-.table-row-link:hover td,
-.table-row-link:focus td {
-  background: #f8fbff;
-}
-
-.table-row-link.selected td {
-  background: #eff6ff;
-}
-
-.table-row-link:focus {
-  outline: none;
-}
-
-.table-row-link.selected td:first-child {
-  box-shadow: inset 4px 0 0 #2563eb;
-}
-
-.primary-cell {
+.row-title-wrap {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
 }
 
-.annex-code {
-  font-size: 0.88rem;
-  color: #1d4ed8;
-}
-
-.cell-title {
-  color: #0f172a;
-  line-height: 1.4;
-}
-
-.cell-meta {
-  color: #64748b;
-  font-size: 0.85rem;
-}
-
-.inline-tag {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #334155;
-  padding: 0.3rem 0.6rem;
+.requirement-code {
+  color: #9cc0ff;
   font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.34rem 0.65rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
-  border: 1px solid transparent;
-}
-
-.status-planned {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: #fed7aa;
-}
-
-.status-in_progress {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-}
-
-.status-implemented {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
-}
-
-.status-verified {
-  background: #eef2ff;
-  color: #4338ca;
-  border-color: #c7d2fe;
-}
-
-.status-not_applicable {
-  background: #f8fafc;
-  color: #475569;
-  border-color: #cbd5e1;
-}
-
-.evidence-count {
-  display: inline-flex;
-  min-width: 1.8rem;
-  justify-content: center;
-  align-items: center;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #0f172a;
-  padding: 0.25rem 0.5rem;
   font-weight: 700;
 }
 
-.selected-summary {
-  padding: 1rem;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-  border: 1px solid #e2e8f0;
-  margin-bottom: 1rem;
-}
-
-.selected-topline {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: center;
-  margin-bottom: 0.7rem;
-}
-
-.selected-code {
-  color: #1d4ed8;
-  font-size: 0.92rem;
-}
-
-.selected-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
-  line-height: 1.35;
-}
-
-.selected-description {
-  margin: 0;
-  color: #475569;
+.row-description,
+.detail-description {
+  margin: 0.45rem 0 0;
   line-height: 1.55;
 }
 
-.detail-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin: 0 0 1rem;
+.row-meta {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-.detail-card {
-  padding: 0.85rem 0.9rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #fff;
+.meta-pill,
+.mini-stat {
+  border-radius: 999px;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  padding: 0.38rem 0.7rem;
+  font-size: 0.77rem;
 }
 
-.detail-card dt {
-  font-size: 0.8rem;
-  color: #64748b;
-  margin-bottom: 0.25rem;
+.mini-stat {
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.detail-card dd {
-  margin: 0;
-  color: #0f172a;
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
 }
 
-.evidence-section {
+.trace-section,
+.editor-card {
+  margin-top: 1.15rem;
+}
+
+.trace-card,
+.editor-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(233, 238, 252, 0.08);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.detail-section,
+.editor-card,
+.trace-section {
   margin-top: 1rem;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 1rem;
 }
 
-.section-header {
+.summary-bar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.trace-top {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trace-subline,
+.trace-notes {
+  margin: 0.35rem 0 0;
+}
+
+.artifact-strip {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.artifact-card,
+.compact-item {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.evidence-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.evidence-item {
-  padding: 0.85rem 0.9rem;
+  padding: 0.85rem 0.95rem;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.evidence-title-row {
-  display: flex;
-  justify-content: space-between;
+.artifact-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  align-items: flex-start;
-  margin-bottom: 0.4rem;
 }
 
-.evidence-meta {
-  display: block;
-  color: #64748b;
-  font-size: 0.86rem;
-  word-break: break-all;
+.artifact-option {
+  display: flex;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
 }
 
-.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.artifact-option.selected {
+  border-color: rgba(110, 168, 254, 0.38);
+  background: rgba(110, 168, 254, 0.08);
+}
+
+.artifact-option input {
+  margin-top: 0.2rem;
+}
+
+.artifact-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.artifact-option-copy span,
+.artifact-selection-note {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.alert {
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  border: 1px solid transparent;
+}
+
+.alert.error {
+  background: rgba(251, 113, 133, 0.12);
+  border-color: rgba(251, 113, 133, 0.26);
+  color: #fecdd3;
+}
+
+.alert.success {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.26);
+  color: #bbf7d0;
+}
+
+.alert.warning {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.26);
+  color: #fde68a;
 }
 
 .state-block {
+  border: 1px dashed rgba(233, 238, 252, 0.14);
+  border-radius: 16px;
+  padding: 1.2rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.state-block.compact {
   padding: 1rem;
 }
 
-.empty-state {
-  display: grid;
-  place-items: start;
-  gap: 0.45rem;
-  min-height: 180px;
-}
-
-.empty-state h3,
-.empty-state p {
-  margin: 0;
-}
-
-.side-empty {
-  min-height: 280px;
-}
-
-.small {
-  min-height: 0;
-  padding: 0.5rem 0;
-}
-
 .skeleton-row {
-  height: 62px;
-  border-radius: 14px;
-  margin-bottom: 0.75rem;
-  background: linear-gradient(
-    90deg,
-    rgba(226, 232, 240, 0.55) 25%,
-    rgba(241, 245, 249, 0.95) 37%,
-    rgba(226, 232, 240, 0.55) 63%
-  );
-  background-size: 400% 100%;
-  animation: shimmer 1.5s infinite linear;
+  height: 5.2rem;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
 
-.truncate-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.app-applicable {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.app-not_applicable {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.26);
+}
+
+.app-needs_decision,
+.status-empty {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.status-planned {
+  background: rgba(250, 204, 21, 0.12);
+  border-color: rgba(250, 204, 21, 0.22);
+}
+
+.status-in_progress {
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.24);
+}
+
+.status-implemented {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.status-verified {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.26);
+}
+
+.status-not_applicable {
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(217, 119, 6, 0.24);
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity 0.18s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 100% 0;
+  from {
+    background-position: 200% 0;
   }
-  100% {
-    background-position: 0 0;
+  to {
+    background-position: -200% 0;
   }
 }
 
-@media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+@media (max-width: 1100px) {
+  .controls-grid,
   .matrix-layout {
     grid-template-columns: 1fr;
   }
+}
 
-  .side-panel {
-    position: static;
+@media (max-width: 720px) {
+  .selector-grid,
+  .editor-grid,
+  .artifact-selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .detail-header,
+  .section-heading {
+    flex-direction: column;
   }
 }
 
-@media (max-width: 900px) {
-  .hero,
-  .panel-header,
-  .hero-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.compact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
 
-  .filters-grid,
-  .form-grid,
-  .detail-list {
-    grid-template-columns: 1fr;
-  }
+.compact-item {
+  align-items: flex-start;
+  flex-direction: column;
+}
 
-  .field-search {
-    grid-column: auto;
-  }
+.compact-item-actions,
+.artifact-card {
+  align-items: center;
+  flex-direction: row;
+}
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+.artifact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
 
-  .table-wrapper {
-    border: none;
-    overflow: visible;
-  }
+.artifact-actions-inline {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 
-  .data-table,
-  .data-table thead,
-  .data-table tbody,
-  .data-table th,
-  .data-table td,
-  .data-table tr {
-    display: block;
-    min-width: 0;
-    width: 100%;
-  }
+.small-button {
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+}
 
-  .data-table thead {
-    display: none;
-  }
-
-  .data-table tbody {
-    display: grid;
-    gap: 0.8rem;
-  }
-
-  .data-table tr {
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    overflow: hidden;
-    background: #fff;
-  }
-
-  .data-table td {
-    border: none;
-    padding: 0.8rem 0.95rem;
-  }
-
-  .data-table td::before {
-    display: block;
-    margin-bottom: 0.25rem;
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #64748b;
-  }
-
-  .data-table td:nth-child(1)::before { content: "Requirement"; }
-  .data-table td:nth-child(2)::before { content: "Risk"; }
-  .data-table td:nth-child(3)::before { content: "SDL"; }
-  .data-table td:nth-child(4)::before { content: "Engineering Ref"; }
-  .data-table td:nth-child(5)::before { content: "Status"; }
-  .data-table td:nth-child(6)::before { content: "Evidence"; }
+.link-button {
+  display: inline-flex;
+  align-items: center;
 }
 </style>

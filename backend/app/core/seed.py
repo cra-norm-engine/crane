@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.annex_i_catalog import sync_annex_i_requirements
 from app.core.permissions import Permission as PermissionEnum
 from app.core.security import hash_password
 from app.models.permission import Permission
@@ -67,3 +68,6 @@ def seed_initial_data(db: Session) -> None:
         if existing_user_role is None:
             db.add(UserRole(user_id=admin_user.id, role_id=admin_role.id))
             db.commit()
+
+    sync_annex_i_requirements(db)
+    db.commit()

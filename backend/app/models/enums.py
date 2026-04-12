@@ -62,6 +62,12 @@ class AnnexPart(StrEnum):
     part_ii = "part_ii"
 
 
+class RequirementApplicabilityDecision(StrEnum):
+    undecided = "undecided"
+    applicable = "applicable"
+    not_applicable = "not_applicable"
+
+
 class SdlActivity(StrEnum):
     requirements = "requirements"
     design = "design"
