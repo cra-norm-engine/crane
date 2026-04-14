@@ -611,6 +611,18 @@
             </div>
           </section>
 
+          <AuditTimeline
+            v-if="canViewAudit"
+            title="Product timeline"
+            eyebrow="Traceability"
+            description="Follow the high-value actions for this product, including release, evidence, support, security, and admin-linked changes."
+            :events="auditEvents"
+            :loading="isAuditLoading"
+            :error-message="auditErrorMessage"
+            :show-refresh="true"
+            @refresh="loadAuditEvents"
+          />
+
           <section class="card">
             <div class="section-header">
               <div>
@@ -706,9 +718,13 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import AuditTimeline from "@/components/AuditTimeline.vue";
+import { auditService } from "@/services/audit-service";
 import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { supportPeriodService } from "@/services/support-period-service";
+import { useAuthStore } from "@/stores/auth";
+import type { AuditEventRead } from "@/types/audit";
 import type {
   ConformityRoute,
   ProductClassification,
@@ -726,6 +742,7 @@ const props = defineProps<{
   productId: string;
 }>();
 const router = useRouter();
+const authStore = useAuthStore();
 
 const product = ref<ProductDetailRead | null>(null);
 const activeSupportPeriod = ref<SupportPeriodRecordRead | null>(null);
@@ -733,6 +750,7 @@ const supportHistoryCount = ref(0);
 const notificationRecipientOptions = ref<SupportPeriodNotificationRecipientOptionRead[]>([]);
 const recipientDropdownRef = ref<HTMLElement | null>(null);
 const isRecipientDropdownOpen = ref(false);
+const auditEvents = ref<AuditEventRead[]>([]);
 
 const isLoading = ref(false);
 const isSaving = ref(false);
@@ -741,6 +759,7 @@ const isEvaluatingScope = ref(false);
 const isSavingSupportPeriod = ref(false);
 const isCreatingRelease = ref(false);
 const showReleaseForm = ref(false);
+const isAuditLoading = ref(false);
 
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -748,6 +767,7 @@ const supportPeriodError = ref("");
 const supportPeriodSuccess = ref("");
 const scopeError = ref("");
 const scopeResult = ref<ProductScopeEvaluationRead | null>(null);
+const auditErrorMessage = ref("");
 
 const scopeForm = reactive<ProductScopeEvaluationRequest>({
   is_digital_product: false,
@@ -813,6 +833,8 @@ const notificationSchedulePreview = computed(() => {
     day: "2-digit",
   }).format(previewDate);
 });
+
+const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
 
 const selectedRecipientsSummary = computed(() => {
   const count = supportForm.recipient_user_ids.length;
@@ -1042,6 +1064,29 @@ async function loadNotificationRecipients(): Promise<void> {
   }
 }
 
+async function loadAuditEvents(): Promise<void> {
+  if (!props.productId || !canViewAudit.value) {
+    auditEvents.value = [];
+    return;
+  }
+
+  isAuditLoading.value = true;
+  auditErrorMessage.value = "";
+
+  try {
+    const response = await auditService.listEvents({
+      product_id: props.productId,
+      limit: 40,
+    });
+    auditEvents.value = response.items;
+  } catch (error) {
+    auditErrorMessage.value =
+      error instanceof Error ? error.message : "Failed to load product audit history.";
+  } finally {
+    isAuditLoading.value = false;
+  }
+}
+
 async function loadProduct(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
@@ -1049,7 +1094,7 @@ async function loadProduct(): Promise<void> {
   try {
     product.value = await productService.get(props.productId);
     syncEditForm();
-    await Promise.all([loadSupportPeriod(), loadNotificationRecipients()]);
+    await Promise.all([loadSupportPeriod(), loadNotificationRecipients(), loadAuditEvents()]);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
@@ -1161,7 +1206,7 @@ async function saveSupportPeriod(): Promise<void> {
       supportPeriodSuccess.value = "Support period created.";
     }
 
-    await loadSupportPeriod();
+    await Promise.all([loadSupportPeriod(), loadAuditEvents()]);
   } catch (error) {
     supportPeriodError.value =
       error instanceof Error ? error.message : "Failed to save support period.";
@@ -1232,6 +1277,8 @@ watch(
     supportPeriodSuccess.value = "";
     supportPeriodError.value = "";
     activeSupportPeriod.value = null;
+    auditEvents.value = [];
+    auditErrorMessage.value = "";
     closeRecipientDropdown();
     supportHistoryCount.value = 0;
     showReleaseForm.value = false;

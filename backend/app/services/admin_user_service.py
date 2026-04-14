@@ -58,9 +58,10 @@ class AdminUserService:
             entity_id=user.id,
             status=AuditStatus.success.value,
             details_json={
-                "email": user.email,
-                "full_name": user.full_name,
+                "target_user_email": user.email,
+                "target_user_full_name": user.full_name,
                 "role_ids": [str(rid) for rid in role_ids],
+                "after_roles": user.role_names,
                 "is_active": user.is_active,
             },
             commit=True,
@@ -91,6 +92,8 @@ class AdminUserService:
             entity_id=user_id,
             status=AuditStatus.success.value,
             details_json={
+                "target_user_email": updated_user.email,
+                "target_user_full_name": updated_user.full_name,
                 "before_roles": previous_roles,
                 "after_roles": updated_user.role_names,
                 "role_ids": [str(rid) for rid in role_ids],
@@ -116,11 +119,13 @@ class AdminUserService:
 
         self.audit_logger.log_event(
             actor_user_id=actor_user.id,
-            action_type="admin.user.status_updated",
+            action_type="admin.user.activated" if is_active else "admin.user.deactivated",
             entity_type=EntityType.user.value,
             entity_id=user_id,
             status=AuditStatus.success.value,
             details_json={
+                "target_user_email": updated_user.email,
+                "target_user_full_name": updated_user.full_name,
                 "before_is_active": previous_status,
                 "after_is_active": updated_user.is_active,
             },

@@ -108,6 +108,14 @@ const routes: RouteRecordRaw[] = [
           permissions: ["admin_manage_users"],
         },
       },
+      {
+        path: "audit",
+        name: "audit-history",
+        component: () => import("@/views/admin/AuditLogView.vue"),
+        meta: {
+          permissions: ["audit_read"],
+        },
+      },
     ],
   },
   {

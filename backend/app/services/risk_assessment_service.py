@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, NotFoundException
-from app.models.enums import AuditActionType, AuditStatus, EntityType, RiskAssessmentStatus
+from app.models.enums import AuditStatus, EntityType, RiskAssessmentStatus
 from app.models.evidence_item import EvidenceItem
 from app.models.requirement_mapping import RequirementMapping
 from app.models.risk_assessment import RiskAssessment
@@ -44,6 +44,10 @@ class RiskAssessmentService:
         product_id: UUID | None = None,
         product_release_id: UUID | None = None,
     ) -> list[RiskAssessmentRead]:
+        if product_id is None and product_release_id is None:
+            assessments = self.risk_assessment_repository.list_all()
+            return [RiskAssessmentRead.model_validate(item) for item in assessments]
+
         if product_release_id is not None:
             assessments = self.risk_assessment_repository.list_by_product_release(product_release_id)
             return [RiskAssessmentRead.model_validate(item) for item in assessments]
@@ -51,8 +55,6 @@ class RiskAssessmentService:
         if product_id is not None:
             assessments = self.risk_assessment_repository.list_by_product(product_id)
             return [RiskAssessmentRead.model_validate(item) for item in assessments]
-
-        raise ConflictException("Either product_id or product_release_id must be provided")
 
     def get(self, assessment_id: UUID) -> RiskAssessmentDetailRead:
         assessment = self.risk_assessment_repository.get_with_relations(assessment_id)
@@ -113,7 +115,7 @@ class RiskAssessmentService:
             create_audit_event(
                 self.db,
                 actor_user_id=actor_user_id,
-                action_type=AuditActionType.create.value,
+                action_type="risk_assessment.created",
                 entity_type=EntityType.risk_assessment.value,
                 entity_id=assessment.id,
                 status=AuditStatus.success.value,
@@ -179,13 +181,17 @@ class RiskAssessmentService:
             create_audit_event(
                 self.db,
                 actor_user_id=actor_user_id,
-                action_type=AuditActionType.update.value,
+                action_type="risk_assessment.updated",
                 entity_type=EntityType.risk_assessment.value,
                 entity_id=assessment.id,
                 status=AuditStatus.success.value,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 details_json={
+                    "product_id": str(assessment.product_id),
+                    "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
+                    "title": assessment.title,
+                    "version_label": assessment.version_label,
                     "before": before,
                     "after": self._assessment_snapshot(assessment),
                     "updated_fields": sorted(updates.keys()),
@@ -221,13 +227,17 @@ class RiskAssessmentService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.approve.value,
+            action_type="risk_assessment.approved",
             entity_type=EntityType.risk_assessment.value,
             entity_id=assessment.id,
             status=AuditStatus.success.value,
             ip_address=ip_address,
             user_agent=user_agent,
             details_json={
+                "product_id": str(assessment.product_id),
+                "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
+                "title": assessment.title,
+                "version_label": assessment.version_label,
                 "before": before,
                 "after": self._assessment_snapshot(assessment),
                 "approved_at": assessment.approved_at.isoformat() if assessment.approved_at else None,
@@ -349,13 +359,17 @@ class RiskAssessmentService:
             create_audit_event(
                 self.db,
                 actor_user_id=actor_user_id,
-                action_type=AuditActionType.duplicate.value,
+                action_type="risk_assessment.duplicated",
                 entity_type=EntityType.risk_assessment.value,
                 entity_id=duplicate.id,
                 status=AuditStatus.success.value,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 details_json={
+                    "product_id": str(duplicate.product_id),
+                    "product_release_id": str(duplicate.product_release_id) if duplicate.product_release_id else None,
+                    "title": duplicate.title,
+                    "version_label": duplicate.version_label,
                     "source_assessment_id": str(source.id),
                     "source_version_label": source.version_label,
                     "new_assessment_id": str(duplicate.id),
@@ -392,7 +406,7 @@ class RiskAssessmentService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.delete.value,
+            action_type="risk_assessment.deleted",
             entity_type=EntityType.risk_assessment.value,
             entity_id=assessment.id,
             status=AuditStatus.success.value,

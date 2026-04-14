@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     # --- Security ---
     secret_key: str = Field(default="change-me", alias="BACKEND_SECRET_KEY")
+    audit_hmac_key: str = Field(default="", alias="BACKEND_AUDIT_HMAC_KEY")
 
     access_token_expire_minutes: int = Field(
         default=60,

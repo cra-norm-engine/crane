@@ -1,190 +1,495 @@
 <template>
-  <section class="page">
+  <section class="page dashboard-page">
     <div class="page-header">
       <div>
         <h1 class="page-title">Dashboard</h1>
-        <p class="muted">
-          A focused overview for CRA inventory, classification, releases, and remote processing.
-        </p>
+        <p class="muted dashboard-subtitle">CRA compliance pulse across products, lifecycle, releases, and recent activity.</p>
       </div>
 
-      <div class="page-actions">
+      <div class="dashboard-actions">
         <RouterLink class="button secondary" :to="{ name: 'products' }">
-          Open inventory
+          Product inventory
+        </RouterLink>
+        <RouterLink
+          v-if="canViewAudit"
+          class="button secondary"
+          :to="{ name: 'audit-history' }"
+        >
+          Audit history
         </RouterLink>
       </div>
     </div>
 
-    <div class="grid dashboard-grid">
-      <div class="card hero-card">
-        <div class="hero-copy">
-          <span class="badge">CRA workspace</span>
-          <h2 class="hero-title">Manage products, evaluate scope, and track release readiness.</h2>
-          <p class="muted">
-            Start from the product inventory, then move into product-level classification,
-            conformity route decisions, and remote processing review.
-          </p>
+    <div v-if="errorMessage" class="card feedback feedback-error">
+      {{ errorMessage }}
+    </div>
+
+    <section class="grid metrics-grid">
+      <article class="card metric-card metric-card-primary">
+        <span class="metric-label">Products</span>
+        <strong class="metric-value">{{ totalProducts }}</strong>
+        <span class="metric-foot">Total portfolio</span>
+      </article>
+
+      <article class="card metric-card">
+        <span class="metric-label">In-Scope Products</span>
+        <strong class="metric-value">{{ inScopeProducts }}</strong>
+        <span class="metric-foot">{{ scopeCoverage }}% coverage</span>
+      </article>
+
+      <article class="card metric-card">
+        <span class="metric-label">Released Products</span>
+        <strong class="metric-value">{{ releasedProducts }}</strong>
+        <span class="metric-foot">{{ releasedCoverage }}% released</span>
+      </article>
+    </section>
+
+    <section class="grid highlights-grid">
+      <article class="card spotlight-card">
+        <div class="spotlight-header">
+          <div>
+            <span class="metric-label">End of Support Alert</span>
+            <strong class="spotlight-value">{{ eosAlertCount }}</strong>
+          </div>
+          <div class="spotlight-orb spotlight-orb-danger" />
         </div>
 
-        <div class="hero-actions">
-          <RouterLink class="button" :to="{ name: 'products' }">
-            Go to product inventory
+        <div v-if="eosAlerts.length === 0" class="empty-state-inline">
+          No current alerts
+        </div>
+
+        <div v-else class="compact-list">
+          <RouterLink
+            v-for="item in eosAlerts.slice(0, 4)"
+            :key="item.id"
+            class="compact-list-item"
+            :to="{ name: 'product-detail', params: { productId: item.id } }"
+          >
+            <span>{{ item.name }}</span>
+            <small>{{ item.days }}d</small>
           </RouterLink>
         </div>
-      </div>
+      </article>
 
-      <div class="grid grid-3">
-        <article class="card kpi-card">
-          <div class="muted">Inventory</div>
-          <h2 class="kpi-title">Products</h2>
-          <p class="muted">
-            Use the inventory page to search by product code and name, create records, and drill into
-            releases and remote processing elements.
-          </p>
-        </article>
-
-        <article class="card kpi-card">
-          <div class="muted">Classification</div>
-          <h2 class="kpi-title">Scope & class</h2>
-          <p class="muted">
-            Run the CRA scope wizard on each product to derive in-scope status, recommended
-            classification, and suggested conformity route.
-          </p>
-        </article>
-
-        <article class="card kpi-card">
-          <div class="muted">Lifecycle</div>
-          <h2 class="kpi-title">Releases</h2>
-          <p class="muted">
-            Track release versions, release status, planned dates, actual dates, and release-level
-            classification snapshots.
-          </p>
-        </article>
-      </div>
-
-      <div class="grid dashboard-bottom">
-        <div class="card">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">What to do next</h2>
-              <p class="muted">Suggested first workflow for the current implementation.</p>
-            </div>
+      <article class="card spotlight-card">
+        <div class="spotlight-header">
+          <div>
+            <span class="metric-label">Security Update Availability</span>
+            <strong class="spotlight-value">{{ securityAvailabilityPercent }}%</strong>
           </div>
-
-          <ol class="workflow-list">
-            <li>Create or review a product in the inventory.</li>
-            <li>Open the product detail page.</li>
-            <li>Run the CRA scope evaluation wizard.</li>
-            <li>Add a product release and snapshot the current classification.</li>
-            <li>Document remote processing elements linked to the product.</li>
-          </ol>
+          <div class="spotlight-orb spotlight-orb-success" />
         </div>
 
-        <div class="card">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Current backend coverage</h2>
-              <p class="muted">What is already wired end to end.</p>
-            </div>
-          </div>
-
-          <ul class="coverage-list">
-            <li>Authenticated login flow</li>
-            <li>Products list and detail pages</li>
-            <li>CRA scope evaluation endpoint</li>
-            <li>Product releases API</li>
-            <li>Remote processing elements API</li>
-            <li>Audit logging for create flows</li>
-          </ul>
+        <div class="availability-track">
+          <span class="availability-fill" :style="{ width: `${securityAvailabilityPercent}%` }" />
         </div>
+
+        <div class="availability-meta">
+          <span>{{ productsWithSecurityUpdates }} covered</span>
+          <span>{{ productsWithoutSecurityUpdates }} uncovered</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="card activity-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Recent Activities</h2>
+          <p class="muted">Latest regulated actions</p>
+        </div>
+        <span class="activity-count">{{ recentActivities.length }}</span>
       </div>
-    </div>
+
+      <div v-if="recentActivities.length === 0" class="empty-state-inline">
+        No recent activities
+      </div>
+
+      <div v-else class="activity-list">
+        <article
+          v-for="event in recentActivities"
+          :key="event.id"
+          class="activity-row"
+        >
+          <span class="activity-dot" />
+          <div class="activity-copy">
+            <strong>{{ event.summary }}</strong>
+            <small class="muted">{{ formatDateTime(event.occurred_at) }}</small>
+          </div>
+        </article>
+      </div>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
+
+import { auditService } from "@/services/audit-service";
+import { productReleaseService } from "@/services/product-release-service";
+import { productService } from "@/services/product-service";
+import { securityUpdateService } from "@/services/security-update-service";
+import { supportPeriodService } from "@/services/support-period-service";
+import { useAuthStore } from "@/stores/auth";
+import type { AuditEventRead } from "@/types/audit";
+import type { ProductSummaryRead, SecurityUpdateRead, SupportPeriodRecordRead } from "@/types/product";
+import type { ProductReleaseRead } from "@/types/release-gate";
+
+const authStore = useAuthStore();
+
+const errorMessage = ref("");
+
+const products = ref<ProductSummaryRead[]>([]);
+const releases = ref<ProductReleaseRead[]>([]);
+const supportPeriods = ref<SupportPeriodRecordRead[]>([]);
+const securityUpdates = ref<SecurityUpdateRead[]>([]);
+const recentActivities = ref<AuditEventRead[]>([]);
+
+const canViewProducts = computed(() => authStore.hasPermission("product_read"));
+const canViewReleases = computed(() => authStore.hasPermission("release_read"));
+const canViewSupport = computed(() => authStore.hasPermission("support_period_read"));
+const canViewSecurity = computed(() => authStore.hasPermission("security_update_read"));
+const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
+
+const totalProducts = computed(() => products.value.length);
+const inScopeProducts = computed(() =>
+  products.value.filter((product) => product.scope_status === "in_scope").length,
+);
+
+const releasedProducts = computed(() => {
+  const releasedProductIds = new Set(
+    releases.value
+      .filter((release) => release.release_status === "released")
+      .map((release) => release.product_id),
+  );
+  return releasedProductIds.size;
+});
+
+const scopeCoverage = computed(() => {
+  if (totalProducts.value === 0) {
+    return 0;
+  }
+  return Math.round((inScopeProducts.value / totalProducts.value) * 100);
+});
+
+const releasedCoverage = computed(() => {
+  if (totalProducts.value === 0) {
+    return 0;
+  }
+  return Math.round((releasedProducts.value / totalProducts.value) * 100);
+});
+
+const eosAlerts = computed(() => {
+  const now = new Date();
+  const byProduct = new Map(products.value.map((product) => [product.id, product]));
+
+  return supportPeriods.value
+    .map((record) => {
+      const product = byProduct.get(record.product_id);
+      if (!product) {
+        return null;
+      }
+
+      const endDate = new Date(`${record.support_end_date}T00:00:00`);
+      const days = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (days < 0 || days > 180) {
+        return null;
+      }
+
+      return {
+        id: product.id,
+        name: product.name,
+        days,
+      };
+    })
+    .filter((item): item is { id: string; name: string; days: number } => item !== null)
+    .sort((a, b) => a.days - b.days);
+});
+
+const eosAlertCount = computed(() => eosAlerts.value.length);
+
+const productsWithSecurityUpdates = computed(() => {
+  const productIdByReleaseId = new Map(releases.value.map((release) => [release.id, release.product_id]));
+  return new Set(
+    securityUpdates.value
+      .map((update) => productIdByReleaseId.get(update.product_release_id))
+      .filter((value): value is string => Boolean(value)),
+  ).size;
+});
+
+const productsWithoutSecurityUpdates = computed(() =>
+  Math.max(totalProducts.value - productsWithSecurityUpdates.value, 0),
+);
+
+const securityAvailabilityPercent = computed(() => {
+  if (totalProducts.value === 0) {
+    return 0;
+  }
+  return Math.round((productsWithSecurityUpdates.value / totalProducts.value) * 100);
+});
+
+async function loadDashboard(): Promise<void> {
+  errorMessage.value = "";
+
+  try {
+    const tasks: Promise<unknown>[] = [];
+
+    if (canViewProducts.value) {
+      tasks.push(productService.list().then((data) => { products.value = data; }));
+    }
+
+    if (canViewReleases.value) {
+      tasks.push(productReleaseService.list().then((data) => { releases.value = data; }));
+    }
+
+    if (canViewSupport.value) {
+      tasks.push(
+        supportPeriodService.list({ active_only: true }).then((data) => { supportPeriods.value = data; }),
+      );
+    }
+
+    if (canViewSecurity.value) {
+      tasks.push(securityUpdateService.list().then((data) => { securityUpdates.value = data; }));
+    }
+
+    if (canViewAudit.value) {
+      tasks.push(
+        auditService.listEvents({ limit: 6 }).then((data) => {
+          recentActivities.value = data.items;
+        }),
+      );
+    }
+
+    await Promise.all(tasks);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Failed to load dashboard.";
+  }
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+onMounted(() => {
+  void loadDashboard();
+});
 </script>
 
 <style scoped>
-.dashboard-grid {
+.dashboard-page {
   gap: 1rem;
 }
 
-.hero-card {
+.dashboard-subtitle {
+  margin: 0.25rem 0 0;
+}
+
+.dashboard-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-.hero-copy {
-  max-width: 760px;
+.feedback {
+  padding: 0.9rem 1rem;
+}
+
+.feedback-error {
+  border: 1px solid rgba(251, 113, 133, 0.28);
+  background: rgba(251, 113, 133, 0.12);
+  color: #fecdd3;
+}
+
+.metrics-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-card {
+  min-height: 180px;
   display: grid;
-  gap: 0.75rem;
+  align-content: space-between;
+  position: relative;
+  overflow: hidden;
 }
 
-.hero-title {
-  margin: 0;
-  font-size: 1.75rem;
-  line-height: 1.2;
+.metric-card::after {
+  content: "";
+  position: absolute;
+  right: -28px;
+  bottom: -28px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.hero-actions {
-  display: flex;
-  align-items: center;
+.metric-card-primary {
+  background:
+    radial-gradient(circle at top right, rgba(110, 168, 254, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(18, 36, 64, 0.92), rgba(12, 22, 41, 0.88));
 }
 
-.kpi-card {
+.metric-label {
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.metric-value {
+  font-size: clamp(2.9rem, 6vw, 4.1rem);
+  line-height: 0.95;
+}
+
+.metric-foot {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.highlights-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.spotlight-card {
+  min-height: 230px;
   display: grid;
-  gap: 0.4rem;
+  gap: 1rem;
 }
 
-.kpi-title {
-  margin: 0;
-}
-
-.dashboard-bottom {
-  grid-template-columns: 1.1fr 0.9fr;
-}
-
+.spotlight-header,
+.availability-meta,
 .section-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
-.section-title {
-  margin: 0;
+.spotlight-value {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 2.8rem;
+  line-height: 0.95;
 }
 
-.workflow-list,
-.coverage-list {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: var(--color-text);
+.spotlight-orb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.03);
 }
 
-.workflow-list li,
-.coverage-list li {
-  margin: 0.5rem 0;
+.spotlight-orb-danger {
+  background: linear-gradient(180deg, rgba(251, 113, 133, 0.92), rgba(244, 63, 94, 0.55));
 }
 
-.page-actions {
-  display: flex;
+.spotlight-orb-success {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.92), rgba(16, 185, 129, 0.55));
+}
+
+.compact-list,
+.activity-list {
+  display: grid;
   gap: 0.75rem;
 }
 
-@media (max-width: 960px) {
-  .dashboard-bottom {
-    grid-template-columns: 1fr;
-  }
+.compact-list-item,
+.activity-row {
+  border-radius: 14px;
+  border: 1px solid rgba(233, 238, 252, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
 
-  .hero-title {
-    font-size: 1.45rem;
+.compact-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.compact-list-item small {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+.availability-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.availability-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.95), rgba(110, 168, 254, 0.95));
+}
+
+.availability-meta {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.activity-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.activity-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(233, 238, 252, 0.12);
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.8rem;
+  padding: 0.9rem 1rem;
+}
+
+.activity-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 0.18rem;
+  background: linear-gradient(180deg, var(--color-success), var(--color-primary));
+  box-shadow: 0 0 0 6px rgba(110, 168, 254, 0.08);
+}
+
+.activity-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.empty-state-inline {
+  min-height: 108px;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  border-radius: 14px;
+  border: 1px dashed rgba(233, 238, 252, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 1040px) {
+  .metrics-grid,
+  .highlights-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

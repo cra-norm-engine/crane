@@ -13,7 +13,7 @@ from app.core.audit import create_audit_event
 from app.core.config import settings
 from app.core.exceptions import ConflictException, NotFoundException
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
-from app.models.enums import ArtifactSourceType, AuditActionType, AuditStatus, EntityType, EvidenceType
+from app.models.enums import ArtifactSourceType, AuditStatus, EntityType, EvidenceType
 from app.repositories.artifact_repository import ArtifactRepository, ArtifactRevisionRepository
 
 
@@ -95,15 +95,18 @@ class ArtifactService:
         create_audit_event(
             self.db,
             actor_user_id=created_by_user_id,
-            action_type=AuditActionType.create,
+            action_type="artifact.uploaded",
             entity_type=EntityType.evidence_item,
             entity_id=artifact.id,
             status=AuditStatus.success,
             details_json={
                 "artifact_id": str(artifact.id),
                 "revision_id": str(revision.id),
+                "artifact_title": artifact.title,
                 "artifact_type": artifact.artifact_type.value,
                 "product_id": str(product_id) if product_id else None,
+                "original_filename": revision.original_filename,
+                "revision_number": revision.revision_number,
             },
         )
         if commit:
@@ -169,14 +172,16 @@ class ArtifactService:
         create_audit_event(
             self.db,
             actor_user_id=created_by_user_id,
-            action_type=AuditActionType.create,
+            action_type="artifact.linked",
             entity_type=EntityType.evidence_item,
             entity_id=artifact.id,
             status=AuditStatus.success,
             details_json={
                 "artifact_id": str(artifact.id),
                 "revision_id": str(revision.id),
+                "artifact_title": artifact.title,
                 "artifact_type": artifact.artifact_type.value,
+                "product_id": str(product_id) if product_id else None,
                 "external_url": external_url,
             },
         )
@@ -204,14 +209,17 @@ class ArtifactService:
         create_audit_event(
             self.db,
             actor_user_id=uploaded_by_user_id,
-            action_type=AuditActionType.update,
+            action_type="artifact.revision_uploaded",
             entity_type=EntityType.evidence_item,
             entity_id=artifact.id,
             status=AuditStatus.success,
             details_json={
                 "artifact_id": str(artifact.id),
+                "artifact_title": artifact.title,
+                "product_id": str(product_id) if product_id else None,
                 "revision_id": str(revision.id),
                 "revision_number": revision.revision_number,
+                "original_filename": revision.original_filename,
             },
         )
         self.db.commit()

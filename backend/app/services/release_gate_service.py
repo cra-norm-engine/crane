@@ -11,7 +11,6 @@ from app.core.exceptions import ConflictException, NotFoundException
 from app.models.artifact import ArtifactProductLink
 from app.models.enums import (
     ArtifactReviewDecision,
-    AuditActionType,
     AuditStatus,
     EntityType,
     ReleaseGateItemCode,
@@ -102,11 +101,17 @@ class ReleaseGateService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.update,
+            action_type="release_gate.submitted",
             entity_type=EntityType.product_release,
             entity_id=release.id,
             status=AuditStatus.success,
-            details_json={"gate_status": gate.status.value, "action": "submit_release_gate"},
+            details_json={
+                "action": "submit_release_gate",
+                "product_id": str(release.product_id),
+                "product_release_id": str(release.id),
+                "release_version": release.version,
+                "gate_status": gate.status.value,
+            },
         )
         self.db.commit()
         return self._detail_payload(release, gate)
@@ -131,11 +136,17 @@ class ReleaseGateService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.approve,
+            action_type="release_gate.approved",
             entity_type=EntityType.product_release,
             entity_id=release.id,
             status=AuditStatus.success,
-            details_json={"gate_status": gate.status.value, "action": "approve_release_gate"},
+            details_json={
+                "action": "approve_release_gate",
+                "product_id": str(release.product_id),
+                "product_release_id": str(release.id),
+                "release_version": release.version,
+                "gate_status": gate.status.value,
+            },
         )
         self.db.commit()
         return self._detail_payload(release, gate)
@@ -172,13 +183,17 @@ class ReleaseGateService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.update,
+            action_type="artifact.attached_to_gate",
             entity_type=EntityType.product_release,
             entity_id=product_release_id,
             status=AuditStatus.success,
             details_json={
                 "action": "attach_artifact_revision",
+                "product_id": str(gate.product_release.product_id),
+                "product_release_id": str(product_release_id),
+                "release_version": gate.product_release.version,
                 "gate_item_id": str(gate_item.id),
+                "artifact_title": revision.artifact.title,
                 "artifact_revision_id": str(revision.id),
             },
         )
@@ -214,13 +229,17 @@ class ReleaseGateService:
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
-            action_type=AuditActionType.update,
+            action_type="artifact.reviewed",
             entity_type=EntityType.product_release,
             entity_id=release.id,
             status=AuditStatus.success,
             details_json={
                 "action": "review_release_gate_evidence",
+                "product_id": str(release.product_id),
+                "product_release_id": str(release.id),
+                "release_version": release.version,
                 "link_id": str(link.id),
+                "artifact_title": link.artifact_revision.artifact.title,
                 "decision": decision.value,
             },
         )

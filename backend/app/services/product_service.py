@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException
-from app.models.enums import AuditActionType, AuditStatus, EntityType
+from app.models.enums import AuditStatus, EntityType
 from app.models.product import Product
 from app.repositories.product_repository import ProductRepository
 from app.schemas.product import ProductCreate, ProductDetailRead, ProductRead, ProductSummaryRead, ProductUpdate
@@ -36,13 +36,15 @@ class ProductService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.create,
+                action_type="product.created",
                 entity_type=EntityType.product,
                 entity_id=product.id,
                 status=AuditStatus.success,
                 details_json={
                     "product_code": product.product_code,
                     "name": product.name,
+                    "product_id": str(product.id),
+                    "product_name": product.name,
                 },
             )
             self.db.commit()
@@ -73,11 +75,16 @@ class ProductService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.update,
+                action_type="product.updated",
                 entity_type=EntityType.product,
                 entity_id=product.id,
                 status=AuditStatus.success,
-                details_json={"updated_fields": sorted(updates.keys())},
+                details_json={
+                    "product_id": str(product.id),
+                    "product_code": product.product_code,
+                    "product_name": product.name,
+                    "updated_fields": sorted(updates.keys()),
+                },
             )
             self.db.commit()
             self.db.refresh(product)
@@ -94,13 +101,15 @@ class ProductService:
         create_audit_event(
             self.db,
             actor_user_id=getattr(actor, "id", None),
-            action_type=AuditActionType.delete,
+            action_type="product.deleted",
             entity_type=EntityType.product,
             entity_id=product.id,
             status=AuditStatus.success,
             details_json={
+                "product_id": str(product.id),
                 "product_code": product.product_code,
                 "name": product.name,
+                "product_name": product.name,
             },
         )
         self.db.commit()

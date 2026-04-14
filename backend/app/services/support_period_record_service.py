@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, NotFoundException
-from app.models.enums import AuditActionType, AuditStatus, EntityType
+from app.models.enums import AuditStatus, EntityType
 from app.models.support_period_record import (
     SupportPeriodNotificationRecipient,
     SupportPeriodRecord,
@@ -156,12 +156,13 @@ class SupportPeriodRecordService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.create,
+                action_type="support_period.set",
                 entity_type=EntityType.support_period_record,
                 entity_id=record.id,
                 status=AuditStatus.success,
                 details_json={
                     "product_id": str(record.product_id),
+                    "product_release_id": None,
                     "support_start_date": record.support_start_date.isoformat(),
                     "support_end_date": record.support_end_date.isoformat(),
                     "notify_before_days": record.notify_before_days,
@@ -236,7 +237,7 @@ class SupportPeriodRecordService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.update,
+                action_type="support_period.versioned",
                 entity_type=EntityType.support_period_record,
                 entity_id=replacement_record.id,
                 status=AuditStatus.success,

@@ -9,7 +9,7 @@ import type {
 } from "@/types/risk-assessment";
 
 export const riskAssessmentService = {
-  async list(params: {
+  async list(params?: {
     product_id?: string;
     product_release_id?: string;
   }): Promise<RiskAssessmentRead[]> {

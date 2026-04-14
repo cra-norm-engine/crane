@@ -8,89 +8,137 @@
       </div>
     </div>
 
-    <div class="separator"></div>
+    <nav class="sidebar-sections">
+      <section class="nav-section">
+        <p class="section-label">Menu</p>
+        <div class="nav">
+          <RouterLink :to="{ name: 'dashboard' }" class="nav-link" active-class="nav-link-active">
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v6H3zm8 0h6v4h-6zM3 11h4v6H3zm6 2h8v4H9z" fill="currentColor"/></svg>
+            </span>
+            <span>Dashboard</span>
+          </RouterLink>
 
-    <nav class="nav">
-      <RouterLink :to="{ name: 'dashboard' }" class="nav-link" active-class="nav-link-active">
-        Dashboard
-      </RouterLink>
+          <RouterLink :to="{ name: 'products' }" class="nav-link" active-class="nav-link-active">
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5 10 3l6 2.5v9L10 17l-6-2.5zm6 .2L6.2 7.2 10 8.8l3.8-1.6zM5.5 8.4v5l3.8 1.6v-5zm9 0-3.8 1.6v5l3.8-1.6z" fill="currentColor"/></svg>
+            </span>
+            <span>Product inventory</span>
+          </RouterLink>
 
-      <RouterLink :to="{ name: 'products' }" class="nav-link" active-class="nav-link-active">
-        Product inventory
-      </RouterLink>
+          <RouterLink
+            v-if="canViewSecurityUpdates"
+            :to="{ name: 'security-updates' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2.3 2.3 0 0 1 1.3 4.2v2.9H8.7V9.4A2.3 2.3 0 0 1 10 5.2z" fill="currentColor"/></svg>
+            </span>
+            <span>Security updates</span>
+          </RouterLink>
 
-      <RouterLink
-        v-if="canViewSecurityUpdates"
-        :to="{ name: 'security-updates' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Security updates
-      </RouterLink>
+          <RouterLink
+            v-if="canViewLifecycleNotifications"
+            :to="{ name: 'lifecycle-notifications' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.2c0 .5-.2.9-.5 1.3L3 12v1h14v-1l-1.5-1.5c-.3-.4-.5-.8-.5-1.3V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z" fill="currentColor"/></svg>
+            </span>
+            <span>Lifecycle alerts</span>
+          </RouterLink>
 
-      <RouterLink
-        v-if="canViewLifecycleNotifications"
-        :to="{ name: 'lifecycle-notifications' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Lifecycle alerts
-      </RouterLink>
+          <RouterLink
+            v-if="canViewRiskAssessments"
+            :to="{ name: 'risk-assessments' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 2 16h16zm0 4.4 4.5 7.6h-9zM9 8h2v3H9zm0 4h2v2H9z" fill="currentColor"/></svg>
+            </span>
+            <span>Risk assessments</span>
+          </RouterLink>
 
-      <RouterLink
-        v-if="canViewRiskAssessments"
-        :to="{ name: 'risk-assessments' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Risk assessments
-      </RouterLink>
+          <RouterLink
+            v-if="canViewAnnexMatrix"
+            :to="{ name: 'annex-matrix' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v12H3zm2 2v2h10V6zm0 4v4h3v-4zm5 0v4h5v-4z" fill="currentColor"/></svg>
+            </span>
+            <span>Annex I matrix</span>
+          </RouterLink>
 
-      <RouterLink
-        v-if="canViewAnnexMatrix"
-        :to="{ name: 'annex-matrix' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Annex I matrix
-      </RouterLink>
+          <RouterLink
+            v-if="canViewAudit"
+            :to="{ name: 'audit-history' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3h12v14H4zm2 2v10h8V5zm1 2h6v1.8H7zm0 3h6v1.8H7z" fill="currentColor"/></svg>
+            </span>
+            <span>Audit history</span>
+          </RouterLink>
+        </div>
+      </section>
 
-      <RouterLink
-        v-if="canManageAdmin"
-        :to="{ name: 'admin-users' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Users
-      </RouterLink>
+      <section v-if="canManageAdmin" class="nav-section nav-section-admin">
+        <p class="section-label">Admin</p>
+        <div class="nav">
+          <RouterLink
+            :to="{ name: 'admin-users' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 10a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 10 10zm0 2c-3.1 0-5.8 1.6-6.8 4h13.6c-1-2.4-3.7-4-6.8-4z" fill="currentColor"/></svg>
+            </span>
+            <span>Users</span>
+          </RouterLink>
 
-      <RouterLink
-        v-if="canManageAdmin"
-        :to="{ name: 'admin-roles' }"
-        class="nav-link"
-        active-class="nav-link-active"
-      >
-        Roles & access
-      </RouterLink>
+          <RouterLink
+            :to="{ name: 'admin-roles' }"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2 2 0 0 1 2 2 2 2 0 0 1-.8 1.6l1.1 3.2H7.7l1.1-3.2A2 2 0 0 1 8 7.2a2 2 0 0 1 2-2z" fill="currentColor"/></svg>
+            </span>
+            <span>Roles & access</span>
+          </RouterLink>
+        </div>
+      </section>
     </nav>
-
-    <div class="separator"></div>
 
     <div class="sidebar-footer">
       <span class="badge">
         Role:
         <strong class="badge-strong">{{ primaryRoleLabel }}</strong>
       </span>
+
+      <button class="nav-link nav-link-button" type="button" @click="logout">
+        <span class="nav-icon">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H4v14h4v-2H6V5h2zm4.6 3.4L11.2 7.8 13.4 10H7v2h6.4l-2.2 2.2 1.4 1.4L17.2 11z" fill="currentColor"/></svg>
+        </span>
+        <span>Log out</span>
+      </button>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
 
+const router = useRouter();
 const authStore = useAuthStore();
 
 const canViewSecurityUpdates = computed(() =>
@@ -115,6 +163,10 @@ const canManageAdmin = computed(() =>
   authStore.hasPermission("admin_manage_users"),
 );
 
+const canViewAudit = computed(() =>
+  authStore.hasPermission("audit_read"),
+);
+
 const primaryRoleLabel = computed(() => {
   const role = authStore.roles?.[0];
 
@@ -137,6 +189,11 @@ const primaryRoleLabel = computed(() => {
       return "User";
   }
 });
+
+function logout(): void {
+  authStore.logout();
+  router.push({ name: "login" });
+}
 </script>
 
 <style scoped>
@@ -147,7 +204,7 @@ const primaryRoleLabel = computed(() => {
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 1.15rem;
 }
 
 .brand {
@@ -177,23 +234,65 @@ const primaryRoleLabel = computed(() => {
   color: var(--color-text-muted);
 }
 
-.separator {
-  height: 1px;
-  background: var(--color-border);
+.sidebar-sections {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.nav-section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.nav-section-admin {
+  padding-top: 0.2rem;
+}
+
+.section-label {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(233, 238, 252, 0.48);
 }
 
 .nav {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.46rem;
 }
 
 .nav-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
   padding: 0.78rem 0.85rem;
   border-radius: 12px;
   border: 1px solid transparent;
   color: var(--color-text-muted);
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-link-button {
+  width: 100%;
+  background: transparent;
+  text-align: left;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  flex: 0 0 18px;
+}
+
+.nav-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .nav-link:hover {
@@ -209,8 +308,10 @@ const primaryRoleLabel = computed(() => {
 
 .sidebar-footer {
   margin-top: auto;
-  display: flex;
-  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(233, 238, 252, 0.08);
 }
 
 .badge-strong {

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException
-from app.models.enums import AuditActionType, AuditStatus, EntityType
+from app.models.enums import AuditStatus, EntityType
 from app.models.security_update import SecurityUpdate
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.security_update_repository import SecurityUpdateRepository
@@ -42,7 +42,7 @@ class SecurityUpdateService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.create,
+                action_type="security_update.created",
                 entity_type=EntityType.security_update,
                 entity_id=security_update.id,
                 status=AuditStatus.success,
@@ -50,6 +50,7 @@ class SecurityUpdateService:
                     "product_release_id": str(security_update.product_release_id),
                     "product_id": str(release.product_id),
                     "title": security_update.title,
+                    "release_version": release.version,
                     "distribution_mechanism": security_update.distribution_mechanism.value,
                 },
             )
@@ -69,6 +70,7 @@ class SecurityUpdateService:
     ) -> SecurityUpdateRead:
         security_update = self.repository.get_or_404(security_update_id)
         updates = payload.model_dump(exclude_unset=True)
+        release = self.product_release_repository.get_or_404(security_update.product_release_id)
 
         for field_name, value in updates.items():
             setattr(security_update, field_name, value)
@@ -78,12 +80,15 @@ class SecurityUpdateService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.update,
+                action_type="security_update.updated",
                 entity_type=EntityType.security_update,
                 entity_id=security_update.id,
                 status=AuditStatus.success,
                 details_json={
+                    "product_id": str(release.product_id),
                     "product_release_id": str(security_update.product_release_id),
+                    "release_version": release.version,
+                    "title": security_update.title,
                     "updated_fields": sorted(updates.keys()),
                 },
             )
@@ -97,16 +102,19 @@ class SecurityUpdateService:
 
     def delete_security_update(self, security_update_id: UUID, actor: object) -> None:
         security_update = self.repository.get_or_404(security_update_id)
+        release = self.product_release_repository.get_or_404(security_update.product_release_id)
         self.repository.delete(security_update)
         create_audit_event(
             self.db,
             actor_user_id=getattr(actor, "id", None),
-            action_type=AuditActionType.delete,
+            action_type="security_update.deleted",
             entity_type=EntityType.security_update,
             entity_id=security_update.id,
             status=AuditStatus.success,
             details_json={
+                "product_id": str(release.product_id),
                 "product_release_id": str(security_update.product_release_id),
+                "release_version": release.version,
                 "title": security_update.title,
             },
         )

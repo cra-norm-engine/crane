@@ -41,9 +41,7 @@ class AuditLogger:
             ip_address=ip_address,
             user_agent=user_agent,
             details_json=event_details,
-            checksum="",
         )
-        event.set_checksum()
 
         self.db.add(event)
         self.db.flush()

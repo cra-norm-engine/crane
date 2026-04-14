@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException
-from app.models.enums import AuditActionType, AuditStatus, EntityType
+from app.models.enums import AuditStatus, EntityType, ReleaseStatus
 from app.models.product import ProductRelease
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.product_repository import ProductRepository
@@ -41,13 +41,15 @@ class ProductReleaseService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.create,
+                action_type="release.created",
                 entity_type=EntityType.product_release,
                 entity_id=release.id,
                 status=AuditStatus.success,
                 details_json={
                     "product_id": str(release.product_id),
                     "version": release.version,
+                    "release_version": release.version,
+                    "release_status": release.release_status.value,
                 },
             )
             self.db.commit()
@@ -60,6 +62,7 @@ class ProductReleaseService:
     def update_release(self, release_id: UUID, payload: ProductReleaseUpdate, actor: object) -> ProductReleaseRead:
         release = self.repository.get_or_404(release_id)
         updates = payload.model_dump(exclude_unset=True)
+        previous_release_status = release.release_status
 
         if "version" in updates and updates["version"] != release.version:
             existing = self.repository.get_by_product_and_version(
@@ -77,11 +80,24 @@ class ProductReleaseService:
             create_audit_event(
                 self.db,
                 actor_user_id=getattr(actor, "id", None),
-                action_type=AuditActionType.update,
+                action_type=(
+                    "release.published"
+                    if release.release_status == ReleaseStatus.released
+                    and previous_release_status != ReleaseStatus.released
+                    else "release.updated"
+                ),
                 entity_type=EntityType.product_release,
                 entity_id=release.id,
                 status=AuditStatus.success,
-                details_json={"updated_fields": sorted(updates.keys())},
+                details_json={
+                    "product_id": str(release.product_id),
+                    "product_release_id": str(release.id),
+                    "version": release.version,
+                    "release_version": release.version,
+                    "release_status": release.release_status.value,
+                    "previous_release_status": previous_release_status.value,
+                    "updated_fields": sorted(updates.keys()),
+                },
             )
             self.db.commit()
             self.db.refresh(release)
@@ -97,13 +113,14 @@ class ProductReleaseService:
         create_audit_event(
             self.db,
             actor_user_id=getattr(actor, "id", None),
-            action_type=AuditActionType.delete,
+            action_type="release.deleted",
             entity_type=EntityType.product_release,
             entity_id=release.id,
             status=AuditStatus.success,
             details_json={
                 "product_id": str(release.product_id),
                 "version": release.version,
+                "release_version": release.version,
             },
         )
         self.db.commit()

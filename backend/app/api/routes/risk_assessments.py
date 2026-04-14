@@ -35,12 +35,6 @@ def list_risk_assessments(
 ) -> list[RiskAssessmentRead]:
     require_permissions(current_user, {Permission.risk_assessment_read})
 
-    if product_id is None and product_release_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either product_id or product_release_id must be provided.",
-        )
-
     service = RiskAssessmentService(db)
     try:
         return service.list(product_id=product_id, product_release_id=product_release_id)
