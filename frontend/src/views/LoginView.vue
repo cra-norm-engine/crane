@@ -2,10 +2,10 @@
   <section class="auth-shell">
     <div class="auth-card card login-card">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">ALI</div>
+        <div class="brand-mark" aria-hidden="true">SA</div>
         <div>
-          <div class="brand-title">Audit-Linked Integrity</div>
-          <div class="brand-sub">A CRA Compliance Tool</div>
+          <div class="brand-title">SICH'AMAN</div>
+          <div class="brand-sub">Single Source of Truth</div>
         </div>
       </div>
 
@@ -113,17 +113,19 @@ async function handleLogin(): Promise<void> {
 .brand-mark {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--color-primary-2), var(--color-primary));
-  box-shadow: 0 10px 30px rgba(110, 168, 254, 0.18);
+  background: linear-gradient(145deg, rgba(14, 20, 14, 0.95), rgba(6, 10, 6, 0.92));
+  border: 1px solid rgba(173, 214, 84, 0.22);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
   font-weight: 900;
-  color: white;
+  color: var(--color-primary-2);
 }
 
 .brand-title {
   font-weight: 800;
+  letter-spacing: 0.05em;
 }
 
 .brand-sub {

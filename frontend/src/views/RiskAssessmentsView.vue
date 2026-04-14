@@ -2,12 +2,12 @@
   <section class="page">
     <header class="page-header">
       <div>
-        <h1>Risk Assessments</h1>
-        <p class="page-subtitle">
+        <h1 class="page-title">Risk Assessments</h1>
+        <p class="muted page-subtitle">
           Structured cybersecurity risk assessments for products and releases.
         </p>
       </div>
-      <button class="primary-button" type="button" @click="openCreateForm = !openCreateForm">
+      <button class="button" type="button" @click="openCreateForm = !openCreateForm">
         {{ openCreateForm ? "Close" : "New Assessment" }}
       </button>
     </header>
@@ -15,8 +15,8 @@
     <section class="panel filters-panel">
       <div class="filters-grid">
         <label class="field">
-          <span>Product</span>
-          <select v-model="filters.productId">
+          <span class="field-label">Product</span>
+          <select v-model="filters.productId" class="select">
             <option value="">All products</option>
             <option v-for="product in products" :key="product.id" :value="product.id">
               {{ getProductLabel(product) }}
@@ -25,8 +25,8 @@
         </label>
 
         <label class="field">
-          <span>Release</span>
-          <select v-model="filters.productReleaseId" :disabled="!filters.productId">
+          <span class="field-label">Release</span>
+          <select v-model="filters.productReleaseId" class="select" :disabled="!filters.productId">
             <option value="">{{ filters.productId ? "All releases" : "Select a product first" }}</option>
             <option v-for="release in filterReleases" :key="release.id" :value="release.id">
               {{ getReleaseLabel(release) }}
@@ -35,10 +35,10 @@
         </label>
 
         <div class="filter-actions">
-          <button class="secondary-button" type="button" @click="loadAssessments">
+          <button class="button secondary" type="button" @click="loadAssessments">
             Apply Filters
           </button>
-          <button class="ghost-button" type="button" @click="resetFilters">
+          <button class="button secondary subtle-button" type="button" @click="resetFilters">
             Reset
           </button>
         </div>
@@ -48,12 +48,13 @@
     <section v-if="openCreateForm" class="panel">
       <div class="panel-header">
         <h2>Create Risk Assessment</h2>
+        <span class="count-badge accent-badge">Draft setup</span>
       </div>
 
       <form class="form-grid" @submit.prevent="createAssessment">
         <label class="field">
-          <span>Product</span>
-          <select v-model="createForm.product_id" required>
+          <span class="field-label">Product</span>
+          <select v-model="createForm.product_id" class="select" required>
             <option value="" disabled>Select a product</option>
             <option v-for="product in products" :key="product.id" :value="product.id">
               {{ getProductLabel(product) }}
@@ -62,8 +63,8 @@
         </label>
 
         <label class="field">
-          <span>Release</span>
-          <select v-model="createReleaseId" :disabled="!createForm.product_id">
+          <span class="field-label">Release</span>
+          <select v-model="createReleaseId" class="select" :disabled="!createForm.product_id">
             <option value="">{{ createForm.product_id ? "No linked release" : "Select a product first" }}</option>
             <option v-for="release in createReleases" :key="release.id" :value="release.id">
               {{ getReleaseLabel(release) }}
@@ -72,18 +73,18 @@
         </label>
 
         <label class="field">
-          <span>Title</span>
-          <input v-model="createForm.title" type="text" required maxlength="255" />
+          <span class="field-label">Title</span>
+          <input v-model="createForm.title" class="input" type="text" required maxlength="255" />
         </label>
 
         <label class="field">
-          <span>Version Label</span>
-          <input v-model="createForm.version_label" type="text" required maxlength="100" />
+          <span class="field-label">Version Label</span>
+          <input v-model="createForm.version_label" class="input" type="text" required maxlength="100" />
         </label>
 
         <label class="field">
-          <span>Status</span>
-          <select v-model="createForm.status">
+          <span class="field-label">Status</span>
+          <select v-model="createForm.status" class="select">
             <option v-for="option in assessmentStatuses" :key="option" :value="option">
               {{ option }}
             </option>
@@ -91,17 +92,17 @@
         </label>
 
         <label class="field">
-          <span>Methodology</span>
-          <input v-model="createForm.methodology" type="text" required />
+          <span class="field-label">Methodology</span>
+          <input v-model="createForm.methodology" class="input" type="text" required />
         </label>
 
         <label class="field field-full">
-          <span>Summary</span>
-          <textarea v-model="createForm.summary" rows="4" required />
+          <span class="field-label">Summary</span>
+          <textarea v-model="createForm.summary" class="textarea" rows="4" required />
         </label>
 
         <div class="form-actions field-full">
-          <button class="primary-button" type="submit" :disabled="creating">
+          <button class="button" type="submit" :disabled="creating">
             {{ creating ? "Creating..." : "Create Assessment" }}
           </button>
         </div>
@@ -114,8 +115,8 @@
         <span class="count-badge">{{ assessments.length }}</span>
       </div>
 
-      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
+      <div v-if="errorMessage" class="feedback feedback-error">{{ errorMessage }}</div>
+      <div v-if="successMessage" class="feedback feedback-success">{{ successMessage }}</div>
 
       <div v-if="loading" class="loading-state">Loading risk assessments...</div>
 
@@ -124,7 +125,7 @@
       </div>
 
       <div v-else class="table-wrapper">
-        <table class="data-table">
+        <table class="data-table table">
           <thead>
             <tr>
               <th>Title</th>
@@ -147,7 +148,7 @@
               <td>{{ assessment.title }}</td>
               <td>{{ assessment.version_label }}</td>
               <td>
-                <span class="status-pill">{{ assessment.status }}</span>
+                <span class="status-pill">{{ formatReleaseStatus(assessment.status) }}</span>
               </td>
               <td>{{ assessment.methodology }}</td>
               <td>{{ getProductName(assessment.product_id) }}</td>
@@ -407,15 +408,17 @@ watch(createReleaseId, (releaseId) => {
 .page {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.2rem;
 }
-.panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 1rem;
 
-  color: #0f172a; /* 👈 ADD THIS */
+.panel {
+  background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
+  color: var(--color-text);
 }
 
 .page-header,
@@ -433,14 +436,6 @@ watch(createReleaseId, (releaseId) => {
 
 .page-subtitle {
   margin: 0.35rem 0 0;
-  color: #64748b;
-}
-
-.panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 1rem;
 }
 
 .filters-grid,
@@ -456,26 +451,12 @@ watch(createReleaseId, (releaseId) => {
   gap: 0.35rem;
 }
 
-.field span {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 0.75rem 0.85rem;
-  font: inherit;
-  background: #fff;
-  box-sizing: border-box;
-}
-
-.field textarea {
-  resize: vertical;
+.field-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .field-full {
@@ -489,82 +470,64 @@ watch(createReleaseId, (releaseId) => {
   gap: 0.75rem;
 }
 
-.primary-button,
-.secondary-button,
-.ghost-button {
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.primary-button {
-  background: #0f172a;
-  color: #fff;
-}
-
-.secondary-button {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.ghost-button {
-  background: transparent;
-  color: #334155;
-  border-color: #cbd5e1;
-}
-
 .count-badge {
   min-width: 2rem;
   text-align: center;
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   font-weight: 700;
+}
+
+.accent-badge {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.subtle-button {
+  opacity: 0.86;
 }
 
 .table-wrapper {
   overflow-x: auto;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
 .data-table th,
 .data-table td {
   padding: 0.9rem 0.75rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgba(233, 238, 252, 0.08);
   text-align: left;
   vertical-align: top;
 }
 
 .data-table th {
-  color: #475569;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .table-row-link {
   cursor: pointer;
+  transition: background 0.18s ease;
 }
 
 .table-row-link:hover {
-  background: #f8fafc;
+  background: var(--color-surface-soft);
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 0.25rem 0.55rem;
+  background: var(--color-status-bg);
+  color: var(--color-status-text);
+  border: 1px solid var(--color-status-border);
+  padding: 0.3rem 0.62rem;
   font-size: 0.85rem;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .uuid-cell {
@@ -573,19 +536,34 @@ watch(createReleaseId, (releaseId) => {
   word-break: break-all;
 }
 
+.feedback,
 .loading-state,
-.empty-state,
-.error-text,
-.success-text {
-  padding: 0.75rem 0;
+.empty-state {
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
 }
 
-.error-text {
-  color: #b91c1c;
+.feedback {
+  margin-bottom: 0.9rem;
 }
 
-.success-text {
-  color: #15803d;
+.loading-state,
+.empty-state {
+  background: var(--color-surface-soft);
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.feedback-error {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.feedback-success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success-text);
 }
 
 @media (max-width: 900px) {

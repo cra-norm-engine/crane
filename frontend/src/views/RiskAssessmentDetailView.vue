@@ -3,21 +3,21 @@
     <header class="page-header">
       <div>
         <p class="eyebrow">Risk Assessment</p>
-        <h1>{{ assessment?.title ?? "Risk Assessment Detail" }}</h1>
-        <p class="page-subtitle">
+        <h1 class="page-title">{{ assessment?.title ?? "Risk Assessment Detail" }}</h1>
+        <p class="muted page-subtitle">
           View assessment metadata, edit the assessment, manage risk items, and duplicate a new version.
         </p>
       </div>
       <div class="header-actions">
-        <button class="secondary-button" type="button" @click="goBack">Back</button>
-        <button class="primary-button" type="button" @click="loadAssessment" :disabled="loading">
+        <button class="button secondary" type="button" @click="goBack">Back</button>
+        <button class="button" type="button" @click="loadAssessment" :disabled="loading">
           {{ loading ? "Refreshing..." : "Refresh" }}
         </button>
       </div>
     </header>
 
-    <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-    <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
+    <div v-if="errorMessage" class="feedback feedback-error">{{ errorMessage }}</div>
+    <div v-if="successMessage" class="feedback feedback-success">{{ successMessage }}</div>
 
     <section v-if="loading && !assessment" class="panel">
       <div class="loading-state">Loading assessment...</div>
@@ -28,6 +28,7 @@
         <article class="panel">
           <div class="panel-header">
             <h2>Assessment Overview</h2>
+            <span class="count-badge">{{ assessment.version_label }}</span>
           </div>
 
           <dl class="detail-list">
@@ -53,7 +54,7 @@
             </div>
             <div>
               <dt>Status</dt>
-              <dd><span class="status-pill">{{ assessment.status }}</span></dd>
+              <dd><span class="status-pill">{{ assessment.status.replaceAll("_", " ") }}</span></dd>
             </div>
             <div>
               <dt>Methodology</dt>
@@ -85,22 +86,23 @@
         <article class="panel">
           <div class="panel-header">
             <h2>Edit Assessment</h2>
+            <span class="count-badge accent-badge">Live</span>
           </div>
 
           <form class="form-grid" @submit.prevent="updateAssessment">
             <label class="field">
-              <span>Title</span>
-              <input v-model="editForm.title" type="text" maxlength="255" />
+              <span class="field-label">Title</span>
+              <input v-model="editForm.title" class="input" type="text" maxlength="255" />
             </label>
 
             <label class="field">
-              <span>Version Label</span>
-              <input v-model="editForm.version_label" type="text" maxlength="100" />
+              <span class="field-label">Version Label</span>
+              <input v-model="editForm.version_label" class="input" type="text" maxlength="100" />
             </label>
 
             <label class="field">
-              <span>Status</span>
-              <select v-model="editForm.status">
+              <span class="field-label">Status</span>
+              <select v-model="editForm.status" class="select">
                 <option value="">No change</option>
                 <option v-for="option in assessmentStatuses" :key="option" :value="option">
                   {{ option }}
@@ -109,18 +111,18 @@
             </label>
 
             <label class="field">
-              <span>Methodology</span>
-              <input v-model="editForm.methodology" type="text" />
+              <span class="field-label">Methodology</span>
+              <input v-model="editForm.methodology" class="input" type="text" />
             </label>
 
             <label class="field">
-              <span>Product Release ID</span>
-              <input v-model="editForm.product_release_id" type="text" />
+              <span class="field-label">Product Release ID</span>
+              <input v-model="editForm.product_release_id" class="input" type="text" />
             </label>
 
             <label class="field">
-              <span>Owner</span>
-              <select v-model="editForm.owner_user_id">
+              <span class="field-label">Owner</span>
+              <select v-model="editForm.owner_user_id" class="select">
                 <option value="">No owner</option>
                 <option v-for="user in users" :key="user.id" :value="user.id">
                   {{ getUserDisplay(user.id) }}
@@ -129,16 +131,16 @@
             </label>
 
             <label class="field field-full">
-              <span>Summary</span>
-              <textarea v-model="editForm.summary" rows="4" />
+              <span class="field-label">Summary</span>
+              <textarea v-model="editForm.summary" class="textarea" rows="4" />
             </label>
 
             <div class="form-actions field-full">
-              <button class="primary-button" type="submit" :disabled="savingAssessment">
+              <button class="button" type="submit" :disabled="savingAssessment">
                 {{ savingAssessment ? "Saving..." : "Save Changes" }}
               </button>
               <button
-                class="ghost-button"
+                class="button secondary"
                 type="button"
                 @click="approveAssessment"
                 :disabled="approvingAssessment"
@@ -154,27 +156,28 @@
         <article class="panel">
           <div class="panel-header">
             <h2>Duplicate New Version</h2>
+            <span class="count-badge">Versioning</span>
           </div>
 
           <form class="form-grid" @submit.prevent="duplicateAssessment">
             <label class="field">
-              <span>New Version Label</span>
-              <input v-model="duplicateForm.version_label" type="text" required maxlength="100" />
+              <span class="field-label">New Version Label</span>
+              <input v-model="duplicateForm.version_label" class="input" type="text" required maxlength="100" />
             </label>
 
             <label class="field">
-              <span>New Title</span>
-              <input v-model="duplicateForm.title" type="text" maxlength="255" />
+              <span class="field-label">New Title</span>
+              <input v-model="duplicateForm.title" class="input" type="text" maxlength="255" />
             </label>
 
             <label class="field">
-              <span>Product Release ID</span>
-              <input v-model="duplicateForm.product_release_id" type="text" />
+              <span class="field-label">Product Release ID</span>
+              <input v-model="duplicateForm.product_release_id" class="input" type="text" />
             </label>
 
             <label class="field">
-              <span>Owner</span>
-              <select v-model="duplicateForm.owner_user_id">
+              <span class="field-label">Owner</span>
+              <select v-model="duplicateForm.owner_user_id" class="select">
                 <option value="">Keep / no override</option>
                 <option v-for="user in users" :key="user.id" :value="user.id">
                   {{ getUserDisplay(user.id) }}
@@ -183,8 +186,8 @@
             </label>
 
             <label class="field field-full">
-              <span>Summary Override</span>
-              <textarea v-model="duplicateForm.summary" rows="3" />
+              <span class="field-label">Summary Override</span>
+              <textarea v-model="duplicateForm.summary" class="textarea" rows="3" />
             </label>
 
             <label class="checkbox-field">
@@ -208,7 +211,7 @@
             </label>
 
             <div class="form-actions field-full">
-              <button class="primary-button" type="submit" :disabled="duplicatingAssessment">
+              <button class="button" type="submit" :disabled="duplicatingAssessment">
                 {{ duplicatingAssessment ? "Duplicating..." : "Duplicate Version" }}
               </button>
             </div>
@@ -229,7 +232,7 @@
             <div class="placeholder-actions">
               <RouterLink
                 v-if="assessment.product_release_id"
-                class="primary-button workflow-link"
+                class="button workflow-link"
                 :to="{ name: 'release-gate', params: { releaseId: assessment.product_release_id } }"
               >
                 Open release workflow
@@ -250,47 +253,50 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Risk Items</h2>
-          <button class="primary-button" type="button" @click="showRiskItemForm = !showRiskItemForm">
-            {{ showRiskItemForm ? "Close Editor" : "Add Risk Item" }}
-          </button>
+          <div class="risk-items-actions">
+            <span class="count-badge">{{ riskItems.length }}</span>
+            <button class="button" type="button" @click="showRiskItemForm = !showRiskItemForm">
+              {{ showRiskItemForm ? "Close Editor" : "Add Risk Item" }}
+            </button>
+          </div>
         </div>
 
         <div v-if="showRiskItemForm" class="editor-block">
           <form class="form-grid" @submit.prevent="createRiskItem">
             <label class="field">
-              <span>Title</span>
-              <input v-model="riskItemForm.title" type="text" required maxlength="255" />
+              <span class="field-label">Title</span>
+              <input v-model="riskItemForm.title" class="input" type="text" required maxlength="255" />
             </label>
 
             <label class="field">
-              <span>Asset Affected</span>
-              <input v-model="riskItemForm.asset_affected" type="text" required maxlength="255" />
+              <span class="field-label">Asset Affected</span>
+              <input v-model="riskItemForm.asset_affected" class="input" type="text" required maxlength="255" />
             </label>
 
             <label class="field">
-              <span>Likelihood</span>
-              <select v-model="riskItemForm.likelihood">
+              <span class="field-label">Likelihood</span>
+              <select v-model="riskItemForm.likelihood" class="select">
                 <option v-for="level in riskLevels" :key="level" :value="level">{{ level }}</option>
               </select>
             </label>
 
             <label class="field">
-              <span>Impact</span>
-              <select v-model="riskItemForm.impact">
+              <span class="field-label">Impact</span>
+              <select v-model="riskItemForm.impact" class="select">
                 <option v-for="level in riskLevels" :key="level" :value="level">{{ level }}</option>
               </select>
             </label>
 
             <label class="field">
-              <span>Risk Level</span>
-              <select v-model="riskItemForm.risk_level">
+              <span class="field-label">Risk Level</span>
+              <select v-model="riskItemForm.risk_level" class="select">
                 <option v-for="level in riskLevels" :key="level" :value="level">{{ level }}</option>
               </select>
             </label>
 
             <label class="field">
-              <span>Status</span>
-              <select v-model="riskItemForm.status">
+              <span class="field-label">Status</span>
+              <select v-model="riskItemForm.status" class="select">
                 <option v-for="statusOption in riskItemStatuses" :key="statusOption" :value="statusOption">
                   {{ statusOption }}
                 </option>
@@ -298,16 +304,16 @@
             </label>
 
             <label class="field">
-              <span>Residual Risk Level</span>
-              <select v-model="riskItemForm.residual_risk_level">
+              <span class="field-label">Residual Risk Level</span>
+              <select v-model="riskItemForm.residual_risk_level" class="select">
                 <option value="">None</option>
                 <option v-for="level in riskLevels" :key="level" :value="level">{{ level }}</option>
               </select>
             </label>
 
             <label class="field">
-              <span>Owner</span>
-              <select v-model="riskItemForm.owner_user_id">
+              <span class="field-label">Owner</span>
+              <select v-model="riskItemForm.owner_user_id" class="select">
                 <option value="">No owner</option>
                 <option v-for="user in users" :key="user.id" :value="user.id">
                   {{ getUserDisplay(user.id) }}
@@ -316,22 +322,22 @@
             </label>
 
             <label class="field field-full">
-              <span>Description</span>
-              <textarea v-model="riskItemForm.description" rows="3" required />
+              <span class="field-label">Description</span>
+              <textarea v-model="riskItemForm.description" class="textarea" rows="3" required />
             </label>
 
             <label class="field field-full">
-              <span>Threat Scenario</span>
-              <textarea v-model="riskItemForm.threat_scenario" rows="3" required />
+              <span class="field-label">Threat Scenario</span>
+              <textarea v-model="riskItemForm.threat_scenario" class="textarea" rows="3" required />
             </label>
 
             <label class="field field-full">
-              <span>Mitigation Plan</span>
-              <textarea v-model="riskItemForm.mitigation_plan" rows="3" required />
+              <span class="field-label">Mitigation Plan</span>
+              <textarea v-model="riskItemForm.mitigation_plan" class="textarea" rows="3" required />
             </label>
 
             <div class="form-actions field-full">
-              <button class="primary-button" type="submit" :disabled="creatingRiskItem">
+              <button class="button" type="submit" :disabled="creatingRiskItem">
                 {{ creatingRiskItem ? "Saving..." : "Create Risk Item" }}
               </button>
             </div>
@@ -356,9 +362,11 @@
               <span class="risk-level-pill">{{ item.risk_level }}</span>
             </div>
 
-            <p><strong>Description:</strong> {{ item.description }}</p>
-            <p><strong>Threat Scenario:</strong> {{ item.threat_scenario }}</p>
-            <p><strong>Mitigation:</strong> {{ item.mitigation_plan }}</p>
+            <div class="risk-copy">
+              <p><strong>Description:</strong> {{ item.description }}</p>
+              <p><strong>Threat Scenario:</strong> {{ item.threat_scenario }}</p>
+              <p><strong>Mitigation:</strong> {{ item.mitigation_plan }}</p>
+            </div>
 
             <div class="risk-card-grid">
               <div><strong>Likelihood:</strong> {{ item.likelihood }}</div>
@@ -672,7 +680,7 @@ onMounted(async () => {
 .page {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.2rem;
 }
 
 .eyebrow {
@@ -680,7 +688,7 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .page-header,
@@ -700,12 +708,17 @@ onMounted(async () => {
 
 .page-subtitle {
   margin: 0.4rem 0 0;
-  color: #64748b;
 }
 
 .header-actions,
 .form-actions {
   display: flex;
+  gap: 0.75rem;
+}
+
+.risk-items-actions {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
 }
 
@@ -716,11 +729,13 @@ onMounted(async () => {
 }
 
 .panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  color: #0f172a;
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
 }
 
 .detail-list {
@@ -732,13 +747,15 @@ onMounted(async () => {
 
 .detail-list dt {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .detail-list dd {
   margin: 0;
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .detail-full {
@@ -761,60 +778,28 @@ onMounted(async () => {
 .checkbox-field {
   flex-direction: row;
   align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.95rem;
+  background: var(--color-surface-soft);
 }
 
-.field span,
+.field-label,
 .checkbox-field span {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 0.75rem 0.85rem;
-  font: inherit;
-  background: #fff;
-  color: #0f172a;
-  box-sizing: border-box;
-}
-
-.field textarea {
-  resize: vertical;
+.checkbox-field input {
+  accent-color: var(--color-primary);
 }
 
 .field-full {
   grid-column: 1 / -1;
-}
-
-.primary-button,
-.secondary-button,
-.ghost-button {
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.primary-button {
-  background: #0f172a;
-  color: #fff;
-}
-
-.secondary-button {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.ghost-button {
-  background: transparent;
-  color: #334155;
-  border-color: #cbd5e1;
 }
 
 .status-pill,
@@ -822,18 +807,36 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 0.25rem 0.55rem;
+  background: var(--color-status-bg);
+  color: var(--color-status-text);
+  border: 1px solid var(--color-status-border);
+  padding: 0.28rem 0.62rem;
   font-size: 0.85rem;
   font-weight: 600;
+  text-transform: capitalize;
+}
+
+.count-badge {
+  min-width: 2rem;
+  text-align: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.accent-badge {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .placeholder-box {
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
   padding: 1rem;
-  background: #f8fafc;
+  background: var(--color-surface-soft);
 }
 
 .placeholder-title {
@@ -843,7 +846,7 @@ onMounted(async () => {
 
 .placeholder-text {
   margin: 0 0 0.8rem;
-  color: #475569;
+  color: var(--color-text-muted);
 }
 
 .placeholder-actions {
@@ -860,18 +863,21 @@ onMounted(async () => {
 
 .placeholder-note {
   margin: 0;
-  color: #475569;
+  color: var(--color-text-muted);
 }
 
 .placeholder-list {
   margin: 0;
   padding-left: 1.25rem;
-  color: #334155;
+  color: var(--color-text);
 }
 
 .editor-block {
   margin-bottom: 1rem;
-  padding: 1rem 0;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
 }
 
 .risk-items-grid {
@@ -881,16 +887,28 @@ onMounted(async () => {
 }
 
 .risk-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 1rem;
-  background: #fcfcfd;
-  color: #0f172a;
+  background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
+  color: var(--color-text);
+  box-shadow: inset 0 1px 0 var(--color-surface-elevated);
 }
 
 .risk-meta {
   margin: 0.35rem 0 0;
-  color: #64748b;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.risk-copy {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.risk-copy p {
+  margin: 0;
 }
 
 .risk-card-grid {
@@ -900,29 +918,46 @@ onMounted(async () => {
   margin-top: 0.9rem;
 }
 
+.risk-card-grid > div {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+  background: var(--color-surface-soft);
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   word-break: break-all;
 }
 
+.feedback,
 .loading-state,
-.empty-state,
-.error-text,
-.success-text {
-  padding: 0.75rem 0;
+.empty-state {
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
 }
 
-.empty-state,
-.loading-state {
-  color: #0f172a;
+.feedback {
+  margin-bottom: 0.9rem;
 }
 
-.error-text {
-  color: #b91c1c;
+.loading-state,
+.empty-state {
+  background: var(--color-surface-soft);
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
 }
 
-.success-text {
-  color: #15803d;
+.feedback-error {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.feedback-success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success-text);
 }
 
 @media (max-width: 960px) {
@@ -937,7 +972,8 @@ onMounted(async () => {
   .panel-header,
   .header-actions,
   .form-actions,
-  .risk-card-header {
+  .risk-card-header,
+  .risk-items-actions {
     flex-direction: column;
     align-items: stretch;
   }

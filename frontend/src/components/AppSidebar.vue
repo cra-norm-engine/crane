@@ -1,10 +1,10 @@
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">ALI</div>
+      <div class="brand-mark" aria-hidden="true">SA</div>
       <div>
-        <div class="brand-title">Audit-Linked Integrity</div>
-        <div class="brand-sub">A CRA Compliance Tool</div>
+        <div class="brand-title">SICH'AMAN</div>
+        <div class="brand-sub">Single Source of Truth</div>
       </div>
     </div>
 
@@ -12,7 +12,12 @@
       <section class="nav-section">
         <p class="section-label">Menu</p>
         <div class="nav">
-          <RouterLink :to="{ name: 'dashboard' }" class="nav-link" active-class="nav-link-active">
+          <RouterLink
+            :to="{ name: 'dashboard' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            exact-active-class="nav-link-active"
+          >
             <span class="nav-icon">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v6H3zm8 0h6v4h-6zM3 11h4v6H3zm6 2h8v4H9z" fill="currentColor"/></svg>
             </span>
@@ -199,9 +204,9 @@ function logout(): void {
 <style scoped>
 .sidebar {
   padding: 1.1rem;
-  border-right: 1px solid rgba(233, 238, 252, 0.1);
-  background: rgba(15, 26, 46, 0.55);
-  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-sidebar-bg);
+  backdrop-filter: blur(14px);
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
@@ -216,21 +221,24 @@ function logout(): void {
 .brand-mark {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--color-primary-2), var(--color-primary));
-  box-shadow: 0 10px 30px rgba(110, 168, 254, 0.18);
+  background: linear-gradient(145deg, var(--color-card-start), var(--color-card-end));
+  border: 1px solid var(--color-border-strong);
+  box-shadow: 0 14px 30px rgba(var(--color-bg-rgb), 0.2);
   font-weight: 900;
-  color: white;
+  color: var(--color-primary-2);
 }
 
 .brand-title {
+  font-size: 1.05rem;
   font-weight: 800;
+  letter-spacing: 0.05em;
 }
 
 .brand-sub {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--color-text-muted);
 }
 
@@ -251,10 +259,10 @@ function logout(): void {
 .section-label {
   margin: 0;
   padding: 0 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(233, 238, 252, 0.48);
+  color: rgba(220, 233, 214, 0.42);
 }
 
 .nav {
@@ -266,9 +274,11 @@ function logout(): void {
   display: flex;
   align-items: center;
   gap: 0.72rem;
-  padding: 0.78rem 0.85rem;
+  padding: 0.86rem 0.92rem;
   border-radius: 12px;
   border: 1px solid transparent;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--color-text-muted);
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -280,29 +290,29 @@ function logout(): void {
 }
 
 .nav-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: inherit;
-  flex: 0 0 18px;
+  flex: 0 0 24px;
 }
 
 .nav-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--color-text);
 }
 
 .nav-link-active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(110, 168, 254, 0.25);
+  background: linear-gradient(135deg, rgba(112, 185, 23, 0.16), rgba(28, 107, 39, 0.18));
+  border-color: rgba(173, 214, 84, 0.28);
   color: var(--color-text);
 }
 
