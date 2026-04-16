@@ -22,12 +22,7 @@
           Edit product
         </button>
         <template v-else-if="product && isEditing">
-          <button
-            class="btn btn-secondary"
-            type="button"
-            @click="cancelEditing"
-            :disabled="isSaving"
-          >
+          <button class="btn btn-secondary" type="button" @click="cancelEditing" :disabled="isSaving">
             Cancel
           </button>
           <button class="btn btn-primary" type="button" @click="saveProduct" :disabled="isSaving">
@@ -50,7 +45,8 @@
     </div>
 
     <template v-else-if="product">
-      <div class="grid stats-grid">
+      <!-- ── Stats bar ── -->
+      <div class="stats-grid">
         <article class="card stat-card">
           <span class="stat-label">Product code</span>
           <strong class="stat-value stat-value-code">{{ product.product_code }}</strong>
@@ -73,17 +69,32 @@
             </span>
           </strong>
         </article>
+
+        <article class="card stat-card">
+          <span class="stat-label">Releases</span>
+          <strong class="stat-value">{{ product.releases.length }}</strong>
+        </article>
+
+        <article class="card stat-card">
+          <span class="stat-label">Support end</span>
+          <strong class="stat-value stat-value-date">
+            {{ activeSupportPeriod ? formatDate(activeSupportPeriod.support_end_date) : "—" }}
+          </strong>
+        </article>
       </div>
 
+      <!-- ── Main workspace ── -->
       <div class="workspace">
         <main class="main-column">
-          <section class="card info-card">
+
+          <!-- Product information -->
+          <section class="card">
             <div class="section-header">
               <div>
                 <h2 class="section-title">Product information</h2>
                 <p class="muted">Core identity and lifecycle metadata.</p>
               </div>
-              <span v-if="isEditing" class="badge badge-warning">Editing enabled</span>
+              <span v-if="isEditing" class="badge badge-warning">Editing</span>
             </div>
 
             <div v-if="!isEditing" class="info-grid">
@@ -113,7 +124,7 @@
               </div>
 
               <div class="info-item">
-                <span class="detail-label">Updated</span>
+                <span class="detail-label">Last updated</span>
                 <p>{{ formatDateTime(product.updated_at) }}</p>
               </div>
             </div>
@@ -141,12 +152,12 @@
 
               <label class="field field-span-2">
                 <span class="field-label">Description</span>
-                <textarea v-model.trim="editForm.description" rows="4" />
+                <textarea v-model.trim="editForm.description" rows="3" />
               </label>
 
               <label class="field field-span-2">
                 <span class="field-label">Intended use</span>
-                <textarea v-model.trim="editForm.intended_use" rows="4" />
+                <textarea v-model.trim="editForm.intended_use" rows="3" />
               </label>
 
               <label class="field">
@@ -184,29 +195,21 @@
             </form>
           </section>
 
+          <!-- Support period -->
           <section class="card">
             <div class="section-header">
               <div>
                 <h2 class="section-title">Support period</h2>
-                <p class="muted">
-                  Guided lifecycle record for support duration, rationale, user-facing summary,
-                  packaging text, and versioned history.
-                </p>
+                <p class="muted">Lifecycle dates, alert schedule, rationale, and user-facing copy.</p>
               </div>
-              <span class="badge badge-neutral">
-                {{ supportHistoryCount }} record(s)
-              </span>
+              <span class="badge badge-neutral">{{ supportHistoryCount }} record(s)</span>
             </div>
 
-            <div v-if="supportPeriodError" class="feedback feedback-error">
-              {{ supportPeriodError }}
-            </div>
-
-            <div v-if="supportPeriodSuccess" class="feedback feedback-success">
-              {{ supportPeriodSuccess }}
-            </div>
+            <div v-if="supportPeriodError" class="feedback feedback-error">{{ supportPeriodError }}</div>
+            <div v-if="supportPeriodSuccess" class="feedback feedback-success">{{ supportPeriodSuccess }}</div>
 
             <form class="edit-grid" @submit.prevent="saveSupportPeriod">
+              <!-- Core scheduling fields -->
               <label class="field">
                 <span class="field-label">Support start date</span>
                 <input v-model="supportForm.support_start_date" type="date" />
@@ -228,22 +231,23 @@
               </label>
 
               <label class="field">
-                <span class="field-label">Notify before EOS</span>
+                <span class="field-label">Notify before EOS (days)</span>
                 <input v-model.number="supportForm.notify_before_days" type="number" min="1" max="3650" step="1" />
               </label>
 
-              <div class="info-item">
-                <span class="detail-label">Current status</span>
-                <p>
-                  {{ activeSupportPeriod ? "Active record loaded" : "No support period recorded yet" }}
-                </p>
+              <!-- Status info -->
+              <div class="info-row-pair">
+                <div class="info-item">
+                  <span class="detail-label">Current status</span>
+                  <p>{{ activeSupportPeriod ? "Active record loaded" : "No support period recorded yet" }}</p>
+                </div>
+                <div class="info-item">
+                  <span class="detail-label">Alert fires on</span>
+                  <p>{{ notificationSchedulePreview }}</p>
+                </div>
               </div>
 
-              <div class="info-item">
-                <span class="detail-label">Alert schedule preview</span>
-                <p>{{ notificationSchedulePreview }}</p>
-              </div>
-
+              <!-- Recipients -->
               <div class="field field-span-2 recipient-dropdown-field">
                 <span class="field-label">Notification recipients</span>
                 <div v-if="notificationRecipientOptions.length === 0" class="checkbox-panel muted">
@@ -258,19 +262,13 @@
                   >
                     <span class="recipient-trigger-copy">
                       <strong>{{ selectedRecipientsSummary }}</strong>
-                      <small class="muted">
-                        Choose one or more users to receive end-of-support alerts.
-                      </small>
+                      <small class="muted">Choose one or more users to receive end-of-support alerts.</small>
                     </span>
                     <span class="recipient-trigger-icon">{{ isRecipientDropdownOpen ? "▲" : "▼" }}</span>
                   </button>
 
                   <div v-if="isRecipientDropdownOpen" class="recipient-menu">
-                    <label
-                      v-for="option in notificationRecipientOptions"
-                      :key="option.id"
-                      class="recipient-option"
-                    >
+                    <label v-for="option in notificationRecipientOptions" :key="option.id" class="recipient-option">
                       <input
                         class="recipient-checkbox"
                         :checked="supportForm.recipient_user_ids.includes(option.id)"
@@ -287,36 +285,65 @@
                 </div>
               </div>
 
-              <label class="field field-span-2">
-                <span class="field-label">Justification text</span>
-                <textarea v-model.trim="supportForm.justification_text" rows="4" />
-              </label>
+              <!-- Documentation toggle -->
+              <div class="field-span-2">
+                <button
+                  class="toggle-section-btn"
+                  type="button"
+                  @click="showDocFields = !showDocFields"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    :style="{ transform: showDocFields ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 180ms ease' }"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  {{ showDocFields ? "Hide documentation fields" : "Show documentation fields" }}
+                </button>
+              </div>
 
-              <label class="field">
-                <span class="field-label">Expected use time</span>
-                <textarea v-model.trim="supportForm.expected_use_time_text" rows="3" />
-              </label>
+              <!-- Documentation fields (collapsible) -->
+              <template v-if="showDocFields">
+                <label class="field field-span-2">
+                  <span class="field-label">Justification text</span>
+                  <textarea v-model.trim="supportForm.justification_text" rows="3" />
+                </label>
 
-              <label class="field">
-                <span class="field-label">Comparable products</span>
-                <textarea v-model.trim="supportForm.comparable_products_text" rows="3" />
-              </label>
+                <label class="field">
+                  <span class="field-label">Expected use time</span>
+                  <textarea v-model.trim="supportForm.expected_use_time_text" rows="3" />
+                </label>
 
-              <label class="field field-span-2">
-                <span class="field-label">Third-party support constraints</span>
-                <textarea v-model.trim="supportForm.third_party_support_constraints_text" rows="3" />
-              </label>
+                <label class="field">
+                  <span class="field-label">Comparable products</span>
+                  <textarea v-model.trim="supportForm.comparable_products_text" rows="3" />
+                </label>
 
-              <label class="field field-span-2">
-                <span class="field-label">User-facing summary</span>
-                <textarea v-model.trim="supportForm.user_facing_summary" rows="4" />
-              </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Third-party support constraints</span>
+                  <textarea v-model.trim="supportForm.third_party_support_constraints_text" rows="3" />
+                </label>
 
-              <label class="field field-span-2">
-                <span class="field-label">Packaging summary</span>
-                <textarea v-model.trim="supportForm.packaging_summary" rows="3" />
-              </label>
+                <label class="field field-span-2">
+                  <span class="field-label">User-facing summary</span>
+                  <textarea v-model.trim="supportForm.user_facing_summary" rows="3" />
+                </label>
 
+                <label class="field field-span-2">
+                  <span class="field-label">Packaging summary</span>
+                  <textarea v-model.trim="supportForm.packaging_summary" rows="3" />
+                </label>
+              </template>
+
+              <!-- Actions -->
               <div class="field field-span-2 inline-actions">
                 <button class="btn btn-secondary" type="button" @click="generateSupportSnippets" :disabled="isSavingSupportPeriod">
                   Generate snippets
@@ -328,17 +355,15 @@
             </form>
           </section>
 
+          <!-- Releases -->
           <section class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Release workflow</h2>
-                <p class="muted">
-                  Each release has its own evidence workspace and approval gate. Open a release to upload artifacts,
-                  submit evidence for review, and approve the gate.
-                </p>
+                <h2 class="section-title">Releases</h2>
+                <p class="muted">Each release has its own evidence workspace and approval gate.</p>
               </div>
               <button class="btn btn-primary" type="button" @click="showReleaseForm = !showReleaseForm" :disabled="isCreatingRelease">
-                {{ showReleaseForm ? "Close release form" : "Create release" }}
+                {{ showReleaseForm ? "Close form" : "New release" }}
               </button>
             </div>
 
@@ -389,22 +414,20 @@
             </form>
 
             <div v-if="product.releases.length === 0" class="empty-panel">
-              Create a release to start the release workflow for this product.
+              No releases yet. Create the first release to start the workflow.
             </div>
 
             <div v-else class="release-workflow-grid">
-              <article v-for="release in product.releases" :key="`workflow-${release.id}`" class="release-workflow-card">
+              <article v-for="release in product.releases" :key="release.id" class="release-workflow-card">
                 <div class="release-workflow-head">
                   <div>
-                    <p class="release-workflow-version">Release {{ release.version }}</p>
-                    <p class="muted">
+                    <p class="release-workflow-version">{{ release.version }}</p>
+                    <p class="muted release-workflow-sub">
                       {{ formatConformityRoute(release.conformity_route_snapshot) }}
-                      · {{ formatClassification(release.classification_snapshot) }}
+                      &middot; {{ formatClassification(release.classification_snapshot) }}
                     </p>
                   </div>
-                  <span class="badge badge-neutral">
-                    {{ formatReleaseStatus(release.release_status) }}
-                  </span>
+                  <span class="badge badge-neutral">{{ formatReleaseStatus(release.release_status) }}</span>
                 </div>
 
                 <div class="release-workflow-meta">
@@ -422,62 +445,7 @@
             </div>
           </section>
 
-          <section class="card">
-            <div class="section-header">
-              <div>
-                <h2 class="section-title">Releases</h2>
-                <p class="muted">{{ product.releases.length }} release(s)</p>
-              </div>
-            </div>
-
-            <div v-if="product.releases.length === 0" class="empty-panel">
-              No releases yet.
-            </div>
-
-            <div v-else class="table-wrapper">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Classification</th>
-                    <th>Conformity route</th>
-                    <th>Planned</th>
-                    <th>Actual</th>
-                    <th>Workflow</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="release in product.releases" :key="release.id">
-                    <td>
-                      <RouterLink class="release-link" :to="{ name: 'release-gate', params: { releaseId: release.id } }">
-                        <strong>{{ release.version }}</strong>
-                      </RouterLink>
-                    </td>
-                    <td>
-                      <span class="badge badge-neutral">
-                        {{ formatReleaseStatus(release.release_status) }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="badge" :class="classificationClass(release.classification_snapshot)">
-                        {{ formatClassification(release.classification_snapshot) }}
-                      </span>
-                    </td>
-                    <td>{{ formatConformityRoute(release.conformity_route_snapshot) }}</td>
-                    <td>{{ formatDate(release.planned_release_date) }}</td>
-                    <td>{{ formatDate(release.actual_release_date) }}</td>
-                    <td>
-                      <RouterLink class="release-workspace-link" :to="{ name: 'release-gate', params: { releaseId: release.id } }">
-                        Open workspace
-                      </RouterLink>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
+          <!-- Remote processing elements -->
           <section class="card">
             <div class="section-header">
               <div>
@@ -487,7 +455,7 @@
             </div>
 
             <div v-if="product.remote_processing_elements.length === 0" class="empty-panel">
-              No remote processing elements yet.
+              No remote processing elements recorded.
             </div>
 
             <div v-else class="table-wrapper">
@@ -512,6 +480,7 @@
             </div>
           </section>
 
+          <!-- Child products -->
           <section class="card">
             <div class="section-header">
               <div>
@@ -553,63 +522,11 @@
               </table>
             </div>
           </section>
+
         </main>
 
+        <!-- ── Sidebar ── -->
         <aside class="side-column">
-          <section class="card summary-card">
-            <div class="section-header">
-              <div>
-                <h2 class="section-title">Summary</h2>
-                <p class="muted">At-a-glance product status.</p>
-              </div>
-            </div>
-
-            <div class="summary-list">
-              <div class="summary-row">
-                <span class="detail-label">Name</span>
-                <strong>{{ product.name }}</strong>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Code</span>
-                <strong class="summary-code">{{ product.product_code }}</strong>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Classification</span>
-                <span class="badge" :class="classificationClass(product.current_classification)">
-                  {{ formatClassification(product.current_classification) }}
-                </span>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Scope</span>
-                <span class="badge" :class="scopeClass(product.scope_status)">
-                  {{ formatScopeStatus(product.scope_status) }}
-                </span>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Releases</span>
-                <strong>{{ product.releases.length }}</strong>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Remote elements</span>
-                <strong>{{ product.remote_processing_elements.length }}</strong>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Child products</span>
-                <strong>{{ product.child_products.length }}</strong>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Active support period</span>
-                <strong>{{ activeSupportPeriod ? formatDate(activeSupportPeriod.support_end_date) : "—" }}</strong>
-              </div>
-            </div>
-          </section>
 
           <AuditTimeline
             v-if="canViewAudit"
@@ -620,94 +537,158 @@
             :loading="isAuditLoading"
             :error-message="auditErrorMessage"
             :show-refresh="true"
+            :compact="true"
             @refresh="loadAuditEvents"
           />
 
-          <section class="card">
-            <div class="section-header">
+          <!-- CRA scope wizard trigger card -->
+          <section class="card wizard-trigger-card">
+            <div class="wizard-trigger-body">
+              <div class="wizard-trigger-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <line x1="11" y1="8" x2="11" y2="14"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                </svg>
+              </div>
               <div>
-                <h2 class="section-title">CRA scope wizard</h2>
-                <p class="muted">Run the backend rule engine and store the evaluation result.</p>
+                <h2 class="section-title wizard-trigger-title">CRA scope wizard</h2>
+                <p class="muted wizard-trigger-copy">Evaluate product scope and get a recommended classification.</p>
               </div>
             </div>
 
-            <form class="wizard-grid" @submit.prevent="runScopeEvaluation">
-              <label class="check-field">
-                <input v-model="scopeForm.is_digital_product" type="checkbox" />
-                <span>Digital product</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.has_network_connectivity" type="checkbox" />
-                <span>Has network connectivity</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.performs_remote_data_processing" type="checkbox" />
-                <span>Performs remote data processing</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.safety_component" type="checkbox" />
-                <span>Safety component</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.used_in_critical_sector" type="checkbox" />
-                <span>Used in critical sector</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.handles_sensitive_functions" type="checkbox" />
-                <span>Handles sensitive functions</span>
-              </label>
-
-              <label class="check-field">
-                <input v-model="scopeForm.excluded_category" type="checkbox" />
-                <span>Excluded category</span>
-              </label>
-
-              <label class="field field-span-full">
-                <span class="field-label">Notes</span>
-                <textarea v-model.trim="scopeForm.notes" rows="3" />
-              </label>
-
-              <div class="form-actions field-span-full">
-                <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
-                <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope">
-                  {{ isEvaluatingScope ? "Evaluating..." : "Run scope evaluation" }}
-                </button>
-              </div>
-            </form>
-
-            <div v-if="scopeResult" class="result-panel">
-              <div class="result-row">
-                <span class="detail-label">In scope</span>
+            <!-- Last result pill (if available) -->
+            <div v-if="scopeResult" class="wizard-last-result">
+              <span class="detail-label">Last result</span>
+              <div class="wizard-last-result-badges">
                 <span class="badge" :class="scopeResult.in_scope ? 'badge-success' : 'badge-danger'">
-                  {{ scopeResult.in_scope ? "Yes" : "No" }}
+                  {{ scopeResult.in_scope ? "In scope" : "Out of scope" }}
                 </span>
-              </div>
-
-              <div class="result-row">
-                <span class="detail-label">Recommended classification</span>
                 <span class="badge" :class="classificationClass(scopeResult.recommended_classification)">
                   {{ formatClassification(scopeResult.recommended_classification) }}
                 </span>
               </div>
-
-              <div class="result-row">
-                <span class="detail-label">Suggested conformity route</span>
-                <span class="badge badge-neutral">
-                  {{ formatConformityRoute(scopeResult.suggested_conformity_route) }}
-                </span>
-              </div>
-
-              <div>
-                <span class="detail-label">Rationale</span>
-                <p class="result-rationale">{{ scopeResult.rationale }}</p>
-              </div>
             </div>
+
+            <button class="btn btn-primary wizard-open-btn" type="button" @click="showWizardModal = true">
+              Open scope wizard
+            </button>
           </section>
+
+          <!-- CRA scope wizard modal -->
+          <Teleport to="body">
+            <Transition name="modal">
+              <div v-if="showWizardModal" class="wizard-modal-backdrop" @click.self="showWizardModal = false">
+                <div class="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="wizard-modal-title">
+
+                  <div class="wizard-modal-header">
+                    <div class="wizard-trigger-body">
+                      <div class="wizard-trigger-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="11" cy="11" r="8"/>
+                          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                          <line x1="11" y1="8" x2="11" y2="14"/>
+                          <line x1="8" y1="11" x2="14" y2="11"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="timeline-eyebrow">Compliance</p>
+                        <h2 id="wizard-modal-title" class="section-title">CRA scope wizard</h2>
+                      </div>
+                    </div>
+                    <button class="icon-close-btn" type="button" title="Close" @click="showWizardModal = false">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="wizard-modal-body">
+                    <form class="wizard-grid" @submit.prevent="runScopeEvaluation">
+                      <label class="check-field">
+                        <input v-model="scopeForm.is_digital_product" type="checkbox" />
+                        <span>Digital product</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.has_network_connectivity" type="checkbox" />
+                        <span>Has network connectivity</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.performs_remote_data_processing" type="checkbox" />
+                        <span>Performs remote data processing</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.safety_component" type="checkbox" />
+                        <span>Safety component</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.used_in_critical_sector" type="checkbox" />
+                        <span>Used in critical sector</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.handles_sensitive_functions" type="checkbox" />
+                        <span>Handles sensitive functions</span>
+                      </label>
+
+                      <label class="check-field">
+                        <input v-model="scopeForm.excluded_category" type="checkbox" />
+                        <span>Excluded category</span>
+                      </label>
+
+                      <label class="field field-span-full">
+                        <span class="field-label">Notes</span>
+                        <textarea v-model.trim="scopeForm.notes" rows="3" />
+                      </label>
+
+                      <div class="form-actions field-span-full">
+                        <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
+                        <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope">
+                          {{ isEvaluatingScope ? "Evaluating..." : "Run scope evaluation" }}
+                        </button>
+                      </div>
+                    </form>
+
+                    <div v-if="scopeResult" class="result-panel">
+                      <div class="result-row">
+                        <span class="detail-label">In scope</span>
+                        <span class="badge" :class="scopeResult.in_scope ? 'badge-success' : 'badge-danger'">
+                          {{ scopeResult.in_scope ? "Yes" : "No" }}
+                        </span>
+                      </div>
+
+                      <div class="result-row">
+                        <span class="detail-label">Recommended classification</span>
+                        <span class="badge" :class="classificationClass(scopeResult.recommended_classification)">
+                          {{ formatClassification(scopeResult.recommended_classification) }}
+                        </span>
+                      </div>
+
+                      <div class="result-row">
+                        <span class="detail-label">Suggested conformity route</span>
+                        <span class="badge badge-neutral">
+                          {{ formatConformityRoute(scopeResult.suggested_conformity_route) }}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span class="detail-label">Rationale</span>
+                        <p class="result-rationale">{{ scopeResult.rationale }}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </Transition>
+          </Teleport>
+
         </aside>
       </div>
     </template>
@@ -760,6 +741,8 @@ const isSavingSupportPeriod = ref(false);
 const isCreatingRelease = ref(false);
 const showReleaseForm = ref(false);
 const isAuditLoading = ref(false);
+const showDocFields = ref(false);
+const showWizardModal = ref(false);
 
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -1425,8 +1408,12 @@ onBeforeUnmount(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.stat-value-date {
+  font-size: 1rem;
 }
 
 .workspace {
@@ -1496,18 +1483,200 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
-.summary-list {
+/* info-row-pair: side-by-side read-only status fields */
+.info-row-pair {
+  grid-column: span 2;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* toggle button for collapsible sections */
+.toggle-section-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(233, 238, 252, 0.75);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+
+.toggle-section-btn:hover {
+  background: rgba(110, 168, 254, 0.1);
+  border-color: rgba(110, 168, 254, 0.28);
+  color: #e9eefc;
+}
+
+.release-workflow-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+}
+
+/* ── Wizard trigger card ── */
+.wizard-trigger-card {
+  gap: 1rem;
+}
+
+.wizard-trigger-body {
+  display: flex;
+  align-items: center;
   gap: 0.85rem;
 }
 
-.summary-row {
+.wizard-trigger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.85rem;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(110, 168, 254, 0.18));
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+}
+
+.wizard-trigger-title {
+  margin: 0 0 0.15rem;
+}
+
+.wizard-trigger-copy {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.wizard-last-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.wizard-last-result-badges {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.wizard-open-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── Wizard modal ── */
+.wizard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(5, 10, 20, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.wizard-modal {
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: #0c1524;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(110, 168, 254, 0.06);
+  overflow: hidden;
+}
+
+.wizard-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding: 1.4rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(233, 238, 252, 0.07);
+  flex-shrink: 0;
+  background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.1), transparent 50%);
 }
 
+.wizard-modal-body {
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(110, 168, 254, 0.3) transparent;
+}
+
+.icon-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(233, 238, 252, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(233, 238, 252, 0.7);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+
+.icon-close-btn:hover {
+  background: rgba(251, 113, 133, 0.14);
+  border-color: rgba(251, 113, 133, 0.3);
+  color: #fda4af;
+}
+
+.timeline-eyebrow {
+  margin: 0 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+/* Vue modal transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.modal-enter-active .wizard-modal,
+.modal-leave-active .wizard-modal {
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .wizard-modal,
+.modal-leave-to .wizard-modal {
+  transform: scale(0.96) translateY(10px);
+  opacity: 0;
+}
+
+/* ── Wizard form ── */
 .wizard-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1732,6 +1901,12 @@ textarea {
   justify-self: flex-start;
 }
 
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1100px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -1752,6 +1927,11 @@ textarea {
   .info-item-span-2,
   .field-span-2 {
     grid-column: span 1;
+  }
+
+  .info-row-pair {
+    grid-column: span 1;
+    grid-template-columns: 1fr;
   }
 }
 </style>

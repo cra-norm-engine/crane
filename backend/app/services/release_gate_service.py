@@ -151,6 +151,43 @@ class ReleaseGateService:
         self.db.commit()
         return self._detail_payload(release, gate)
 
+    def detach_revision(
+        self,
+        link_id: UUID,
+        *,
+        actor_user_id: UUID,
+    ) -> dict:
+        link = self.link_repository.get_or_404(link_id)
+        gate_item = link.release_gate_item
+        gate = gate_item.release_gate
+        release = gate.product_release
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Evidence cannot be removed.")
+
+        self.db.delete(link)
+        self.db.flush()
+        self.db.refresh(gate)
+        self._refresh_gate_status(gate)
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="artifact.detached_from_gate",
+            entity_type=EntityType.product_release,
+            entity_id=release.id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "detach_artifact_revision",
+                "product_id": str(release.product_id),
+                "product_release_id": str(release.id),
+                "release_version": release.version,
+                "gate_item_id": str(gate_item.id),
+                "link_id": str(link_id),
+            },
+        )
+        self.db.commit()
+        return self._detail_payload(release, gate)
+
     def attach_revision(
         self,
         product_release_id: UUID,
@@ -160,6 +197,10 @@ class ReleaseGateService:
         actor_user_id: UUID,
     ) -> dict:
         gate = self.gate_repository.get_or_404_by_product_release_id(product_release_id)
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. New evidence cannot be attached.")
+
         gate_item = next((item for item in gate.items if item.id == gate_item_id), None)
         if gate_item is None:
             raise NotFoundException("Release gate item not found for release.")
@@ -212,6 +253,9 @@ class ReleaseGateService:
         gate_item = link.release_gate_item
         gate = gate_item.release_gate
         release = gate.product_release
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Evidence decisions cannot be changed.")
 
         link.decision = decision
         link.rationale = rationale

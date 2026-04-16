@@ -63,6 +63,13 @@ export const releaseGateService = {
     return data;
   },
 
+  async detachEvidence(linkId: string): Promise<ReleaseGateDetailRead> {
+    const { data } = await apiClient.delete<ReleaseGateDetailRead>(
+      `/release-gate-evidence/${linkId}`,
+    );
+    return data;
+  },
+
   async addEvidenceLink(
     productReleaseId: string,
     gateItemId: string,

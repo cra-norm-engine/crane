@@ -1,338 +1,435 @@
 <template>
   <section class="release-page">
+
+    <!-- ── Page header ── -->
     <header class="hero card" v-if="releaseDetail">
-      <div>
-        <p class="eyebrow">Release Workspace</p>
-        <h1>Release {{ releaseDetail.release.version }}</h1>
-        <p class="hero-copy">
-          Prepare, review, and approve the evidence required to release this product version.
-        </p>
+      <div class="hero-body">
+        <div>
+          <p class="eyebrow">Release Workspace</p>
+          <h1 class="hero-title">{{ releaseDetail.release.version }}</h1>
+        </div>
+        <div class="hero-meta-row">
+          <span class="meta-chip" :class="`chip-${releaseDetail.release.release_status}`">
+            {{ formatLabel(releaseDetail.release.release_status) }}
+          </span>
+          <span class="meta-chip chip-neutral">
+            {{ formatLabel(releaseDetail.release.classification_snapshot) }}
+          </span>
+          <span class="meta-chip chip-neutral">
+            {{ formatLabel(releaseDetail.release.conformity_route_snapshot) }}
+          </span>
+          <span v-if="releaseDetail.release.planned_release_date" class="meta-chip chip-neutral">
+            Planned {{ formatDate(releaseDetail.release.planned_release_date) }}
+          </span>
+        </div>
       </div>
 
       <div class="hero-actions">
-        <button class="secondary-button" type="button" @click="loadWorkspace" :disabled="loading || busy">
-          {{ loading ? "Refreshing..." : "Refresh" }}
+        <button class="btn-ghost" type="button" @click="loadWorkspace" :disabled="loading || busy">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.9"/></svg>
+          {{ loading ? "Refreshing…" : "Refresh" }}
         </button>
         <button
-          class="primary-button"
+          v-if="!isApproved"
+          class="btn-secondary"
           type="button"
           @click="submitForReview"
           :disabled="busy || !canSubmit"
         >
-          {{ busyAction === "submit" ? "Submitting..." : "Submit for review" }}
+          {{ busyAction === "submit" ? "Submitting…" : "Submit for review" }}
         </button>
         <button
           v-if="canApprove"
-          class="primary-button"
+          class="btn-primary"
           type="button"
           @click="approveGate"
           :disabled="busy"
         >
-          {{ busyAction === "approve" ? "Approving..." : "Approve gate" }}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {{ busyAction === "approve" ? "Approving…" : "Approve gate" }}
         </button>
       </div>
     </header>
 
-    <div v-if="errorMessage" class="card feedback feedback-error">{{ errorMessage }}</div>
-    <div v-if="successMessage" class="card feedback feedback-success">{{ successMessage }}</div>
-
-    <div v-if="loading && !releaseDetail" class="card feedback">Loading release workspace…</div>
+    <div v-if="errorMessage" class="feedback feedback-error">{{ errorMessage }}</div>
+    <div v-if="successMessage" class="feedback feedback-success">{{ successMessage }}</div>
+    <div v-if="loading && !releaseDetail" class="feedback">Loading release workspace…</div>
 
     <template v-else-if="releaseDetail">
+
+      <!-- ── Progress strip ── -->
       <section class="card progress-card">
-        <div class="progress-header">
-          <div>
+        <div class="progress-top">
+          <div class="progress-title-group">
             <p class="eyebrow">Gate Progress</p>
-            <h2>{{ acceptedCount }} of {{ requiredCount }} required items accepted</h2>
+            <h2 class="progress-heading">{{ acceptedCount }} / {{ requiredCount }} required items accepted</h2>
           </div>
           <span class="status-pill" :class="`status-${releaseDetail.gate.status}`">
             {{ formatLabel(releaseDetail.gate.status) }}
           </span>
         </div>
-        <div class="progress-track">
-          <span class="progress-fill" :style="{ width: `${progressPercent}%` }" />
+
+        <div class="progress-bar-wrap">
+          <div class="progress-track">
+            <span class="progress-fill" :style="{ width: `${progressPercent}%` }" />
+          </div>
+          <span class="progress-pct">{{ progressPercent }}%</span>
         </div>
-        <div class="progress-meta">
-          <span>Release status: {{ formatLabel(releaseDetail.release.release_status) }}</span>
-          <span>Conformity route: {{ formatLabel(releaseDetail.release.conformity_route_snapshot) }}</span>
-          <span>Classification: {{ formatLabel(releaseDetail.release.classification_snapshot) }}</span>
-          <span v-if="releaseDetail.gate.submitted_by_user">
-            Submitted by: {{ formatUser(releaseDetail.gate.submitted_by_user) }}
+
+        <div class="progress-chips">
+          <span v-if="releaseDetail.gate.submitted_by_user" class="prog-chip">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            Submitted by {{ formatUser(releaseDetail.gate.submitted_by_user) }}
           </span>
-          <span v-if="releaseDetail.gate.approved_by_user">
-            Approved by: {{ formatUser(releaseDetail.gate.approved_by_user) }}
+          <span v-if="releaseDetail.gate.approved_by_user" class="prog-chip prog-chip-green">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Approved by {{ formatUser(releaseDetail.gate.approved_by_user) }}
           </span>
         </div>
       </section>
 
+      <!-- ── Workspace ── -->
       <div class="workspace-grid">
+
+        <!-- Left: gate item checklist -->
         <section class="card checklist-card">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Checklist</p>
-              <h2>Required evidence</h2>
-            </div>
-            <span class="muted">{{ releaseDetail.gate.items.length }} gate item(s)</span>
+          <div class="checklist-head">
+            <p class="eyebrow">Evidence checklist</p>
+            <span class="item-count">{{ acceptedCount }}/{{ releaseDetail.gate.items.length }}</span>
           </div>
 
-          <div class="checklist">
+          <nav class="checklist" aria-label="Gate items">
             <button
               v-for="item in releaseDetail.gate.items"
               :key="item.id"
               class="gate-item"
               :class="{
-                selected: selectedItem?.id === item.id,
-                accepted: item.status === 'accepted',
-                blocked: item.status === 'rejected' || item.status === 'needs_update',
+                'gate-item--selected': selectedItem?.id === item.id,
+                'gate-item--accepted': item.status === 'accepted',
+                'gate-item--blocked': item.status === 'rejected' || item.status === 'needs_update',
+                'gate-item--waived': item.status === 'waived',
               }"
               type="button"
               @click="selectedItemId = item.id"
             >
-              <div class="gate-item-main">
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.description }}</p>
+              <div class="gate-item-icon" aria-hidden="true">
+                <!-- accepted -->
+                <svg v-if="item.status === 'accepted'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <!-- blocked -->
+                <svg v-else-if="item.status === 'rejected' || item.status === 'needs_update'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <!-- waived -->
+                <svg v-else-if="item.status === 'waived'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <!-- pending -->
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
               </div>
-              <div class="gate-item-side">
-                <span class="mini-pill" :class="`decision-${item.status}`">{{ formatLabel(item.status) }}</span>
-                <span class="muted">{{ item.evidence_links.length }} artifact(s)</span>
+
+              <div class="gate-item-body">
+                <span class="gate-item-title">{{ item.title }}</span>
+                <span class="gate-item-count">{{ item.evidence_links.length }} artifact{{ item.evidence_links.length !== 1 ? 's' : '' }}</span>
               </div>
+
+              <span class="mini-pill" :class="`decision-${item.status}`">
+                {{ formatLabel(item.status) }}
+              </span>
             </button>
-          </div>
+          </nav>
         </section>
 
+        <!-- Right: detail panel -->
         <section class="card detail-card" v-if="selectedItem">
-          <div class="section-head">
-            <div>
+
+          <!-- Detail header -->
+          <div class="detail-header">
+            <div class="detail-header-left">
               <p class="eyebrow">Gate Item</p>
-              <h2>{{ selectedItem.title }}</h2>
+              <h2 class="detail-title">{{ selectedItem.title }}</h2>
+              <p class="detail-copy">{{ selectedItem.description }}</p>
             </div>
             <span class="mini-pill" :class="`decision-${selectedItem.status}`">
               {{ formatLabel(selectedItem.status) }}
             </span>
           </div>
 
-          <p class="detail-copy">{{ selectedItem.description }}</p>
-
-          <div class="guidance-box">
-            <p class="guidance-title">What to do here</p>
-            <p class="guidance-copy">
-              Add the evidence that proves this requirement is covered for the selected release. Start with upload if
-              you have a file ready. Use an existing file only if it already matches this release.
-            </p>
+          <!-- Frozen banner -->
+          <div v-if="isApproved" class="frozen-banner">
+            <div class="frozen-banner-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <div>
+              <p class="frozen-banner-title">Approved — evidence frozen</p>
+              <p class="frozen-banner-copy">
+                Approved
+                <template v-if="releaseDetail.gate.approved_by_user">by <strong>{{ formatUser(releaseDetail.gate.approved_by_user) }}</strong></template>
+                <template v-if="releaseDetail.gate.approved_at"> on {{ formatDateTime(releaseDetail.gate.approved_at) }}</template>.
+                No changes are permitted.
+              </p>
+            </div>
           </div>
 
-          <div class="artifact-actions">
-            <button class="primary-button" type="button" @click="toggleUploadMode('upload')">
-              Upload evidence
-            </button>
-            <button class="secondary-button" type="button" @click="toggleUploadMode('external')">
-              Add web link
-            </button>
-            <button class="ghost-button" type="button" @click="toggleExistingEvidence">
-              {{ showExistingEvidence ? "Hide existing evidence" : "Use evidence already on file" }}
-            </button>
-          </div>
-
-          <form v-if="uploadMode === 'upload'" class="upload-panel" @submit.prevent="uploadArtifact">
-            <h3>Upload evidence file</h3>
-            <label class="field">
-              <span>Evidence name</span>
-              <input v-model.trim="uploadForm.title" type="text" required maxlength="255" placeholder="e.g. Threat model v1.2" />
-            </label>
-            <label class="field">
-              <span>Evidence type</span>
-              <input :value="formatLabel(derivedArtifactType)" type="text" disabled />
-            </label>
-            <label class="field field-span">
-              <span>What does this file show?</span>
-              <textarea v-model.trim="uploadForm.description" rows="3" placeholder="Short explanation for reviewers" />
-            </label>
-            <label class="field field-span">
-              <span>Version note</span>
-              <textarea v-model.trim="uploadForm.change_summary" rows="2" placeholder="Optional version or update note" />
-            </label>
-            <label class="field field-span">
-              <span>Choose file</span>
-              <input
-                type="file"
-                accept=".pdf,image/*,.png,.jpg,.jpeg,.webp,.svg,.txt,.md,.csv,.json,.xml,.spdx,.cdx,.zip"
-                required
-                @change="onFileSelected"
-              />
-            </label>
-            <p v-if="selectedFile" class="file-selection">
-              Selected: <strong>{{ selectedFile.name }}</strong>
-            </p>
-            <div class="inline-actions">
-              <button class="primary-button" type="submit" :disabled="busy || !selectedFile">
-                {{ busyAction === "upload" ? "Uploading..." : "Upload evidence" }}
-              </button>
-            </div>
-          </form>
-
-          <form v-else-if="uploadMode === 'external'" class="upload-panel" @submit.prevent="createExternalLink">
-            <h3>Add evidence by web link</h3>
-            <label class="field">
-              <span>Evidence name</span>
-              <input v-model.trim="externalForm.title" type="text" required maxlength="255" />
-            </label>
-            <label class="field">
-              <span>Evidence type</span>
-              <input :value="formatLabel(derivedArtifactType)" type="text" disabled />
-            </label>
-            <label class="field field-span">
-              <span>Link</span>
-              <input v-model.trim="externalForm.external_url" type="url" required />
-            </label>
-            <label class="field field-span">
-              <span>What does this link show?</span>
-              <textarea v-model.trim="externalForm.description" rows="3" />
-            </label>
-            <div class="inline-actions">
-              <button class="primary-button" type="submit" :disabled="busy">
-                {{ busyAction === "external" ? "Saving..." : "Save evidence link" }}
-              </button>
-            </div>
-          </form>
-
-          <div v-if="showExistingEvidence" class="library-panel">
-            <div class="section-head">
-              <div>
-                <h3>Evidence already on file</h3>
-                <p class="muted">Use this only when an existing file already fits this release and this requirement.</p>
-              </div>
-              <button class="secondary-button" type="button" @click="refreshLibrary" :disabled="libraryLoading">
-                {{ libraryLoading ? "Refreshing..." : "Refresh list" }}
-              </button>
-            </div>
-            <label class="field field-span">
-              <span>Search existing evidence</span>
-              <input v-model.trim="artifactQuery" type="search" placeholder="Search title or description" @input="filterLibrary" />
-            </label>
-            <div v-if="filteredLibrary.length === 0" class="empty-panel">No existing evidence found for this product yet.</div>
-            <div v-else class="library-list">
-              <article v-for="artifact in filteredLibrary" :key="artifact.id" class="library-item">
-                <div>
-                  <strong>{{ artifact.title }}</strong>
-                  <p class="muted">{{ artifact.description || "No description provided." }}</p>
-                  <p class="library-meta">
-                    {{ formatLabel(artifact.artifact_type) }}
-                    <span v-if="artifact.latest_revision">· Revision {{ artifact.latest_revision.revision_number }}</span>
-                  </p>
-                </div>
+          <!-- ── Add evidence zone (hidden when frozen) ── -->
+          <div v-if="!isApproved" class="add-evidence-zone">
+            <div class="add-evidence-header">
+              <p class="add-evidence-label">Add evidence</p>
+              <div class="add-tabs" role="tablist">
                 <button
-                  class="secondary-button"
+                  class="add-tab"
+                  :class="{ 'add-tab--active': uploadMode === 'upload' && !showExistingEvidence }"
                   type="button"
-                  :disabled="busy || !artifact.latest_revision"
-                  @click="attachRevision(artifact.latest_revision!.id)"
+                  role="tab"
+                  @click="uploadMode = 'upload'; showExistingEvidence = false"
                 >
-                  Use this file
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Upload file
                 </button>
-              </article>
+                <button
+                  class="add-tab"
+                  :class="{ 'add-tab--active': uploadMode === 'external' && !showExistingEvidence }"
+                  type="button"
+                  role="tab"
+                  @click="uploadMode = 'external'; showExistingEvidence = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  Web link
+                </button>
+                <button
+                  class="add-tab"
+                  :class="{ 'add-tab--active': showExistingEvidence }"
+                  type="button"
+                  role="tab"
+                  @click="toggleExistingEvidence"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  From library
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload file form -->
+            <form v-if="!showExistingEvidence && uploadMode === 'upload'" class="evidence-form" @submit.prevent="uploadArtifact">
+              <div class="form-grid">
+                <label class="field">
+                  <span class="field-label">Evidence name</span>
+                  <input v-model.trim="uploadForm.title" type="text" required maxlength="255" placeholder="e.g. Threat model v1.2" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Evidence type</span>
+                  <input :value="formatLabel(derivedArtifactType)" type="text" disabled />
+                </label>
+                <label class="field field-full">
+                  <span class="field-label">What does this file show?</span>
+                  <textarea v-model.trim="uploadForm.description" rows="2" placeholder="Short explanation for reviewers" />
+                </label>
+                <label class="field field-full">
+                  <span class="field-label">Version note <span class="field-optional">(optional)</span></span>
+                  <textarea v-model.trim="uploadForm.change_summary" rows="2" placeholder="Describe what changed in this version" />
+                </label>
+                <div class="field field-full">
+                  <span class="field-label">Choose file</span>
+                  <label class="file-drop">
+                    <input
+                      type="file"
+                      accept=".pdf,image/*,.png,.jpg,.jpeg,.webp,.svg,.txt,.md,.csv,.json,.xml,.spdx,.cdx,.zip"
+                      required
+                      @change="onFileSelected"
+                    />
+                    <span v-if="!selectedFile" class="file-drop-prompt">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Click to choose a file
+                    </span>
+                    <span v-else class="file-drop-selected">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      {{ selectedFile.name }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-footer">
+                <button class="btn-primary" type="submit" :disabled="busy || !selectedFile">
+                  {{ busyAction === "upload" ? "Uploading…" : "Upload evidence" }}
+                </button>
+              </div>
+            </form>
+
+            <!-- Web link form -->
+            <form v-else-if="!showExistingEvidence && uploadMode === 'external'" class="evidence-form" @submit.prevent="createExternalLink">
+              <div class="form-grid">
+                <label class="field">
+                  <span class="field-label">Evidence name</span>
+                  <input v-model.trim="externalForm.title" type="text" required maxlength="255" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Evidence type</span>
+                  <input :value="formatLabel(derivedArtifactType)" type="text" disabled />
+                </label>
+                <label class="field field-full">
+                  <span class="field-label">URL</span>
+                  <input v-model.trim="externalForm.external_url" type="url" required placeholder="https://…" />
+                </label>
+                <label class="field field-full">
+                  <span class="field-label">Description <span class="field-optional">(optional)</span></span>
+                  <textarea v-model.trim="externalForm.description" rows="2" placeholder="What does this link show?" />
+                </label>
+              </div>
+              <div class="form-footer">
+                <button class="btn-primary" type="submit" :disabled="busy">
+                  {{ busyAction === "external" ? "Saving…" : "Save evidence link" }}
+                </button>
+              </div>
+            </form>
+
+            <!-- Library panel -->
+            <div v-else-if="showExistingEvidence" class="library-panel">
+              <div class="library-toolbar">
+                <input v-model.trim="artifactQuery" type="search" class="library-search" placeholder="Search title or description…" @input="filterLibrary" />
+                <button class="btn-ghost" type="button" @click="refreshLibrary" :disabled="libraryLoading">
+                  {{ libraryLoading ? "Refreshing…" : "Refresh" }}
+                </button>
+              </div>
+              <p class="library-hint">Use only when an existing file already fits this release and this requirement.</p>
+              <div v-if="filteredLibrary.length === 0" class="empty-panel">No existing evidence found for this product yet.</div>
+              <div v-else class="library-list">
+                <article v-for="artifact in filteredLibrary" :key="artifact.id" class="library-item">
+                  <div class="library-item-info">
+                    <strong>{{ artifact.title }}</strong>
+                    <p class="muted">{{ artifact.description || "No description provided." }}</p>
+                    <p class="library-meta">
+                      {{ formatLabel(artifact.artifact_type) }}
+                      <span v-if="artifact.latest_revision">· Rev {{ artifact.latest_revision.revision_number }}</span>
+                    </p>
+                  </div>
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="busy || !artifact.latest_revision"
+                    @click="attachRevision(artifact.latest_revision!.id)"
+                  >
+                    Use this
+                  </button>
+                </article>
+              </div>
             </div>
           </div>
 
-          <div class="evidence-panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Attached Evidence</p>
-                <h3>{{ selectedItem.evidence_links.length }} linked artifact(s)</h3>
+          <!-- ── Evidence snapshot ── -->
+          <div class="evidence-section">
+            <div class="evidence-section-header">
+              <div class="evidence-section-title">
+                <svg v-if="isApproved" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>{{ isApproved ? "Frozen snapshot" : "Attached evidence" }}</span>
               </div>
+              <span class="evidence-count">{{ selectedItem.evidence_links.length }}</span>
             </div>
 
             <div v-if="selectedItem.evidence_links.length === 0" class="empty-panel">
-              No evidence linked yet.
+              No evidence linked yet. Use the panel above to attach your first artifact.
             </div>
 
             <div v-else class="evidence-list">
-              <article v-for="link in selectedItem.evidence_links" :key="link.id" class="evidence-card">
-                <div class="evidence-card-head">
-                  <div class="evidence-identity">
+              <article
+                v-for="link in selectedItem.evidence_links"
+                :key="link.id"
+                class="evidence-card"
+                :class="`ev-${link.decision}`"
+              >
+                <!-- Card top row -->
+                <div class="ev-top">
+                  <div class="ev-identity">
                     <div class="file-badge">{{ fileTypeLabel(link.artifact_revision.original_filename) }}</div>
-                    <div>
-                      <strong>{{ link.artifact_revision.original_filename || `Revision ${link.artifact_revision.revision_number}` }}</strong>
-                      <p class="muted">
-                        Revision {{ link.artifact_revision.revision_number }}
+                    <div class="ev-name-group">
+                      <strong class="ev-name">{{ link.artifact_revision.original_filename || `Revision ${link.artifact_revision.revision_number}` }}</strong>
+                      <span class="ev-meta">
+                        Rev {{ link.artifact_revision.revision_number }}
                         · {{ formatLabel(link.artifact_revision.source_type) }}
-                        <span v-if="link.artifact_revision.file_size_bytes"> · {{ formatSize(link.artifact_revision.file_size_bytes) }}</span>
-                      </p>
+                        <template v-if="link.artifact_revision.file_size_bytes"> · {{ formatSize(link.artifact_revision.file_size_bytes) }}</template>
+                      </span>
                     </div>
                   </div>
                   <span class="mini-pill" :class="`decision-${link.decision}`">{{ formatLabel(link.decision) }}</span>
                 </div>
 
-                <p v-if="link.artifact_revision.change_summary" class="evidence-note">
+                <!-- Change summary -->
+                <p v-if="link.artifact_revision.change_summary" class="ev-note">
                   {{ link.artifact_revision.change_summary }}
                 </p>
 
-                <div class="activity-list">
-                  <div class="activity-item">
-                    <div class="activity-avatar">{{ userInitials(link.artifact_revision.uploaded_by_user) }}</div>
-                    <div class="activity-content">
-                      <div class="activity-head">
-                        <strong>Uploaded</strong>
-                        <span class="activity-time">{{ formatDateTime(link.artifact_revision.created_at) }}</span>
-                      </div>
-                      <p class="activity-copy">
-                        {{ formatUser(link.artifact_revision.uploaded_by_user) }}
-                        <span class="activity-role">Contributor</span>
-                      </p>
+                <!-- Activity row -->
+                <div class="ev-activity">
+                  <div class="ev-activity-item">
+                    <div class="ev-avatar">{{ userInitials(link.artifact_revision.uploaded_by_user) }}</div>
+                    <div class="ev-activity-text">
+                      <span class="ev-activity-action">Uploaded</span>
+                      <span class="ev-activity-who">{{ formatUser(link.artifact_revision.uploaded_by_user) }}</span>
+                      <span class="ev-activity-when">{{ formatDateTime(link.artifact_revision.created_at) }}</span>
                     </div>
                   </div>
-
-                  <div v-if="link.reviewed_by_user || link.reviewed_at || link.rationale" class="activity-item">
-                    <div class="activity-avatar review-avatar">{{ userInitials(link.reviewed_by_user) }}</div>
-                    <div class="activity-content">
-                      <div class="activity-head">
-                        <strong>{{ reviewActionLabel(link.decision) }}</strong>
-                        <span v-if="link.reviewed_at" class="activity-time">{{ formatDateTime(link.reviewed_at) }}</span>
-                      </div>
-                      <p class="activity-copy">
-                        {{ formatUser(link.reviewed_by_user) }}
-                        <span class="activity-role">Security reviewer</span>
-                      </p>
-                      <p v-if="link.rationale" class="activity-note">{{ link.rationale }}</p>
+                  <div v-if="link.reviewed_by_user || link.reviewed_at" class="ev-activity-item">
+                    <div class="ev-avatar ev-avatar--review">{{ userInitials(link.reviewed_by_user) }}</div>
+                    <div class="ev-activity-text">
+                      <span class="ev-activity-action">{{ reviewActionLabel(link.decision) }}</span>
+                      <span class="ev-activity-who">{{ formatUser(link.reviewed_by_user) }}</span>
+                      <span v-if="link.reviewed_at" class="ev-activity-when">{{ formatDateTime(link.reviewed_at) }}</span>
                     </div>
                   </div>
                 </div>
 
-                <div class="inline-actions">
+                <!-- Rationale note -->
+                <p v-if="link.rationale" class="ev-rationale">{{ link.rationale }}</p>
+
+                <!-- Actions row -->
+                <div class="ev-actions">
                   <button
                     v-if="link.artifact_revision.storage_path"
-                    class="secondary-button"
+                    class="btn-ghost btn-sm"
                     type="button"
                     @click="downloadRevision(link.artifact_revision.id, link.artifact_revision.original_filename || 'artifact')"
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download
                   </button>
                   <a
                     v-else-if="link.artifact_revision.external_url"
-                    class="secondary-button external-link"
+                    class="btn-ghost btn-sm"
                     :href="link.artifact_revision.external_url"
                     target="_blank"
                     rel="noreferrer"
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     Open link
                   </a>
+                  <button
+                    v-if="!isApproved"
+                    class="btn-danger btn-sm"
+                    type="button"
+                    :disabled="busy"
+                    @click="detachEvidence(link.id)"
+                  >
+                    {{ busyAction === `detach-${link.id}` ? "Removing…" : "Remove" }}
+                  </button>
                 </div>
 
-                <div v-if="canReview" class="review-grid">
-                  <div class="review-box-label">Reviewer note</div>
-                  <textarea
-                    v-model.trim="reviewNotes[link.id]"
-                    rows="2"
-                    placeholder="Explain your review decision"
-                  />
+                <!-- Review panel -->
+                <div v-if="canReview && !isApproved" class="review-panel">
+                  <label class="field">
+                    <span class="field-label">Reviewer note</span>
+                    <textarea v-model.trim="reviewNotes[link.id]" rows="2" placeholder="Explain your decision (optional)" />
+                  </label>
                   <div class="review-actions">
-                    <button class="primary-button" type="button" :disabled="busy" @click="reviewLink(link.id, 'accepted')">Accept</button>
-                    <button class="ghost-button" type="button" :disabled="busy" @click="reviewLink(link.id, 'needs_update')">Request update</button>
-                    <button class="ghost-button" type="button" :disabled="busy" @click="reviewLink(link.id, 'rejected')">Reject</button>
-                    <button class="secondary-button" type="button" :disabled="busy" @click="reviewLink(link.id, 'waived')">Waive</button>
+                    <button class="btn-accept" type="button" :disabled="busy" @click="reviewLink(link.id, 'accepted')">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Accept
+                    </button>
+                    <button class="btn-ghost btn-sm" type="button" :disabled="busy" @click="reviewLink(link.id, 'needs_update')">Request update</button>
+                    <button class="btn-ghost btn-sm" type="button" :disabled="busy" @click="reviewLink(link.id, 'rejected')">Reject</button>
+                    <button class="btn-ghost btn-sm" type="button" :disabled="busy" @click="reviewLink(link.id, 'waived')">Waive</button>
                   </div>
                 </div>
               </article>
             </div>
           </div>
+
         </section>
       </div>
     </template>
@@ -409,8 +506,9 @@ const progressPercent = computed(() => {
   if (!requiredCount.value) return 0;
   return Math.round((acceptedCount.value / requiredCount.value) * 100);
 });
+const isApproved = computed(() => releaseDetail.value?.gate.status === "approved");
 const canReview = computed(() => authStore.hasPermission("release_lifecycle_write"));
-const canApprove = computed(() => canReview.value && releaseDetail.value?.gate.status !== "approved");
+const canApprove = computed(() => canReview.value && !isApproved.value);
 const canSubmit = computed(() => {
   const detail = releaseDetail.value;
   if (!detail) return false;
@@ -622,6 +720,24 @@ async function approveGate(): Promise<void> {
   }
 }
 
+async function detachEvidence(linkId: string): Promise<void> {
+  if (!releaseDetail.value) return;
+  busy.value = true;
+  busyAction.value = `detach-${linkId}`;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    const detail = await releaseGateService.detachEvidence(linkId);
+    setWorkspace(detail);
+    successMessage.value = "Evidence removed from this gate item.";
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to remove evidence.";
+  } finally {
+    busy.value = false;
+    busyAction.value = "";
+  }
+}
+
 async function downloadRevision(revisionId: string, filename: string): Promise<void> {
   try {
     await artifactService.downloadRevision(revisionId, filename);
@@ -634,6 +750,11 @@ function formatLabel(value: string): string {
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value));
 }
 
 function formatDateTime(value: string | null): string {
@@ -694,138 +815,166 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ─────────────────────────────────────────
+   Page shell
+───────────────────────────────────────── */
 .release-page {
   display: grid;
   gap: 1.25rem;
 }
 
-.hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: start;
-  background:
-    radial-gradient(circle at top right, rgba(110, 168, 254, 0.18), transparent 42%),
-    linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(15, 26, 46, 0.72) 55%);
-}
-
-.hero-copy,
-.detail-copy,
-.muted {
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
-}
-
+/* ─────────────────────────────────────────
+   Shared typography helpers
+───────────────────────────────────────── */
 .eyebrow {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.3rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--color-primary, #6ea8fe);
 }
 
-.hero h1,
-.progress-card h2,
-.section-head h2,
-.section-head h3 {
+.detail-copy,
+.muted {
   margin: 0;
+  color: var(--color-text-muted, rgba(233, 238, 252, 0.65));
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* ─────────────────────────────────────────
+   Feedback / toast banners
+───────────────────────────────────────── */
+.feedback {
+  padding: 0.8rem 1rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(233, 238, 252, 0.18);
+  color: var(--color-text-muted, rgba(233, 238, 252, 0.7));
+  font-size: 0.9rem;
+}
+
+.feedback-error {
+  background: rgba(251, 113, 133, 0.1);
+  border: 1px solid rgba(251, 113, 133, 0.3);
+  color: #fda4af;
+}
+
+.feedback-success {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #86efac;
+}
+
+/* ─────────────────────────────────────────
+   Unified button system
+───────────────────────────────────────── */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger,
+.btn-accept {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.6rem 1.05rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.13s ease, opacity 0.13s ease, border-color 0.13s ease, background 0.13s ease;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-ghost:hover,
+.btn-danger:hover,
+.btn-accept:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-ghost:disabled,
+.btn-danger:disabled,
+.btn-accept:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6ea8fe, #8b5cf6);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(110, 168, 254, 0.25);
+}
+
+.btn-secondary {
+  background: rgba(110, 168, 254, 0.12);
+  color: #93c5fd;
+  border-color: rgba(110, 168, 254, 0.3);
+}
+
+.btn-secondary:hover {
+  background: rgba(110, 168, 254, 0.2);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted, rgba(233, 238, 252, 0.7));
+  border-color: rgba(233, 238, 252, 0.16);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
   color: var(--color-text, #e9eefc);
 }
 
-.hero-actions,
-.artifact-actions,
-.inline-actions,
-.review-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+.btn-danger {
+  background: rgba(251, 113, 133, 0.1);
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.28);
 }
 
-.progress-header,
-.section-head,
-.evidence-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: start;
+.btn-danger:hover {
+  background: rgba(251, 113, 133, 0.2);
+  border-color: rgba(251, 113, 133, 0.45);
 }
 
-.progress-track {
-  margin-top: 1rem;
-  height: 0.75rem;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  overflow: hidden;
+.btn-accept {
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.3);
 }
 
-.progress-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-primary-2, #8b5cf6), var(--color-primary, #6ea8fe));
+.btn-accept:hover {
+  background: rgba(52, 211, 153, 0.22);
 }
 
-.progress-meta {
-  margin-top: 0.85rem;
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
-  font-size: 0.92rem;
+.btn-sm {
+  padding: 0.38rem 0.75rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
 }
 
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 1.25rem;
-}
-
-.checklist {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.gate-item {
-  border: 1px solid var(--color-border, rgba(233, 238, 252, 0.14));
-  background: var(--color-surface-soft, rgba(255, 255, 255, 0.03));
-  border-radius: 0.95rem;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  text-align: left;
-}
-
-.gate-item.selected {
-  border-color: rgba(110, 168, 254, 0.55);
-  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.14);
-}
-
-.gate-item.accepted {
-  background: rgba(52, 211, 153, 0.08);
-}
-
-.gate-item.blocked {
-  background: rgba(251, 113, 133, 0.08);
-}
-
-.gate-item-main p {
-  margin: 0.35rem 0 0;
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
-}
-
-.gate-item-side {
-  display: grid;
-  justify-items: end;
-  gap: 0.5rem;
-}
-
+/* ─────────────────────────────────────────
+   Status / decision pills
+───────────────────────────────────────── */
 .status-pill,
 .mini-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.32rem 0.7rem;
+  padding: 0.28rem 0.7rem;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .status-draft,
@@ -834,10 +983,14 @@ onMounted(() => {
   color: #fde68a;
 }
 
-.status-in_review,
-.decision-waived {
+.status-in_review {
   background: rgba(110, 168, 254, 0.14);
   color: #bfdbfe;
+}
+
+.decision-waived {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
 }
 
 .status-approved,
@@ -853,260 +1006,858 @@ onMounted(() => {
   color: #fda4af;
 }
 
-.detail-card {
+/* ─────────────────────────────────────────
+   Meta chips (hero + library)
+───────────────────────────────────────── */
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.chip-neutral {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(233, 238, 252, 0.75);
+}
+
+.chip-draft       { background: rgba(251,191,36,0.14); color: #fde68a; }
+.chip-in_review   { background: rgba(110,168,254,0.14); color: #bfdbfe; }
+.chip-approved    { background: rgba(52,211,153,0.14); color: #86efac; }
+.chip-blocked     { background: rgba(251,113,133,0.14); color: #fda4af; }
+
+/* ─────────────────────────────────────────
+   Hero card
+───────────────────────────────────────── */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  background:
+    radial-gradient(circle at top right, rgba(110, 168, 254, 0.18), transparent 42%),
+    linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(15, 26, 46, 0.72) 55%);
+}
+
+.hero-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.hero-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--color-text, #e9eefc);
+  line-height: 1.25;
+}
+
+.hero-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────
+   Progress card
+───────────────────────────────────────── */
+.progress-card {
   display: grid;
+  gap: 0.9rem;
+}
+
+.progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progress-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.progress-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text, #e9eefc);
+}
+
+.progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progress-track {
+  flex: 1;
+  height: 0.55rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #6ea8fe);
+  transition: width 0.4s ease;
+}
+
+.progress-pct {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #93c5fd;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.progress-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.prog-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(233, 238, 252, 0.65);
+}
+
+.prog-chip-green {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #86efac;
+}
+
+/* ─────────────────────────────────────────
+   Workspace 2-column grid
+───────────────────────────────────────── */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ─────────────────────────────────────────
+   Checklist (left column)
+───────────────────────────────────────── */
+.checklist-card {
+  position: sticky;
+  top: 1.25rem;
+}
+
+.checklist-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.item-count {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(110, 168, 254, 0.14);
+  color: #93c5fd;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.gate-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.13s, background 0.13s;
+}
+
+.gate-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gate-item--selected {
+  border-color: rgba(110, 168, 254, 0.5);
+  background: rgba(110, 168, 254, 0.07);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.12);
+}
+
+.gate-item--accepted {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.05);
+}
+
+.gate-item--blocked {
+  border-color: rgba(251, 113, 133, 0.3);
+  background: rgba(251, 113, 133, 0.05);
+}
+
+.gate-item--waived {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.gate-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.gate-item--accepted .gate-item-icon  { background: rgba(52,211,153,0.15);  color: #6ee7b7; }
+.gate-item--blocked  .gate-item-icon  { background: rgba(251,113,133,0.15); color: #fda4af; }
+.gate-item--waived   .gate-item-icon  { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+.gate-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.gate-item-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text, #e9eefc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gate-item-count {
+  font-size: 0.76rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+/* ─────────────────────────────────────────
+   Detail panel (right column)
+───────────────────────────────────────── */
+.detail-card {
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
 }
 
-.primary-button,
-.secondary-button,
-.ghost-button {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font: inherit;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
 }
 
-.primary-button:hover,
-.secondary-button:hover,
-.ghost-button:hover {
-  transform: translateY(-1px);
+.detail-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.primary-button {
-  background: #0f172a;
-  color: #fff;
-}
-
-.secondary-button {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.ghost-button {
-  background: transparent;
-  color: #334155;
-  border-color: #cbd5e1;
-}
-
-.primary-button:disabled,
-.secondary-button:disabled,
-.ghost-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.guidance-box {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.guidance-title {
-  margin: 0 0 0.35rem;
-  font-weight: 700;
-}
-
-.guidance-copy {
+.detail-title {
   margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text, #e9eefc);
 }
 
-.upload-panel,
-.library-panel,
-.evidence-panel {
-  display: grid;
+/* ─────────────────────────────────────────
+   Frozen banner
+───────────────────────────────────────── */
+.frozen-banner {
+  display: flex;
+  align-items: flex-start;
   gap: 0.85rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(125, 92, 39, 0.1);
+  padding: 0.9rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.frozen-banner-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(52, 211, 153, 0.15);
+  color: #86efac;
+}
+
+.frozen-banner-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.frozen-banner-copy {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgba(134, 239, 172, 0.75);
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────
+   Add evidence zone
+───────────────────────────────────────── */
+.add-evidence-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.add-evidence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(233, 238, 252, 0.08);
+}
+
+.add-evidence-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(233, 238, 252, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Tab bar */
+.add-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.add-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(233, 238, 252, 0.5);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.add-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(233, 238, 252, 0.8);
+}
+
+.add-tab--active {
+  background: rgba(110, 168, 254, 0.14);
+  border-color: rgba(110, 168, 254, 0.3);
+  color: #93c5fd;
+}
+
+/* ─────────────────────────────────────────
+   Evidence forms
+───────────────────────────────────────── */
+.evidence-form {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
 .field {
-  display: grid;
-  gap: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.field-span {
+.field-full {
   grid-column: 1 / -1;
+}
+
+.field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(233, 238, 252, 0.6);
+}
+
+.field-optional {
+  font-weight: 400;
+  opacity: 0.7;
 }
 
 .field input,
 .field select,
-.field textarea,
-.review-grid textarea {
+.field textarea {
   width: 100%;
-  border: 1px solid var(--color-border, rgba(233, 238, 252, 0.14));
-  border-radius: 0.8rem;
-  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(233, 238, 252, 0.14);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--color-text, #e9eefc);
+  font: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  transition: border-color 0.12s;
 }
 
-.file-selection {
-  margin: 0;
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: rgba(110, 168, 254, 0.45);
 }
 
-.library-list,
-.evidence-list {
-  display: grid;
+.field input:disabled,
+.field select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* File drop zone */
+.file-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5rem;
+  border: 2px dashed rgba(233, 238, 252, 0.18);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.13s, background 0.13s;
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+}
+
+.file-drop:hover {
+  border-color: rgba(110, 168, 254, 0.4);
+  background: rgba(110, 168, 254, 0.04);
+}
+
+.file-drop input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.file-drop-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(233, 238, 252, 0.45);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.file-drop-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #93c5fd;
+  font-size: 0.88rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ─────────────────────────────────────────
+   Library panel
+───────────────────────────────────────── */
+.library-panel {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.library-item,
-.evidence-card {
-  border: 1px solid var(--color-border, rgba(233, 238, 252, 0.14));
-  border-radius: 0.9rem;
-  padding: 1rem;
-  background: var(--color-surface-soft, rgba(255, 255, 255, 0.03));
+.library-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.library-search {
+  flex: 1;
+  border: 1px solid rgba(233, 238, 252, 0.14);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text, #e9eefc);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.library-search:focus {
+  outline: none;
+  border-color: rgba(110, 168, 254, 0.4);
+}
+
+.library-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.4);
+  font-style: italic;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 22rem;
+  overflow-y: auto;
 }
 
 .library-item {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
-  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.evidence-identity {
+.library-item-info {
   display: flex;
-  gap: 0.9rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.library-item-info strong {
+  font-size: 0.9rem;
+  color: var(--color-text, #e9eefc);
+}
+
+.library-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(233, 238, 252, 0.45);
+}
+
+/* ─────────────────────────────────────────
+   Evidence snapshot section
+───────────────────────────────────────── */
+.evidence-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.evidence-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.evidence-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(233, 238, 252, 0.7);
+}
+
+.evidence-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(233, 238, 252, 0.6);
+}
+
+.empty-panel {
+  padding: 1.25rem 1rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px dashed rgba(233, 238, 252, 0.12);
+  color: rgba(233, 238, 252, 0.45);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ─────────────────────────────────────────
+   Evidence card
+───────────────────────────────────────── */
+.evidence-card {
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.025);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Decision tints */
+.ev-accepted   { border-color: rgba(52,211,153,0.25);  background: rgba(52,211,153,0.04); }
+.ev-rejected   { border-color: rgba(251,113,133,0.25); background: rgba(251,113,133,0.04); }
+.ev-needs_update { border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.04); }
+.ev-waived     { border-color: rgba(148,163,184,0.2);  background: rgba(148,163,184,0.03); }
+.ev-pending_review { border-color: rgba(233,238,252,0.1); }
+
+/* Card top row */
+.ev-top {
+  display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 0.6rem;
+}
+
+.ev-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .file-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 3rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.85rem;
+  min-width: 2.6rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 7px;
   background: rgba(110, 168, 254, 0.14);
-  color: #bfdbfe;
-  font-size: 0.74rem;
+  color: #93c5fd;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
+  flex-shrink: 0;
 }
 
-.library-meta,
-.evidence-meta,
-.evidence-note,
-.review-rationale {
-  margin: 0.35rem 0 0;
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
-}
-
-.activity-list {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.activity-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.85rem;
-  align-items: start;
-}
-
-.activity-avatar {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(110, 168, 254, 0.18);
-  color: #dbeafe;
-  font-weight: 800;
-  font-size: 0.8rem;
-}
-
-.review-avatar {
-  background: rgba(52, 211, 153, 0.16);
-  color: #bbf7d0;
-}
-
-.activity-content {
-  display: grid;
-  gap: 0.2rem;
+.ev-name-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   min-width: 0;
 }
 
-.activity-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
+.ev-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text, #e9eefc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.activity-time,
-.activity-copy,
-.activity-note,
-.review-box-label {
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
+.ev-meta {
+  font-size: 0.78rem;
+  color: rgba(233, 238, 252, 0.45);
 }
 
-.activity-copy,
-.activity-note {
+/* Change note */
+.ev-note {
   margin: 0;
+  padding: 0 1rem 0.6rem;
+  font-size: 0.85rem;
+  color: rgba(233, 238, 252, 0.6);
+  font-style: italic;
 }
 
-.activity-role {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.5rem;
-  padding: 0.18rem 0.48rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 0.75rem;
-}
-
-.activity-note {
-  padding: 0.7rem 0.85rem;
-  border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--color-border, rgba(233, 238, 252, 0.14));
-}
-
-.evidence-meta {
+/* Activity trail */
+.ev-activity {
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid rgba(233, 238, 252, 0.06);
+  background: rgba(0, 0, 0, 0.12);
 }
 
-.review-grid {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.9rem;
+.ev-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.external-link {
-  text-decoration: none;
+.ev-avatar {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(110, 168, 254, 0.18);
+  color: #bfdbfe;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.ev-avatar--review {
+  background: rgba(52, 211, 153, 0.16);
+  color: #86efac;
+}
+
+.ev-activity-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.ev-activity-action {
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.ev-activity-who {
+  color: rgba(233, 238, 252, 0.8);
+  font-weight: 500;
+}
+
+.ev-activity-when {
+  color: rgba(233, 238, 252, 0.35);
+  font-size: 0.76rem;
+}
+
+/* Rationale */
+.ev-rationale {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 0.83rem;
+  color: rgba(233, 238, 252, 0.55);
+  border-top: 1px solid rgba(233, 238, 252, 0.06);
+  font-style: italic;
+}
+
+/* Card actions row */
+.ev-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid rgba(233, 238, 252, 0.06);
+}
+
+/* ─────────────────────────────────────────
+   Review panel
+───────────────────────────────────────── */
+.review-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid rgba(233, 238, 252, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   align-items: center;
 }
 
-.empty-panel,
-.feedback {
-  padding: 1rem 1.1rem;
-  border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed var(--color-border, rgba(233, 238, 252, 0.14));
-  color: var(--color-text-muted, rgba(233, 238, 252, 0.72));
-}
-
-@media (max-width: 1080px) {
+/* ─────────────────────────────────────────
+   Responsive
+───────────────────────────────────────── */
+@media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 1fr;
   }
 
+  .checklist-card {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
   .hero {
     flex-direction: column;
+  }
+
+  .hero-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-evidence-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

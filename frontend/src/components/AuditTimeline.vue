@@ -1,21 +1,38 @@
 <template>
-  <section class="card timeline-card">
+  <section class="card timeline-card" :class="{ 'timeline-card-compact': compact }">
     <div class="timeline-header">
       <div>
         <p class="timeline-eyebrow">{{ eyebrow }}</p>
         <h2 class="timeline-title">{{ title }}</h2>
-        <p v-if="description" class="muted timeline-copy">{{ description }}</p>
+        <p v-if="description && !compact" class="muted timeline-copy">{{ description }}</p>
       </div>
 
-      <button
-        v-if="showRefresh"
-        class="button secondary timeline-refresh"
-        type="button"
-        :disabled="loading"
-        @click="$emit('refresh')"
-      >
-        {{ loading ? "Refreshing..." : "Refresh" }}
-      </button>
+      <div class="timeline-actions">
+        <button
+          v-if="showRefresh && !compact"
+          class="button secondary timeline-refresh"
+          type="button"
+          :disabled="loading"
+          @click="$emit('refresh')"
+        >
+          {{ loading ? "Refreshing..." : "Refresh" }}
+        </button>
+
+        <button
+          v-if="compact"
+          class="timeline-icon-btn"
+          type="button"
+          title="Expand timeline"
+          @click="isExpanded = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"/>
+            <polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/>
+            <line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div v-if="errorMessage" class="feedback feedback-error">
@@ -32,14 +49,15 @@
 
     <div v-else class="timeline-stream">
       <article
-        v-for="(event, index) in events"
+        v-for="(event, index) in visibleEvents"
         :key="event.id"
         class="timeline-entry"
+        :class="{ 'timeline-entry-compact': compact }"
         :style="{ '--entry-delay': `${index * 55}ms` }"
       >
         <div class="timeline-rail" aria-hidden="true">
           <span class="timeline-dot" :class="statusClass(event.status)" />
-          <span v-if="index !== events.length - 1" class="timeline-line" />
+          <span v-if="index !== visibleEvents.length - 1" class="timeline-line" />
         </div>
 
         <div class="timeline-event">
@@ -53,7 +71,7 @@
 
           <p class="timeline-summary">{{ event.summary }}</p>
 
-          <div class="timeline-tags">
+          <div v-if="!compact" class="timeline-tags">
             <span class="timeline-tag">{{ formatAction(event.action_type) }}</span>
             <span v-if="event.entity_label" class="timeline-tag timeline-tag-soft">
               {{ event.entity_label }}
@@ -65,13 +83,113 @@
         </div>
       </article>
     </div>
+
+    <button
+      v-if="compact && events.length > COMPACT_LIMIT"
+      class="timeline-view-all"
+      type="button"
+      @click="isExpanded = true"
+    >
+      View all {{ events.length }} events
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 3 21 3 21 9"/>
+        <polyline points="9 21 3 21 3 15"/>
+        <line x1="21" y1="3" x2="14" y2="10"/>
+        <line x1="3" y1="21" x2="10" y2="14"/>
+      </svg>
+    </button>
   </section>
+
+  <!-- Maximized modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="isExpanded" class="timeline-modal-backdrop" @click.self="isExpanded = false">
+        <div class="timeline-modal">
+          <div class="timeline-modal-header">
+            <div>
+              <p class="timeline-eyebrow">{{ eyebrow }}</p>
+              <h2 class="timeline-title">{{ title }}</h2>
+              <p v-if="description" class="muted timeline-copy">{{ description }}</p>
+            </div>
+            <div class="timeline-actions">
+              <button
+                v-if="showRefresh"
+                class="button secondary timeline-refresh"
+                type="button"
+                :disabled="loading"
+                @click="$emit('refresh')"
+              >
+                {{ loading ? "Refreshing..." : "Refresh" }}
+              </button>
+              <button
+                class="timeline-icon-btn"
+                type="button"
+                title="Close"
+                @click="isExpanded = false"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="timeline-modal-body">
+            <div v-if="errorMessage" class="feedback feedback-error">
+              {{ errorMessage }}
+            </div>
+            <div v-else-if="loading && events.length === 0" class="timeline-empty">
+              Loading audit history…
+            </div>
+            <div v-else-if="events.length === 0" class="timeline-empty">
+              No audit events found for this view yet.
+            </div>
+            <div v-else class="timeline-stream">
+              <article
+                v-for="(event, index) in events"
+                :key="event.id"
+                class="timeline-entry"
+                :style="{ '--entry-delay': `${index * 30}ms` }"
+              >
+                <div class="timeline-rail" aria-hidden="true">
+                  <span class="timeline-dot" :class="statusClass(event.status)" />
+                  <span v-if="index !== events.length - 1" class="timeline-line" />
+                </div>
+
+                <div class="timeline-event">
+                  <div class="timeline-meta">
+                    <span class="timeline-actor">{{ actorLabel(event) }}</span>
+                    <span class="timeline-separator">•</span>
+                    <time :datetime="event.occurred_at">{{ formatDateTime(event.occurred_at) }}</time>
+                  </div>
+                  <p class="timeline-summary">{{ event.summary }}</p>
+                  <div class="timeline-tags">
+                    <span class="timeline-tag">{{ formatAction(event.action_type) }}</span>
+                    <span v-if="event.entity_label" class="timeline-tag timeline-tag-soft">
+                      {{ event.entity_label }}
+                    </span>
+                    <span class="timeline-tag timeline-tag-soft">
+                      {{ formatEntity(event.entity_type) }}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from "vue";
 import type { AuditEventRead } from "@/types/audit";
 
-withDefaults(
+const COMPACT_LIMIT = 4;
+
+const props = withDefaults(
   defineProps<{
     title: string;
     eyebrow?: string;
@@ -80,6 +198,7 @@ withDefaults(
     loading?: boolean;
     errorMessage?: string;
     showRefresh?: boolean;
+    compact?: boolean;
   }>(),
   {
     eyebrow: "Audit Trail",
@@ -87,12 +206,19 @@ withDefaults(
     loading: false,
     errorMessage: "",
     showRefresh: false,
+    compact: false,
   },
 );
 
 defineEmits<{
   refresh: [];
 }>();
+
+const isExpanded = ref(false);
+
+const visibleEvents = computed(() =>
+  props.compact ? props.events.slice(0, COMPACT_LIMIT) : props.events,
+);
 
 function actorLabel(event: AuditEventRead): string {
   return event.actor.full_name || event.actor.email || "System";
@@ -152,6 +278,13 @@ function statusClass(status: string): string {
   justify-content: space-between;
   position: relative;
   z-index: 1;
+}
+
+.timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .timeline-eyebrow {
@@ -247,6 +380,11 @@ function statusClass(status: string): string {
   border: 1px solid rgba(233, 238, 252, 0.08);
 }
 
+/* Compact entry — tighter padding, no bottom gap for tags */
+.timeline-entry-compact .timeline-event {
+  padding: 0.55rem 0.75rem;
+}
+
 .timeline-meta {
   color: rgba(233, 238, 252, 0.7);
   font-size: 0.84rem;
@@ -262,9 +400,10 @@ function statusClass(status: string): string {
 }
 
 .timeline-summary {
-  margin-top: 0.45rem;
+  margin-top: 0.35rem;
   font-weight: 600;
   line-height: 1.4;
+  font-size: 0.88rem;
 }
 
 .timeline-tags {
@@ -288,6 +427,112 @@ function statusClass(status: string): string {
 
 .timeline-refresh {
   align-self: start;
+}
+
+/* Icon button (expand / close) */
+.timeline-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(233, 238, 252, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(233, 238, 252, 0.7);
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+
+.timeline-icon-btn:hover {
+  background: rgba(110, 168, 254, 0.14);
+  border-color: rgba(110, 168, 254, 0.3);
+  color: #e9eefc;
+}
+
+/* "View all" footer link */
+.timeline-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+  z-index: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(110, 168, 254, 0.9);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.timeline-view-all:hover {
+  color: #6ea8fe;
+}
+
+/* ── Modal ── */
+.timeline-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(5, 10, 20, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.timeline-modal {
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: #0c1524;
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(110, 168, 254, 0.06);
+  overflow: hidden;
+}
+
+.timeline-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(233, 238, 252, 0.07);
+  flex-shrink: 0;
+  background:
+    radial-gradient(circle at top right, rgba(110, 168, 254, 0.1), transparent 40%);
+}
+
+.timeline-modal-body {
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(110, 168, 254, 0.3) transparent;
+}
+
+/* Vue transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .timeline-modal,
+.modal-leave-to .timeline-modal {
+  transform: scale(0.96) translateY(8px);
 }
 
 @keyframes timeline-enter {

@@ -148,6 +148,22 @@ def add_external_evidence_for_gate_item(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.delete("/release-gate-evidence/{link_id}", response_model=ReleaseGateDetailRead)
+def detach_evidence_from_gate_item(
+    link_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReleaseGateDetailRead:
+    require_permissions(current_user, {Permission.release_write, Permission.evidence_item_write})
+    service = ReleaseGateService(db)
+    try:
+        return ReleaseGateDetailRead.model_validate(
+            service.detach_revision(link_id, actor_user_id=current_user.id)
+        )
+    except (NotFoundException, ConflictException) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
 @router.post("/release-gate-evidence/{link_id}/review", response_model=ReleaseGateDetailRead)
 def review_gate_evidence(
     link_id: UUID,
