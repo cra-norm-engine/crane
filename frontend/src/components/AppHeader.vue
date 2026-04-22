@@ -1,14 +1,12 @@
 <template>
   <header class="topbar">
     <div class="topbar-left">
-      <div class="app-title">{{ appName }}</div>
-      <div class="muted">
-        Single Source of Truth for CRA compliance, releases, lifecycle evidence, and audit integrity
-      </div>
+      <div class="topbar-greeting">{{ greeting }}, <strong>{{ firstName }}</strong></div>
+      <div class="topbar-meta muted">{{ appName }} &mdash; CRA Single Source of Truth</div>
     </div>
 
     <div class="topbar-right">
-      <label class="theme-switch" aria-label="Toggle light mode">
+      <label class="theme-switch" :aria-label="`Switch to ${isLightMode ? 'dark' : 'light'} mode`">
         <input
           :checked="isLightMode"
           type="checkbox"
@@ -22,7 +20,7 @@
         </span>
       </label>
 
-      <button class="button secondary" type="button" @click="logout">
+      <button class="button secondary topbar-signout" type="button" @click="logout">
         Sign out
       </button>
     </div>
@@ -43,6 +41,18 @@ const authStore = useAuthStore();
 const appName = computed(() => appStore.appName);
 const isLightMode = computed(() => appStore.themeMode === "light");
 
+const firstName = computed(() => {
+  const full = authStore.userFullName || authStore.userEmail || "there";
+  return full.split(/[\s@]/)[0] ?? "there";
+});
+
+const greeting = computed(() => {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+});
+
 function logout() {
   authStore.logout();
   router.push({ name: "login" });
@@ -51,8 +61,8 @@ function logout() {
 
 <style scoped>
 .topbar {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--color-border-strong);
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   gap: 1rem;
   align-items: center;
@@ -61,28 +71,44 @@ function logout() {
   position: sticky;
   top: 0;
   z-index: 10;
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
 }
 
 .topbar-left {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.app-title {
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+.topbar-greeting {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-greeting strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.topbar-meta {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
+/* ── Theme switch ────────────────────────────── */
 .theme-switch {
   display: inline-flex;
   align-items: center;
@@ -100,8 +126,8 @@ function logout() {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  min-width: 128px;
-  padding: 0.28rem;
+  min-width: 124px;
+  padding: 0.26rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-soft);
@@ -112,24 +138,25 @@ function logout() {
   position: relative;
   z-index: 1;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  padding: 0.3rem 0.55rem;
+  padding: 0.28rem 0.5rem;
   transition: color 0.18s ease;
+  user-select: none;
 }
 
 .theme-switch-thumb {
   position: absolute;
-  top: 0.24rem;
-  bottom: 0.24rem;
-  left: 0.24rem;
-  width: calc(50% - 0.24rem);
+  top: 0.22rem;
+  bottom: 0.22rem;
+  left: 0.22rem;
+  width: calc(50% - 0.22rem);
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
-  box-shadow: 0 10px 22px rgba(28, 107, 39, 0.22);
-  transition: transform 0.2s ease;
+  box-shadow: 0 8px 20px rgba(28, 107, 39, 0.24);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .theme-switch-input:checked + .theme-switch-track .theme-switch-thumb {
@@ -141,10 +168,17 @@ function logout() {
   color: #fff;
 }
 
+/* ── Sign out ────────────────────────────────── */
+.topbar-signout {
+  font-size: 0.88rem;
+  padding: 0.62rem 1rem;
+}
+
 @media (max-width: 720px) {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .topbar-right {

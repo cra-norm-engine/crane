@@ -122,10 +122,13 @@
     </nav>
 
     <div class="sidebar-footer">
-      <span class="badge">
-        Role:
-        <strong class="badge-strong">{{ primaryRoleLabel }}</strong>
-      </span>
+      <div class="user-row">
+        <div class="user-avatar" aria-hidden="true">{{ userInitials }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ displayName }}</div>
+          <span class="user-role-badge">{{ primaryRoleLabel }}</span>
+        </div>
+      </div>
 
       <button class="nav-link nav-link-button" type="button" @click="logout">
         <span class="nav-icon">
@@ -146,53 +149,40 @@ import { useAuthStore } from "@/stores/auth";
 const router = useRouter();
 const authStore = useAuthStore();
 
-const canViewSecurityUpdates = computed(() =>
-  authStore.hasPermission("security_update_read"),
-);
-
-const canViewLifecycleNotifications = computed(() =>
-  authStore.hasPermission("lifecycle_notification_read"),
-);
-
-const canViewRiskAssessments = computed(() =>
-  authStore.hasPermission("risk_assessment_read"),
-);
-
+const canViewSecurityUpdates = computed(() => authStore.hasPermission("security_update_read"));
+const canViewLifecycleNotifications = computed(() => authStore.hasPermission("lifecycle_notification_read"));
+const canViewRiskAssessments = computed(() => authStore.hasPermission("risk_assessment_read"));
 const canViewAnnexMatrix = computed(
-  () =>
-    authStore.hasPermission("annex_requirement_read") ||
-    authStore.hasPermission("requirement_mapping_read"),
+  () => authStore.hasPermission("annex_requirement_read") || authStore.hasPermission("requirement_mapping_read"),
 );
-
-const canManageAdmin = computed(() =>
-  authStore.hasPermission("admin_manage_users"),
-);
-
-const canViewAudit = computed(() =>
-  authStore.hasPermission("audit_read"),
-);
+const canManageAdmin = computed(() => authStore.hasPermission("admin_manage_users"));
+const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
 
 const primaryRoleLabel = computed(() => {
   const role = authStore.roles?.[0];
-
   switch (role) {
-    case "admin":
-      return "Admin";
-    case "product_owner":
-      return "Product Owner";
-    case "cybersecurity_engineer":
-      return "Cybersecurity Engineer";
-    case "legal_team":
-      return "Legal Team";
-    case "development_team":
-      return "Development Team";
-    case "product_management":
-      return "Product Management";
-    case "lifecycle_manager":
-      return "Lifecycle Manager";
-    default:
-      return "User";
+    case "admin": return "Admin";
+    case "product_owner": return "Product Owner";
+    case "cybersecurity_engineer": return "Cybersecurity Engineer";
+    case "legal_team": return "Legal Team";
+    case "development_team": return "Development Team";
+    case "product_management": return "Product Management";
+    case "lifecycle_manager": return "Lifecycle Manager";
+    default: return "User";
   }
+});
+
+const displayName = computed(() => authStore.userFullName || authStore.userEmail || "User");
+
+const userInitials = computed(() => {
+  const name = authStore.userFullName || authStore.userEmail || "";
+  return name
+    .split(/[\s@]/)
+    .filter(Boolean)
+    .map((part: string) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 });
 
 function logout(): void {
@@ -210,12 +200,23 @@ function logout(): void {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Brand ───────────────────────────────────── */
 .brand {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  padding: 0.25rem 0.1rem;
 }
 
 .brand-mark {
@@ -226,8 +227,10 @@ function logout(): void {
   place-items: center;
   background: linear-gradient(145deg, var(--color-card-start), var(--color-card-end));
   border: 1px solid var(--color-border-strong);
-  box-shadow: 0 14px 30px rgba(var(--color-bg-rgb), 0.2);
+  box-shadow: 0 8px 24px rgba(var(--color-bg-rgb), 0.24), 0 0 0 1px rgba(175, 214, 46, 0.08);
   font-weight: 900;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
   color: var(--color-primary-2);
 }
 
@@ -238,95 +241,157 @@ function logout(): void {
 }
 
 .brand-sub {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: var(--color-text-muted);
+  margin-top: 0.1rem;
 }
 
+/* ── Nav sections ────────────────────────────── */
 .sidebar-sections {
   display: grid;
-  gap: 1.15rem;
+  gap: 1.25rem;
+  flex: 1;
 }
 
 .nav-section {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .nav-section-admin {
-  padding-top: 0.2rem;
+  padding-top: 0.15rem;
 }
 
 .section-label {
   margin: 0;
   padding: 0 0.25rem;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(220, 233, 214, 0.42);
+  color: rgba(220, 233, 214, 0.38);
+  font-weight: 600;
 }
 
 .nav {
   display: grid;
-  gap: 0.46rem;
+  gap: 0.3rem;
 }
 
+/* ── Nav links ───────────────────────────────── */
 .nav-link {
   display: flex;
   align-items: center;
   gap: 0.72rem;
-  padding: 0.86rem 0.92rem;
+  padding: 0.82rem 0.92rem;
   border-radius: 12px;
   border: 1px solid transparent;
-  font-size: 1rem;
+  font-size: 0.96rem;
   font-weight: 600;
   color: var(--color-text-muted);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .nav-link-button {
   width: 100%;
   background: transparent;
   text-align: left;
+  cursor: pointer;
 }
 
 .nav-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: inherit;
-  flex: 0 0 24px;
+  flex: 0 0 22px;
+  opacity: 0.85;
 }
 
 .nav-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: block;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--color-text);
+  border-color: rgba(233, 238, 252, 0.06);
+}
+
+.nav-link:hover .nav-icon {
+  opacity: 1;
 }
 
 .nav-link-active {
-  background: linear-gradient(135deg, rgba(112, 185, 23, 0.16), rgba(28, 107, 39, 0.18));
-  border-color: rgba(173, 214, 84, 0.28);
+  background: linear-gradient(135deg, rgba(112, 185, 23, 0.13), rgba(28, 107, 39, 0.16));
+  border-color: rgba(173, 214, 84, 0.24);
   color: var(--color-text);
+  box-shadow: inset 3px 0 0 var(--color-primary-2);
 }
 
+.nav-link-active .nav-icon {
+  opacity: 1;
+  color: var(--color-primary-2);
+}
+
+/* ── Footer ──────────────────────────────────── */
 .sidebar-footer {
   margin-top: auto;
   display: grid;
-  gap: 0.75rem;
-  padding-top: 0.65rem;
+  gap: 0.65rem;
+  padding-top: 0.75rem;
   border-top: 1px solid rgba(233, 238, 252, 0.08);
 }
 
-.badge-strong {
-  margin-left: 0.35rem;
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(112, 185, 23, 0.25), rgba(28, 107, 39, 0.3));
+  border: 1px solid rgba(173, 214, 84, 0.22);
+  display: grid;
+  place-items: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--color-primary-2);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 960px) {

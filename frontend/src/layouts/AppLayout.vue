@@ -31,7 +31,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
 }
 
 .app-content {
-  padding: 1.25rem;
+  padding: 1.75rem 2rem;
 }
 
 @media (max-width: 960px) {
@@ -40,7 +40,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
   }
 
   .app-content {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 }
 </style>

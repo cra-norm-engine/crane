@@ -1,9 +1,17 @@
 <template>
   <section class="page dashboard-page">
+
     <div class="page-header">
-      <div>
+      <div class="page-header-info">
+        <div class="page-eyebrow">
+          <span class="eyebrow-chip">CRA Compliance Tool</span>
+          <span class="live-indicator" aria-label="Live data">
+            <span class="live-dot" />
+            Live
+          </span>
+        </div>
         <h1 class="page-title">Dashboard</h1>
-        <p class="muted dashboard-subtitle">CRA compliance pulse across products, lifecycle, releases, and recent activity.</p>
+        <p class="muted dashboard-subtitle">Compliance pulse across products, lifecycle, releases, and recent activity.</p>
       </div>
 
       <div class="dashboard-actions">
@@ -24,27 +32,72 @@
       {{ errorMessage }}
     </div>
 
-    <section class="grid metrics-grid">
-      <article class="card metric-card metric-card-primary">
-        <span class="metric-label">Products</span>
-        <strong class="metric-value">{{ totalProducts }}</strong>
-        <span class="metric-foot">Total portfolio</span>
+    <!-- Overview: Compliance ring + 3 metric cards -->
+    <section class="overview-row">
+
+      <article class="card compliance-card">
+        <div class="compliance-inner">
+          <div class="ring-container">
+            <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="ring-track" cx="50" cy="50" r="42" stroke-width="7" />
+              <circle
+                class="ring-fill"
+                cx="50" cy="50" r="42"
+                stroke-width="7"
+                stroke-linecap="round"
+                :stroke-dasharray="`${(complianceScore / 100) * 263.9} 263.9`"
+                :style="{ stroke: complianceScoreColor }"
+              />
+            </svg>
+            <div class="ring-center">
+              <strong class="ring-number">{{ complianceScore }}</strong>
+              <span class="ring-pct">%</span>
+            </div>
+          </div>
+
+          <div class="compliance-details">
+            <span class="compliance-detail-label">Compliance Health</span>
+            <span class="compliance-badge" :class="complianceScoreBadgeClass">
+              {{ complianceScoreLabel }}
+            </span>
+            <p class="compliance-hint muted">Scope · Release · Security</p>
+          </div>
+        </div>
       </article>
 
-      <article class="card metric-card">
-        <span class="metric-label">In-Scope Products</span>
-        <strong class="metric-value">{{ inScopeProducts }}</strong>
-        <span class="metric-foot">{{ scopeCoverage }}% coverage</span>
-      </article>
+      <div class="metrics-grid">
+        <article class="card metric-card metric-card-primary">
+          <span class="metric-label">Products</span>
+          <strong class="metric-value">{{ totalProducts }}</strong>
+          <span class="metric-foot">Total portfolio</span>
+        </article>
 
-      <article class="card metric-card">
-        <span class="metric-label">Released Products</span>
-        <strong class="metric-value">{{ releasedProducts }}</strong>
-        <span class="metric-foot">{{ releasedCoverage }}% released</span>
-      </article>
+        <article class="card metric-card">
+          <span class="metric-label">In-Scope</span>
+          <strong class="metric-value">{{ inScopeProducts }}</strong>
+          <div class="metric-bar-wrap">
+            <div class="metric-bar">
+              <span class="metric-bar-fill metric-bar-indigo" :style="{ width: `${scopeCoverage}%` }" />
+            </div>
+            <span class="metric-foot">{{ scopeCoverage }}% coverage</span>
+          </div>
+        </article>
+
+        <article class="card metric-card">
+          <span class="metric-label">Released</span>
+          <strong class="metric-value">{{ releasedProducts }}</strong>
+          <div class="metric-bar-wrap">
+            <div class="metric-bar">
+              <span class="metric-bar-fill metric-bar-green" :style="{ width: `${releasedCoverage}%` }" />
+            </div>
+            <span class="metric-foot">{{ releasedCoverage }}% released</span>
+          </div>
+        </article>
+      </div>
     </section>
 
     <section class="grid highlights-grid">
+
       <article class="card spotlight-card">
         <div class="spotlight-header">
           <div>
@@ -55,6 +108,9 @@
         </div>
 
         <div v-if="eosAlerts.length === 0" class="empty-state-inline">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           No current alerts
         </div>
 
@@ -65,8 +121,11 @@
             class="compact-list-item"
             :to="{ name: 'product-detail', params: { productId: item.id } }"
           >
-            <span>{{ item.name }}</span>
-            <small>{{ item.days }}d</small>
+            <div class="eos-item-left">
+              <span class="eos-dot" :class="eosUrgencyClass(item.days)" />
+              <span>{{ item.name }}</span>
+            </div>
+            <span class="eos-badge" :class="eosUrgencyClass(item.days)">{{ item.days }}d</span>
           </RouterLink>
         </div>
       </article>
@@ -85,8 +144,14 @@
         </div>
 
         <div class="availability-meta">
-          <span>{{ productsWithSecurityUpdates }} covered</span>
-          <span>{{ productsWithoutSecurityUpdates }} uncovered</span>
+          <div class="avail-stat">
+            <span class="avail-dot avail-dot-on" />
+            {{ productsWithSecurityUpdates }} covered
+          </div>
+          <div class="avail-stat">
+            <span class="avail-dot avail-dot-off" />
+            {{ productsWithoutSecurityUpdates }} uncovered
+          </div>
         </div>
       </article>
     </section>
@@ -95,7 +160,7 @@
       <div class="section-header">
         <div>
           <h2 class="section-title">Recent Activities</h2>
-          <p class="muted">Latest regulated actions</p>
+          <p class="muted">Latest regulated actions and audit events</p>
         </div>
         <span class="activity-count">{{ recentActivities.length }}</span>
       </div>
@@ -118,6 +183,7 @@
         </article>
       </div>
     </section>
+
   </section>
 </template>
 
@@ -153,55 +219,40 @@ const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
 
 const totalProducts = computed(() => products.value.length);
 const inScopeProducts = computed(() =>
-  products.value.filter((product) => product.scope_status === "in_scope").length,
+  products.value.filter((product: ProductSummaryRead) => product.scope_status === "in_scope").length,
 );
 
 const releasedProducts = computed(() => {
   const releasedProductIds = new Set(
     releases.value
-      .filter((release) => release.release_status === "released")
-      .map((release) => release.product_id),
+      .filter((release: ProductReleaseRead) => release.release_status === "released")
+      .map((release: ProductReleaseRead) => release.product_id),
   );
   return releasedProductIds.size;
 });
 
 const scopeCoverage = computed(() => {
-  if (totalProducts.value === 0) {
-    return 0;
-  }
+  if (totalProducts.value === 0) return 0;
   return Math.round((inScopeProducts.value / totalProducts.value) * 100);
 });
 
 const releasedCoverage = computed(() => {
-  if (totalProducts.value === 0) {
-    return 0;
-  }
+  if (totalProducts.value === 0) return 0;
   return Math.round((releasedProducts.value / totalProducts.value) * 100);
 });
 
 const eosAlerts = computed(() => {
   const now = new Date();
-  const byProduct = new Map(products.value.map((product) => [product.id, product]));
+  const byProduct = new Map(products.value.map((product: ProductSummaryRead) => [product.id, product]));
 
   return supportPeriods.value
     .map((record) => {
       const product = byProduct.get(record.product_id);
-      if (!product) {
-        return null;
-      }
-
+      if (!product) return null;
       const endDate = new Date(`${record.support_end_date}T00:00:00`);
       const days = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (days < 0 || days > 180) {
-        return null;
-      }
-
-      return {
-        id: product.id,
-        name: product.name,
-        days,
-      };
+      if (days < 0 || days > 180) return null;
+      return { id: product.id, name: product.name, days };
     })
     .filter((item): item is { id: string; name: string; days: number } => item !== null)
     .sort((a, b) => a.days - b.days);
@@ -210,10 +261,10 @@ const eosAlerts = computed(() => {
 const eosAlertCount = computed(() => eosAlerts.value.length);
 
 const productsWithSecurityUpdates = computed(() => {
-  const productIdByReleaseId = new Map(releases.value.map((release) => [release.id, release.product_id]));
+  const productIdByReleaseId = new Map(releases.value.map((release: ProductReleaseRead) => [release.id, release.product_id]));
   return new Set(
     securityUpdates.value
-      .map((update) => productIdByReleaseId.get(update.product_release_id))
+      .map((update: SecurityUpdateRead) => productIdByReleaseId.get(update.product_release_id))
       .filter((value): value is string => Boolean(value)),
   ).size;
 });
@@ -223,44 +274,49 @@ const productsWithoutSecurityUpdates = computed(() =>
 );
 
 const securityAvailabilityPercent = computed(() => {
-  if (totalProducts.value === 0) {
-    return 0;
-  }
+  if (totalProducts.value === 0) return 0;
   return Math.round((productsWithSecurityUpdates.value / totalProducts.value) * 100);
 });
 
+const complianceScore = computed(() => {
+  if (totalProducts.value === 0) return 0;
+  const avg = (scopeCoverage.value + releasedCoverage.value + securityAvailabilityPercent.value) / 3;
+  return Math.round(avg);
+});
+
+const complianceScoreColor = computed(() => {
+  if (complianceScore.value >= 80) return "var(--color-success)";
+  if (complianceScore.value >= 55) return "var(--color-warning)";
+  return "var(--color-danger)";
+});
+
+const complianceScoreLabel = computed(() => {
+  if (complianceScore.value >= 80) return "Healthy";
+  if (complianceScore.value >= 55) return "Moderate";
+  return "At Risk";
+});
+
+const complianceScoreBadgeClass = computed(() => ({
+  "score-healthy": complianceScore.value >= 80,
+  "score-moderate": complianceScore.value >= 55 && complianceScore.value < 80,
+  "score-risk": complianceScore.value < 55,
+}));
+
+function eosUrgencyClass(days: number): string {
+  if (days <= 30) return "eos-critical";
+  if (days <= 90) return "eos-warning";
+  return "eos-caution";
+}
+
 async function loadDashboard(): Promise<void> {
   errorMessage.value = "";
-
   try {
     const tasks: Promise<unknown>[] = [];
-
-    if (canViewProducts.value) {
-      tasks.push(productService.list().then((data) => { products.value = data; }));
-    }
-
-    if (canViewReleases.value) {
-      tasks.push(productReleaseService.list().then((data) => { releases.value = data; }));
-    }
-
-    if (canViewSupport.value) {
-      tasks.push(
-        supportPeriodService.list({ active_only: true }).then((data) => { supportPeriods.value = data; }),
-      );
-    }
-
-    if (canViewSecurity.value) {
-      tasks.push(securityUpdateService.list().then((data) => { securityUpdates.value = data; }));
-    }
-
-    if (canViewAudit.value) {
-      tasks.push(
-        auditService.listEvents({ limit: 6 }).then((data) => {
-          recentActivities.value = data.items;
-        }),
-      );
-    }
-
+    if (canViewProducts.value) tasks.push(productService.list().then((d) => { products.value = d; }));
+    if (canViewReleases.value) tasks.push(productReleaseService.list().then((d) => { releases.value = d; }));
+    if (canViewSupport.value) tasks.push(supportPeriodService.list({ active_only: true }).then((d) => { supportPeriods.value = d; }));
+    if (canViewSecurity.value) tasks.push(securityUpdateService.list().then((d) => { securityUpdates.value = d; }));
+    if (canViewAudit.value) tasks.push(auditService.listEvents({ limit: 6 }).then((d) => { recentActivities.value = d.items; }));
     await Promise.all(tasks);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Failed to load dashboard.";
@@ -283,11 +339,55 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-page {
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
+/* ── Page header ─────────────────────────────── */
 .dashboard-subtitle {
   margin: 0.25rem 0 0;
+}
+
+.page-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+
+.eyebrow-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-success);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: pulse-live 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(127, 203, 45, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(127, 203, 45, 0.18); }
 }
 
 .dashboard-actions {
@@ -296,72 +396,374 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+/* ── Error feedback ───────────────────────────── */
 .feedback {
   padding: 0.9rem 1rem;
 }
 
 .feedback-error {
-  border: 1px solid rgba(251, 113, 133, 0.28);
-  background: rgba(251, 113, 133, 0.12);
+  border-color: rgba(251, 113, 133, 0.28);
+  background: rgba(251, 113, 133, 0.1);
   color: #fecdd3;
 }
 
+/* ── Overview row ────────────────────────────── */
+.overview-row {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ── Compliance card ─────────────────────────── */
+.compliance-card {
+  padding: 1.5rem;
+}
+
+.compliance-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.ring-container {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  flex-shrink: 0;
+}
+
+.ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.ring-fill {
+  fill: none;
+  transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.ring-number {
+  font-size: 1.75rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.ring-pct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  opacity: 0.65;
+  align-self: flex-start;
+  margin-top: 0.36rem;
+}
+
+.compliance-details {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.compliance-detail-label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.compliance-badge {
+  display: inline-block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.26rem 0.72rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.score-healthy {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+.score-moderate {
+  background: rgba(223, 232, 95, 0.1);
+  color: var(--color-warning);
+  border: 1px solid rgba(223, 232, 95, 0.24);
+}
+
+.score-risk {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+.compliance-hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* ── Metrics grid ────────────────────────────── */
 .metrics-grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
 }
 
 .metric-card {
-  min-height: 180px;
+  min-height: 155px;
   display: grid;
   align-content: space-between;
   position: relative;
   overflow: hidden;
+  padding: 1.25rem;
 }
 
 .metric-card::after {
   content: "";
   position: absolute;
-  right: -28px;
-  bottom: -28px;
-  width: 120px;
-  height: 120px;
+  right: -30px;
+  bottom: -30px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
+  pointer-events: none;
 }
 
 .metric-card-primary {
   background:
-    radial-gradient(circle at top right, rgba(110, 168, 254, 0.18), transparent 34%),
-    linear-gradient(145deg, rgba(18, 36, 64, 0.92), rgba(12, 22, 41, 0.88));
+    radial-gradient(circle at top right, rgba(112, 185, 23, 0.18), transparent 50%),
+    linear-gradient(145deg, rgba(18, 36, 18, 0.94), rgba(10, 20, 10, 0.9));
 }
 
 .metric-label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.metric-value {
+  font-size: clamp(2.6rem, 5vw, 3.5rem);
+  line-height: 0.92;
+  font-weight: 800;
+}
+
+.metric-bar-wrap {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.metric-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.7s ease;
+}
+
+.metric-bar-indigo {
+  background: linear-gradient(90deg, rgba(110, 168, 254, 0.9), rgba(139, 92, 246, 0.85));
+}
+
+.metric-bar-green {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.9), rgba(112, 185, 23, 0.9));
+}
+
+.metric-foot {
   font-size: 0.84rem;
   color: var(--color-text-muted);
 }
 
-.metric-value {
-  font-size: clamp(2.9rem, 6vw, 4.1rem);
-  line-height: 0.95;
-}
-
-.metric-foot {
-  color: var(--color-text-muted);
-  font-size: 0.88rem;
-}
-
+/* ── Highlights grid ─────────────────────────── */
 .highlights-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .spotlight-card {
-  min-height: 230px;
+  min-height: 215px;
   display: grid;
+  gap: 1rem;
+  align-content: start;
+  padding: 1.35rem;
+}
+
+.spotlight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
 }
 
-.spotlight-header,
-.availability-meta,
+.spotlight-value {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 0.92;
+}
+
+.spotlight-orb {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.spotlight-orb-danger {
+  background: linear-gradient(160deg, rgba(251, 113, 133, 0.95), rgba(244, 63, 94, 0.55));
+  box-shadow: 0 0 0 8px rgba(251, 113, 133, 0.08), 0 0 22px rgba(244, 63, 94, 0.16);
+}
+
+.spotlight-orb-success {
+  background: linear-gradient(160deg, rgba(52, 211, 153, 0.95), rgba(16, 185, 129, 0.55));
+  box-shadow: 0 0 0 8px rgba(52, 211, 153, 0.08), 0 0 22px rgba(16, 185, 129, 0.16);
+}
+
+/* ── EOS compact list ────────────────────────── */
+.compact-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.compact-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(233, 238, 252, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.compact-list-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(233, 238, 252, 0.13);
+}
+
+.eos-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.eos-item-left span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eos-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.eos-dot.eos-critical { background: var(--color-danger); }
+.eos-dot.eos-warning { background: var(--color-warning); }
+.eos-dot.eos-caution { background: var(--color-primary-2); }
+
+.eos-badge {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.eos-badge.eos-critical {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+.eos-badge.eos-warning {
+  background: rgba(223, 232, 95, 0.1);
+  color: var(--color-warning);
+  border: 1px solid rgba(223, 232, 95, 0.22);
+}
+
+.eos-badge.eos-caution {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+/* ── Security availability ───────────────────── */
+.availability-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.availability-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.95), rgba(112, 185, 23, 0.9));
+  transition: width 0.8s ease;
+}
+
+.availability-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.avail-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+}
+
+.avail-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.avail-dot-on { background: var(--color-success); }
+.avail-dot-off { background: rgba(255, 255, 255, 0.22); border: 1px solid rgba(255, 255, 255, 0.28); }
+
+/* ── Activity section ────────────────────────── */
+.activity-card {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.35rem;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -370,126 +772,113 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.spotlight-value {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 2.8rem;
-  line-height: 0.95;
-}
-
-.spotlight-orb {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.03);
-}
-
-.spotlight-orb-danger {
-  background: linear-gradient(180deg, rgba(251, 113, 133, 0.92), rgba(244, 63, 94, 0.55));
-}
-
-.spotlight-orb-success {
-  background: linear-gradient(180deg, rgba(52, 211, 153, 0.92), rgba(16, 185, 129, 0.55));
-}
-
-.compact-list,
-.activity-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.compact-list-item,
-.activity-row {
-  border-radius: 14px;
-  border: 1px solid rgba(233, 238, 252, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.compact-list-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 0.95rem;
-}
-
-.compact-list-item small {
-  color: var(--color-warning);
+.section-title {
+  margin: 0;
+  font-size: 1.15rem;
   font-weight: 700;
-}
-
-.availability-track {
-  width: 100%;
-  height: 14px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.availability-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.95), rgba(110, 168, 254, 0.95));
-}
-
-.availability-meta {
-  color: var(--color-text-muted);
-  font-size: 0.88rem;
-}
-
-.activity-card {
-  display: grid;
-  gap: 1rem;
 }
 
 .activity-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 42px;
-  height: 42px;
+  min-width: 38px;
+  height: 38px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(233, 238, 252, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.activity-list {
+  display: grid;
+  gap: 0.55rem;
 }
 
 .activity-row {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
+  grid-template-columns: 10px minmax(0, 1fr);
   align-items: start;
-  gap: 0.8rem;
-  padding: 0.9rem 1rem;
+  gap: 0.9rem;
+  padding: 0.88rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(233, 238, 252, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.14s ease;
+}
+
+.activity-row:hover {
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .activity-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  margin-top: 0.18rem;
+  margin-top: 0.28rem;
   background: linear-gradient(180deg, var(--color-success), var(--color-primary));
-  box-shadow: 0 0 0 6px rgba(110, 168, 254, 0.08);
+  box-shadow: 0 0 0 4px rgba(112, 185, 23, 0.1);
+  flex-shrink: 0;
 }
 
 .activity-copy {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.18rem;
 }
 
+.activity-copy strong {
+  font-size: 0.93rem;
+  line-height: 1.45;
+}
+
+.activity-copy small {
+  font-size: 0.8rem;
+}
+
+/* ── Empty states ────────────────────────────── */
 .empty-state-inline {
-  min-height: 108px;
-  display: grid;
-  place-items: center;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   color: var(--color-text-muted);
-  border-radius: 14px;
-  border: 1px dashed rgba(233, 238, 252, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.88rem;
+  border-radius: 12px;
+  border: 1px dashed rgba(233, 238, 252, 0.1);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.empty-icon {
+  width: 26px;
+  height: 26px;
+  opacity: 0.45;
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 1180px) {
+  .overview-row {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-card {
+    max-width: 440px;
+  }
 }
 
 @media (max-width: 1040px) {
   .metrics-grid,
   .highlights-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .compliance-inner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>
