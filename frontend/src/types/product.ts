@@ -157,6 +157,13 @@ export type DistributionMechanism =
   | "field_service"
   | "other";
 
+export type SecurityUpdateSeverity =
+  | "critical"
+  | "high"
+  | "medium"
+  | "low"
+  | "informational";
+
 export type LifecycleNotificationType = "end_of_support_upcoming";
 
 export type LifecycleNotificationStatus = "pending" | "sent" | "dismissed";
@@ -252,8 +259,12 @@ export interface SecurityUpdateRead {
   product_release_id: string;
   title: string;
   description: string | null;
+  severity: SecurityUpdateSeverity | null;
+  is_security_only: boolean;
+  integrity_info: string | null;
   cves_addressed_json: string[] | Record<string, unknown>;
   affected_versions_json: string[] | Record<string, unknown>;
+  update_channels_json: string[];
   distribution_mechanism: DistributionMechanism;
   available_until: string | null;
   released_at: string | null;
@@ -265,8 +276,12 @@ export interface SecurityUpdateCreate {
   product_release_id: string;
   title: string;
   description?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  is_security_only?: boolean;
+  integrity_info?: string | null;
   cves_addressed_json: string[] | Record<string, unknown>;
   affected_versions_json: string[] | Record<string, unknown>;
+  update_channels_json?: string[];
   distribution_mechanism: DistributionMechanism;
   available_until?: string | null;
   released_at?: string | null;
@@ -275,8 +290,12 @@ export interface SecurityUpdateCreate {
 export interface SecurityUpdateUpdate {
   title?: string;
   description?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  is_security_only?: boolean | null;
+  integrity_info?: string | null;
   cves_addressed_json?: string[] | Record<string, unknown>;
   affected_versions_json?: string[] | Record<string, unknown>;
+  update_channels_json?: string[] | null;
   distribution_mechanism?: DistributionMechanism;
   available_until?: string | null;
   released_at?: string | null;

@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import hashlib
+import io
+import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
+from app.core.config import settings
 from app.core.exceptions import ConflictException, NotFoundException
 from app.models.artifact import ArtifactProductLink
 from app.models.enums import (
     ArtifactReviewDecision,
+    ArtifactSourceType,
     AuditStatus,
     EntityType,
     ReleaseGateItemCode,
@@ -30,11 +36,6 @@ from app.schemas.product_release import ProductReleaseRead
 
 
 DEFAULT_GATE_ITEMS: list[tuple[ReleaseGateItemCode, str, str]] = [
-    (
-        ReleaseGateItemCode.technical_documentation,
-        "Technical Documentation",
-        "Upload the release-ready CRA technical documentation package or a versioned equivalent.",
-    ),
     (
         ReleaseGateItemCode.risk_assessment,
         "Risk Assessment",
@@ -133,6 +134,12 @@ class ReleaseGateService:
         gate.approved_by_user_id = actor_user_id
         release.release_status = ReleaseStatus.approved
         self.db.flush()
+
+        _, bundle_sha256 = self._generate_bundle(release, gate)
+        gate.bundle_sha256 = bundle_sha256
+        gate.bundle_generated_at = datetime.now(UTC)
+        self.db.flush()
+
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
@@ -146,6 +153,7 @@ class ReleaseGateService:
                 "product_release_id": str(release.id),
                 "release_version": release.version,
                 "gate_status": gate.status.value,
+                "bundle_sha256": bundle_sha256,
             },
         )
         self.db.commit()
@@ -264,12 +272,6 @@ class ReleaseGateService:
         self.db.flush()
         self._refresh_gate_status(gate)
 
-        if gate.status == ReleaseGateWorkflowStatus.approved and any(
-            item.is_required and item.status not in {ArtifactReviewDecision.accepted, ArtifactReviewDecision.waived} for item in gate.items
-        ):
-            gate.status = ReleaseGateWorkflowStatus.blocked
-            release.release_status = ReleaseStatus.blocked
-
         create_audit_event(
             self.db,
             actor_user_id=actor_user_id,
@@ -350,6 +352,213 @@ class ReleaseGateService:
             actor_user_id=actor_user_id,
         )
 
+    def add_custom_gate_item(
+        self,
+        product_release_id: UUID,
+        *,
+        title: str,
+        description: str | None,
+        actor_user_id: UUID,
+    ) -> dict:
+        release = self.release_repository.get_or_404(product_release_id)
+        gate = self.gate_repository.get_by_product_release_id(product_release_id)
+        if gate is None:
+            gate = self._create_gate(release)
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Checklist cannot be modified.")
+
+        max_order = max((item.sort_order for item in gate.items), default=-1)
+        new_item = ReleaseGateItem(
+            release_gate_id=gate.id,
+            code=None,
+            title=title.strip(),
+            description=description,
+            sort_order=max_order + 1,
+            status=ArtifactReviewDecision.pending_review,
+        )
+        self.db.add(new_item)
+        self.db.flush()
+        self.db.refresh(gate)
+        self._refresh_gate_status(gate)
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="release_gate.item_added",
+            entity_type=EntityType.product_release,
+            entity_id=release.id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "add_custom_gate_item",
+                "product_release_id": str(release.id),
+                "item_title": title,
+            },
+        )
+        self.db.commit()
+        return self._detail_payload(release, gate)
+
+    def remove_gate_item(
+        self,
+        product_release_id: UUID,
+        gate_item_id: UUID,
+        *,
+        actor_user_id: UUID,
+    ) -> dict:
+        release = self.release_repository.get_or_404(product_release_id)
+        gate = self.gate_repository.get_or_404_by_product_release_id(product_release_id)
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Checklist cannot be modified.")
+
+        gate_item = next((item for item in gate.items if item.id == gate_item_id), None)
+        if gate_item is None:
+            raise NotFoundException("Gate checklist item not found for this release.")
+
+        item_title = gate_item.title
+        self.db.delete(gate_item)
+        self.db.flush()
+        self.db.refresh(gate)
+        self._refresh_gate_status(gate)
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="release_gate.item_removed",
+            entity_type=EntityType.product_release,
+            entity_id=release.id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "remove_gate_item",
+                "product_release_id": str(release.id),
+                "gate_item_id": str(gate_item_id),
+                "item_title": item_title,
+            },
+        )
+        self.db.commit()
+        return self._detail_payload(release, gate)
+
+    def get_bundle(self, product_release_id: UUID) -> tuple[bytes, str, str]:
+        """Return (zip_bytes, sha256_hex, filename). Raises ConflictException on hash mismatch."""
+        release = self.release_repository.get_or_404(product_release_id)
+        gate = self.gate_repository.get_or_404_by_product_release_id(product_release_id)
+
+        if gate.status != ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Bundle is only available for approved gates.")
+
+        if gate.bundle_sha256 is None:
+            raise ConflictException("Bundle hash not available. Re-approve the gate to generate it.")
+
+        zip_bytes, computed_sha256 = self._generate_bundle(release, gate)
+
+        if computed_sha256 != gate.bundle_sha256:
+            raise ConflictException(
+                "Bundle integrity check failed: the stored hash does not match the current files. "
+                "An unauthorized change to the documentation may have occurred."
+            )
+
+        product_name = getattr(release, "product", None)
+        if product_name is not None:
+            product_name = getattr(product_name, "name", None) or str(release.product_id)
+        else:
+            product_name = str(release.product_id)
+
+        release_date = (gate.approved_at or gate.created_at).strftime("%Y-%m-%d")
+        safe_name = "".join(c if c.isalnum() or c in "-_." else "_" for c in f"{product_name}+{release_date}")
+        filename = f"{safe_name}.zip"
+
+        return zip_bytes, computed_sha256, filename
+
+    def _generate_bundle(self, release: ProductRelease, gate: ReleaseGate) -> tuple[bytes, str]:
+        """Build an in-memory ZIP and return (zip_bytes, sha256_hex).
+
+        The ZIP must be byte-for-byte identical on every call so the stored SHA-256
+        can be verified on download.  Two sources of non-determinism are suppressed:
+        - writestr() timestamps are pinned to a fixed value (2020-01-01 00:00:00).
+        - manifest.json never contains the bundle hash itself (circular reference).
+        """
+        buf = io.BytesIO()
+        external_refs: list[dict] = []
+        # Fixed timestamp used for all generated text entries so ZIP is deterministic.
+        _fixed_ts = (2020, 1, 1, 0, 0, 0)
+
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            seen_names: set[str] = set()
+
+            for item in gate.items:
+                for link in item.evidence_links:
+                    rev = link.artifact_revision
+                    if rev.source_type == ArtifactSourceType.external_link:
+                        external_refs.append({
+                            "checklist_item": item.title,
+                            "title": rev.artifact.title if rev.artifact else rev.original_filename or "unknown",
+                            "url": rev.external_url or "",
+                            "added_at": str(rev.created_at),
+                        })
+                    elif rev.storage_path:
+                        file_path = Path(rev.storage_path)
+                        if file_path.exists():
+                            base_name = rev.original_filename or file_path.name
+                            arc_name = self._unique_arc_name(base_name, seen_names)
+                            seen_names.add(arc_name)
+                            # Pin the ZIP entry timestamp to the revision creation time
+                            # so the file entry is deterministic regardless of call time.
+                            ct = rev.created_at
+                            zi = zipfile.ZipInfo(arc_name, date_time=(ct.year, ct.month, ct.day, ct.hour, ct.minute, ct.second))
+                            zi.compress_type = zipfile.ZIP_DEFLATED
+                            zf.writestr(zi, file_path.read_bytes())
+
+            if external_refs:
+                lines = ["# External References\n\n"]
+                for ref in external_refs:
+                    lines.append(f"## {ref['title']}\n")
+                    lines.append(f"- **Checklist item:** {ref['checklist_item']}\n")
+                    lines.append(f"- **URL:** {ref['url']}\n")
+                    lines.append(f"- **Added:** {ref['added_at']}\n\n")
+                zi = zipfile.ZipInfo("external_references.md", date_time=_fixed_ts)
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                zf.writestr(zi, "".join(lines))
+
+            manifest = self._build_manifest(release, gate, external_refs)
+            zi = zipfile.ZipInfo("manifest.json", date_time=_fixed_ts)
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(zi, manifest)
+
+        zip_bytes = buf.getvalue()
+        sha256 = hashlib.sha256(zip_bytes).hexdigest()
+        return zip_bytes, sha256
+
+    def _unique_arc_name(self, base_name: str, seen: set[str]) -> str:
+        if base_name not in seen:
+            return base_name
+        stem, _, ext = base_name.rpartition(".")
+        counter = 1
+        while True:
+            candidate = f"{stem}_{counter}.{ext}" if ext else f"{base_name}_{counter}"
+            if candidate not in seen:
+                return candidate
+            counter += 1
+
+    def _build_manifest(self, release: ProductRelease, gate: ReleaseGate, external_refs: list[dict]) -> str:
+        import json
+        files = []
+        for item in gate.items:
+            for link in item.evidence_links:
+                rev = link.artifact_revision
+                files.append({
+                    "checklist_item": item.title,
+                    "title": rev.artifact.title if rev.artifact else (rev.original_filename or "unknown"),
+                    "source_type": rev.source_type,
+                    "filename": rev.original_filename,
+                    "sha256": rev.sha256,
+                    "external_url": rev.external_url,
+                    "added_at": str(rev.created_at),
+                })
+        return json.dumps({
+            "product_release_id": str(release.id),
+            "release_version": release.version,
+            "approved_at": str(gate.approved_at),
+            "files": files,
+        }, indent=2)
+
     def _create_gate(self, release: ProductRelease) -> ReleaseGate:
         gate = ReleaseGate(product_release_id=release.id)
         self.db.add(gate)
@@ -382,16 +591,20 @@ class ReleaseGateService:
         for item in gate.items:
             item.status = self._derive_item_status(item)
 
+        # Only the explicit approve_gate() call may set status to "approved".
+        # Here we handle transitions for blocked, in_review, and draft only.
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            # Gate was formally approved — only revert to blocked if evidence is rejected.
+            if any(item.is_required and item.status in {ArtifactReviewDecision.rejected, ArtifactReviewDecision.needs_update}
+                   for item in gate.items):
+                gate.status = ReleaseGateWorkflowStatus.blocked
+                gate.product_release.release_status = ReleaseStatus.blocked
+            return
+
         if any(item.is_required and item.status in {ArtifactReviewDecision.rejected, ArtifactReviewDecision.needs_update}
                for item in gate.items):
             gate.status = ReleaseGateWorkflowStatus.blocked
             gate.product_release.release_status = ReleaseStatus.blocked
-        elif all(
-            item.status in {ArtifactReviewDecision.accepted, ArtifactReviewDecision.waived}
-            for item in gate.items
-            if item.is_required
-        ):
-            gate.status = ReleaseGateWorkflowStatus.approved
         elif any(item.evidence_links for item in gate.items):
             gate.status = ReleaseGateWorkflowStatus.in_review
         else:
@@ -431,6 +644,8 @@ class ReleaseGateService:
                 "approved_at": gate.approved_at,
                 "approved_by_user_id": gate.approved_by_user_id,
                 "approved_by_user": self._user_summary_payload(gate.approved_by_user),
+                "bundle_sha256": gate.bundle_sha256,
+                "bundle_generated_at": gate.bundle_generated_at,
                 "created_at": gate.created_at,
                 "updated_at": gate.updated_at,
                 "items": [

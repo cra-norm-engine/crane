@@ -706,3 +706,16 @@ onMounted(() => {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .feedback-error  { color: #be123c; }
+:root[data-theme="light"] .feedback-success { color: #15803d; }
+:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);   color: #475569; }
+:root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);   color: #15803d; }
+:root[data-theme="light"] .badge-warning { background: rgba(184,155,18,0.1);  color: #78350f; }
+:root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);   color: #be123c; }
+:root[data-theme="light"] .text-success  { color: #15803d; }
+:root[data-theme="light"] .text-warning  { color: #78350f; }
+:root[data-theme="light"] .text-danger   { color: #be123c; }
+:root[data-theme="light"] .btn-primary   { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+</style>

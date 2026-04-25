@@ -1935,3 +1935,98 @@ textarea {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .feedback-error,
+:root[data-theme="light"] .form-error {
+  color: #be123c;
+}
+:root[data-theme="light"] .feedback-success {
+  color: #15803d;
+}
+:root[data-theme="light"] .badge-neutral {
+  background: rgba(71, 85, 105, 0.1);
+  color: #475569;
+}
+:root[data-theme="light"] .badge-success {
+  background: rgba(21, 128, 61, 0.1);
+  color: #15803d;
+}
+:root[data-theme="light"] .badge-warning {
+  background: rgba(184, 155, 18, 0.1);
+  color: #78350f;
+}
+:root[data-theme="light"] .badge-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #be123c;
+}
+:root[data-theme="light"] .wizard-trigger-icon {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(37, 99, 235, 0.1));
+  border-color: rgba(124, 58, 237, 0.2);
+  color: #5b21b6;
+}
+:root[data-theme="light"] .wizard-last-result {
+  background: rgba(28, 107, 39, 0.04);
+  border-color: rgba(28, 107, 39, 0.12);
+}
+:root[data-theme="light"] .wizard-modal-backdrop {
+  background: rgba(20, 33, 15, 0.5);
+}
+:root[data-theme="light"] .wizard-modal {
+  background: #ffffff;
+  border-color: rgba(28, 107, 39, 0.15);
+  box-shadow: 0 32px 80px rgba(20, 33, 15, 0.12), 0 0 0 1px rgba(28, 107, 39, 0.08);
+}
+:root[data-theme="light"] .wizard-modal-header {
+  border-bottom-color: rgba(28, 107, 39, 0.1);
+  background: radial-gradient(circle at top right, rgba(124, 58, 237, 0.06), transparent 50%);
+}
+:root[data-theme="light"] .wizard-modal-body {
+  scrollbar-color: rgba(79, 156, 19, 0.3) transparent;
+}
+:root[data-theme="light"] .icon-close-btn {
+  border-color: rgba(28, 107, 39, 0.16);
+  background: rgba(28, 107, 39, 0.06);
+  color: rgba(20, 33, 15, 0.65);
+}
+:root[data-theme="light"] .icon-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #be123c;
+}
+:root[data-theme="light"] .timeline-eyebrow {
+  color: rgba(20, 33, 15, 0.5);
+}
+:root[data-theme="light"] .toggle-section-btn {
+  border-color: rgba(28, 107, 39, 0.2);
+  background: rgba(28, 107, 39, 0.04);
+  color: rgba(20, 33, 15, 0.75);
+}
+:root[data-theme="light"] .toggle-section-btn:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .info-row-pair {
+  background: rgba(28, 107, 39, 0.04);
+  border-color: rgba(28, 107, 39, 0.12);
+}
+:root[data-theme="light"] .result-panel {
+  background: rgba(28, 107, 39, 0.04);
+}
+:root[data-theme="light"] .release-link:hover {
+  color: #78350f;
+}
+:root[data-theme="light"] .release-workspace-link {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .release-workspace-link:hover {
+  background: rgba(37, 99, 235, 0.18);
+  color: #1e40af;
+}
+:root[data-theme="light"] .release-workflow-card {
+  border-color: rgba(28, 107, 39, 0.16);
+  background: rgba(255, 255, 255, 0.6);
+}
+</style>

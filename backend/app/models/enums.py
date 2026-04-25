@@ -157,6 +157,14 @@ class DistributionMechanism(StrEnum):
     other = "other"
 
 
+class SecurityUpdateSeverity(StrEnum):
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
+    informational = "informational"
+
+
 class LifecycleNotificationType(StrEnum):
     end_of_support_upcoming = "end_of_support_upcoming"
 

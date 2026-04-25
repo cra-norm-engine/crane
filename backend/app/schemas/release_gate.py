@@ -31,7 +31,7 @@ class ReleaseGateItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    code: ReleaseGateItemCode
+    code: ReleaseGateItemCode | None = None
     title: str
     description: str | None
     is_required: bool
@@ -52,6 +52,8 @@ class ReleaseGateRead(BaseModel):
     approved_at: datetime | None
     approved_by_user_id: UUID | None
     approved_by_user: UserSummaryRead | None = None
+    bundle_sha256: str | None = None
+    bundle_generated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     items: list[ReleaseGateItemRead] = []
@@ -68,3 +70,8 @@ class ReleaseGateDetailRead(BaseModel):
 class ReleaseGateReviewRequest(BaseModel):
     decision: ArtifactReviewDecision
     rationale: str | None = Field(default=None, max_length=4000)
+
+
+class GateItemCreateRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)

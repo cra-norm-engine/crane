@@ -542,3 +542,75 @@ function statusClass(status: string): string {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .timeline-card::before {
+  background:
+    radial-gradient(circle at top right, rgba(79, 156, 19, 0.07), transparent 38%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.01), transparent 58%);
+}
+:root[data-theme="light"] .timeline-eyebrow {
+  color: rgba(20, 33, 15, 0.55);
+}
+:root[data-theme="light"] .timeline-empty {
+  border-color: rgba(28, 107, 39, 0.16);
+  background: rgba(28, 107, 39, 0.03);
+}
+:root[data-theme="light"] .feedback-error {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+  color: #be123c;
+}
+:root[data-theme="light"] .timeline-dot {
+  box-shadow: 0 0 0 6px rgba(28, 107, 39, 0.08);
+}
+:root[data-theme="light"] .timeline-line {
+  background: linear-gradient(180deg, rgba(79, 156, 19, 0.5), rgba(28, 107, 39, 0.06));
+}
+:root[data-theme="light"] .timeline-event {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(28, 107, 39, 0.12);
+}
+:root[data-theme="light"] .timeline-meta {
+  color: rgba(20, 33, 15, 0.65);
+}
+:root[data-theme="light"] .timeline-tag {
+  border-color: rgba(37, 99, 235, 0.22);
+  background: rgba(37, 99, 235, 0.08);
+}
+:root[data-theme="light"] .timeline-tag-soft {
+  border-color: rgba(28, 107, 39, 0.14);
+  background: rgba(28, 107, 39, 0.05);
+}
+:root[data-theme="light"] .timeline-icon-btn {
+  border-color: rgba(28, 107, 39, 0.16);
+  background: rgba(28, 107, 39, 0.06);
+  color: rgba(20, 33, 15, 0.65);
+}
+:root[data-theme="light"] .timeline-icon-btn:hover {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .timeline-view-all {
+  color: #2563eb;
+}
+:root[data-theme="light"] .timeline-view-all:hover {
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .timeline-modal-backdrop {
+  background: rgba(20, 33, 15, 0.5);
+}
+:root[data-theme="light"] .timeline-modal {
+  background: #ffffff;
+  border-color: rgba(28, 107, 39, 0.15);
+  box-shadow: 0 32px 80px rgba(20, 33, 15, 0.12), 0 0 0 1px rgba(28, 107, 39, 0.08);
+}
+:root[data-theme="light"] .timeline-modal-header {
+  border-bottom-color: rgba(28, 107, 39, 0.1);
+  background: radial-gradient(circle at top right, rgba(79, 156, 19, 0.07), transparent 40%);
+}
+:root[data-theme="light"] .timeline-modal-body {
+  scrollbar-color: rgba(79, 156, 19, 0.3) transparent;
+}
+</style>

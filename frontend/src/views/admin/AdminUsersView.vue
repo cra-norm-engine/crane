@@ -575,3 +575,9 @@ onMounted(() => {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);  color: #475569; }
+:root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);  color: #15803d; }
+:root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);  color: #be123c; }
+</style>

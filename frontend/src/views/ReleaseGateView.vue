@@ -48,6 +48,16 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           {{ busyAction === "approve" ? "Approving…" : "Approve gate" }}
         </button>
+        <button
+          v-if="isApproved && canDownload && releaseDetail.gate.bundle_sha256"
+          class="btn-secondary"
+          type="button"
+          @click="downloadBundle"
+          :disabled="busy"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {{ busyAction === "download" ? "Downloading…" : "Technical Documentation" }}
+        </button>
       </div>
     </header>
 
@@ -95,43 +105,85 @@
         <section class="card checklist-card">
           <div class="checklist-head">
             <p class="eyebrow">Evidence checklist</p>
-            <span class="item-count">{{ acceptedCount }}/{{ releaseDetail.gate.items.length }}</span>
+            <div class="checklist-head-right">
+              <span class="item-count">{{ acceptedCount }}/{{ releaseDetail.gate.items.length }}</span>
+              <button
+                v-if="canEdit && !isApproved"
+                class="btn-ghost btn-sm"
+                type="button"
+                @click="showAddItemForm = !showAddItemForm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add item
+              </button>
+            </div>
           </div>
 
+          <!-- Add checklist item form -->
+          <form v-if="showAddItemForm && canEdit && !isApproved" class="add-item-form" @submit.prevent="addChecklistItem">
+            <label class="field">
+              <span class="field-label">Item title</span>
+              <input v-model.trim="addItemForm.title" type="text" required maxlength="255" placeholder="e.g. Penetration test report" />
+            </label>
+            <label class="field">
+              <span class="field-label">Description <span class="field-optional">(optional)</span></span>
+              <input v-model.trim="addItemForm.description" type="text" maxlength="2000" placeholder="What evidence is required?" />
+            </label>
+            <div class="add-item-actions">
+              <button class="btn-primary" type="submit" :disabled="busy || !addItemForm.title.trim()">
+                {{ busyAction === "add-item" ? "Adding…" : "Add to checklist" }}
+              </button>
+              <button class="btn-ghost btn-sm" type="button" @click="showAddItemForm = false">Cancel</button>
+            </div>
+          </form>
+
           <nav class="checklist" aria-label="Gate items">
-            <button
+            <div
               v-for="item in releaseDetail.gate.items"
               :key="item.id"
-              class="gate-item"
-              :class="{
-                'gate-item--selected': selectedItem?.id === item.id,
-                'gate-item--accepted': item.status === 'accepted',
-                'gate-item--blocked': item.status === 'rejected' || item.status === 'needs_update',
-                'gate-item--waived': item.status === 'waived',
-              }"
-              type="button"
-              @click="selectedItemId = item.id"
+              class="gate-item-row"
             >
-              <div class="gate-item-icon" aria-hidden="true">
-                <!-- accepted -->
-                <svg v-if="item.status === 'accepted'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <!-- blocked -->
-                <svg v-else-if="item.status === 'rejected' || item.status === 'needs_update'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <!-- waived -->
-                <svg v-else-if="item.status === 'waived'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                <!-- pending -->
-                <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
-              </div>
+              <button
+                class="gate-item"
+                :class="{
+                  'gate-item--selected': selectedItem?.id === item.id,
+                  'gate-item--accepted': item.status === 'accepted',
+                  'gate-item--blocked': item.status === 'rejected' || item.status === 'needs_update',
+                  'gate-item--waived': item.status === 'waived',
+                }"
+                type="button"
+                @click="selectedItemId = item.id"
+              >
+                <div class="gate-item-icon" aria-hidden="true">
+                  <!-- accepted -->
+                  <svg v-if="item.status === 'accepted'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <!-- blocked -->
+                  <svg v-else-if="item.status === 'rejected' || item.status === 'needs_update'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <!-- waived -->
+                  <svg v-else-if="item.status === 'waived'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  <!-- pending -->
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+                </div>
 
-              <div class="gate-item-body">
-                <span class="gate-item-title">{{ item.title }}</span>
-                <span class="gate-item-count">{{ item.evidence_links.length }} artifact{{ item.evidence_links.length !== 1 ? 's' : '' }}</span>
-              </div>
+                <div class="gate-item-body">
+                  <span class="gate-item-title">{{ item.title }}</span>
+                  <span class="gate-item-count">{{ item.evidence_links.length }} artifact{{ item.evidence_links.length !== 1 ? 's' : '' }}</span>
+                </div>
 
-              <span class="mini-pill" :class="`decision-${item.status}`">
-                {{ formatLabel(item.status) }}
-              </span>
-            </button>
+                <span class="mini-pill" :class="`decision-${item.status}`">
+                  {{ formatLabel(item.status) }}
+                </span>
+              </button>
+              <button
+                v-if="canEdit && !isApproved"
+                class="gate-item-delete"
+                type="button"
+                :title="`Remove &quot;${item.title}&quot; from checklist`"
+                @click.stop="confirmRemoveItem(item)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </div>
           </nav>
         </section>
 
@@ -165,6 +217,14 @@
                 <template v-if="releaseDetail.gate.approved_by_user">by <strong>{{ formatUser(releaseDetail.gate.approved_by_user) }}</strong></template>
                 <template v-if="releaseDetail.gate.approved_at"> on {{ formatDateTime(releaseDetail.gate.approved_at) }}</template>.
                 No changes are permitted.
+              </p>
+              <p v-if="releaseDetail.gate.bundle_sha256" class="frozen-banner-hash">
+                <span class="hash-label">Bundle SHA-256:</span>
+                <code class="hash-value" :title="releaseDetail.gate.bundle_sha256">{{ releaseDetail.gate.bundle_sha256.slice(0, 16) }}…</code>
+                <button class="btn-copy" type="button" @click="copyHash(releaseDetail.gate.bundle_sha256!)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy
+                </button>
               </p>
             </div>
           </div>
@@ -433,6 +493,32 @@
         </section>
       </div>
     </template>
+
+    <!-- ── Remove checklist item confirmation modal ── -->
+    <div v-if="removeConfirm.item" class="modal-backdrop" @click.self="removeConfirm.item = null">
+      <div class="modal-box" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h3 class="modal-title">Remove checklist item?</h3>
+          <button class="btn-ghost btn-sm" type="button" @click="removeConfirm.item = null">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <p class="modal-body">
+          You are about to remove <strong>{{ removeConfirm.item?.title }}</strong> from the checklist.
+          <template v-if="removeConfirm.hasEvidence">
+            This item has <strong>{{ removeConfirm.evidenceCount }} attached artifact{{ removeConfirm.evidenceCount !== 1 ? 's' : '' }}</strong> which will also be permanently deleted.
+          </template>
+          This cannot be undone.
+        </p>
+        <div class="modal-actions">
+          <button class="btn-danger" type="button" :disabled="busy" @click="removeChecklistItem">
+            {{ busyAction === "remove-item" ? "Removing…" : "Yes, remove item" }}
+          </button>
+          <button class="btn-ghost btn-sm" type="button" @click="removeConfirm.item = null">Cancel</button>
+        </div>
+      </div>
+    </div>
+
   </section>
 </template>
 
@@ -466,6 +552,13 @@ const uploadMode = ref<"upload" | "external" | "reuse">("upload");
 const showExistingEvidence = ref(false);
 const selectedFile = ref<File | null>(null);
 const reviewNotes = reactive<Record<string, string>>({});
+const showAddItemForm = ref(false);
+const addItemForm = reactive({ title: "", description: "" });
+const removeConfirm = reactive<{
+  item: ReleaseGateItemRead | null;
+  hasEvidence: boolean;
+  evidenceCount: number;
+}>({ item: null, hasEvidence: false, evidenceCount: 0 });
 
 const uploadForm = reactive({
   title: "",
@@ -493,7 +586,6 @@ const derivedArtifactType = computed<ArtifactType>(() => {
       return "declaration";
     case "annex_mapping":
       return "annex_output";
-    case "technical_documentation":
     case "risk_assessment":
     default:
       return "document";
@@ -509,6 +601,8 @@ const progressPercent = computed(() => {
 const isApproved = computed(() => releaseDetail.value?.gate.status === "approved");
 const canReview = computed(() => authStore.hasPermission("release_lifecycle_write"));
 const canApprove = computed(() => canReview.value && !isApproved.value);
+const canEdit = computed(() => authStore.hasPermission("release_write"));
+const canDownload = computed(() => authStore.hasPermission("release_lifecycle_write"));
 const canSubmit = computed(() => {
   const detail = releaseDetail.value;
   if (!detail) return false;
@@ -744,6 +838,82 @@ async function downloadRevision(revisionId: string, filename: string): Promise<v
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to download artifact revision.";
   }
+}
+
+async function addChecklistItem(): Promise<void> {
+  if (!releaseDetail.value || !addItemForm.title.trim()) return;
+  busy.value = true;
+  busyAction.value = "add-item";
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    const detail = await releaseGateService.addChecklistItem(
+      releaseDetail.value.release.id,
+      addItemForm.title,
+      addItemForm.description || undefined,
+    );
+    setWorkspace(detail);
+    successMessage.value = `"${addItemForm.title}" added to the checklist.`;
+    addItemForm.title = "";
+    addItemForm.description = "";
+    showAddItemForm.value = false;
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to add checklist item.";
+  } finally {
+    busy.value = false;
+    busyAction.value = "";
+  }
+}
+
+function confirmRemoveItem(item: ReleaseGateItemRead): void {
+  removeConfirm.item = item;
+  removeConfirm.evidenceCount = item.evidence_links.length;
+  removeConfirm.hasEvidence = item.evidence_links.length > 0;
+}
+
+async function removeChecklistItem(): Promise<void> {
+  if (!releaseDetail.value || !removeConfirm.item) return;
+  busy.value = true;
+  busyAction.value = "remove-item";
+  errorMessage.value = "";
+  successMessage.value = "";
+  const itemTitle = removeConfirm.item.title;
+  try {
+    const detail = await releaseGateService.removeChecklistItem(
+      releaseDetail.value.release.id,
+      removeConfirm.item.id,
+    );
+    setWorkspace(detail);
+    successMessage.value = `"${itemTitle}" removed from the checklist.`;
+    removeConfirm.item = null;
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to remove checklist item.";
+  } finally {
+    busy.value = false;
+    busyAction.value = "";
+  }
+}
+
+async function downloadBundle(): Promise<void> {
+  if (!releaseDetail.value) return;
+  busy.value = true;
+  busyAction.value = "download";
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    await releaseGateService.downloadBundle(releaseDetail.value.release.id);
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to download documentation bundle.";
+  } finally {
+    busy.value = false;
+    busyAction.value = "";
+  }
+}
+
+function copyHash(hash: string): void {
+  navigator.clipboard.writeText(hash).catch(() => {
+    // Clipboard API not available — silently ignore.
+  });
 }
 
 function formatLabel(value: string): string {
@@ -1860,4 +2030,363 @@ onMounted(() => {
     align-items: flex-start;
   }
 }
+
+/* ── Checklist head right-side controls ── */
+.checklist-head-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Gate item row (wraps button + delete) ── */
+.gate-item-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.gate-item-row .gate-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.gate-item-delete {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-md, 0.5rem);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.gate-item-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+/* ── Add checklist item form ── */
+.add-item-form {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--color-surface-soft, rgba(255,255,255,0.04));
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md, 0.5rem);
+  margin-bottom: 0.75rem;
+}
+
+.add-item-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* ── Bundle hash in frozen banner ── */
+.frozen-banner-hash {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
+.hash-label {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.hash-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--color-surface-soft, rgba(255,255,255,0.06));
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-copy:hover {
+  background: var(--color-surface-soft);
+}
+
+/* ── Confirmation modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-modal-backdrop, rgba(5, 10, 20, 0.72));
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: var(--color-modal-bg, #0c1524);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 1rem);
+  padding: 1.5rem;
+  max-width: 28rem;
+  width: 100%;
+  display: grid;
+  gap: 1rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.modal-body {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+</style>
+
+<style>
+:root[data-theme="light"] .feedback {
+  background: rgba(28, 107, 39, 0.04);
+  border-color: rgba(28, 107, 39, 0.15);
+  color: var(--color-text-muted);
+}
+:root[data-theme="light"] .feedback-error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #be123c;
+}
+:root[data-theme="light"] .feedback-success {
+  background: rgba(21, 128, 61, 0.08);
+  border-color: rgba(21, 128, 61, 0.25);
+  color: #15803d;
+}
+:root[data-theme="light"] .btn-primary {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+:root[data-theme="light"] .btn-secondary {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.28);
+}
+:root[data-theme="light"] .btn-secondary:hover {
+  background: rgba(37, 99, 235, 0.16);
+}
+:root[data-theme="light"] .btn-ghost {
+  color: var(--color-text-muted);
+  border-color: rgba(28, 107, 39, 0.18);
+}
+:root[data-theme="light"] .btn-ghost:hover {
+  background: rgba(28, 107, 39, 0.06);
+  color: var(--color-text);
+}
+:root[data-theme="light"] .btn-danger {
+  background: rgba(239, 68, 68, 0.08);
+  color: #be123c;
+  border-color: rgba(239, 68, 68, 0.28);
+}
+:root[data-theme="light"] .btn-danger:hover {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+:root[data-theme="light"] .btn-accept {
+  background: rgba(21, 128, 61, 0.1);
+  color: #15803d;
+  border-color: rgba(21, 128, 61, 0.28);
+}
+:root[data-theme="light"] .btn-accept:hover {
+  background: rgba(21, 128, 61, 0.16);
+}
+:root[data-theme="light"] .status-draft,
+:root[data-theme="light"] .decision-pending_review {
+  background: rgba(184, 155, 18, 0.1);
+  color: #78350f;
+}
+:root[data-theme="light"] .status-in_review {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .decision-waived {
+  background: rgba(71, 85, 105, 0.1);
+  color: #475569;
+}
+:root[data-theme="light"] .status-approved,
+:root[data-theme="light"] .decision-accepted {
+  background: rgba(21, 128, 61, 0.1);
+  color: #15803d;
+}
+:root[data-theme="light"] .status-blocked,
+:root[data-theme="light"] .decision-rejected,
+:root[data-theme="light"] .decision-needs_update {
+  background: rgba(239, 68, 68, 0.1);
+  color: #be123c;
+}
+:root[data-theme="light"] .chip-neutral {
+  background: rgba(28, 107, 39, 0.06);
+  border-color: rgba(28, 107, 39, 0.14);
+  color: var(--color-text-muted);
+}
+:root[data-theme="light"] .chip-draft       { background: rgba(184,155,18,0.1);   color: #78350f; }
+:root[data-theme="light"] .chip-in_review   { background: rgba(37,99,235,0.1);    color: #1d4ed8; }
+:root[data-theme="light"] .chip-approved    { background: rgba(21,128,61,0.1);    color: #15803d; }
+:root[data-theme="light"] .chip-blocked     { background: rgba(239,68,68,0.1);    color: #be123c; }
+:root[data-theme="light"] .hero {
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 42%),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(238, 244, 232, 0.8) 55%);
+}
+:root[data-theme="light"] .progress-track {
+  background: rgba(20, 33, 15, 0.08);
+}
+:root[data-theme="light"] .progress-fill {
+  background: linear-gradient(90deg, #7c3aed, #2563eb);
+}
+:root[data-theme="light"] .progress-pct {
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .prog-chip {
+  background: rgba(28, 107, 39, 0.06);
+  border-color: rgba(28, 107, 39, 0.14);
+  color: var(--color-text-muted);
+}
+:root[data-theme="light"] .prog-chip-green {
+  background: rgba(21, 128, 61, 0.1);
+  border-color: rgba(21, 128, 61, 0.25);
+  color: #15803d;
+}
+:root[data-theme="light"] .item-count {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .gate-item--accepted .gate-item-icon { background: rgba(21,128,61,0.12);   color: #15803d; }
+:root[data-theme="light"] .gate-item--blocked  .gate-item-icon { background: rgba(239,68,68,0.1);    color: #be123c; }
+:root[data-theme="light"] .gate-item--waived   .gate-item-icon { background: rgba(71,85,105,0.1);    color: #475569; }
+:root[data-theme="light"] .add-evidence-zone {
+  border-color: rgba(28, 107, 39, 0.14);
+}
+:root[data-theme="light"] .add-evidence-header {
+  background: rgba(28, 107, 39, 0.04);
+  border-bottom-color: rgba(28, 107, 39, 0.1);
+}
+:root[data-theme="light"] .add-evidence-label {
+  color: rgba(20, 33, 15, 0.55);
+}
+:root[data-theme="light"] .add-tab {
+  color: rgba(20, 33, 15, 0.5);
+}
+:root[data-theme="light"] .add-tab:hover {
+  background: rgba(28, 107, 39, 0.06);
+  color: rgba(20, 33, 15, 0.8);
+}
+:root[data-theme="light"] .add-tab--active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .field-label {
+  color: rgba(20, 33, 15, 0.6);
+}
+:root[data-theme="light"] .field input,
+:root[data-theme="light"] .field select,
+:root[data-theme="light"] .field textarea {
+  border-color: rgba(28, 107, 39, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+}
+:root[data-theme="light"] .field input:focus,
+:root[data-theme="light"] .field select:focus,
+:root[data-theme="light"] .field textarea:focus {
+  border-color: rgba(37, 99, 235, 0.45);
+}
+:root[data-theme="light"] .file-drop {
+  border-color: rgba(28, 107, 39, 0.2);
+  background: rgba(28, 107, 39, 0.02);
+}
+:root[data-theme="light"] .file-drop:hover {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.04);
+}
+:root[data-theme="light"] .file-drop-prompt {
+  color: rgba(20, 33, 15, 0.45);
+}
+:root[data-theme="light"] .file-drop-selected {
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .library-search {
+  border-color: rgba(28, 107, 39, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+}
+:root[data-theme="light"] .library-search:focus {
+  border-color: rgba(37, 99, 235, 0.4);
+}
+:root[data-theme="light"] .library-hint {
+  color: rgba(20, 33, 15, 0.4);
+}
+:root[data-theme="light"] .library-item {
+  border-color: rgba(28, 107, 39, 0.12);
+  background: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] .library-meta {
+  color: rgba(20, 33, 15, 0.45);
+}
+:root[data-theme="light"] .evidence-section-title {
+  color: rgba(20, 33, 15, 0.7);
+}
+:root[data-theme="light"] .evidence-count {
+  background: rgba(28, 107, 39, 0.08);
+  color: rgba(20, 33, 15, 0.6);
+}
+:root[data-theme="light"] .empty-panel {
+  background: rgba(28, 107, 39, 0.03);
+  border-color: rgba(28, 107, 39, 0.15);
+  color: rgba(20, 33, 15, 0.45);
+}
+:root[data-theme="light"] .evidence-card {
+  border-color: rgba(28, 107, 39, 0.12);
+  background: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] .ev-accepted   { border-color: rgba(21,128,61,0.25);    background: rgba(21,128,61,0.05); }
+:root[data-theme="light"] .ev-rejected   { border-color: rgba(239,68,68,0.25);    background: rgba(239,68,68,0.04); }
+:root[data-theme="light"] .ev-needs_update { border-color: rgba(184,155,18,0.25); background: rgba(184,155,18,0.04); }
+:root[data-theme="light"] .ev-waived     { border-color: rgba(71,85,105,0.2);     background: rgba(71,85,105,0.04); }
+:root[data-theme="light"] .ev-pending_review { border-color: rgba(28,107,39,0.12); }
+:root[data-theme="light"] .add-item-form { background: rgba(28,107,39,0.03); border-color: rgba(28,107,39,0.2); }
+:root[data-theme="light"] .gate-item-delete { color: rgba(20,33,15,0.4); }
+:root[data-theme="light"] .gate-item-delete:hover { background: rgba(239,68,68,0.08); color: #be123c; }
+:root[data-theme="light"] .hash-value { background: rgba(28,107,39,0.05); border-color: rgba(28,107,39,0.15); color: rgba(20,33,15,0.75); }
+:root[data-theme="light"] .btn-copy { border-color: rgba(28,107,39,0.2); color: rgba(20,33,15,0.5); }
+:root[data-theme="light"] .btn-copy:hover { background: rgba(28,107,39,0.06); }
+:root[data-theme="light"] .modal-box { background: #ffffff; }
+:root[data-theme="light"] .modal-backdrop { background: rgba(20,33,15,0.5); }
 </style>

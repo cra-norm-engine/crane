@@ -882,3 +882,65 @@ onMounted(() => {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .feedback-error {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+  color: #be123c;
+}
+:root[data-theme="light"] .ring-track {
+  stroke: rgba(20, 33, 15, 0.1);
+}
+:root[data-theme="light"] .score-moderate {
+  background: rgba(184, 155, 18, 0.1);
+  color: #78350f;
+  border-color: rgba(184, 155, 18, 0.28);
+}
+:root[data-theme="light"] .metric-card::after {
+  background: rgba(28, 107, 39, 0.04);
+}
+:root[data-theme="light"] .metric-card-primary {
+  background:
+    radial-gradient(circle at top right, rgba(112, 185, 23, 0.15), transparent 50%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(240, 250, 236, 0.92));
+}
+:root[data-theme="light"] .metric-bar {
+  background: rgba(20, 33, 15, 0.08);
+}
+:root[data-theme="light"] .compact-list-item {
+  border-color: rgba(28, 107, 39, 0.1);
+  background: rgba(28, 107, 39, 0.03);
+}
+:root[data-theme="light"] .compact-list-item:hover {
+  background: rgba(28, 107, 39, 0.07);
+  border-color: rgba(28, 107, 39, 0.15);
+}
+:root[data-theme="light"] .eos-badge.eos-warning {
+  background: rgba(184, 155, 18, 0.1);
+  color: #78350f;
+  border-color: rgba(184, 155, 18, 0.28);
+}
+:root[data-theme="light"] .availability-track {
+  background: rgba(20, 33, 15, 0.08);
+}
+:root[data-theme="light"] .avail-dot-off {
+  background: rgba(20, 33, 15, 0.15);
+  border-color: rgba(20, 33, 15, 0.2);
+}
+:root[data-theme="light"] .activity-count {
+  background: rgba(28, 107, 39, 0.06);
+  border-color: rgba(28, 107, 39, 0.12);
+}
+:root[data-theme="light"] .activity-row {
+  border-color: rgba(28, 107, 39, 0.1);
+  background: rgba(28, 107, 39, 0.03);
+}
+:root[data-theme="light"] .activity-row:hover {
+  background: rgba(28, 107, 39, 0.07);
+}
+:root[data-theme="light"] .empty-state-inline {
+  border-color: rgba(28, 107, 39, 0.14);
+  background: rgba(28, 107, 39, 0.02);
+}
+</style>

@@ -49,7 +49,7 @@ export interface ReleaseGateEvidenceLinkRead {
 
 export interface ReleaseGateItemRead {
   id: string;
-  code: ReleaseGateItemCode;
+  code: ReleaseGateItemCode | null;
   title: string;
   description: string | null;
   is_required: boolean;
@@ -68,6 +68,8 @@ export interface ReleaseGateRead {
   approved_at: string | null;
   approved_by_user_id: string | null;
   approved_by_user: UserSummaryRead | null;
+  bundle_sha256: string | null;
+  bundle_generated_at: string | null;
   created_at: string;
   updated_at: string;
   items: ReleaseGateItemRead[];

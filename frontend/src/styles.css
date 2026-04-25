@@ -41,6 +41,47 @@
   --shadow-lg: 0 18px 60px rgba(0, 0, 0, 0.42);
   --radius-lg: 16px;
   --radius-md: 12px;
+  /* ── Semantic accent / status palette ──────── */
+  --color-info: #6ea8fe;
+  --color-info-bg: rgba(110, 168, 254, 0.1);
+  --color-info-border: rgba(110, 168, 254, 0.2);
+  --color-info-text: #93c5fd;
+  --color-warning-text: #fde68a;
+  --color-warning-bg: rgba(251, 191, 36, 0.13);
+  --color-warning-border: rgba(251, 191, 36, 0.26);
+  --color-emerald-text: #86efac;
+  --color-emerald-bg: rgba(52, 211, 153, 0.1);
+  --color-emerald-border: rgba(52, 211, 153, 0.26);
+  --color-pink-text: #fda4af;
+  --color-pink-bg: rgba(251, 113, 133, 0.1);
+  --color-pink-border: rgba(251, 113, 133, 0.28);
+  --color-slate-text: #cbd5e1;
+  --color-slate-bg: rgba(148, 163, 184, 0.14);
+  --color-slate-border: rgba(148, 163, 184, 0.2);
+  --color-purple: #8b5cf6;
+  --color-purple-text: #c4b5fd;
+  --color-purple-bg: rgba(139, 92, 246, 0.15);
+  /* ── UI surface tokens ──────────────────────── */
+  --color-divider: rgba(233, 238, 252, 0.08);
+  --color-section-label: rgba(220, 233, 214, 0.38);
+  --color-meta-text: rgba(233, 238, 252, 0.7);
+  --color-subtle-text: rgba(233, 238, 252, 0.5);
+  --color-eyebrow-text: rgba(233, 238, 252, 0.62);
+  --color-nav-hover-bg: rgba(255, 255, 255, 0.04);
+  --color-nav-hover-border: rgba(233, 238, 252, 0.06);
+  --color-inset-surface: rgba(255, 255, 255, 0.03);
+  --color-inset-surface-hover: rgba(255, 255, 255, 0.05);
+  --color-inset-border: rgba(233, 238, 252, 0.1);
+  --color-inset-border-dashed: rgba(233, 238, 252, 0.14);
+  --color-modal-bg: #0c1524;
+  --color-modal-border: rgba(233, 238, 252, 0.1);
+  --color-modal-header-border: rgba(233, 238, 252, 0.07);
+  --color-modal-backdrop: rgba(5, 10, 20, 0.72);
+  --color-event-bg: rgba(9, 17, 31, 0.48);
+  --color-event-border: rgba(233, 238, 252, 0.08);
+  --color-icon-btn-bg: rgba(255, 255, 255, 0.05);
+  --color-icon-btn-border: rgba(233, 238, 252, 0.14);
+  --color-icon-btn-text: rgba(233, 238, 252, 0.7);
 }
 
 :root[data-theme="light"] {
@@ -80,6 +121,47 @@
   --color-page-glow-2: rgba(28, 107, 39, 0.1);
   --color-button-text: #ffffff;
   --shadow-lg: 0 18px 48px rgba(34, 72, 27, 0.12);
+  /* ── Semantic accent / status palette ──────── */
+  --color-info: #2563eb;
+  --color-info-bg: rgba(37, 99, 235, 0.1);
+  --color-info-border: rgba(37, 99, 235, 0.22);
+  --color-info-text: #1d4ed8;
+  --color-warning-text: #78350f;
+  --color-warning-bg: rgba(251, 191, 36, 0.12);
+  --color-warning-border: rgba(251, 191, 36, 0.28);
+  --color-emerald-text: #15803d;
+  --color-emerald-bg: rgba(21, 128, 61, 0.1);
+  --color-emerald-border: rgba(21, 128, 61, 0.25);
+  --color-pink-text: #be123c;
+  --color-pink-bg: rgba(239, 68, 68, 0.1);
+  --color-pink-border: rgba(239, 68, 68, 0.28);
+  --color-slate-text: #475569;
+  --color-slate-bg: rgba(71, 85, 105, 0.1);
+  --color-slate-border: rgba(71, 85, 105, 0.2);
+  --color-purple: #7c3aed;
+  --color-purple-text: #5b21b6;
+  --color-purple-bg: rgba(124, 58, 237, 0.1);
+  /* ── UI surface tokens ──────────────────────── */
+  --color-divider: rgba(28, 107, 39, 0.12);
+  --color-section-label: rgba(20, 33, 15, 0.5);
+  --color-meta-text: rgba(20, 33, 15, 0.65);
+  --color-subtle-text: rgba(20, 33, 15, 0.45);
+  --color-eyebrow-text: rgba(20, 33, 15, 0.55);
+  --color-nav-hover-bg: rgba(28, 107, 39, 0.06);
+  --color-nav-hover-border: rgba(28, 107, 39, 0.1);
+  --color-inset-surface: rgba(28, 107, 39, 0.04);
+  --color-inset-surface-hover: rgba(28, 107, 39, 0.07);
+  --color-inset-border: rgba(28, 107, 39, 0.12);
+  --color-inset-border-dashed: rgba(28, 107, 39, 0.15);
+  --color-modal-bg: #ffffff;
+  --color-modal-border: rgba(28, 107, 39, 0.15);
+  --color-modal-header-border: rgba(28, 107, 39, 0.1);
+  --color-modal-backdrop: rgba(20, 33, 15, 0.5);
+  --color-event-bg: rgba(255, 255, 255, 0.85);
+  --color-event-border: rgba(28, 107, 39, 0.12);
+  --color-icon-btn-bg: rgba(28, 107, 39, 0.06);
+  --color-icon-btn-border: rgba(28, 107, 39, 0.15);
+  --color-icon-btn-text: rgba(20, 33, 15, 0.65);
 }
 
 * {
@@ -290,7 +372,7 @@ textarea {
 .table th,
 .table td {
   text-align: left;
-  border-bottom: 1px solid rgba(233, 238, 252, 0.08);
+  border-bottom: 1px solid var(--color-divider);
   padding: 0.85rem 0.6rem;
 }
 

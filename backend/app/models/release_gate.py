@@ -38,6 +38,8 @@ class ReleaseGate(UUIDTimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    bundle_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    bundle_generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     product_release: Mapped["ProductRelease"] = relationship("ProductRelease", back_populates="release_gate")
     submitted_by_user: Mapped["User | None"] = relationship("User", foreign_keys=[submitted_by_user_id])
@@ -62,7 +64,7 @@ class ReleaseGateItem(UUIDTimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    code: Mapped[ReleaseGateItemCode] = mapped_column(nullable=False, index=True)
+    code: Mapped[ReleaseGateItemCode | None] = mapped_column(nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

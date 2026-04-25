@@ -660,3 +660,10 @@ onMounted(() => {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .feedback-error,
+:root[data-theme="light"] .form-error  { color: #be123c; }
+:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);  color: #475569; }
+:root[data-theme="light"] .badge-warning { background: rgba(184,155,18,0.1); color: #78350f; }
+</style>

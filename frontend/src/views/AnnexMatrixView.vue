@@ -1379,3 +1379,61 @@ onMounted(async () => {
   align-items: center;
 }
 </style>
+
+<style>
+:root[data-theme="light"] .hero {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.1), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(240, 250, 236, 0.7));
+}
+:root[data-theme="light"] .matrix-row {
+  border-color: rgba(28, 107, 39, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] .matrix-row:hover,
+:root[data-theme="light"] .matrix-row.active,
+:root[data-theme="light"] .trace-card.selected {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.07);
+}
+:root[data-theme="light"] .requirement-code {
+  color: #1d4ed8;
+}
+:root[data-theme="light"] .meta-pill {
+  border-color: rgba(28, 107, 39, 0.12);
+}
+:root[data-theme="light"] .mini-stat {
+  background: rgba(28, 107, 39, 0.04);
+}
+:root[data-theme="light"] .artifact-row {
+  border-color: rgba(28, 107, 39, 0.12);
+  background: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] .artifact-option {
+  border-color: rgba(28, 107, 39, 0.12);
+  background: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] .artifact-option.selected {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.07);
+}
+:root[data-theme="light"] .alert.error   { background: rgba(239,68,68,0.08);   border-color: rgba(239,68,68,0.26);   color: #be123c; }
+:root[data-theme="light"] .alert.success { background: rgba(21,128,61,0.08);   border-color: rgba(21,128,61,0.26);   color: #15803d; }
+:root[data-theme="light"] .alert.warning { background: rgba(184,155,18,0.08);  border-color: rgba(184,155,18,0.26);  color: #78350f; }
+:root[data-theme="light"] .state-block {
+  border-color: rgba(28, 107, 39, 0.15);
+  background: rgba(28, 107, 39, 0.03);
+}
+:root[data-theme="light"] .skeleton-row {
+  background: linear-gradient(90deg, rgba(28,107,39,0.04), rgba(28,107,39,0.08), rgba(28,107,39,0.04));
+}
+:root[data-theme="light"] .app-applicable     { background: rgba(37,99,235,0.08);   border-color: rgba(37,99,235,0.22); }
+:root[data-theme="light"] .app-not_applicable { background: rgba(184,155,18,0.08);  border-color: rgba(184,155,18,0.24); }
+:root[data-theme="light"] .app-needs_decision,
+:root[data-theme="light"] .status-empty       { background: rgba(71,85,105,0.08);   border-color: rgba(71,85,105,0.18); }
+:root[data-theme="light"] .status-planned     { background: rgba(184,155,18,0.08);  border-color: rgba(184,155,18,0.2); }
+:root[data-theme="light"] .status-in_progress { background: rgba(234,88,12,0.08);   border-color: rgba(234,88,12,0.22); }
+:root[data-theme="light"] .status-implemented { background: rgba(37,99,235,0.08);   border-color: rgba(37,99,235,0.22); }
+:root[data-theme="light"] .status-verified    { background: rgba(21,128,61,0.08);   border-color: rgba(21,128,61,0.24); }
+:root[data-theme="light"] .status-not_applicable { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.22); }
+</style>

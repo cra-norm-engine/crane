@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
-from app.models.enums import DistributionMechanism
+from app.models.enums import DistributionMechanism, SecurityUpdateSeverity
 
 
 class SecurityUpdate(UUIDTimestampMixin, Base):
@@ -24,12 +24,21 @@ class SecurityUpdate(UUIDTimestampMixin, Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    severity: Mapped[SecurityUpdateSeverity | None] = mapped_column(nullable=True, index=True)
+    is_security_only: Mapped[bool] = mapped_column(nullable=False, default=True)
+    integrity_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     cves_addressed_json: Mapped[list[str] | dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=list,
     )
     affected_versions_json: Mapped[list[str] | dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+    update_channels_json: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
         default=list,

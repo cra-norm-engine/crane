@@ -497,7 +497,7 @@ watch(createReleaseId, (releaseId) => {
 .data-table th,
 .data-table td {
   padding: 0.9rem 0.75rem;
-  border-top: 1px solid rgba(233, 238, 252, 0.08);
+  border-top: 1px solid var(--color-divider);
   text-align: left;
   vertical-align: top;
 }

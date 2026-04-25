@@ -84,4 +84,42 @@ export const releaseGateService = {
     );
     return data;
   },
+
+  async addChecklistItem(
+    productReleaseId: string,
+    title: string,
+    description?: string,
+  ): Promise<ReleaseGateDetailRead> {
+    const { data } = await apiClient.post<ReleaseGateDetailRead>(
+      `/product-releases/${productReleaseId}/gate/items`,
+      { title, description: description || null },
+    );
+    return data;
+  },
+
+  async removeChecklistItem(
+    productReleaseId: string,
+    gateItemId: string,
+  ): Promise<ReleaseGateDetailRead> {
+    const { data } = await apiClient.delete<ReleaseGateDetailRead>(
+      `/product-releases/${productReleaseId}/gate/items/${gateItemId}`,
+    );
+    return data;
+  },
+
+  async downloadBundle(productReleaseId: string): Promise<void> {
+    const response = await apiClient.get(
+      `/product-releases/${productReleaseId}/gate/bundle`,
+      { responseType: "blob" },
+    );
+    const contentDisposition: string = response.headers["content-disposition"] ?? "";
+    const match = contentDisposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : "technical-documentation.zip";
+    const url = URL.createObjectURL(response.data as Blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };

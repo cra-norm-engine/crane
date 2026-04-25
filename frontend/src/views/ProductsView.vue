@@ -821,3 +821,13 @@ onMounted(() => {
   }
 }
 </style>
+
+<style>
+:root[data-theme="light"] .feedback-error,
+:root[data-theme="light"] .form-error    { color: #be123c; }
+:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);   color: #475569; }
+:root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);   color: #15803d; }
+:root[data-theme="light"] .badge-warning { background: rgba(184,155,18,0.1);  color: #78350f; }
+:root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);   color: #be123c; }
+:root[data-theme="light"] .table-row:hover { background: rgba(28, 107, 39, 0.04); }
+</style>
