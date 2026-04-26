@@ -54,6 +54,9 @@ class Permission(StrEnum):
     authority_package_generate = "authority_package_generate"
     admin_manage_users = "admin_manage_users"
 
+    certification_record_read = "certification_record_read"
+    certification_record_write = "certification_record_write"
+
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()
 

@@ -12,6 +12,7 @@ import AnnexMatrixView from "@/views/AnnexMatrixView.vue";
 import LifecycleNotificationsView from "@/views/LifecycleNotificationsView.vue";
 import SecurityUpdateHistoryView from "@/views/SecurityUpdateHistoryView.vue";
 import ReleaseGateView from "@/views/ReleaseGateView.vue";
+import CertificationRecordsView from "@/views/CertificationRecordsView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -90,6 +91,14 @@ const routes: RouteRecordRaw[] = [
         component: AnnexMatrixView,
         meta: {
           permissions: ["annex_requirement_read", "requirement_mapping_read"],
+        },
+      },
+      {
+        path: "certification-records",
+        name: "certification-records",
+        component: CertificationRecordsView,
+        meta: {
+          permissions: ["certification_record_read"],
         },
       },
       {

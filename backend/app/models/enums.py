@@ -196,6 +196,24 @@ class AuditStatus(StrEnum):
     failure = "failure"
 
 
+class CertificationScheme(StrEnum):
+    eu_cybersecurity_act = "eu_cybersecurity_act"
+    iec_62443 = "iec_62443"
+    common_criteria = "common_criteria"
+    etsi_en_303_645 = "etsi_en_303_645"
+    iso_iec_27001 = "iso_iec_27001"
+    soc2 = "soc2"
+    other = "other"
+
+
+class CertificationStatus(StrEnum):
+    pending = "pending"
+    active = "active"
+    expired = "expired"
+    suspended = "suspended"
+    withdrawn = "withdrawn"
+
+
 class EntityType(StrEnum):
     user = "user"
     role = "role"
@@ -212,3 +230,4 @@ class EntityType(StrEnum):
     support_period_record = "support_period_record"
     security_update = "security_update"
     lifecycle_notification = "lifecycle_notification"
+    certification_record = "certification_record"

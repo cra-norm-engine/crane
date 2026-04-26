@@ -16,6 +16,7 @@ from app.api.routes.requirement_mappings import router as requirement_mappings_r
 from app.api.routes.risk_assessments import router as risk_assessments_router
 from app.api.routes.risk_items import router as risk_items_router
 from app.api.routes.security_updates import router as security_updates_router
+from app.api.routes.certification_records import router as certification_records_router
 from app.api.routes.support_periods import router as support_periods_router
 
 api_router = APIRouter()
@@ -34,6 +35,11 @@ api_router.include_router(
     tags=["remote-processing-elements"],
 )
 
+api_router.include_router(
+    certification_records_router,
+    prefix="/certification-records",
+    tags=["certification-records"],
+)
 api_router.include_router(
     support_periods_router,
     prefix="/support-periods",

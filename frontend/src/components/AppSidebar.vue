@@ -82,6 +82,18 @@
           </span>
           <span>Lifecycle alerts</span>
         </RouterLink>
+
+        <RouterLink
+          v-if="canViewCertificationRecords"
+          :to="{ name: 'certification-records' }"
+          class="nav-link"
+          active-class="nav-link-active"
+        >
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm-1 3v4.4l3.2 1.9.8-1.4L10.5 10.5V7z" fill="currentColor"/></svg>
+          </span>
+          <span>Certifications</span>
+        </RouterLink>
       </div>
 
       <div class="nav-divider" />
@@ -164,6 +176,7 @@ const canViewRiskAssessments = computed(() => authStore.hasPermission("risk_asse
 const canViewAnnexMatrix = computed(
   () => authStore.hasPermission("annex_requirement_read") || authStore.hasPermission("requirement_mapping_read"),
 );
+const canViewCertificationRecords = computed(() => authStore.hasPermission("certification_record_read"));
 const canManageAdmin = computed(() => authStore.hasPermission("admin_manage_users"));
 const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
 

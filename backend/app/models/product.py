@@ -79,6 +79,13 @@ class Product(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(SupportPeriodRecord.created_at)",
     )
+    certification_records: Mapped[list["CertificationRecord"]] = relationship(
+        "CertificationRecord",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(CertificationRecord.created_at)",
+    )
 
 
 class ProductRelease(UUIDTimestampMixin, Base):
