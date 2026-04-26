@@ -1,9 +1,43 @@
+export type AuthProvider = "local" | "ldap";
+
 export interface AdminUserRead {
   id: string;
   email: string;
   full_name: string;
   roles: string[];
   is_active: boolean;
+  auth_provider: AuthProvider;
+}
+
+export interface LDAPStatusResult {
+  enabled: boolean;
+  connected: boolean;
+  server?: string;
+  base_dn?: string;
+  message: string;
+}
+
+export interface LDAPTestPayload {
+  email: string;
+  password: string;
+}
+
+export interface LDAPTestResult {
+  success: boolean;
+  message?: string;
+  email?: string;
+  full_name?: string;
+}
+
+export interface LDAPSyncPayload {
+  search?: string;
+  role_ids?: string[];
+}
+
+export interface LDAPSyncResult {
+  created: number;
+  skipped: number;
+  total: number;
 }
 
 export interface AdminUserCreate {

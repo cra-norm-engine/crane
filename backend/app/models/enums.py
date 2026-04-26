@@ -196,6 +196,11 @@ class AuditStatus(StrEnum):
     failure = "failure"
 
 
+class AuthProvider(StrEnum):
+    local = "local"
+    ldap = "ldap"
+
+
 class CertificationScheme(StrEnum):
     eu_cybersecurity_act = "eu_cybersecurity_act"
     iec_62443 = "iec_62443"

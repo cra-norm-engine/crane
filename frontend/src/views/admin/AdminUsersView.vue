@@ -140,6 +140,7 @@
               <th>User</th>
               <th>Roles</th>
               <th>Status</th>
+              <th>Auth</th>
               <th>Update roles</th>
               <th>Account</th>
             </tr>
@@ -166,6 +167,11 @@
               <td>
                 <span class="badge" :class="user.is_active ? 'badge-success' : 'badge-danger'">
                   {{ user.is_active ? "Active" : "Inactive" }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" :class="user.auth_provider === 'ldap' ? 'badge-info' : 'badge-neutral'">
+                  {{ user.auth_provider === "ldap" ? "LDAP" : "Local" }}
                 </span>
               </td>
               <td>
@@ -563,6 +569,11 @@ onMounted(() => {
   color: #fda4af;
 }
 
+.badge-info {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
 @media (max-width: 900px) {
   .stats-grid,
   .form-grid,
@@ -580,4 +591,5 @@ onMounted(() => {
 :root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);  color: #475569; }
 :root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);  color: #15803d; }
 :root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);  color: #be123c; }
+:root[data-theme="light"] .badge-info    { background: rgba(2,132,199,0.1);   color: #0369a1; }
 </style>

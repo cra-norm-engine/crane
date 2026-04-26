@@ -110,6 +110,14 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: "admin/ldap",
+        name: "admin-ldap",
+        component: () => import("@/views/admin/AdminLdapView.vue"),
+        meta: {
+          permissions: ["admin_manage_users"],
+        },
+      },
+      {
         path: "admin/roles",
         name: "admin-roles",
         component: () => import("@/views/admin/AdminRolesView.vue"),

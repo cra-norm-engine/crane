@@ -28,3 +28,4 @@ class AdminUserRead(ORMBaseModel):
     full_name: str
     roles: list[str]
     is_active: bool
+    auth_provider: str

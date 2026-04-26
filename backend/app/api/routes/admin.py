@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permissions_dependency
@@ -18,7 +19,9 @@ from app.schemas.admin_user import (
 from app.schemas.permission import PermissionRead
 from app.schemas.role import RoleCreate, RolePermissionsUpdate, RoleRead, RoleUpdate
 from app.services.admin_user_service import AdminUserService
+from app.services.ldap_service import LDAPConnectionError
 from app.services.role_service import RoleService
+from app.services import ldap_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -38,6 +41,7 @@ def list_users(
             full_name=user.full_name,
             roles=user.role_names,
             is_active=user.is_active,
+            auth_provider=user.auth_provider,
         )
         for user in users
     ]
@@ -64,6 +68,7 @@ def create_user(
         full_name=user.full_name,
         roles=user.role_names,
         is_active=user.is_active,
+        auth_provider=user.auth_provider,
     )
 
 
@@ -87,6 +92,7 @@ def update_user_roles(
         full_name=user.full_name,
         roles=user.role_names,
         is_active=user.is_active,
+        auth_provider=user.auth_provider,
     )
 
 
@@ -110,6 +116,7 @@ def update_user_status(
         full_name=user.full_name,
         roles=user.role_names,
         is_active=user.is_active,
+        auth_provider=user.auth_provider,
     )
 
 
@@ -219,6 +226,61 @@ def update_role_permissions(
             rp.permission.key for rp in role.permissions if rp.permission is not None
         ],
     )
+
+
+@router.get("/ldap/status")
+def ldap_status(
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+):
+    return ldap_service.test_connection()
+
+
+class LDAPTestPayload(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/ldap/test")
+def ldap_test_credentials(
+    payload: LDAPTestPayload,
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+):
+    try:
+        result = ldap_service.authenticate_user(payload.email, payload.password)
+    except LDAPConnectionError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    if result is None:
+        return {"success": False, "message": "Credentials not accepted by LDAP"}
+    return {"success": True, "email": result["email"], "full_name": result["full_name"]}
+
+
+class LDAPSyncPayload(BaseModel):
+    search: str = ""
+    role_ids: list[UUID] = []
+
+
+@router.post("/ldap/sync")
+def ldap_sync_users(
+    payload: LDAPSyncPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+):
+    try:
+        result = AdminUserService(db).sync_ldap_users(
+            actor_user=current_user,
+            search=payload.search,
+            role_ids=payload.role_ids or None,
+        )
+    except LDAPConnectionError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return result
 
 
 @router.get("/permissions", response_model=list[PermissionRead])

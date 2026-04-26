@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 from app.core.audit import AuditLogger
 from app.core.exceptions import ConflictException, NotFoundException
 from app.core.security import hash_password
-from app.models.enums import AuditStatus, EntityType
+from app.models.enums import AuthProvider, AuditStatus, EntityType
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
+from app.services import ldap_service
+from app.services.ldap_service import LDAPConnectionError
 
 
 class AdminUserService:
@@ -136,3 +138,60 @@ class AdminUserService:
 
     def list_users(self) -> list[User]:
         return self.user_repository.list_users()
+
+    def sync_ldap_users(
+        self,
+        *,
+        actor_user: User,
+        search: str = "",
+        role_ids: list[UUID] | None = None,
+    ) -> dict:
+        """
+        Import LDAP users into the local DB (JIT-style, triggered manually by admin).
+        Returns counts of {created, skipped, total}.
+        Raises LDAPConnectionError when the server cannot be reached.
+        """
+        try:
+            ldap_users = ldap_service.search_users(search)
+        except LDAPConnectionError:
+            raise
+
+        created = 0
+        skipped = 0
+
+        for lu in ldap_users:
+            email = lu["email"]
+            existing = self.user_repository.get_by_email(email)
+            if existing:
+                skipped += 1
+                continue
+
+            user = self.user_repository.create_user(
+                email=email,
+                full_name=lu["full_name"],
+                hashed_password=hash_password(""),
+                is_active=True,
+                auth_provider=AuthProvider.ldap,
+            )
+
+            if role_ids:
+                self._validate_role_ids(role_ids)
+                user = self.user_repository.set_user_roles(user.id, role_ids)
+
+            self.audit_logger.log_event(
+                actor_user_id=actor_user.id,
+                action_type="admin.user.ldap_synced",
+                entity_type=EntityType.user.value,
+                entity_id=user.id,
+                status=AuditStatus.success.value,
+                details_json={
+                    "target_user_email": email,
+                    "target_user_full_name": lu["full_name"],
+                    "role_ids": [str(r) for r in (role_ids or [])],
+                },
+                commit=False,
+            )
+            created += 1
+
+        self.db.commit()
+        return {"created": created, "skipped": skipped, "total": len(ldap_users)}

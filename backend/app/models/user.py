@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
+from app.models.enums import AuthProvider
 from app.models.role_permission import RolePermission
 
 
@@ -37,6 +38,9 @@ class User(UUIDTimestampMixin, Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    auth_provider: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=AuthProvider.local, index=True
+    )
 
     roles: Mapped[List["UserRole"]] = relationship(
         back_populates="user",

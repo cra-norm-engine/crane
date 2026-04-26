@@ -73,12 +73,14 @@ class UserRepository(BaseRepository[User]):
         full_name: str,
         hashed_password: str,
         is_active: bool = True,
+        auth_provider: str = "local",
     ) -> User:
         user = User(
             email=email,
             full_name=full_name,
             hashed_password=hashed_password,
             is_active=is_active,
+            auth_provider=auth_provider,
         )
         self.db.add(user)
         self.db.flush()

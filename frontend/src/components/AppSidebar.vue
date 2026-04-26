@@ -135,6 +135,13 @@
             </span>
             <span>Roles &amp; access</span>
           </RouterLink>
+
+          <RouterLink :to="{ name: 'admin-ldap' }" class="nav-link" active-class="nav-link-active">
+            <span class="nav-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v2H3zm0 4h14v2H3zm0 4h9v2H3zm11 0 3 3-3 3v-2H9v-2h5z" fill="currentColor"/></svg>
+            </span>
+            <span>LDAP</span>
+          </RouterLink>
         </div>
       </template>
 

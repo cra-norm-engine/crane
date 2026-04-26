@@ -4,6 +4,11 @@ import type {
   AdminUserRead,
   AdminUserRoleUpdate,
   AdminUserStatusUpdate,
+  LDAPStatusResult,
+  LDAPSyncPayload,
+  LDAPSyncResult,
+  LDAPTestPayload,
+  LDAPTestResult,
   PermissionRead,
   RoleCreate,
   RolePermissionsUpdate,
@@ -79,6 +84,22 @@ export const adminService = {
   // PERMISSIONS
   async listPermissions(): Promise<PermissionRead[]> {
     const { data } = await apiClient.get<PermissionRead[]>("/admin/permissions");
+    return data;
+  },
+
+  // LDAP
+  async getLdapStatus(): Promise<LDAPStatusResult> {
+    const { data } = await apiClient.get<LDAPStatusResult>("/admin/ldap/status");
+    return data;
+  },
+
+  async testLdapCredentials(payload: LDAPTestPayload): Promise<LDAPTestResult> {
+    const { data } = await apiClient.post<LDAPTestResult>("/admin/ldap/test", payload);
+    return data;
+  },
+
+  async syncLdapUsers(payload: LDAPSyncPayload): Promise<LDAPSyncResult> {
+    const { data } = await apiClient.post<LDAPSyncResult>("/admin/ldap/sync", payload);
     return data;
   },
 };

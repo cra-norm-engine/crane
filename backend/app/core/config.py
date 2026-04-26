@@ -60,6 +60,18 @@ class Settings(BaseSettings):
         alias="BACKEND_ARTIFACT_UPLOAD_DIR",
     )
 
+    # --- LDAP ---
+    ldap_enabled: bool = Field(default=False, alias="LDAP_ENABLED")
+    ldap_server_url: str = Field(default="ldap://localhost:389", alias="LDAP_SERVER_URL")
+    ldap_bind_dn: str = Field(default="", alias="LDAP_BIND_DN")
+    ldap_bind_password: str = Field(default="", alias="LDAP_BIND_PASSWORD")
+    ldap_base_dn: str = Field(default="", alias="LDAP_BASE_DN")
+    ldap_user_filter: str = Field(default="(mail={email})", alias="LDAP_USER_FILTER")
+    ldap_attr_email: str = Field(default="mail", alias="LDAP_ATTR_EMAIL")
+    ldap_attr_full_name: str = Field(default="displayName", alias="LDAP_ATTR_FULL_NAME")
+    ldap_use_tls: bool = Field(default=False, alias="LDAP_USE_TLS")
+    ldap_connection_timeout: int = Field(default=5, alias="LDAP_CONNECTION_TIMEOUT")
+
     # --- Validators ---
     @field_validator("cors_origins", mode="before")
     @classmethod
