@@ -143,6 +143,15 @@ class ProductRelease(UUIDTimestampMixin, Base):
         order_by="desc(SecurityUpdate.created_at)",
     )
 
+    # Changes recorded against this product version (for substantial change tracking)
+    changes: Mapped[list["Change"]] = relationship(
+        "Change",
+        back_populates="product_version",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(Change.change_date)",
+    )
+
 
 class RemoteProcessingElement(UUIDTimestampMixin, Base):
     __tablename__ = "remote_processing_elements"

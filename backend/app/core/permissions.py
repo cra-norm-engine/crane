@@ -57,6 +57,12 @@ class Permission(StrEnum):
     certification_record_read = "certification_record_read"
     certification_record_write = "certification_record_write"
 
+    # Substantial change tracking
+    # change_read  → view changes and assessments
+    # change_write → initiate, submit, assess, and close changes
+    change_read = "change_read"
+    change_write = "change_write"
+
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()
 

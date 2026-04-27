@@ -94,6 +94,19 @@
           </span>
           <span>Certifications</span>
         </RouterLink>
+
+        <!-- Substantial change tracking — CRA Art. 3(4) -->
+        <RouterLink
+          v-if="canViewChanges"
+          :to="{ name: 'changes' }"
+          class="nav-link"
+          active-class="nav-link-active"
+        >
+          <span class="nav-icon">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14v2H3zm0 4h9v2H3zm0 4h6v2H3zm11-1 1.5-1.5L17 8l-4 4v3h3v-4z" fill="currentColor"/></svg>
+          </span>
+          <span>Substantial changes</span>
+        </RouterLink>
       </div>
 
       <div class="nav-divider" />
@@ -184,6 +197,7 @@ const canViewAnnexMatrix = computed(
   () => authStore.hasPermission("annex_requirement_read") || authStore.hasPermission("requirement_mapping_read"),
 );
 const canViewCertificationRecords = computed(() => authStore.hasPermission("certification_record_read"));
+const canViewChanges = computed(() => authStore.hasPermission("change_read"));
 const canManageAdmin = computed(() => authStore.hasPermission("admin_manage_users"));
 const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 import ldap3
-from ldap3 import AUTO_BIND_NO_TLS, Connection, Server, Tls
+from ldap3 import AUTO_BIND_NO_TLS, AUTO_BIND_TLS_BEFORE_BIND, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPBindError, LDAPException, LDAPSocketOpenError
 
 from app.core.config import settings
@@ -20,13 +20,23 @@ class LDAPAuthError(Exception):
 
 
 def _build_server() -> Server:
-    tls = Tls() if settings.ldap_use_tls else None
+    # For ldaps:// the SSL layer is established at socket level — no Tls() needed.
+    # For ldap:// + STARTTLS, attach a Tls() object so ldap3 can upgrade the connection.
+    use_starttls = settings.ldap_use_tls and not settings.ldap_server_url.startswith("ldaps://")
+    tls = Tls() if use_starttls else None
     return Server(
         settings.ldap_server_url,
         tls=tls,
         connect_timeout=settings.ldap_connection_timeout,
         get_info=ldap3.NONE,
     )
+
+
+def _auto_bind() -> str:
+    """Return the correct auto_bind constant for the configured transport."""
+    if settings.ldap_use_tls and not settings.ldap_server_url.startswith("ldaps://"):
+        return AUTO_BIND_TLS_BEFORE_BIND  # STARTTLS: upgrade before bind
+    return AUTO_BIND_NO_TLS  # plain ldap:// or ldaps:// (SSL already at socket level)
 
 
 def test_connection() -> dict:
@@ -43,7 +53,7 @@ def test_connection() -> dict:
             server,
             user=settings.ldap_bind_dn,
             password=settings.ldap_bind_password,
-            auto_bind=AUTO_BIND_NO_TLS,
+            auto_bind=_auto_bind(),
             raise_exceptions=True,
         )
         conn.unbind()
@@ -97,7 +107,7 @@ def authenticate_user(email: str, password: str) -> dict | None:
             server,
             user=settings.ldap_bind_dn,
             password=settings.ldap_bind_password,
-            auto_bind=AUTO_BIND_NO_TLS,
+            auto_bind=_auto_bind(),
             raise_exceptions=True,
         )
 
@@ -125,7 +135,7 @@ def authenticate_user(email: str, password: str) -> dict | None:
             server,
             user=user_dn,
             password=password,
-            auto_bind=AUTO_BIND_NO_TLS,
+            auto_bind=_auto_bind(),
             raise_exceptions=True,
         )
         user_conn.unbind()
@@ -158,7 +168,7 @@ def search_users(search: str = "") -> list[dict]:
             server,
             user=settings.ldap_bind_dn,
             password=settings.ldap_bind_password,
-            auto_bind=AUTO_BIND_NO_TLS,
+            auto_bind=_auto_bind(),
             raise_exceptions=True,
         )
 

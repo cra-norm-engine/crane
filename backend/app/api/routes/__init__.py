@@ -17,6 +17,7 @@ from app.api.routes.risk_assessments import router as risk_assessments_router
 from app.api.routes.risk_items import router as risk_items_router
 from app.api.routes.security_updates import router as security_updates_router
 from app.api.routes.certification_records import router as certification_records_router
+from app.api.routes.changes import router as changes_router
 from app.api.routes.support_periods import router as support_periods_router
 
 api_router = APIRouter()
@@ -80,6 +81,12 @@ api_router.include_router(
     evidence_items_router,
     prefix="/evidence-items",
     tags=["evidence-items"],
+)
+
+api_router.include_router(
+    changes_router,
+    prefix="/changes",
+    tags=["changes"],
 )
 
 api_router.include_router(admin_router)

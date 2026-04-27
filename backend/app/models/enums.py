@@ -219,6 +219,52 @@ class CertificationStatus(StrEnum):
     withdrawn = "withdrawn"
 
 
+class ChangeType(StrEnum):
+    """
+    Type of change being recorded against a product version.
+    'security' = security patch/fix (never substantial by definition under CRA)
+    'feature'  = new capability (may expand attack surface → could be substantial)
+    'repair'   = non-security bug fix
+    'maintenance' = internal refactor, dependency update, etc.
+    """
+    security = "security"
+    feature = "feature"
+    repair = "repair"
+    maintenance = "maintenance"
+
+
+class ChangeStatus(StrEnum):
+    """
+    Lifecycle states for a change record.
+    Transitions: draft → submitted → under_review → assessed → action_required | closed
+    'action_required' is only reached when the assessment decides is_substantial = True.
+    """
+    draft = "draft"
+    submitted = "submitted"
+    under_review = "under_review"
+    assessed = "assessed"
+    action_required = "action_required"
+    closed = "closed"
+
+
+class ComplianceActionType(StrEnum):
+    """
+    Required follow-up actions when a change is deemed substantial.
+    These correspond to the CRA obligations that must be re-satisfied.
+    """
+    renew_conformity_assessment = "renew_conformity_assessment"
+    update_technical_docs = "update_technical_docs"
+    update_declaration_of_conformity = "update_declaration_of_conformity"
+    re_release_product = "re_release_product"
+
+
+class ComplianceActionStatus(StrEnum):
+    """Completion state of a single compliance action item."""
+    pending = "pending"
+    in_progress = "in_progress"
+    completed = "completed"
+
+
 class EntityType(StrEnum):
     user = "user"
     role = "role"
@@ -236,3 +282,6 @@ class EntityType(StrEnum):
     security_update = "security_update"
     lifecycle_notification = "lifecycle_notification"
     certification_record = "certification_record"
+    change = "change"
+    substantial_modification_assessment = "substantial_modification_assessment"
+    change_compliance_action = "change_compliance_action"

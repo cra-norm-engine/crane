@@ -126,6 +126,22 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: "changes",
+        name: "changes",
+        component: () => import("@/views/ChangesView.vue"),
+        meta: {
+          permissions: ["change_read"],
+        },
+      },
+      {
+        path: "changes/:id",
+        name: "change-detail",
+        component: () => import("@/views/ChangeDetailView.vue"),
+        meta: {
+          permissions: ["change_read"],
+        },
+      },
+      {
         path: "audit",
         name: "audit-history",
         component: () => import("@/views/admin/AuditLogView.vue"),
