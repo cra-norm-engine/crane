@@ -158,6 +158,8 @@ class ChangeSummary(TimestampedRead):
     """
     Lightweight read schema used in list views — excludes the nested assessment
     to keep response payloads small.
+    Includes resolved product_name and release_version so the list UI does not
+    have to perform additional lookups to show human-readable identifiers.
     """
     product_version_id: UUID
     initiator_user_id: UUID | None
@@ -170,3 +172,7 @@ class ChangeSummary(TimestampedRead):
     # Shortcut flag so the list view can highlight substantial changes
     # without having to join the assessment table client-side
     is_substantial: bool | None  # None when not yet assessed
+
+    # Human-readable identifiers resolved from the linked product release
+    product_name: str | None  # None only if the linked release is orphaned
+    release_version: str | None  # None only if the linked release is orphaned

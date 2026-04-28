@@ -17,6 +17,9 @@ class ProductReleaseBase(BaseModel):
     classification_snapshot: ProductClassification = ProductClassification.normal
     conformity_route_snapshot: ConformityRoute = ConformityRoute.undecided
     release_notes: str | None = None
+    # Optional CRA traceability link: set when this release is a direct consequence
+    # of a substantial modification assessment (CRA Art. 13(8) re-release obligation).
+    caused_by_change_id: UUID | None = None
 
 
 class ProductReleaseCreate(ProductReleaseBase):
@@ -31,6 +34,9 @@ class ProductReleaseUpdate(BaseModel):
     classification_snapshot: ProductClassification | None = None
     conformity_route_snapshot: ConformityRoute | None = None
     release_notes: str | None = None
+    # Allow updating the causal change link even after creation (e.g. if
+    # the association was missed at release time and needs to be corrected)
+    caused_by_change_id: UUID | None = None
 
 
 class ProductReleaseRead(ProductReleaseBase):

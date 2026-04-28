@@ -362,7 +362,7 @@
                 <h2 class="section-title">Releases</h2>
                 <p class="muted">Each release has its own evidence workspace and approval gate.</p>
               </div>
-              <button class="btn btn-primary" type="button" @click="showReleaseForm = !showReleaseForm" :disabled="isCreatingRelease">
+              <button class="btn btn-primary" type="button" @click="toggleReleaseForm" :disabled="isCreatingRelease">
                 {{ showReleaseForm ? "Close form" : "New release" }}
               </button>
             </div>
@@ -402,6 +402,33 @@
                 <span class="field-label">Release notes</span>
                 <textarea v-model.trim="releaseForm.release_notes" rows="3" placeholder="Optional release notes" />
               </label>
+
+              <!-- CRA Art. 13(8) traceability: optional link to the substantial change
+                   that triggered this re-release. Only shows pending substantial changes
+                   (status = action_required). Routine/planned releases leave this blank. -->
+              <div class="field field-span-2">
+                <span class="field-label">
+                  Triggered by substantial change
+                  <span class="field-label-hint">(optional — leave blank for planned releases)</span>
+                </span>
+                <select v-model="releaseForm.caused_by_change_id">
+                  <option value="">Not triggered by a substantial change</option>
+                  <!-- Each option shows title, version, and date so the user can
+                       unambiguously identify the change without knowing its UUID -->
+                  <option
+                    v-for="c in substantialChanges"
+                    :key="c.id"
+                    :value="c.id"
+                  >
+                    {{ c.title }}
+                    <template v-if="c.release_version"> (v{{ c.release_version }})</template>
+                    · {{ formatDate(c.change_date) }}
+                  </option>
+                </select>
+                <p v-if="substantialChanges.length === 0" class="field-hint muted">
+                  No substantial changes found for this product.
+                </p>
+              </div>
 
               <div class="field field-span-2 inline-actions">
                 <button class="btn btn-secondary" type="button" @click="resetReleaseForm" :disabled="isCreatingRelease">
@@ -704,6 +731,8 @@ import { auditService } from "@/services/audit-service";
 import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { supportPeriodService } from "@/services/support-period-service";
+import { changeService } from "@/services/change-service";
+import type { ChangeSummary } from "@/types/change";
 import { useAuthStore } from "@/stores/auth";
 import type { AuditEventRead } from "@/types/audit";
 import type {
@@ -795,7 +824,13 @@ const releaseForm = reactive({
   classification_snapshot: "normal" as ProductClassification,
   conformity_route_snapshot: "undecided" as ConformityRoute,
   release_notes: "",
+  // Optional CRA Art. 13(8) link — empty string means not triggered by a substantial change
+  caused_by_change_id: "" as string,
 });
+
+// Substantial changes with a pending re_release_product action, loaded when
+// the release form is opened so the user can pick the triggering change.
+const substantialChanges = ref<ChangeSummary[]>([]);
 
 const notificationSchedulePreview = computed(() => {
   if (!supportForm.support_end_date) {
@@ -899,6 +934,39 @@ function resetReleaseForm(): void {
   releaseForm.classification_snapshot = product.value?.current_classification ?? "normal";
   releaseForm.conformity_route_snapshot = "undecided";
   releaseForm.release_notes = "";
+  releaseForm.caused_by_change_id = "";
+}
+
+/**
+ * Toggle the new-release form. When opening, refresh the substantial change
+ * picker so it reflects the current action_required changes.
+ */
+function toggleReleaseForm(): void {
+  showReleaseForm.value = !showReleaseForm.value;
+  if (showReleaseForm.value) {
+    void loadSubstantialChanges();
+  }
+}
+
+/**
+ * Load all assessed substantial changes for the causal link picker.
+ * No status filter is applied — a release can be linked to any substantial
+ * change (active or closed) for CRA traceability purposes.
+ * The auto-complete of the re_release_product action only fires when
+ * that action is still pending (idempotent for already-completed actions).
+ */
+async function loadSubstantialChanges(): Promise<void> {
+  try {
+    // Filter by product_id so only changes belonging to this product are shown.
+    // A change recorded for product A must not appear in the release form of product B.
+    substantialChanges.value = await changeService.list({
+      is_substantial: true,
+      product_id: product.value?.id,
+    });
+  } catch {
+    // Non-fatal — user can still create the release without a causal link
+    substantialChanges.value = [];
+  }
 }
 
 function toggleRecipientDropdown(): void {
@@ -1235,6 +1303,9 @@ async function createRelease(): Promise<void> {
         : null,
       actual_release_date: null,
       release_notes: releaseForm.release_notes.trim() || null,
+      // Pass the causal change ID only when the user actually selected one;
+      // empty string from the default option means no link (send null)
+      caused_by_change_id: releaseForm.caused_by_change_id || null,
     };
 
     const createdRelease = await productReleaseService.create(payload);
@@ -1445,6 +1516,19 @@ onBeforeUnmount(() => {
 .field-label {
   color: var(--color-text-muted, #94a3b8);
   font-size: 0.85rem;
+}
+
+/* Lighter sub-text inside a field label (e.g. "(optional)") */
+.field-label-hint {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+/* Helper text below a field — smaller and muted */
+.field-hint {
+  font-size: 0.78rem;
+  margin: 0.25rem 0 0;
 }
 
 .stat-value {

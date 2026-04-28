@@ -80,15 +80,19 @@ class ChangeService:
         self,
         *,
         product_version_id: UUID | None = None,
+        product_id: UUID | None = None,
         status: ChangeStatus | None = None,
         is_substantial: bool | None = None,
     ) -> list[ChangeSummary]:
         """
         Return a list of change summaries (no nested assessment detail).
-        Supports filtering by product version, workflow status, and substantiality.
+        Supports filtering by product version, product, workflow status, and substantiality.
+        product_id scopes results to a specific product (used by the release form
+        dropdown so only same-product changes are offered for linking).
         """
         changes = self.repo.list_all(
             product_version_id=product_version_id,
+            product_id=product_id,
             status=status,
             is_substantial=is_substantial,
         )
@@ -451,10 +455,21 @@ class ChangeService:
         )
 
     def _to_summary(self, change: Change) -> ChangeSummary:
-        """Convert a Change ORM object to its lightweight summary schema."""
+        """
+        Convert a Change ORM object to its lightweight summary schema.
+        Resolves product_name and release_version from the eagerly-loaded
+        product_version relationship so the list UI shows human-readable names.
+        """
         is_substantial = (
             change.assessment.is_substantial if change.assessment else None
         )
+
+        # Resolve human-readable identifiers from the eagerly-loaded relations.
+        # product_version is loaded by _base_query; its .product is also loaded.
+        release = change.product_version  # ProductRelease ORM object or None
+        product_name = release.product.name if release and release.product else None
+        release_version = release.version if release else None
+
         return ChangeSummary(
             id=change.id,
             created_at=change.created_at,
@@ -467,4 +482,6 @@ class ChangeService:
             change_date=change.change_date,
             status=change.status,
             is_substantial=is_substantial,
+            product_name=product_name,
+            release_version=release_version,
         )

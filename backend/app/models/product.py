@@ -115,7 +115,22 @@ class ProductRelease(UUIDTimestampMixin, Base):
     )
     release_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Optional link to the substantial change that triggered this re-release.
+    # NULL for planned/routine releases; set when the release is a direct
+    # consequence of a CRA substantial modification (Art. 13(8)).
+    caused_by_change_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("changes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     product: Mapped[Product] = relationship(back_populates="releases")
+    # Relationship to the substantial change that caused this release (if any).
+    # foreign_keys disambiguates from the Change.product_version_id path.
+    caused_by_change: Mapped["Change | None"] = relationship(
+        "Change",
+        foreign_keys="[ProductRelease.caused_by_change_id]",
+    )
     risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
         "RiskAssessment",
         back_populates="product_release",
@@ -143,9 +158,11 @@ class ProductRelease(UUIDTimestampMixin, Base):
         order_by="desc(SecurityUpdate.created_at)",
     )
 
-    # Changes recorded against this product version (for substantial change tracking)
+    # Changes recorded against this product version (for substantial change tracking).
+    # foreign_keys disambiguates from the caused_by_change_id FK on this same table.
     changes: Mapped[list["Change"]] = relationship(
         "Change",
+        foreign_keys="[Change.product_version_id]",
         back_populates="product_version",
         cascade="all, delete-orphan",
         passive_deletes=True,

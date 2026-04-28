@@ -100,8 +100,12 @@ class Change(UUIDTimestampMixin, Base):
     )
 
     # The product version this change belongs to
+    # Explicit foreign_keys required because ProductRelease now has two FK paths
+    # back to this table (product_version_id here, and caused_by_change_id on the
+    # release side), which would otherwise cause an AmbiguousForeignKeysError.
     product_version: Mapped["ProductRelease"] = relationship(
         "ProductRelease",
+        foreign_keys="Change.product_version_id",
         back_populates="changes",
     )
 

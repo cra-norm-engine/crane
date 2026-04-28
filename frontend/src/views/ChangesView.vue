@@ -95,6 +95,7 @@
           <thead>
             <tr>
               <th>Title</th>
+              <th>Product / Release</th>
               <th>Type</th>
               <th>Status</th>
               <th>Substantial</th>
@@ -116,6 +117,15 @@
               <!-- Title column -->
               <td>
                 <strong>{{ change.title }}</strong>
+              </td>
+
+              <!-- Product and release version — resolved server-side to avoid UUID display -->
+              <td>
+                <span v-if="change.product_name" class="product-cell">
+                  <span class="product-name">{{ change.product_name }}</span>
+                  <span v-if="change.release_version" class="release-version muted"> v{{ change.release_version }}</span>
+                </span>
+                <span v-else class="muted">—</span>
               </td>
 
               <!-- Change type badge -->
@@ -647,6 +657,11 @@ function formatLabel(value: string): string {
 }
 
 .nowrap { white-space: nowrap; }
+
+/* Product/release column in the changes list */
+.product-cell { display: flex; flex-direction: column; gap: 0.1rem; }
+.product-name  { font-size: 0.875rem; font-weight: 500; }
+.release-version { font-size: 0.78rem; }
 
 /* Change-type badges */
 .type-badge {

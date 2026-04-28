@@ -176,6 +176,10 @@ export interface ChangeSummary {
   change_date: string;           // ISO date string
   status: ChangeStatus;
   is_substantial: boolean | null;
+  /** Resolved product name — avoids a secondary lookup in the list view */
+  product_name: string | null;
+  /** Resolved release version string — avoids a secondary lookup in the list view */
+  release_version: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +189,8 @@ export interface ChangeSummary {
 /** Query parameters accepted by GET /changes. */
 export interface ChangeListParams {
   product_version_id?: string;
+  /** Scope results to changes belonging to a specific product */
+  product_id?: string;
   status?: ChangeStatus;
   change_type?: ChangeType;
   is_substantial?: boolean;

@@ -53,6 +53,7 @@ router = APIRouter()
 )
 def list_changes(
     product_version_id: UUID | None = None,
+    product_id: UUID | None = None,  # Scope to a specific product (used by release form dropdown)
     status: ChangeStatus | None = None,
     change_type: ChangeType | None = None,
     is_substantial: bool | None = None,
@@ -61,6 +62,7 @@ def list_changes(
 ):
     return ChangeService(db).list_changes(
         product_version_id=product_version_id,
+        product_id=product_id,
         status=status,
         is_substantial=is_substantial,
     )

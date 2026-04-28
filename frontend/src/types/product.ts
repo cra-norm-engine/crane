@@ -69,6 +69,8 @@ export interface ProductReleaseCreate {
   planned_release_date?: string | null;
   actual_release_date?: string | null;
   release_notes?: string | null;
+  // Optional CRA traceability link to a substantial change that triggered this release
+  caused_by_change_id?: string | null;
 }
 
 export interface RemoteProcessingElementSummaryRead {

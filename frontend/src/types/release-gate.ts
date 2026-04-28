@@ -29,6 +29,9 @@ export interface ProductReleaseRead {
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;
   release_notes: string | null;
+  // CRA Art. 13(8) traceability: ID of the substantial change that required this re-release.
+  // Null for planned/routine releases that are not driven by a substantial modification.
+  caused_by_change_id: string | null;
   created_at: string;
   updated_at: string;
 }

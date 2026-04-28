@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.exceptions import NotFoundException
 from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
 from app.models.enums import ChangeStatus, ChangeType
+from app.models.product import Product, ProductRelease
 from app.repositories.base import BaseRepository
 
 
@@ -29,15 +30,20 @@ class ChangeRepository(BaseRepository[Change]):
 
     def _base_query(self):
         """
-        Returns a base SELECT statement with the assessment and its compliance
-        actions eagerly loaded so callers never trigger lazy-load N+1 queries.
+        Returns a base SELECT statement with the assessment, compliance actions,
+        and the linked product_version→product eagerly loaded so callers never
+        trigger lazy-load N+1 queries. product_version and its parent product are
+        used to populate product_name and release_version in list summaries.
         """
         return (
             select(Change)
             .options(
+                # Load the CRA assessment and its child compliance actions
                 selectinload(Change.assessment).selectinload(
                     SubstantialModificationAssessment.compliance_actions
-                )
+                ),
+                # Load the release and the parent product so we can resolve names
+                selectinload(Change.product_version).selectinload(ProductRelease.product),
             )
         )
 
@@ -45,19 +51,33 @@ class ChangeRepository(BaseRepository[Change]):
         self,
         *,
         product_version_id: UUID | None = None,
+        product_id: UUID | None = None,
         status: ChangeStatus | None = None,
         change_type: ChangeType | None = None,
         is_substantial: bool | None = None,
     ) -> list[Change]:
         """
-        Return all changes, optionally filtered by product version, status,
-        type, or whether they were assessed as substantial.
+        Return all changes, optionally filtered by product version, product,
+        status, type, or whether they were assessed as substantial.
         Results are ordered newest change_date first.
+
+        product_id filter joins through product_releases so callers can scope
+        the list to changes belonging to a specific product (used in the release
+        form dropdown so only changes for the same product are shown).
         """
         stmt = self._base_query().order_by(Change.change_date.desc())
 
         if product_version_id is not None:
             stmt = stmt.where(Change.product_version_id == product_version_id)
+
+        # product_id requires a join through product_releases
+        if product_id is not None:
+            stmt = (
+                stmt
+                .join(ProductRelease, ProductRelease.id == Change.product_version_id)
+                .where(ProductRelease.product_id == product_id)
+            )
+
         if status is not None:
             stmt = stmt.where(Change.status == status)
         if change_type is not None:
