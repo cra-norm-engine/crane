@@ -1,0 +1,108 @@
+/**
+ * Custom CSS for CRA Conformity Management documentation.
+ * Overrides Docusaurus Infima variables to produce a formal,
+ * professional appearance appropriate for compliance documentation.
+ */
+
+/* ── Colour palette ───────────────────────────────────────────────────────── */
+:root {
+  /* Primary: deep regulatory blue */
+  --ifm-color-primary: #1b3d6f;
+  --ifm-color-primary-dark: #183662;
+  --ifm-color-primary-darker: #16325c;
+  --ifm-color-primary-darkest: #11284b;
+  --ifm-color-primary-light: #1e447c;
+  --ifm-color-primary-lighter: #204882;
+  --ifm-color-primary-lightest: #265494;
+
+  /* Typography */
+  --ifm-font-family-base: "Inter", "Segoe UI", system-ui, sans-serif;
+  --ifm-font-family-monospace: "JetBrains Mono", "Fira Code", monospace;
+  --ifm-font-size-base: 15px;
+  --ifm-line-height-base: 1.75;
+
+  /* Code blocks */
+  --ifm-code-font-size: 90%;
+  --docusaurus-highlighted-code-line-bg: rgba(27, 61, 111, 0.08);
+
+  /* Spacing */
+  --ifm-leading: 1.75;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] {
+  --ifm-color-primary: #5b8fd4;
+  --ifm-color-primary-dark: #4a7ec8;
+  --ifm-color-primary-darker: #4176c2;
+  --ifm-color-primary-darkest: #3162a7;
+  --ifm-color-primary-light: #6c9fdc;
+  --ifm-color-primary-lighter: #75a5de;
+  --ifm-color-primary-lightest: #8eb8e6;
+  --docusaurus-highlighted-code-line-bg: rgba(91, 143, 212, 0.12);
+}
+
+/* ── Navbar ───────────────────────────────────────────────────────────────── */
+.navbar {
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h1 { font-size: 2rem; margin-bottom: 0.75rem; }
+h2 { font-size: 1.45rem; border-bottom: 1px solid var(--ifm-color-emphasis-200); padding-bottom: 0.4rem; }
+h3 { font-size: 1.15rem; }
+
+/* ── Article content ──────────────────────────────────────────────────────── */
+.markdown p {
+  margin-bottom: 1.1rem;
+}
+
+/* Increase table readability for compliance reference tables */
+.markdown table {
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.markdown table th {
+  background-color: var(--ifm-color-emphasis-100);
+  font-weight: 600;
+}
+
+/* ── Admonitions (notes, warnings, tips) ──────────────────────────────────── */
+/* Make the "important" admonition visually distinct for regulatory notes */
+.alert--warning {
+  border-left: 4px solid #d97706;
+}
+
+.alert--danger {
+  border-left: 4px solid #dc2626;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.menu__link {
+  font-size: 0.88rem;
+}
+
+.menu__link--active {
+  font-weight: 600;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.footer {
+  font-size: 0.85rem;
+}
+
+/* ── Code blocks ──────────────────────────────────────────────────────────── */
+.prism-code {
+  font-size: 0.85rem;
+}

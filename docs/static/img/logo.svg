@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <path d="M24 4 L42 12 L42 26 C42 35 33 43 24 46 C15 43 6 35 6 26 L6 12 Z"
+        fill="#1b3d6f" stroke="#1b3d6f" stroke-width="1"/>
+  <path d="M24 10 L37 17 L37 27 C37 33.5 31 39.5 24 42 C17 39.5 11 33.5 11 27 L11 17 Z"
+        fill="white" opacity="0.15"/>
+  <text x="24" y="30" font-family="sans-serif" font-size="14" font-weight="bold"
+        fill="white" text-anchor="middle">CRA</text>
+</svg>
