@@ -4,7 +4,7 @@ type ThemeMode = "dark" | "light";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
-    appName: import.meta.env.VITE_APP_NAME || "SICH'AMAN",
+    appName: import.meta.env.VITE_APP_NAME || "CRANE",
     globalError: "" as string,
     themeMode: "dark" as ThemeMode,
     themeInitialized: false,
@@ -23,7 +23,7 @@ export const useAppStore = defineStore("app", {
       }
 
       if (typeof window !== "undefined") {
-        const savedTheme = window.localStorage.getItem("sichaman-theme");
+        const savedTheme = window.localStorage.getItem("crane-theme");
         if (savedTheme === "dark" || savedTheme === "light") {
           this.themeMode = savedTheme;
         }
@@ -46,7 +46,7 @@ export const useAppStore = defineStore("app", {
       }
 
       if (typeof window !== "undefined") {
-        window.localStorage.setItem("sichaman-theme", this.themeMode);
+        window.localStorage.setItem("crane-theme", this.themeMode);
       }
     },
   },

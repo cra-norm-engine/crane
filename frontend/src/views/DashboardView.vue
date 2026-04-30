@@ -4,7 +4,7 @@
     <div class="page-header">
       <div class="page-header-info">
         <div class="page-eyebrow">
-          <span class="eyebrow-chip">CRA Compliance Tool</span>
+          <span class="eyebrow-chip">CRANE — CRA Norm Engine</span>
           <span class="live-indicator" aria-label="Live data">
             <span class="live-dot" />
             Live

@@ -2,7 +2,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="topbar-greeting">{{ greeting }}, <strong>{{ firstName }}</strong></div>
-      <div class="topbar-meta muted">{{ appName }} &mdash; CRA Single Source of Truth</div>
+      <div class="topbar-meta muted">{{ appName }} &mdash; CRA Norm Engine</div>
     </div>
 
     <div class="topbar-right">

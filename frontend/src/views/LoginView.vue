@@ -1,11 +1,12 @@
 <template>
   <section class="auth-shell">
     <div class="auth-card card login-card">
+      <!-- CRANE brand — logo centred above the product name on the login card -->
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">SA</div>
-        <div>
-          <div class="brand-title">SICH'AMAN</div>
-          <div class="brand-sub">Single Source of Truth</div>
+        <img src="/logo/logo.png" alt="CRANE logo" class="brand-logo" />
+        <div class="brand-text">
+          <div class="brand-title">CRANE</div>
+          <div class="brand-sub">CRA Norm Engine</div>
         </div>
       </div>
 
@@ -104,23 +105,24 @@ async function handleLogin(): Promise<void> {
   gap: 1rem;
 }
 
+/* Login brand block — logo stacked above the name, centred */
 .brand {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
   align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.25rem;
 }
 
-.brand-mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(145deg, rgba(14, 20, 14, 0.95), rgba(6, 10, 6, 0.92));
-  border: 1px solid rgba(173, 214, 84, 0.22);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
-  font-weight: 900;
-  color: var(--color-primary-2);
+/* Large logo prominently displayed at the top of the login card */
+.brand-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.brand-text {
+  text-align: center;
 }
 
 .brand-title {

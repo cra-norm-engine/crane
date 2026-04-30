@@ -1,12 +1,12 @@
 <template>
   <aside class="sidebar">
 
-    <!-- Brand -->
+    <!-- CRANE brand — logo stacked above the product name in the sidebar -->
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">SA</div>
-      <div>
-        <div class="brand-title">SICH'AMAN</div>
-        <div class="brand-sub">CRA Compliance Platform</div>
+      <img src="/logo/logo.png" alt="CRANE logo" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-title">CRANE</div>
+        <div class="brand-sub">CRA Norm Engine</div>
       </div>
     </div>
 
@@ -258,28 +258,25 @@ function logout(): void {
 }
 
 /* ── Brand ───────────────────────────────────────── */
+/* Logo stacked above the name — centred in the sidebar column */
 .brand {
   display: flex;
-  gap: 0.7rem;
+  flex-direction: column;
   align-items: center;
-  padding: 0.25rem 0.35rem 1rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.35rem 1rem;
   flex-shrink: 0;
 }
 
-.brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(145deg, var(--color-card-start), var(--color-card-end));
-  border: 1px solid var(--color-border-strong);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(175, 214, 46, 0.08);
-  font-weight: 900;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  color: var(--color-primary-2);
-  flex-shrink: 0;
+/* Logo fills most of the sidebar width for strong visual presence */
+.brand-logo {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+}
+
+.brand-text {
+  text-align: center;
 }
 
 .brand-title {
