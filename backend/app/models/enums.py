@@ -8,6 +8,10 @@ class ReleaseStatus(StrEnum):
     in_review = "in_review"
     blocked = "blocked"
     approved = "approved"
+    # Formal EU-market placement event (CRA Art. 3(20)).
+    # Set separately from 'released' because internal release and market placement
+    # may occur on different dates or be managed by different teams.
+    placed_on_market = "placed_on_market"
     released = "released"
     withdrawn = "withdrawn"
     recalled = "recalled"

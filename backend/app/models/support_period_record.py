@@ -20,6 +20,16 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
         index=True,
     )
 
+    # Gap 1 — Per-version support period (CRA guidance §117).
+    # When set, this record applies to a specific placed release rather than the
+    # entire product. NULL is kept for backwards compatibility with existing records
+    # that were created at the product level before this field existed.
+    product_release_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product_releases.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     support_start_date: Mapped[date] = mapped_column(Date, nullable=False)
     support_end_date: Mapped[date] = mapped_column(Date, nullable=False)
     notify_before_days: Mapped[int] = mapped_column(Integer, nullable=False, default=180)
@@ -52,6 +62,13 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
     product: Mapped["Product"] = relationship(
         "Product",
         back_populates="support_period_records",
+    )
+
+    # Optional relationship to the specific release this support period covers.
+    # Navigated when building per-version support timelines.
+    product_release: Mapped["ProductRelease | None"] = relationship(
+        "ProductRelease",
+        foreign_keys="[SupportPeriodRecord.product_release_id]",
     )
 
     superseded_by: Mapped["SupportPeriodRecord | None"] = relationship(

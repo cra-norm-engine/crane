@@ -25,6 +25,12 @@ class SupportPeriodNotificationRecipientOptionRead(ORMBaseModel):
 
 class SupportPeriodRecordBase(BaseModel):
     product_id: UUID
+
+    # Gap 1 — Per-version support period linkage (CRA guidance §117).
+    # If set, this record applies to a specific placed release rather than
+    # the entire product. NULL for backwards-compatible product-level records.
+    product_release_id: UUID | None = None
+
     support_start_date: date
     support_end_date: date
     notify_before_days: int = Field(default=180, ge=1, le=3650)

@@ -127,6 +127,19 @@
                 <span class="detail-label">Last updated</span>
                 <p>{{ formatDateTime(product.updated_at) }}</p>
               </div>
+
+              <!-- Gap 4 — Article 69(2) pre-CRA status and first placement date -->
+              <div class="info-item">
+                <span class="detail-label">Pre-CRA product</span>
+                <span class="badge" :class="product.is_pre_cra ? 'badge-warning' : 'badge-neutral'">
+                  {{ product.is_pre_cra ? "Yes — Art. 69(2)" : "No" }}
+                </span>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">First placed on market</span>
+                <p>{{ formatDate(product.first_placed_on_market_date) }}</p>
+              </div>
             </div>
 
             <form v-else class="edit-grid" @submit.prevent="saveProduct">
@@ -184,6 +197,21 @@
                 </select>
               </label>
 
+              <!-- Gap 4 — Article 69(2): flag products already on the EU market before CRA -->
+              <label class="field">
+                <span class="field-label">Pre-CRA product (Art. 69(2))</span>
+                <select v-model="editForm.is_pre_cra">
+                  <option :value="false">No — first placed after CRA applicability</option>
+                  <option :value="true">Yes — already on market before CRA</option>
+                </select>
+              </label>
+
+              <!-- Gap 4 — Earliest known EU market placement date for this product line -->
+              <label class="field">
+                <span class="field-label">First placed on market</span>
+                <input v-model="editForm.first_placed_on_market_date" type="date" />
+              </label>
+
               <div class="field field-span-2 inline-actions">
                 <button class="btn btn-secondary" type="button" @click="cancelEditing" :disabled="isSaving">
                   Cancel
@@ -209,6 +237,28 @@
             <div v-if="supportPeriodSuccess" class="feedback feedback-success">{{ supportPeriodSuccess }}</div>
 
             <form class="edit-grid" @submit.prevent="saveSupportPeriod">
+              <!-- Gap 1 — Link this support period to a specific placed release (CRA §117).
+                   Each version placed on the market should have its own support period
+                   anchored to that version's placed_on_market_date. -->
+              <label class="field field-span-2">
+                <span class="field-label">
+                  Applies to release
+                  <span class="field-label-hint">(optional — leave blank for product-level record)</span>
+                </span>
+                <select v-model="supportForm.product_release_id">
+                  <option value="">Product-level (no specific release)</option>
+                  <option
+                    v-for="rel in product?.releases ?? []"
+                    :key="rel.id"
+                    :value="rel.id"
+                  >
+                    v{{ rel.version }}
+                    <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
+                    <template v-else> · not yet placed</template>
+                  </option>
+                </select>
+              </label>
+
               <!-- Core scheduling fields -->
               <label class="field">
                 <span class="field-label">Support start date</span>
@@ -403,6 +453,49 @@
                 <textarea v-model.trim="releaseForm.release_notes" rows="3" placeholder="Optional release notes" />
               </label>
 
+              <!-- Gap 3 — Formal EU placement date (CRA Art. 3(20)). Entered when the
+                   manufacturer confirms the product has been supplied to the EU market.
+                   Leave blank at creation time if the release is not yet placed. -->
+              <label class="field">
+                <span class="field-label">
+                  Placed on market date
+                  <span class="field-label-hint">(optional — set when EU placement occurs)</span>
+                </span>
+                <input v-model="releaseForm.placed_on_market_date" type="date" />
+              </label>
+
+              <!-- Gap 2 — Non-substantial update lineage (CRA guidance §15).
+                   Select the base release whose placement date this version inherits.
+                   Leave blank for first-time placements and post-substantial-modification releases. -->
+              <label class="field">
+                <span class="field-label">
+                  Non-substantial update of
+                  <span class="field-label-hint">(optional — inherits that release's placement date)</span>
+                </span>
+                <select v-model="releaseForm.parent_release_id">
+                  <option value="">Not a non-substantial update</option>
+                  <option
+                    v-for="rel in product?.releases ?? []"
+                    :key="rel.id"
+                    :value="rel.id"
+                  >
+                    v{{ rel.version }}
+                    <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
+                  </option>
+                </select>
+              </label>
+
+              <!-- Gap 5 — Article 13(10) consolidated support designation.
+                   Mark this release as the single version providing security update coverage
+                   for all prior versions in the product family. -->
+              <label class="field field-span-2 check-field-inline">
+                <input v-model="releaseForm.is_consolidated_support_version" type="checkbox" />
+                <span>
+                  <strong>Art. 13(10) consolidated support version</strong>
+                  <small class="muted"> — this release provides security updates for all prior versions</small>
+                </span>
+              </label>
+
               <!-- CRA Art. 13(8) traceability: optional link to the substantial change
                    that triggered this re-release. Only shows pending substantial changes
                    (status = action_required). Routine/planned releases leave this blank. -->
@@ -460,6 +553,18 @@
                 <div class="release-workflow-meta">
                   <span>Planned: {{ formatDate(release.planned_release_date) }}</span>
                   <span>Actual: {{ formatDate(release.actual_release_date) }}</span>
+                  <!-- Gap 3 — show the formal EU placement date when recorded -->
+                  <span v-if="release.placed_on_market_date">
+                    Placed: {{ formatDate(release.placed_on_market_date) }}
+                  </span>
+                  <!-- Gap 2 — indicate non-substantial update lineage -->
+                  <span v-if="release.parent_release_id" class="release-lineage-tag">
+                    Non-substantial update
+                  </span>
+                  <!-- Gap 5 — indicate Art. 13(10) consolidated support designation -->
+                  <span v-if="release.is_consolidated_support_version" class="release-consolidated-tag">
+                    Art. 13(10) consolidated
+                  </span>
                 </div>
 
                 <RouterLink
@@ -802,9 +907,14 @@ const editForm = reactive({
   parent_product_id: "",
   current_classification: "normal" as ProductClassification,
   scope_status: "undecided",
+  // Gap 4 — Article 69(2): pre-CRA flag and first placement date
+  is_pre_cra: false as boolean,
+  first_placed_on_market_date: "" as string,
 });
 
 const supportForm = reactive({
+  // Gap 1 — per-version support period target release; empty string = product-level
+  product_release_id: "" as string,
   support_start_date: "",
   support_end_date: "",
   notify_before_days: 180,
@@ -824,6 +934,12 @@ const releaseForm = reactive({
   classification_snapshot: "normal" as ProductClassification,
   conformity_route_snapshot: "undecided" as ConformityRoute,
   release_notes: "",
+  // Gap 3 — formal EU placement date; empty string means not yet placed
+  placed_on_market_date: "" as string,
+  // Gap 2 — parent release for non-substantial update lineage; empty string means none
+  parent_release_id: "" as string,
+  // Gap 5 — Art. 13(10) consolidated support version flag
+  is_consolidated_support_version: false as boolean,
   // Optional CRA Art. 13(8) link — empty string means not triggered by a substantial change
   caused_by_change_id: "" as string,
 });
@@ -883,11 +999,15 @@ function syncEditForm(): void {
   editForm.parent_product_id = product.value.parent_product_id ?? "";
   editForm.current_classification = product.value.current_classification;
   editForm.scope_status = product.value.scope_status;
+  // Gap 4 — sync pre-CRA flag and first placement date from the loaded product
+  editForm.is_pre_cra = product.value.is_pre_cra ?? false;
+  editForm.first_placed_on_market_date = product.value.first_placed_on_market_date ?? "";
   releaseForm.classification_snapshot = product.value.current_classification;
 }
 
 function syncSupportForm(): void {
   if (!activeSupportPeriod.value) {
+    supportForm.product_release_id = "";
     supportForm.support_start_date = "";
     supportForm.support_end_date = "";
     supportForm.notify_before_days = 180;
@@ -902,6 +1022,8 @@ function syncSupportForm(): void {
     return;
   }
 
+  // Gap 1 — restore the release-level link if the loaded record has one
+  supportForm.product_release_id = activeSupportPeriod.value.product_release_id ?? "";
   supportForm.support_start_date = activeSupportPeriod.value.support_start_date ?? "";
   supportForm.support_end_date = activeSupportPeriod.value.support_end_date ?? "";
   supportForm.notify_before_days = activeSupportPeriod.value.notify_before_days ?? 180;
@@ -934,6 +1056,10 @@ function resetReleaseForm(): void {
   releaseForm.classification_snapshot = product.value?.current_classification ?? "normal";
   releaseForm.conformity_route_snapshot = "undecided";
   releaseForm.release_notes = "";
+  // Gap 3 / 2 / 5 — clear the new CRA placement fields
+  releaseForm.placed_on_market_date = "";
+  releaseForm.parent_release_id = "";
+  releaseForm.is_consolidated_support_version = false;
   releaseForm.caused_by_change_id = "";
 }
 
@@ -1172,6 +1298,9 @@ async function saveProduct(): Promise<void> {
       parent_product_id: editForm.parent_product_id.trim() || null,
       current_classification: editForm.current_classification,
       scope_status: editForm.scope_status,
+      // Gap 4 — include pre-CRA flag and first placement date in every product save
+      is_pre_cra: editForm.is_pre_cra,
+      first_placed_on_market_date: editForm.first_placed_on_market_date || null,
     };
 
     await productService.update(props.productId, payload);
@@ -1241,6 +1370,8 @@ async function saveSupportPeriod(): Promise<void> {
     } else {
       await supportPeriodService.create({
         product_id: props.productId,
+        // Gap 1 — pass the release-level FK if the user selected a specific release
+        product_release_id: supportForm.product_release_id || null,
         support_start_date: supportForm.support_start_date,
         support_end_date: supportForm.support_end_date,
         notify_before_days: supportForm.notify_before_days,
@@ -1302,7 +1433,13 @@ async function createRelease(): Promise<void> {
         ? `${releaseForm.planned_release_date}T00:00:00Z`
         : null,
       actual_release_date: null,
+      // Gap 3 — formal EU placement date, null until the market placement event occurs
+      placed_on_market_date: releaseForm.placed_on_market_date || null,
       release_notes: releaseForm.release_notes.trim() || null,
+      // Gap 2 — base release for non-substantial update lineage; null for new placements
+      parent_release_id: releaseForm.parent_release_id || null,
+      // Gap 5 — Art. 13(10) consolidated support version flag
+      is_consolidated_support_version: releaseForm.is_consolidated_support_version,
       // Pass the causal change ID only when the user actually selected one;
       // empty string from the default option means no link (send null)
       caused_by_change_id: releaseForm.caused_by_change_id || null,
@@ -1983,6 +2120,40 @@ textarea {
 
 .release-workspace-link-prominent {
   justify-self: flex-start;
+}
+
+/* Small inline tags shown on release cards for CRA placement metadata */
+.release-lineage-tag,
+.release-consolidated-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Non-substantial update tag — blue tint */
+.release-lineage-tag {
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfdbfe;
+}
+
+/* Art. 13(10) consolidated tag — amber tint */
+.release-consolidated-tag {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fde68a;
+}
+
+/* Gap 4 — inline checkbox row inside the edit grid (pre-CRA flag) */
+.check-field-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
 }
 
 @media (max-width: 1200px) {

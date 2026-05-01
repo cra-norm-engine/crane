@@ -50,6 +50,9 @@ class SupportPeriodRecordService:
         payload = {
             "id": record.id,
             "product_id": record.product_id,
+            # Gap 1 — include the release-level FK so callers can distinguish
+            # product-level records (None) from per-version records.
+            "product_release_id": record.product_release_id,
             "support_start_date": record.support_start_date,
             "support_end_date": record.support_end_date,
             "notify_before_days": record.notify_before_days,
@@ -162,7 +165,8 @@ class SupportPeriodRecordService:
                 status=AuditStatus.success,
                 details_json={
                     "product_id": str(record.product_id),
-                    "product_release_id": None,
+                    # Gap 1 — log whether this is a per-version or product-level record
+                    "product_release_id": str(record.product_release_id) if record.product_release_id else None,
                     "support_start_date": record.support_start_date.isoformat(),
                     "support_end_date": record.support_end_date.isoformat(),
                     "notify_before_days": record.notify_before_days,
@@ -197,6 +201,8 @@ class SupportPeriodRecordService:
 
         next_values = {
             "product_id": current_record.product_id,
+            # Gap 1 — preserve the release-level link when versioning a per-version record
+            "product_release_id": current_record.product_release_id,
             "support_start_date": current_record.support_start_date,
             "support_end_date": current_record.support_end_date,
             "notify_before_days": current_record.notify_before_days,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,12 +19,23 @@ class ProductBase(BaseModel):
     current_classification: ProductClassification = ProductClassification.normal
     scope_status: str = "undecided"
 
+    # Gap 4 — Article 69(2): distinguishes products placed on market before CRA
+    # full applicability (transition provisions apply to these products).
+    is_pre_cra: bool = False
+
+    # Gap 4 — Earliest known EU market placement date for this product line.
+    # Required for pre-CRA products to anchor the transition period calculation.
+    first_placed_on_market_date: date | None = None
+
 
 class ProductCreate(ProductBase):
     pass
 
 
 class ProductUpdate(BaseModel):
+    # product_code is included here so the edit form can correct naming errors.
+    # The uniqueness constraint on the DB column will reject duplicates at write time.
+    product_code: str | None = Field(default=None, min_length=1, max_length=100)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     parent_product_id: UUID | None = None
@@ -33,6 +44,9 @@ class ProductUpdate(BaseModel):
     product_type: str | None = Field(default=None, min_length=1, max_length=150)
     current_classification: ProductClassification | None = None
     scope_status: str | None = None
+    # Allow updating the pre-CRA flag and first placement date independently
+    is_pre_cra: bool | None = None
+    first_placed_on_market_date: date | None = None
 
 
 class ProductSummaryRead(BaseModel):
@@ -45,6 +59,9 @@ class ProductSummaryRead(BaseModel):
     product_type: str
     current_classification: ProductClassification
     scope_status: str
+    # Gap 4 — exposed in list views so the product list can flag pre-CRA products
+    is_pre_cra: bool
+    first_placed_on_market_date: date | None
     created_at: datetime
     updated_at: datetime
 
@@ -69,6 +86,16 @@ class ProductReleaseSummaryRead(BaseModel):
     conformity_route_snapshot: ConformityRoute
     planned_release_date: datetime | None
     actual_release_date: datetime | None
+
+    # Gap 3 — formal EU placement date, separate from actual_release_date
+    placed_on_market_date: date | None
+
+    # Gap 2 — ID of the base release this non-substantial update derives from
+    parent_release_id: UUID | None
+
+    # Gap 5 — Article 13(10) consolidated support flag
+    is_consolidated_support_version: bool
+
     created_at: datetime
     updated_at: datetime
 

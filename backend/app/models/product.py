@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -32,6 +32,14 @@ class Product(UUIDTimestampMixin, Base):
         default=ProductClassification.normal,
     )
     scope_status: Mapped[str] = mapped_column(String(50), nullable=False, default="undecided", index=True)
+
+    # Gap 4 — Article 69(2): marks products already on the EU market before CRA
+    # full applicability. Pre-CRA products have different obligation timelines.
+    is_pre_cra: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Gap 4 — Earliest known EU market placement date for this product line.
+    # Essential for pre-CRA products to anchor the transition period calculation.
+    first_placed_on_market_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     parent_product: Mapped["Product | None"] = relationship(
         "Product",
@@ -105,6 +113,12 @@ class ProductRelease(UUIDTimestampMixin, Base):
     planned_release_date: Mapped[datetime | None] = mapped_column(nullable=True)
     actual_release_date: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    # Gap 3 — Formal EU market placement date (CRA Art. 3(20)).
+    # Distinct from actual_release_date: a product may be released internally
+    # before or after the regulatory placement event on the EU market.
+    # Set when release_status transitions to placed_on_market.
+    placed_on_market_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     classification_snapshot: Mapped[ProductClassification] = mapped_column(
         nullable=False,
         default=ProductClassification.normal,
@@ -114,6 +128,23 @@ class ProductRelease(UUIDTimestampMixin, Base):
         default=ConformityRoute.undecided,
     )
     release_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Gap 2 — Placement lineage for non-substantial updates (CRA guidance §15).
+    # When set, this release is a non-substantial update of another release and
+    # inherits that release's placed_on_market_date for compliance purposes.
+    # NULL for original placements and post-substantial-modification releases.
+    parent_release_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product_releases.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Gap 5 — Article 13(10) consolidated support flag.
+    # When True, this release provides security update coverage for all prior
+    # versions, allowing the manufacturer to consolidate support obligations.
+    is_consolidated_support_version: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
     # Optional link to the substantial change that triggered this re-release.
     # NULL for planned/routine releases; set when the release is a direct
@@ -125,6 +156,21 @@ class ProductRelease(UUIDTimestampMixin, Base):
     )
 
     product: Mapped[Product] = relationship(back_populates="releases")
+
+    # Self-referential relationship: the base release this version derives from
+    # (for non-substantial updates). Navigates the placement date lineage chain.
+    parent_release: Mapped["ProductRelease | None"] = relationship(
+        "ProductRelease",
+        remote_side="ProductRelease.id",
+        foreign_keys="[ProductRelease.parent_release_id]",
+        back_populates="derived_releases",
+    )
+    derived_releases: Mapped[list["ProductRelease"]] = relationship(
+        "ProductRelease",
+        foreign_keys="[ProductRelease.parent_release_id]",
+        back_populates="parent_release",
+    )
+
     # Relationship to the substantial change that caused this release (if any).
     # foreign_keys disambiguates from the Change.product_version_id path.
     caused_by_change: Mapped["Change | None"] = relationship(

@@ -32,22 +32,37 @@ export interface ProductHierarchyNode {
   scope_status: ScopeStatus | string;
 }
 
+/** All possible lifecycle states for a product release. */
+export type ReleaseStatus =
+  | "draft"
+  | "in_review"
+  | "blocked"
+  | "approved"
+  // Gap 3 — formal EU market placement event (CRA Art. 3(20))
+  | "placed_on_market"
+  | "released"
+  | "withdrawn"
+  | "recalled"
+  | "end_of_support";
+
 export interface ProductReleaseSummaryRead {
   id: string;
   version: string;
-  release_status:
-    | "draft"
-    | "in_review"
-    | "blocked"
-    | "approved"
-    | "released"
-    | "withdrawn"
-    | "recalled"
-    | "end_of_support";
+  release_status: ReleaseStatus;
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;
   planned_release_date: string | null;
   actual_release_date: string | null;
+
+  /** Gap 3 — date the EU market placement event occurred (CRA Art. 3(20)). Null until placed. */
+  placed_on_market_date: string | null;
+
+  /** Gap 2 — for non-substantial updates: ID of the release whose placement date this version inherits. */
+  parent_release_id: string | null;
+
+  /** Gap 5 — Art. 13(10): this release provides consolidated security coverage for all prior versions. */
+  is_consolidated_support_version: boolean;
+
   created_at: string;
   updated_at: string;
 }
@@ -55,21 +70,19 @@ export interface ProductReleaseSummaryRead {
 export interface ProductReleaseCreate {
   product_id: string;
   version: string;
-  release_status?:
-    | "draft"
-    | "in_review"
-    | "blocked"
-    | "approved"
-    | "released"
-    | "withdrawn"
-    | "recalled"
-    | "end_of_support";
+  release_status?: ReleaseStatus;
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;
   planned_release_date?: string | null;
   actual_release_date?: string | null;
+  /** Gap 3 — formal EU placement date, set when the release reaches the EU market. */
+  placed_on_market_date?: string | null;
   release_notes?: string | null;
-  // Optional CRA traceability link to a substantial change that triggered this release
+  /** Gap 2 — ID of the base release this non-substantial update derives placement date from. */
+  parent_release_id?: string | null;
+  /** Gap 5 — mark this release as the Art. 13(10) consolidated support version. */
+  is_consolidated_support_version?: boolean;
+  /** Optional CRA traceability link to a substantial change that triggered this release. */
   caused_by_change_id?: string | null;
 }
 
@@ -94,6 +107,10 @@ export interface ProductRead {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** Gap 4 — Art. 69(2): true for products on the market before CRA full applicability. */
+  is_pre_cra: boolean;
+  /** Gap 4 — earliest known EU market placement date for this product line. */
+  first_placed_on_market_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,9 +131,14 @@ export interface ProductCreate {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** Gap 4 — Art. 69(2) flag; defaults to false for new products created after CRA. */
+  is_pre_cra?: boolean;
+  first_placed_on_market_date?: string | null;
 }
 
 export interface ProductUpdate {
+  /** Product code can be corrected post-creation if a naming error was made. */
+  product_code?: string;
   name?: string;
   description?: string | null;
   parent_product_id?: string | null;
@@ -125,6 +147,9 @@ export interface ProductUpdate {
   product_type?: string;
   current_classification?: ProductClassification;
   scope_status?: ScopeStatus | string;
+  /** Gap 4 — update the pre-CRA flag when a product's status is clarified. */
+  is_pre_cra?: boolean;
+  first_placed_on_market_date?: string | null;
 }
 
 export interface ProductScopeEvaluationRequest {
@@ -173,6 +198,8 @@ export type LifecycleNotificationStatus = "pending" | "sent" | "dismissed";
 export interface SupportPeriodRecordRead {
   id: string;
   product_id: string;
+  /** Gap 1 — if set, this record applies to a specific release not the whole product. */
+  product_release_id: string | null;
   support_start_date: string;
   support_end_date: string;
   notify_before_days: number;
@@ -194,6 +221,8 @@ export interface SupportPeriodRecordRead {
 
 export interface SupportPeriodRecordCreate {
   product_id: string;
+  /** Gap 1 — link to a specific release for per-version support periods (CRA §117). */
+  product_release_id?: string | null;
   support_start_date: string;
   support_end_date: string;
   notify_before_days: number;
