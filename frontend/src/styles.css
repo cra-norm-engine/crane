@@ -1,8 +1,51 @@
+/* ═══════════════════════════════════════════════
+   CRANE Design System — Global Stylesheet
+   ─────────────────────────────────────────────
+   All design tokens live here as CSS custom
+   properties so every component can reference
+   a single source of truth.  Theme variants
+   are declared in :root[data-theme="light"].
+   ═══════════════════════════════════════════════ */
+
 :root {
   font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: #f1f6ec;
   line-height: 1.5;
   font-weight: 400;
+
+  /* ── Sidebar width — kept in sync between
+       AppLayout grid and AppSidebar element ── */
+  --sidebar-width: 248px;
+
+  /* ── Spacing scale (4-point grid) ─────────── */
+  --space-1: 0.25rem;   /* 4px  */
+  --space-2: 0.5rem;    /* 8px  */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* ── Typography scale (Tailwind-aligned) ──────
+     All values match the Tailwind CSS type scale —
+     the industry-standard reference — so they are
+     predictable and easy to reason about.          */
+  --text-xs:   0.75rem;   /* 12px — labels, eyebrows       */
+  --text-sm:   0.875rem;  /* 14px — secondary text         */
+  --text-base: 1rem;      /* 16px — body copy              */
+  --text-lg:   1.125rem;  /* 18px — sub-headings           */
+  --text-xl:   1.25rem;   /* 20px — section titles         */
+  --text-2xl:  1.5rem;    /* 24px — card titles            */
+  --text-3xl:  1.875rem;  /* 30px — page titles            */
+  --text-4xl:  2.25rem;   /* 36px — hero numbers           */
+
+  /* ── Transition tokens ─────────────────────── */
+  --t-fast:   120ms ease;
+  --t-base:   200ms ease;
+  --t-slow:   350ms ease;
+  --t-spring: 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --color-bg: #050705;
   --color-bg-rgb: 5, 7, 5;
@@ -256,7 +299,8 @@ code {
 
 .page-title {
   margin: 0;
-  font-size: 1.9rem;
+  /* Use the standard 30 px step from the typography scale */
+  font-size: var(--text-3xl);
   font-weight: 800;
 }
 
@@ -402,4 +446,288 @@ textarea {
   .page-title {
     font-size: 1.6rem;
   }
+}
+
+/* ═══════════════════════════════════════════════
+   BADGE VARIANT SYSTEM
+   ─────────────────────────────────────────────
+   Apply these modifier classes on any .badge
+   element to get semantic colour theming.
+   Both dark and light themes are covered via
+   the CSS variables defined above.
+   ═══════════════════════════════════════════════ */
+
+/* Neutral — grey, for undecided / unknown states */
+.badge-neutral {
+  background: var(--color-slate-bg);
+  color: var(--color-slate-text);
+  border: 1px solid var(--color-slate-border);
+}
+
+/* Success — green, for active / in-scope / approved */
+.badge-success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+/* Warning — amber, for approaching deadlines / moderate risk */
+.badge-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+/* Danger — red, for expired / critical / out-of-scope */
+.badge-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+/* Info — blue, for informational labels */
+.badge-info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border: 1px solid var(--color-info-border);
+}
+
+/* Primary — lime-green brand accent, for highlights */
+.badge-primary {
+  background: var(--color-status-bg);
+  color: var(--color-status-text);
+  border: 1px solid var(--color-status-border);
+}
+
+/* Purple — for special classification labels */
+.badge-purple {
+  background: var(--color-purple-bg);
+  color: var(--color-purple-text);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Emerald — for consolidated / extended support indicators */
+.badge-emerald {
+  background: var(--color-emerald-bg);
+  color: var(--color-emerald-text);
+  border: 1px solid var(--color-emerald-border);
+}
+
+/* ═══════════════════════════════════════════════
+   FEEDBACK BANNERS
+   ─────────────────────────────────────────────
+   Inline alerts used inside cards and forms.
+   Use .feedback-banner as base + one modifier.
+   ═══════════════════════════════════════════════ */
+
+.feedback-banner {
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+  line-height: 1.5;
+}
+
+.feedback-banner-error {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.feedback-banner-success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.feedback-banner-info {
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+.feedback-banner-warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION LAYOUT HELPERS
+   ─────────────────────────────────────────────
+   Shared between multiple views so they stay
+   visually consistent without duplicating CSS.
+   ═══════════════════════════════════════════════ */
+
+/* Section header row — title on the left, action(s) on the right */
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Section title below page-title in hierarchy */
+.section-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* ── Form field base ──────────────────────────── */
+
+/* Wraps label + input in a column layout */
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* Label text above the control */
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Helper text shown below a valid control */
+.field-hint {
+  font-size: var(--text-xs);
+  color: var(--color-subtle-text);
+  margin-top: 0.15rem;
+}
+
+/* Validation error text shown below a control */
+.field-error {
+  font-size: var(--text-xs);
+  color: var(--color-danger-text);
+  margin-top: 0.15rem;
+}
+
+/* ── Horizontal divider ───────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--color-divider);
+  border: none;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   LOADING SPINNER
+   ─────────────────────────────────────────────
+   Use <AppSpinner /> component instead of
+   applying these classes directly.
+   ═══════════════════════════════════════════════ */
+
+@keyframes crane-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Base spinner — a circular ring that rotates */
+.spinner {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: crane-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinner-sm { width: 1rem;   height: 1rem;   border-width: 1.5px; }
+.spinner-lg { width: 2.25rem; height: 2.25rem; border-width: 3px;  }
+
+/* ═══════════════════════════════════════════════
+   PAGE ROUTE TRANSITION
+   ─────────────────────────────────────────────
+   Applied by the <Transition name="page"> wrapper
+   in App.vue on every route change.
+   ═══════════════════════════════════════════════ */
+
+.page-enter-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.page-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   ACCESSIBILITY UTILITIES
+   ═══════════════════════════════════════════════ */
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Consistent focus ring — all interactive elements */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   ICON BUTTON BASE
+   ─────────────────────────────────────────────
+   Used for icon-only actions (close, expand…).
+   ═══════════════════════════════════════════════ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-icon-btn-border);
+  background: var(--color-icon-btn-bg);
+  color: var(--color-icon-btn-text);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-elevated-strong);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+/* ── Empty state inline ───────────────────────── */
+/* Used inside cards when a list/table has no data */
+.empty-inline {
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-inset-border-dashed);
+  background: var(--color-inset-surface);
+  padding: 1.5rem;
+  text-align: center;
 }
