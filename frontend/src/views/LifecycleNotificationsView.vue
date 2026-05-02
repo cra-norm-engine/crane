@@ -4,7 +4,7 @@
       <div>
         <h1 class="page-title">Lifecycle notifications</h1>
         <p class="muted page-subtitle">
-          Run EOS analysis from active support periods and review products nearing end of support.
+          Run End of Support (EOS) analysis from active support periods and review products nearing end of support.
         </p>
       </div>
 
@@ -47,13 +47,13 @@
         <label class="field">
           <span class="field-label">Threshold</span>
           <select v-model="filters.thresholdPreset" class="select">
-            <option value="180">Less than 6 months</option>
-            <option value="365">Less than 1 year</option>
+            <option value="">All products with support</option>
             <option value="30">Less than 30 days</option>
             <option value="90">Less than 3 months</option>
-            <option value="custom">Custom</option>
+            <option value="180">Less than 6 months</option>
+            <option value="365">Less than 1 year</option>
             <option value="expired">Expired only</option>
-            <option value="">All products with support</option>
+            <option value="custom">Custom</option>
           </select>
         </label>
 
@@ -226,7 +226,7 @@ const successMessage = ref("");
 
 const filters = reactive({
   search: "",
-  thresholdPreset: "180" as ThresholdPreset,
+  thresholdPreset: "" as ThresholdPreset,
   customThresholdDays: 120,
   classification: "" as ProductClassification | "",
   eosStatus: "" as EosStatus | "",
@@ -426,7 +426,7 @@ function formatDate(value: string): string {
 
 function resetFilters(): void {
   filters.search = "";
-  filters.thresholdPreset = "180";
+  filters.thresholdPreset = "";
   filters.customThresholdDays = 120;
   filters.classification = "";
   filters.eosStatus = "";

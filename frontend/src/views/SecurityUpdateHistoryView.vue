@@ -22,7 +22,7 @@
         <label class="field">
           <span class="field-label">Product</span>
           <select v-model="selectedProductId" :disabled="isLoadingProducts || filteredProducts.length === 0">
-            <option value="">{{ isLoadingProducts ? "Loading products..." : "Select a product" }}</option>
+            <option value="">{{ isLoadingProducts ? "Loading products..." : "All products" }}</option>
             <option v-for="product in filteredProducts" :key="product.id" :value="product.id">
               {{ product.name }} ({{ product.product_code }})
             </option>
@@ -52,8 +52,16 @@
           </select>
         </label>
 
-        <button class="btn btn-secondary" type="button" @click="loadUpdates" :disabled="isLoading || !selectedReleaseId">
+        <button class="btn btn-secondary" type="button" @click="loadUpdates" :disabled="isLoading">
           {{ isLoading ? "Refreshing..." : "Load" }}
+        </button>
+
+        <button
+          class="btn btn-primary"
+          type="button"
+          @click="showCreateModal = true"
+        >
+          + New security update
         </button>
       </div>
 
@@ -70,158 +78,6 @@
     <div v-if="successMessage" class="card feedback feedback-success">
       {{ successMessage }}
     </div>
-
-    <section class="card form-card">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">Create security update</h2>
-          <p class="muted">Development Team can add updates for the selected release.</p>
-        </div>
-      </div>
-
-      <form class="form-grid" @submit.prevent="createUpdate">
-        <div class="field field-span-2">
-          <span class="field-label">Selected release</span>
-          <div class="selection-card" :class="{ 'selection-card-empty': !selectedRelease || !selectedProduct }">
-            <template v-if="selectedRelease && selectedProduct">
-              <strong>{{ selectedProduct.name }} · Release {{ selectedRelease.version }}</strong>
-              <span class="muted">
-                Product code {{ selectedProduct.product_code }} ·
-                Status {{ formatLabel(selectedRelease.release_status) }}
-              </span>
-            </template>
-            <span v-else class="muted">
-              Search for a product above, select it, and then choose the release version you want to update.
-            </span>
-          </div>
-        </div>
-
-        <label class="field">
-          <span class="field-label">Title</span>
-          <input v-model.trim="createForm.title" type="text" required />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Severity (CVSS)</span>
-          <select v-model="createForm.severity">
-            <option value="">— Not specified —</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-            <option value="informational">Informational</option>
-          </select>
-        </label>
-
-        <label class="field field-span-2">
-          <span class="field-label">Description</span>
-          <textarea v-model.trim="createForm.description" rows="3" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Distribution mechanism</span>
-          <select v-model="createForm.distribution_mechanism">
-            <option value="automatic_update">Automatic update</option>
-            <option value="in_app_update">In-app update</option>
-            <option value="package_repository">Package repository</option>
-            <option value="vendor_download">Vendor download</option>
-            <option value="manual_install">Manual install</option>
-            <option value="field_service">Field service</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="field-label">Release date</span>
-          <input v-model="createForm.released_at" type="date" />
-        </label>
-
-        <div class="field">
-          <span class="field-label">Available until</span>
-          <input v-model="createForm.available_until" type="date" />
-          <div v-if="retentionMinDate" class="retention-hint" :class="{ 'retention-warning': isAvailableUntilTooEarly }">
-            <span v-if="isAvailableUntilTooEarly">⚠ CRA requires availability until at least {{ formatDate(retentionMinDate) }}</span>
-            <span v-else class="muted">CRA minimum: {{ formatDate(retentionMinDate) }}</span>
-          </div>
-        </div>
-
-        <label class="field field-span-2">
-          <span class="field-label">Update channels</span>
-          <div class="channels-list">
-            <div v-for="(ch, idx) in createForm.update_channels_json" :key="idx" class="channel-row">
-              <input
-                :value="ch"
-                type="text"
-                placeholder="e.g. https://updates.example.com or Package repo"
-                @input="updateChannel(idx, ($event.target as HTMLInputElement).value)"
-              />
-              <button type="button" class="btn btn-icon btn-remove" @click="removeChannel(idx)" title="Remove">✕</button>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" @click="addChannel">+ Add channel</button>
-          </div>
-        </label>
-
-        <label class="field field-span-2">
-          <span class="field-label">Integrity / authenticity info</span>
-          <textarea
-            v-model.trim="createForm.integrity_info"
-            rows="2"
-            placeholder="Paste SHA256 hash, or note that code signing is used (e.g. 'Signed with EV certificate, SHA256: abc123...')"
-          />
-        </label>
-
-        <label class="field field-span-2">
-          <span class="field-label">CVEs addressed (comma separated)</span>
-          <input v-model.trim="cveInput" type="text" placeholder="CVE-2026-0001, CVE-2026-0002" />
-        </label>
-
-        <div class="field field-span-2">
-          <span class="field-label">Affected versions</span>
-          <div v-if="!selectedProductId" class="versions-empty">
-            Select a product first to choose affected versions.
-          </div>
-          <div v-else-if="releases.length === 0" class="versions-empty">
-            No releases found for this product.
-          </div>
-          <div v-else class="versions-checklist">
-            <label
-              v-for="release in releases"
-              :key="release.id"
-              class="version-option"
-            >
-              <input
-                type="checkbox"
-                :value="release.version"
-                v-model="selectedVersions"
-              />
-              <span class="version-label">
-                <strong>{{ release.version }}</strong>
-                <span class="version-status">{{ formatLabel(release.release_status) }}</span>
-                <span v-if="release.actual_release_date ?? release.planned_release_date" class="version-date muted">
-                  · {{ formatDate(release.actual_release_date ?? release.planned_release_date) }}
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div class="field field-span-2">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="createForm.is_security_only" />
-            <span>
-              <strong>Security-only update</strong>
-              <span class="muted"> — this update contains only security fixes, with no functional changes (CRA Art. 14)</span>
-            </span>
-          </label>
-        </div>
-
-        <div class="field field-span-2 inline-actions">
-          <button class="btn btn-primary" type="submit" :disabled="isCreating || !createForm.product_release_id.trim()">
-            {{ isCreating ? "Saving..." : "Create security update" }}
-          </button>
-        </div>
-      </form>
-    </section>
 
     <section class="card">
       <div class="section-header">
@@ -295,6 +151,171 @@
       </div>
     </section>
   </section>
+
+  <!-- ── Create Security Update Modal ── -->
+  <AppModal
+    v-model="showCreateModal"
+    title="Create security update"
+    size="lg"
+    :persistent="true"
+  >
+    <form id="create-security-update-form" class="form-grid" @submit.prevent="createUpdate">
+      <!-- Selected release indicator -->
+      <div class="field field-span-2">
+        <span class="field-label">Selected release</span>
+        <div class="selection-card" :class="{ 'selection-card-empty': !selectedRelease || !selectedProduct }">
+          <template v-if="selectedRelease && selectedProduct">
+            <strong>{{ selectedProduct.name }} · Release {{ selectedRelease.version }}</strong>
+            <span class="muted">
+              Product code {{ selectedProduct.product_code }} ·
+              Status {{ formatLabel(selectedRelease.release_status) }}
+            </span>
+          </template>
+          <span v-else class="muted">
+            Close this dialog, search for a product and select a release, then re-open to create an update.
+          </span>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Title</span>
+        <input v-model.trim="createForm.title" type="text" required />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Severity (CVSS)</span>
+        <select v-model="createForm.severity">
+          <option value="">— Not specified —</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="informational">Informational</option>
+        </select>
+      </label>
+
+      <label class="field field-span-2">
+        <span class="field-label">Description</span>
+        <textarea v-model.trim="createForm.description" rows="3" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Distribution mechanism</span>
+        <select v-model="createForm.distribution_mechanism">
+          <option value="automatic_update">Automatic update</option>
+          <option value="in_app_update">In-app update</option>
+          <option value="package_repository">Package repository</option>
+          <option value="vendor_download">Vendor download</option>
+          <option value="manual_install">Manual install</option>
+          <option value="field_service">Field service</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Release date</span>
+        <input v-model="createForm.released_at" type="date" />
+      </label>
+
+      <div class="field">
+        <span class="field-label">Available until</span>
+        <input v-model="createForm.available_until" type="date" />
+        <div v-if="retentionMinDate" class="retention-hint" :class="{ 'retention-warning': isAvailableUntilTooEarly }">
+          <span v-if="isAvailableUntilTooEarly">⚠ CRA requires availability until at least {{ formatDate(retentionMinDate) }}</span>
+          <span v-else class="muted">CRA minimum: {{ formatDate(retentionMinDate) }}</span>
+        </div>
+      </div>
+
+      <label class="field field-span-2">
+        <span class="field-label">Update channels</span>
+        <div class="channels-list">
+          <div v-for="(ch, idx) in createForm.update_channels_json" :key="idx" class="channel-row">
+            <input
+              :value="ch"
+              type="text"
+              placeholder="e.g. https://updates.example.com or Package repo"
+              @input="updateChannel(idx, ($event.target as HTMLInputElement).value)"
+            />
+            <button type="button" class="btn btn-icon btn-remove" @click="removeChannel(idx)" title="Remove">✕</button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" @click="addChannel">+ Add channel</button>
+        </div>
+      </label>
+
+      <label class="field field-span-2">
+        <span class="field-label">Integrity / authenticity info</span>
+        <textarea
+          v-model.trim="createForm.integrity_info"
+          rows="2"
+          placeholder="Paste SHA256 hash, or note that code signing is used (e.g. 'Signed with EV certificate, SHA256: abc123...')"
+        />
+      </label>
+
+      <label class="field field-span-2">
+        <span class="field-label">CVEs addressed (comma separated)</span>
+        <input v-model.trim="cveInput" type="text" placeholder="CVE-2026-0001, CVE-2026-0002" />
+      </label>
+
+      <div class="field field-span-2">
+        <span class="field-label">Affected versions</span>
+        <div v-if="!selectedProductId" class="versions-empty">
+          Select a product first to choose affected versions.
+        </div>
+        <div v-else-if="releases.length === 0" class="versions-empty">
+          No releases found for this product.
+        </div>
+        <div v-else class="versions-checklist">
+          <label
+            v-for="release in releases"
+            :key="release.id"
+            class="version-option"
+          >
+            <input
+              type="checkbox"
+              :value="release.version"
+              v-model="selectedVersions"
+            />
+            <span class="version-label">
+              <strong>{{ release.version }}</strong>
+              <span class="version-status">{{ formatLabel(release.release_status) }}</span>
+              <span v-if="release.actual_release_date ?? release.planned_release_date" class="version-date muted">
+                · {{ formatDate(release.actual_release_date ?? release.planned_release_date) }}
+              </span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field field-span-2">
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="createForm.is_security_only" />
+          <span>
+            <strong>Security-only update</strong>
+            <span class="muted"> — this update contains only security fixes, with no functional changes (CRA Art. 14)</span>
+          </span>
+        </label>
+      </div>
+    </form>
+
+    <template #footer>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        :disabled="isCreating"
+        @click="showCreateModal = false"
+      >
+        Cancel
+      </button>
+      <button
+        class="btn btn-primary"
+        type="submit"
+        form="create-security-update-form"
+        :disabled="isCreating || !createForm.product_release_id.trim()"
+      >
+        {{ isCreating ? "Saving..." : "Create security update" }}
+      </button>
+    </template>
+  </AppModal>
 
   <!-- ── Security Update Detail Modal ── -->
   <Teleport to="body">
@@ -435,6 +456,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { securityUpdateService } from "@/services/security-update-service";
@@ -450,6 +472,7 @@ import type {
 
 const updates = ref<SecurityUpdateRead[]>([]);
 const detailItem = ref<SecurityUpdateRead | null>(null);
+const showCreateModal = ref(false);
 const isLoading = ref(false);
 const isCreating = ref(false);
 const isLoadingProducts = ref(false);
@@ -642,16 +665,13 @@ async function loadSupportPeriod(productId: string): Promise<void> {
 }
 
 async function loadUpdates(): Promise<void> {
-  if (!selectedReleaseId.value.trim()) {
-    updates.value = [];
-    return;
-  }
-
   isLoading.value = true;
   errorMessage.value = "";
 
   try {
-    updates.value = await securityUpdateService.list(selectedReleaseId.value.trim());
+    /* Pass release ID when one is selected; omit it to fetch all updates. */
+    const releaseId = selectedReleaseId.value.trim() || undefined;
+    updates.value = await securityUpdateService.list(releaseId);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load security updates.";
@@ -682,6 +702,7 @@ async function createUpdate(): Promise<void> {
     };
 
     await securityUpdateService.create(payload);
+    showCreateModal.value = false;
     successMessage.value = "Security update created.";
 
     createForm.title = "";
@@ -737,17 +758,12 @@ watch(
 
 watch(selectedReleaseId, async (releaseId: string) => {
   createForm.product_release_id = releaseId;
-
-  if (!releaseId) {
-    updates.value = [];
-    return;
-  }
-
   await loadUpdates();
 });
 
 onMounted(() => {
   void loadProducts();
+  void loadUpdates();
 });
 </script>
 

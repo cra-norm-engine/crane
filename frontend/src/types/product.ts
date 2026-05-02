@@ -22,6 +22,10 @@ export interface ProductSummaryRead {
   scope_status: ScopeStatus | string;
   created_at: string;
   updated_at: string;
+  /** Gap 4 — CRA Art. 69(2): true when the product was already on the EU market before CRA applied. */
+  is_pre_cra: boolean;
+  /** Gap 4 — earliest known EU market placement date for this product line. */
+  first_placed_on_market_date: string | null;
 }
 
 export interface ProductHierarchyNode {

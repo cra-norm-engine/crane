@@ -2,25 +2,16 @@
   <!--
     AppModal — reusable dialog overlay.
 
-    Usage:
-      <AppModal v-model="showDialog" title="Edit product">
-        <!-- body content goes in the default slot -->
-        <p>Are you sure?</p>
-
-        <!-- optional footer with action buttons -->
-        <template #footer>
-          <button class="button secondary" @click="showDialog = false">Cancel</button>
-          <button class="button" @click="save">Save</button>
-        </template>
-      </AppModal>
+    Bind with v-model to control visibility.
+    Default slot = body content. Named slot "footer" = action buttons.
 
     Features:
-    • Teleported to <body> to avoid z-index stacking issues.
-    • Closes on Escape key or backdrop click.
-    • Smooth scale + fade enter/leave transition.
-    • Scroll-lock on <body> while open.
-    • Three size variants: sm | md | lg.
-    • Accessible: role="dialog", aria-modal, aria-labelledby.
+    - Teleported to the document body to avoid z-index stacking issues.
+    - Closes on Escape key or backdrop click (unless persistent=true).
+    - Smooth scale + fade enter/leave transition.
+    - Scroll-lock on the document body while open.
+    - Three size variants: sm / md / lg.
+    - Accessible: role="dialog", aria-modal, aria-labelledby.
   -->
   <Teleport to="body">
     <Transition name="modal">

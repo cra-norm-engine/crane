@@ -215,6 +215,8 @@
               <th>Type</th>
               <th>Classification</th>
               <th>Scope</th>
+              <!-- Gap 4 — CRA Art. 3(20) / Art. 69(2): market placement date and Pre-CRA flag -->
+              <th>Placed on market</th>
               <th>Support period</th>
               <th>Updated</th>
             </tr>
@@ -226,11 +228,20 @@
               class="table-row"
               @click="openProduct(product.id)"
             >
+              <!--
+                Product "preview" cell: shows name, description, and a
+                Pre-CRA indicator so compliance status is visible at a glance
+                without opening the detail page.
+              -->
               <td>
                 <div class="product-cell">
                   <strong>{{ product.name }}</strong>
                   <span class="muted product-description">
                     {{ "description" in product ? product.description || "No description provided" : "Open detail to view more" }}
+                  </span>
+                  <!-- Pre-CRA flag — shown inline so it's always visible in the list -->
+                  <span v-if="product.is_pre_cra" class="badge badge-warning product-precra-badge">
+                    Pre-CRA · Art. 69(2)
                   </span>
                 </div>
               </td>
@@ -245,6 +256,16 @@
               <td>
                 <span class="badge" :class="scopeClass(product.scope_status)">
                   {{ formatScopeStatus(product.scope_status) }}
+                </span>
+              </td>
+              <!--
+                Market placement column — shows the first_placed_on_market_date
+                from the product record (CRA Art. 3(20)).
+                "—" is shown when the product has not yet been placed.
+              -->
+              <td>
+                <span :class="product.first_placed_on_market_date ? '' : 'muted'">
+                  {{ formatDate(product.first_placed_on_market_date) }}
                 </span>
               </td>
               <td>
@@ -512,7 +533,8 @@ function scopeClass(value: ScopeStatus | string): string {
   }
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | null): string {
+  if (!value) return "—";
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
     month: "short",
@@ -767,6 +789,13 @@ onMounted(() => {
 .product-description,
 .support-meta {
   font-size: 0.85rem;
+}
+
+/* Pre-CRA badge sits below the description inside the product preview cell */
+.product-precra-badge {
+  justify-self: start; /* left-align inside the grid cell */
+  font-size: 0.72rem;
+  margin-top: 0.1rem;
 }
 
 .badge {

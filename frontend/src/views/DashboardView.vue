@@ -1,6 +1,7 @@
 <template>
   <section class="page dashboard-page">
 
+    <!-- ── Page header ─────────────────────────────── -->
     <div class="page-header">
       <div class="page-header-info">
         <div class="page-eyebrow">
@@ -32,7 +33,164 @@
       {{ errorMessage }}
     </div>
 
-    <!-- Overview: Compliance ring + 3 metric cards -->
+    <!-- ── Hero banner — logo + tagline ──────────────── -->
+    <section class="hero-banner" aria-label="CRANE branding">
+      <div class="hero-glow" aria-hidden="true" />
+      <img
+        src="/logo/file.svg"
+        alt="CRANE — CRA Norm Engine"
+        class="hero-logo"
+      />
+      <div class="hero-copy">
+        <h2 class="hero-title">CRA Compliance, End-to-End</h2>
+        <p class="hero-tagline muted">
+          CRANE guides your team through every obligation of the EU Cyber Resilience Act —
+          from product scoping and classification to security updates, lifecycle management, and conformity.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── CRA key-requirement cards ─────────────────── -->
+    <section aria-labelledby="cra-overview-heading">
+      <div class="cra-section-header">
+        <h2 id="cra-overview-heading" class="section-title">CRA Compliance Areas</h2>
+        <p class="muted cra-section-sub">Six pillars of the Cyber Resilience Act — explore each in the tool.</p>
+      </div>
+
+      <div class="cra-cards-grid">
+
+        <!-- Card 1 — Product inventory & scope -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-blue" aria-hidden="true">
+            <!-- Box / package icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 5.5 10 3l6 2.5v9L10 17l-6-2.5zm6 .2L6.2 7.2 10 8.8l3.8-1.6zM5.5 8.4v5l3.8 1.6v-5zm9 0-3.8 1.6v5l3.8-1.6z"/></svg>
+          </div>
+          <span class="cra-article-badge">Art. 2 · Annex III</span>
+          <h3 class="cra-card-title">Product Inventory &amp; Scope</h3>
+          <p class="cra-card-desc">
+            Determine which products fall under CRA scope and assign the correct classification —
+            normal, Important Class I or II, or Critical. Scope and classification drive every
+            subsequent compliance obligation.
+          </p>
+          <RouterLink class="button primary cra-explore-btn" :to="{ name: 'products' }">
+            Explore products
+          </RouterLink>
+        </article>
+
+        <!-- Card 2 — Annex I cybersecurity requirements -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-purple" aria-hidden="true">
+            <!-- Table / matrix icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 4h14v12H3zm2 2v2h10V6zm0 4v4h3v-4zm5 0v4h5v-4z"/></svg>
+          </div>
+          <span class="cra-article-badge">Annex I</span>
+          <h3 class="cra-card-title">Cybersecurity Requirements</h3>
+          <p class="cra-card-desc">
+            CRA Annex I defines essential security requirements for product design, development,
+            and post-market phases. Track your compliance against each requirement and map
+            evidence across your product portfolio.
+          </p>
+          <RouterLink
+            v-if="canViewAnnexMatrix"
+            class="button primary cra-explore-btn"
+            :to="{ name: 'annex-matrix' }"
+          >
+            Explore Annex I matrix
+          </RouterLink>
+          <span v-else class="cra-permission-note">Requires Annex matrix permission</span>
+        </article>
+
+        <!-- Card 3 — Security updates & vulnerability handling -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-green" aria-hidden="true">
+            <!-- Shield icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2.3 2.3 0 0 1 1.3 4.2v2.9H8.7V9.4A2.3 2.3 0 0 1 10 5.2z"/></svg>
+          </div>
+          <span class="cra-article-badge">Art. 13(3) · Art. 14</span>
+          <h3 class="cra-card-title">Security Updates &amp; Reporting</h3>
+          <p class="cra-card-desc">
+            Security vulnerabilities must be remediated and updates delivered without undue delay.
+            Actively exploited vulnerabilities must be reported to ENISA within 24 hours of
+            discovery (Art. 14).
+          </p>
+          <RouterLink
+            v-if="canViewSecurityUpdates"
+            class="button primary cra-explore-btn"
+            :to="{ name: 'security-updates' }"
+          >
+            Explore security updates
+          </RouterLink>
+          <span v-else class="cra-permission-note">Requires security update permission</span>
+        </article>
+
+        <!-- Card 4 — Support period & lifecycle -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-amber" aria-hidden="true">
+            <!-- Clock icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm-1 3v4.4l3.2 1.9.8-1.4L10.5 10.5V7z"/></svg>
+          </div>
+          <span class="cra-article-badge">Art. 13(8)</span>
+          <h3 class="cra-card-title">Support Period &amp; Lifecycle</h3>
+          <p class="cra-card-desc">
+            Manufacturers must commit to a support period commensurate with the product's expected
+            use time — at least 5 years for most products. End-of-support dates must be communicated
+            clearly to users.
+          </p>
+          <RouterLink class="button primary cra-explore-btn" :to="{ name: 'products' }">
+            Explore product lifecycle
+          </RouterLink>
+        </article>
+
+        <!-- Card 5 — Risk assessments -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-red" aria-hidden="true">
+            <!-- Warning triangle icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 2 16h16zm0 4.4 4.5 7.6h-9zM9 8h2v3H9zm0 4h2v2H9z"/></svg>
+          </div>
+          <span class="cra-article-badge">Art. 13(2) · Annex II</span>
+          <h3 class="cra-card-title">Risk Assessments</h3>
+          <p class="cra-card-desc">
+            A cybersecurity risk assessment is mandatory throughout the product lifecycle.
+            CRA Annex II requires manufacturers to document and address all foreseeable risks
+            associated with intended and reasonably foreseeable use.
+          </p>
+          <RouterLink
+            v-if="canViewRiskAssessments"
+            class="button primary cra-explore-btn"
+            :to="{ name: 'risk-assessments' }"
+          >
+            Explore risk assessments
+          </RouterLink>
+          <span v-else class="cra-permission-note">Requires risk assessment permission</span>
+        </article>
+
+        <!-- Card 6 — Substantial changes & conformity -->
+        <article class="card cra-card">
+          <div class="cra-card-icon cra-icon-teal" aria-hidden="true">
+            <!-- Edit / changes icon -->
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 5h14v2H3zm0 4h9v2H3zm0 4h6v2H3zm11-1 1.5-1.5L17 8l-4 4v3h3v-4z"/></svg>
+          </div>
+          <span class="cra-article-badge">Art. 3(4) · Art. 27–32</span>
+          <h3 class="cra-card-title">Substantial Changes &amp; Conformity</h3>
+          <p class="cra-card-desc">
+            Modifications that affect a product's security posture may constitute a substantial change,
+            requiring a new conformity assessment. Important Class II and Critical products must undergo
+            third-party assessment before market placement.
+          </p>
+          <RouterLink
+            v-if="canViewChanges"
+            class="button primary cra-explore-btn"
+            :to="{ name: 'changes' }"
+          >
+            Explore substantial changes
+          </RouterLink>
+          <span v-else class="cra-permission-note">Requires change management permission</span>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ── Overview: Compliance ring + 3 metric cards ── -->
     <section class="overview-row">
 
       <article class="card compliance-card">
@@ -216,6 +374,14 @@ const canViewReleases = computed(() => authStore.hasPermission("release_read"));
 const canViewSupport = computed(() => authStore.hasPermission("support_period_read"));
 const canViewSecurity = computed(() => authStore.hasPermission("security_update_read"));
 const canViewAudit = computed(() => authStore.hasPermission("audit_read"));
+const canViewAnnexMatrix = computed(
+  () =>
+    authStore.hasPermission("annex_requirement_read") ||
+    authStore.hasPermission("requirement_mapping_read"),
+);
+const canViewRiskAssessments = computed(() => authStore.hasPermission("risk_assessment_read"));
+const canViewChanges = computed(() => authStore.hasPermission("change_read"));
+const canViewSecurityUpdates = computed(() => authStore.hasPermission("security_update_read"));
 
 const totalProducts = computed(() => products.value.length);
 const inScopeProducts = computed(() =>
@@ -339,7 +505,7 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-page {
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 /* ── Page header ─────────────────────────────── */
@@ -405,6 +571,163 @@ onMounted(() => {
   border-color: rgba(251, 113, 133, 0.28);
   background: rgba(251, 113, 133, 0.1);
   color: #fecdd3;
+}
+
+/* ── Hero banner ──────────────────────────────── */
+.hero-banner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 3rem 2rem 3.5rem;
+  border-radius: var(--radius-xl, 20px);
+  border: 1px solid rgba(112, 185, 23, 0.15);
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(112, 185, 23, 0.1), transparent),
+    linear-gradient(175deg, rgba(18, 40, 18, 0.95), rgba(8, 16, 8, 0.92));
+  overflow: hidden;
+  text-align: center;
+}
+
+/* Decorative glow orb behind the logo */
+.hero-glow {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(112, 185, 23, 0.14) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-logo {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  /* Subtle drop shadow to lift the logo off the background */
+  filter: drop-shadow(0 8px 32px rgba(112, 185, 23, 0.18));
+  position: relative; /* stay above .hero-glow */
+  z-index: 1;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+}
+
+.hero-title {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.45rem, 3vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #d4f0a0, #7cb922);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-tagline {
+  margin: 0;
+  font-size: 0.97rem;
+  line-height: 1.6;
+}
+
+/* ── CRA cards section ────────────────────────── */
+.cra-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1.1rem;
+}
+
+.cra-section-sub {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.cra-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+}
+
+/* Individual CRA card */
+.cra-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.4rem;
+}
+
+/* Coloured icon container */
+.cra-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cra-card-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Icon colour variants */
+.cra-icon-blue   { background: rgba(96, 165, 250, 0.12); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.2); }
+.cra-icon-purple { background: rgba(167, 139, 250, 0.12); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.2); }
+.cra-icon-green  { background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
+.cra-icon-amber  { background: rgba(251, 191, 36, 0.12); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
+.cra-icon-red    { background: rgba(251, 113, 133, 0.12); color: #fb7185; border: 1px solid rgba(251, 113, 133, 0.2); }
+.cra-icon-teal   { background: rgba(45, 212, 191, 0.12); color: #2dd4bf; border: 1px solid rgba(45, 212, 191, 0.2); }
+
+.cra-article-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted);
+}
+
+.cra-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cra-card-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  flex: 1; /* push the button to the bottom */
+}
+
+.cra-explore-btn {
+  margin-top: auto;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 0.48rem 1rem;
+}
+
+.cra-permission-note {
+  margin-top: auto;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 /* ── Overview row ────────────────────────────── */
@@ -859,6 +1182,10 @@ onMounted(() => {
 
 /* ── Responsive ──────────────────────────────── */
 @media (max-width: 1180px) {
+  .cra-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .overview-row {
     grid-template-columns: 1fr;
   }
@@ -875,6 +1202,21 @@ onMounted(() => {
   }
 }
 
+@media (max-width: 680px) {
+  .cra-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-logo {
+    width: 160px;
+    height: 160px;
+  }
+
+  .hero-banner {
+    padding: 2rem 1.25rem 2.5rem;
+  }
+}
+
 @media (max-width: 560px) {
   .compliance-inner {
     flex-direction: column;
@@ -884,6 +1226,7 @@ onMounted(() => {
 </style>
 
 <style>
+/* ── Light theme overrides ───────────────────── */
 :root[data-theme="light"] .feedback-error {
   border-color: rgba(239, 68, 68, 0.28);
   background: rgba(239, 68, 68, 0.08);
@@ -943,4 +1286,25 @@ onMounted(() => {
   border-color: rgba(28, 107, 39, 0.14);
   background: rgba(28, 107, 39, 0.02);
 }
+:root[data-theme="light"] .hero-banner {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(112, 185, 23, 0.08), transparent),
+    linear-gradient(175deg, rgba(245, 252, 240, 0.98), rgba(235, 248, 230, 0.95));
+  border-color: rgba(112, 185, 23, 0.2);
+}
+:root[data-theme="light"] .hero-title {
+  background: linear-gradient(135deg, #3d7c0a, #7cb922);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:root[data-theme="light"] .cra-article-badge {
+  background: rgba(20, 33, 15, 0.05);
+  border-color: rgba(20, 33, 15, 0.1);
+}
+:root[data-theme="light"] .cra-icon-blue   { background: rgba(59, 130, 246, 0.08); }
+:root[data-theme="light"] .cra-icon-purple { background: rgba(139, 92, 246, 0.08); }
+:root[data-theme="light"] .cra-icon-green  { background: rgba(16, 185, 129, 0.08); }
+:root[data-theme="light"] .cra-icon-amber  { background: rgba(217, 119, 6, 0.08); }
+:root[data-theme="light"] .cra-icon-red    { background: rgba(239, 68, 68, 0.08); }
+:root[data-theme="light"] .cra-icon-teal   { background: rgba(20, 184, 166, 0.08); }
 </style>
