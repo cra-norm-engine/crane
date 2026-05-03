@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.audit import AuditLogger
-from app.core.exceptions import ConflictException, NotFoundException
+from app.core.exceptions import AppException, ConflictException, NotFoundException
 from app.core.security import hash_password
 from app.models.enums import AuthProvider, AuditStatus, EntityType
 from app.models.user import User
@@ -48,6 +48,7 @@ class AdminUserService:
             full_name=full_name,
             hashed_password=hashed_password,
             is_active=True,
+            must_change_password=True,
         )
 
         if role_ids:
@@ -134,6 +135,37 @@ class AdminUserService:
             commit=True,
         )
 
+        return updated_user
+
+    def reset_user_password(
+        self,
+        *,
+        actor_user: User,
+        user_id: UUID,
+        new_password: str,
+    ) -> User:
+        user = self.user_repository.get_by_id(user_id)
+        if user is None:
+            raise NotFoundException("User not found")
+
+        if user.auth_provider != AuthProvider.local:
+            raise AppException("Password reset is not available for LDAP accounts", status_code=400)
+
+        hashed = hash_password(new_password)
+        updated_user = self.user_repository.set_password(user_id, hashed, must_change_password=True)
+
+        self.audit_logger.log_event(
+            actor_user_id=actor_user.id,
+            action_type="admin.user.password_reset",
+            entity_type=EntityType.user.value,
+            entity_id=user_id,
+            status=AuditStatus.success.value,
+            details_json={
+                "target_user_email": updated_user.email,
+                "target_user_full_name": updated_user.full_name,
+            },
+            commit=True,
+        )
         return updated_user
 
     def list_users(self) -> list[User]:

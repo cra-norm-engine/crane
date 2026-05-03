@@ -15,7 +15,15 @@ export async function fetchCurrentUser(accessToken: string): Promise<UserRead> {
   return data;
 }
 
+export async function changePasswordRequest(payload: {
+  current_password: string;
+  new_password: string;
+}): Promise<void> {
+  await apiClient.post("/auth/change-password", payload);
+}
+
 export const authService = {
   login: loginRequest,
   fetchCurrentUser,
+  changePassword: changePasswordRequest,
 };

@@ -159,6 +159,21 @@
           </span>
           <span>Substantial changes</span>
         </RouterLink>
+
+        <!-- Support Hub — customer support and lifecycle management tools -->
+        <RouterLink
+          v-if="canViewSupportHub"
+          :to="{ name: 'support-hub' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Headset / support icon -->
+            <svg viewBox="0 0 20 20"><path d="M10 2a7 7 0 0 0-7 7v1H2v3a2 2 0 0 0 2 2h1v-5H4V9a6 6 0 1 1 12 0v1h-1v5h1a2 2 0 0 0 2-2v-3h-1V9a7 7 0 0 0-7-7z" fill="currentColor"/></svg>
+          </span>
+          <span>Support Hub</span>
+        </RouterLink>
       </div>
 
       <div class="nav-divider" role="separator" />
@@ -248,6 +263,20 @@
         </div>
       </div>
 
+      <!-- Change password — local users only -->
+      <RouterLink
+        v-if="isLocalUser"
+        :to="{ name: 'change-password' }"
+        class="nav-link"
+        active-class="nav-link-active"
+        @click="handleNavClick"
+      >
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20"><path d="M10 2a4 4 0 0 0-4 4v2H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V6a4 4 0 0 0-4-4zm0 2a2 2 0 0 1 2 2v2H8V6a2 2 0 0 1 2-2zm0 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" fill="currentColor"/></svg>
+        </span>
+        <span>Change password</span>
+      </RouterLink>
+
       <!-- Logout button styled as a nav link for visual consistency -->
       <button
         class="nav-link nav-link-button"
@@ -310,6 +339,8 @@ const canViewCertificationRecords  = computed(() => authStore.hasPermission("cer
 const canViewChanges               = computed(() => authStore.hasPermission("change_read"));
 const canManageAdmin               = computed(() => authStore.hasPermission("admin_manage_users"));
 const canViewAudit                 = computed(() => authStore.hasPermission("audit_read"));
+const canViewSupportHub            = computed(() => authStore.hasPermission("lifecycle_notification_read"));
+const isLocalUser                  = computed(() => authStore.user?.auth_provider === "local");
 
 /* ── User display helpers ────────────────────────────── */
 
@@ -384,17 +415,11 @@ function logout(): void {
   top: 0;
   height: 100vh;
 
-  /* Allow nav to scroll if the window is very short */
-  overflow-y: auto;
-  scrollbar-width: none; /* hide scrollbar on Firefox */
+  /* Hide overflow on the shell itself — scrolling is on .sidebar-nav */
+  overflow: hidden;
   box-sizing: border-box;
 
   transition: background var(--t-base), border-color var(--t-base);
-}
-
-/* Hide the WebKit scrollbar track inside the sidebar */
-.sidebar::-webkit-scrollbar {
-  display: none;
 }
 
 /* ═══════════════════════════════════════════════
@@ -442,7 +467,13 @@ function logout(): void {
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: 0;       /* allows the nav to shrink when footer is pushed down */
+  min-height: 0;       /* required for overflow-y to work inside a flex child */
+  overflow-y: auto;    /* only the nav link area scrolls; brand and footer stay pinned */
+  scrollbar-width: none;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── Nav groups ────────────────────────────── */

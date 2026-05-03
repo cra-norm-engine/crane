@@ -20,7 +20,7 @@ from app.core.security import (
 from app.models.enums import AuthProvider, AuditActionType, AuditStatus, EntityType
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import LoginRequest, TokenRead
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenRead
 from app.services import ldap_service
 from app.services.ldap_service import LDAPConnectionError
 
@@ -216,6 +216,34 @@ class AuthService:
             access_token=new_access_token,
             refresh_token=new_refresh_token,
             token_type="bearer",
+        )
+
+    def change_password(
+        self,
+        *,
+        user: User,
+        payload: ChangePasswordRequest,
+    ) -> None:
+        if user.auth_provider != AuthProvider.local:
+            raise AppException("Password changes are not available for LDAP accounts", status_code=400)
+
+        if not verify_password(payload.current_password, user.hashed_password):
+            raise AppException("Current password is incorrect", status_code=400)
+
+        if payload.current_password == payload.new_password:
+            raise AppException("New password must differ from the current password", status_code=400)
+
+        new_hash = hash_password(payload.new_password)
+        self.user_repository.set_password(user.id, new_hash, must_change_password=False)
+
+        self.audit_logger.log_event(
+            actor_user_id=user.id,
+            action_type="auth.password_changed",
+            entity_type=EntityType.user.value,
+            entity_id=user.id,
+            status=AuditStatus.success.value,
+            details_json={"email": user.email},
+            commit=True,
         )
 
     def logout(

@@ -1,5 +1,6 @@
 import { apiClient } from "@/services/api";
 import type {
+  AdminPasswordReset,
   AdminUserCreate,
   AdminUserRead,
   AdminUserRoleUpdate,
@@ -45,6 +46,17 @@ export const adminService = {
   ): Promise<AdminUserRead> {
     const { data } = await apiClient.patch<AdminUserRead>(
       `/admin/users/${userId}/status`,
+      payload,
+    );
+    return data;
+  },
+
+  async resetUserPassword(
+    userId: string,
+    payload: AdminPasswordReset,
+  ): Promise<AdminUserRead> {
+    const { data } = await apiClient.post<AdminUserRead>(
+      `/admin/users/${userId}/reset-password`,
       payload,
     );
     return data;

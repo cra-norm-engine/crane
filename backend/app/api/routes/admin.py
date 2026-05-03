@@ -16,6 +16,7 @@ from app.schemas.admin_user import (
     AdminUserRoleUpdate,
     AdminUserStatusUpdate,
 )
+from app.schemas.auth import AdminPasswordResetRequest
 from app.schemas.permission import PermissionRead
 from app.schemas.role import RoleCreate, RolePermissionsUpdate, RoleRead, RoleUpdate
 from app.services.admin_user_service import AdminUserService
@@ -42,6 +43,7 @@ def list_users(
             roles=user.role_names,
             is_active=user.is_active,
             auth_provider=user.auth_provider,
+            must_change_password=user.must_change_password,
         )
         for user in users
     ]
@@ -69,6 +71,7 @@ def create_user(
         roles=user.role_names,
         is_active=user.is_active,
         auth_provider=user.auth_provider,
+        must_change_password=user.must_change_password,
     )
 
 
@@ -93,6 +96,32 @@ def update_user_roles(
         roles=user.role_names,
         is_active=user.is_active,
         auth_provider=user.auth_provider,
+        must_change_password=user.must_change_password,
+    )
+
+
+@router.post("/users/{user_id}/reset-password", response_model=AdminUserRead)
+def reset_user_password(
+    user_id: UUID,
+    payload: AdminPasswordResetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+):
+    user = AdminUserService(db).reset_user_password(
+        actor_user=current_user,
+        user_id=user_id,
+        new_password=payload.new_password,
+    )
+    return AdminUserRead(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        roles=user.role_names,
+        is_active=user.is_active,
+        auth_provider=user.auth_provider,
+        must_change_password=user.must_change_password,
     )
 
 
@@ -117,6 +146,7 @@ def update_user_status(
         roles=user.role_names,
         is_active=user.is_active,
         auth_provider=user.auth_provider,
+        must_change_password=user.must_change_password,
     )
 
 

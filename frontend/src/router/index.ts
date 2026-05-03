@@ -13,6 +13,8 @@ import LifecycleNotificationsView from "@/views/LifecycleNotificationsView.vue";
 import SecurityUpdateHistoryView from "@/views/SecurityUpdateHistoryView.vue";
 import ReleaseGateView from "@/views/ReleaseGateView.vue";
 import CertificationRecordsView from "@/views/CertificationRecordsView.vue";
+import SupportHubView from "@/views/SupportHubView.vue";
+import ChangePasswordView from "@/views/ChangePasswordView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -22,6 +24,11 @@ const routes: RouteRecordRaw[] = [
     name: "login",
     component: LoginView,
     meta: { public: true },
+  },
+  {
+    path: "/change-password",
+    name: "change-password",
+    component: ChangePasswordView,
   },
   {
     path: "/",
@@ -99,6 +106,14 @@ const routes: RouteRecordRaw[] = [
         component: CertificationRecordsView,
         meta: {
           permissions: ["certification_record_read"],
+        },
+      },
+      {
+        path: "support-hub",
+        name: "support-hub",
+        component: SupportHubView,
+        meta: {
+          permissions: ["lifecycle_notification_read"],
         },
       },
       {
@@ -183,6 +198,11 @@ router.beforeEach(async (to) => {
 
   if (!authStore.isAuthenticated) {
     return { name: "login", query: { redirect: to.fullPath } };
+  }
+
+  // Force local users with a temporary password to change it before proceeding.
+  if (authStore.user?.must_change_password && to.name !== "change-password") {
+    return { name: "change-password" };
   }
 
   if (to.meta.permissions) {

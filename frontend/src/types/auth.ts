@@ -16,4 +16,6 @@ export interface UserRead {
   is_active: boolean;
   roles: string[];
   permissions: string[];
+  auth_provider: string;
+  must_change_password: boolean;
 }

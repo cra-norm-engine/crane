@@ -35,97 +35,6 @@
     <div v-if="errorMessage" class="card feedback feedback-error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="card feedback feedback-success">{{ successMessage }}</div>
 
-    <!-- ── Add record form ── -->
-    <section v-if="canWrite" class="card form-card">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">Add certification record</h2>
-          <p class="muted section-subtitle">Record a new certificate or pending third-party assessment.</p>
-        </div>
-      </div>
-
-      <form class="form-grid" @submit.prevent="createRecord">
-        <label class="field">
-          <span class="field-label">Product *</span>
-          <select v-model="form.product_id" required>
-            <option value="">Select a product</option>
-            <option v-for="p in products" :key="p.id" :value="p.id">
-              {{ p.name }} ({{ p.product_code }}) — {{ p.current_classification }}
-            </option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="field-label">Certification scheme *</span>
-          <select v-model="form.certification_scheme" required>
-            <option value="">Select a scheme</option>
-            <option v-for="(label, value) in SCHEME_LABELS" :key="value" :value="value">{{ label }}</option>
-          </select>
-        </label>
-
-        <label v-if="form.certification_scheme === 'other'" class="field field-span-2">
-          <span class="field-label">Scheme name *</span>
-          <input
-            v-model.trim="form.certification_scheme_label"
-            type="text"
-            required
-            placeholder="e.g. ISO/SAE 21434, NIST CSF, SESIP…"
-          />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Certification body *</span>
-          <input v-model.trim="form.certification_body_name" type="text" required
-            placeholder="e.g. TÜV Rheinland, BSI, SGS" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Certificate number</span>
-          <input v-model.trim="form.certificate_number" type="text" placeholder="e.g. CC-2025-12345" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Status *</span>
-          <select v-model="form.status" required>
-            <option v-for="(label, value) in STATUS_LABELS" :key="value" :value="value">{{ label }}</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="field-label">Issued date</span>
-          <input v-model="form.issued_date" type="date" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Valid until</span>
-          <input v-model="form.valid_until_date" type="date" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Recertification required by</span>
-          <input v-model="form.recertification_required_by" type="date" />
-        </label>
-
-        <label class="field field-span-2">
-          <span class="field-label">Scope description *</span>
-          <textarea v-model.trim="form.scope_description" rows="3" required
-            placeholder="Describe what is covered — product version, features, deployment model…" />
-        </label>
-
-        <label class="field field-span-2">
-          <span class="field-label">Notes</span>
-          <textarea v-model.trim="form.notes" rows="2"
-            placeholder="Conditions, surveillance audits, limitations…" />
-        </label>
-
-        <div class="field-span-2 form-actions">
-          <button class="btn btn-primary" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? "Saving…" : "Add record" }}
-          </button>
-        </div>
-      </form>
-    </section>
-
     <!-- ── Records table ── -->
     <section class="card">
       <div class="section-header">
@@ -136,12 +45,15 @@
             click a row to view details
           </p>
         </div>
+        <button v-if="canWrite" class="btn btn-primary" type="button" @click="openCreateModal">
+          Add record
+        </button>
       </div>
 
       <div v-if="isLoading" class="empty-panel muted">Loading…</div>
 
       <div v-else-if="filteredRecords.length === 0" class="empty-panel muted">
-        No certification records found.{{ canWrite ? " Add one above." : "" }}
+        No certification records found.<span v-if="canWrite"> Use the Add record button to create one.</span>
       </div>
 
       <div v-else class="table-wrapper">
@@ -292,6 +204,120 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- ── Create record modal ── -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showCreateModal"
+        class="modal-backdrop"
+        @click.self="closeCreateModal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add certification record"
+      >
+        <div class="detail-modal">
+          <!-- Modal header -->
+          <div class="detail-header">
+            <div class="detail-header-left">
+              <h2 class="detail-title">Add certification record</h2>
+              <p class="detail-body-name muted">Record a new certificate or pending third-party assessment.</p>
+            </div>
+            <button class="btn btn-icon btn-close" type="button" @click="closeCreateModal" aria-label="Close">✕</button>
+          </div>
+
+          <!-- Modal body -->
+          <div class="detail-body">
+            <form id="create-cert-form" class="form-grid" @submit.prevent="createRecord">
+              <label class="field">
+                <span class="field-label">Product *</span>
+                <select v-model="form.product_id" required>
+                  <option value="">Select a product</option>
+                  <option v-for="p in products" :key="p.id" :value="p.id">
+                    {{ p.name }} ({{ p.product_code }}) — {{ p.current_classification }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Certification scheme *</span>
+                <select v-model="form.certification_scheme" required>
+                  <option value="">Select a scheme</option>
+                  <option v-for="(label, value) in SCHEME_LABELS" :key="value" :value="value">{{ label }}</option>
+                </select>
+              </label>
+
+              <label v-if="form.certification_scheme === 'other'" class="field field-span-2">
+                <span class="field-label">Scheme name *</span>
+                <input
+                  v-model.trim="form.certification_scheme_label"
+                  type="text"
+                  required
+                  placeholder="e.g. ISO/SAE 21434, NIST CSF, SESIP…"
+                />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Certification body *</span>
+                <input v-model.trim="form.certification_body_name" type="text" required
+                  placeholder="e.g. TÜV Rheinland, BSI, SGS" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Certificate number</span>
+                <input v-model.trim="form.certificate_number" type="text" placeholder="e.g. CC-2025-12345" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Status *</span>
+                <select v-model="form.status" required>
+                  <option v-for="(label, value) in STATUS_LABELS" :key="value" :value="value">{{ label }}</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Issued date</span>
+                <input v-model="form.issued_date" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Valid until</span>
+                <input v-model="form.valid_until_date" type="date" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Recertification required by</span>
+                <input v-model="form.recertification_required_by" type="date" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Scope description *</span>
+                <textarea v-model.trim="form.scope_description" rows="3" required
+                  placeholder="Describe what is covered — product version, features, deployment model…" />
+              </label>
+
+              <label class="field field-span-2">
+                <span class="field-label">Notes</span>
+                <textarea v-model.trim="form.notes" rows="2"
+                  placeholder="Conditions, surveillance audits, limitations…" />
+              </label>
+            </form>
+          </div>
+
+          <!-- Modal footer -->
+          <div class="detail-footer">
+            <div class="footer-actions"></div>
+            <div class="footer-actions">
+              <button class="btn btn-secondary" type="button" @click="closeCreateModal">Cancel</button>
+              <button class="btn btn-primary" type="submit" form="create-cert-form" :disabled="isSubmitting">
+                {{ isSubmitting ? "Saving…" : "Add record" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -316,6 +342,7 @@ const isSubmitting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const detailRec = ref<CertificationRecord | null>(null);
+const showCreateModal = ref(false);
 
 const selectedProductId = ref("");
 const selectedStatus = ref<CertificationStatus | "">("");
@@ -376,6 +403,16 @@ function closeDetail() {
   document.body.style.overflow = "";
 }
 
+function openCreateModal() {
+  showCreateModal.value = true;
+  document.body.style.overflow = "hidden";
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false;
+  document.body.style.overflow = "";
+}
+
 async function loadRecords() {
   isLoading.value = true;
   clearMessages();
@@ -417,6 +454,7 @@ async function createRecord() {
     const created = await certificationRecordService.create(payload);
     records.value.unshift(created);
     successMessage.value = "Certification record added.";
+    closeCreateModal();
     Object.assign(form, {
       product_id: "", certification_scheme: "", certification_scheme_label: "",
       certification_body_name: "", certificate_number: "", scope_description: "",

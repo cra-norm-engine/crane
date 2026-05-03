@@ -7,6 +7,11 @@ export interface AdminUserRead {
   roles: string[];
   is_active: boolean;
   auth_provider: AuthProvider;
+  must_change_password: boolean;
+}
+
+export interface AdminPasswordReset {
+  new_password: string;
 }
 
 export interface LDAPStatusResult {

@@ -143,6 +143,7 @@
               <th>Auth</th>
               <th>Update roles</th>
               <th>Account</th>
+              <th>Password</th>
             </tr>
           </thead>
           <tbody>
@@ -167,6 +168,9 @@
               <td>
                 <span class="badge" :class="user.is_active ? 'badge-success' : 'badge-danger'">
                   {{ user.is_active ? "Active" : "Inactive" }}
+                </span>
+                <span v-if="user.must_change_password && user.auth_provider === 'local'" class="badge badge-warning" title="Must change password on next login">
+                  Temp pwd
                 </span>
               </td>
               <td>
@@ -212,12 +216,83 @@
                   }}
                 </button>
               </td>
+              <td>
+                <button
+                  v-if="user.auth_provider === 'local'"
+                  class="button secondary"
+                  type="button"
+                  @click="openResetPassword(user)"
+                >
+                  Reset password
+                </button>
+                <span v-else class="muted" style="font-size: 0.82rem;">LDAP managed</span>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
   </section>
+
+  <!-- ── Reset password modal ── -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="resetTarget"
+        class="modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Reset user password"
+        @click.self="closeResetPassword"
+      >
+        <div class="reset-modal">
+          <div class="reset-modal-header">
+            <div>
+              <h2 class="reset-modal-title">Reset password</h2>
+              <p class="muted" style="margin: 0.2rem 0 0; font-size: 0.88rem;">
+                {{ resetTarget.full_name }} ({{ resetTarget.email }})
+              </p>
+            </div>
+            <button class="button secondary icon-btn" type="button" @click="closeResetPassword" aria-label="Close">✕</button>
+          </div>
+
+          <form class="reset-modal-body" @submit.prevent="submitResetPassword">
+            <p class="muted" style="margin: 0; font-size: 0.9rem;">
+              Set a new temporary password. The user will be required to change it on their next login.
+            </p>
+
+            <label class="field">
+              <span class="field-label">New temporary password</span>
+              <input
+                v-model="resetPassword"
+                class="input"
+                type="password"
+                required
+                minlength="8"
+                maxlength="255"
+                autocomplete="new-password"
+              />
+            </label>
+
+            <p v-if="resetError" class="form-error">{{ resetError }}</p>
+          </form>
+
+          <div class="reset-modal-footer">
+            <button class="button secondary" type="button" @click="closeResetPassword">Cancel</button>
+            <button
+              class="button"
+              type="submit"
+              form="reset-pwd-form"
+              :disabled="isResetting"
+              @click.prevent="submitResetPassword"
+            >
+              {{ isResetting ? "Saving..." : "Set password" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -242,6 +317,11 @@ const showCreateForm = ref(false);
 const roleSavingUserIds = ref<string[]>([]);
 const statusSavingUserIds = ref<string[]>([]);
 const selectedRoleIdsByUser = ref<Record<string, string[]>>({});
+
+const resetTarget   = ref<AdminUserRead | null>(null);
+const resetPassword = ref("");
+const resetError    = ref("");
+const isResetting   = ref(false);
 
 const form = reactive<AdminUserCreate>({
   email: "",
@@ -398,6 +478,38 @@ async function toggleUserStatus(user: AdminUserRead): Promise<void> {
       error instanceof Error ? error.message : "Failed to update user status.";
   } finally {
     statusSavingUserIds.value = statusSavingUserIds.value.filter((id) => id !== user.id);
+  }
+}
+
+function openResetPassword(user: AdminUserRead): void {
+  resetTarget.value   = user;
+  resetPassword.value = "";
+  resetError.value    = "";
+  document.body.style.overflow = "hidden";
+}
+
+function closeResetPassword(): void {
+  resetTarget.value = null;
+  resetPassword.value = "";
+  resetError.value = "";
+  document.body.style.overflow = "";
+}
+
+async function submitResetPassword(): Promise<void> {
+  if (!resetTarget.value) return;
+  resetError.value = "";
+  isResetting.value = true;
+
+  try {
+    await adminService.resetUserPassword(resetTarget.value.id, {
+      new_password: resetPassword.value,
+    });
+    closeResetPassword();
+    await loadData();
+  } catch (error) {
+    resetError.value = error instanceof Error ? error.message : "Failed to reset password.";
+  } finally {
+    isResetting.value = false;
   }
 }
 
@@ -574,6 +686,84 @@ onMounted(() => {
   color: #7dd3fc;
 }
 
+.badge-warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+}
+
+/* ── Reset password modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-modal-backdrop);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(6px);
+}
+
+.reset-modal {
+  background: var(--color-modal-bg);
+  border: 1px solid var(--color-modal-border);
+  border-radius: 1.2rem;
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.reset-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-modal-header-border);
+}
+
+.reset-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.reset-modal-body {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reset-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-modal-header-border);
+}
+
+.icon-btn {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.modal-enter-active,
+.modal-leave-active { transition: opacity 0.18s ease; }
+.modal-enter-active .reset-modal,
+.modal-leave-active .reset-modal { transition: transform 0.18s ease, opacity 0.18s ease; }
+.modal-enter-from,
+.modal-leave-to { opacity: 0; }
+.modal-enter-from .reset-modal,
+.modal-leave-to .reset-modal { transform: translateY(12px) scale(0.98); opacity: 0; }
+
 @media (max-width: 900px) {
   .stats-grid,
   .form-grid,
@@ -588,8 +778,10 @@ onMounted(() => {
 </style>
 
 <style>
-:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);  color: #475569; }
-:root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);  color: #15803d; }
-:root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);  color: #be123c; }
-:root[data-theme="light"] .badge-info    { background: rgba(2,132,199,0.1);   color: #0369a1; }
+:root[data-theme="light"] .badge-neutral  { background: rgba(71,85,105,0.1);   color: #475569; }
+:root[data-theme="light"] .badge-success  { background: rgba(21,128,61,0.1);   color: #15803d; }
+:root[data-theme="light"] .badge-danger   { background: rgba(239,68,68,0.1);   color: #be123c; }
+:root[data-theme="light"] .badge-info     { background: rgba(2,132,199,0.1);   color: #0369a1; }
+:root[data-theme="light"] .badge-warning  { background: rgba(180,130,0,0.1);   color: #92400e; }
+:root[data-theme="light"] .reset-modal    { background: var(--color-modal-bg); }
 </style>

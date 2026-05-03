@@ -54,6 +54,8 @@ def seed_initial_data(db: Session) -> None:
             full_name="Admin",
             hashed_password=hash_password("admin1234"),
             is_active=True,
+            # Force password change on first login — default password is known.
+            must_change_password=True,
         )
         db.add(admin_user)
         db.commit()

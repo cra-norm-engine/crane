@@ -29,3 +29,4 @@ class AdminUserRead(ORMBaseModel):
     roles: list[str]
     is_active: bool
     auth_provider: str
+    must_change_password: bool

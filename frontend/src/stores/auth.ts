@@ -10,6 +10,8 @@ interface AuthUser {
   roles: string[];
   permissions: string[];
   is_active: boolean;
+  auth_provider: string;
+  must_change_password: boolean;
 }
 
 interface AuthState {
@@ -95,6 +97,15 @@ export const useAuthStore = defineStore("auth", () => {
     clearAuthState();
   }
 
+  function updateUser(patch: Partial<AuthUser>): void {
+    if (!user.value) return;
+    user.value = { ...user.value, ...patch };
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ accessToken: accessToken.value, refreshToken: refreshToken.value, user: user.value }),
+    );
+  }
+
   return {
     accessToken,
     refreshToken,
@@ -113,6 +124,7 @@ export const useAuthStore = defineStore("auth", () => {
     initializeFromStorage,
     login,
     logout,
+    updateUser,
     setAuthState,
     clearAuthState,
   };

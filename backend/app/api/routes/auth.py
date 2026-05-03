@@ -7,7 +7,13 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.permissions import get_permissions_from_user
 from app.models.user import User
-from app.schemas.auth import CurrentUserRead, LoginRequest, RefreshTokenRequest, TokenRead
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    CurrentUserRead,
+    LoginRequest,
+    RefreshTokenRequest,
+    TokenRead,
+)
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -63,4 +69,15 @@ def me(current_user: User = Depends(get_current_user)) -> CurrentUserRead:
         roles=current_user.role_names,
         permissions=permissions,
         is_active=current_user.is_active,
+        auth_provider=current_user.auth_provider,
+        must_change_password=current_user.must_change_password,
     )
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    AuthService(db).change_password(user=current_user, payload=payload)

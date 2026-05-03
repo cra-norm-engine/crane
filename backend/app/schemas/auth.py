@@ -25,3 +25,15 @@ class CurrentUserRead(BaseModel):
     roles: list[str]
     permissions: list[str]
     is_active: bool
+    auth_provider: str
+    must_change_password: bool
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=255)
+    new_password: str = Field(min_length=8, max_length=255)
+
+
+class AdminPasswordResetRequest(BaseModel):
+    """Admin sets a new temporary password for a local user."""
+    new_password: str = Field(min_length=8, max_length=255)

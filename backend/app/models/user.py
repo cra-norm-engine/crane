@@ -41,6 +41,9 @@ class User(UUIDTimestampMixin, Base):
     auth_provider: Mapped[str] = mapped_column(
         String(20), nullable=False, default=AuthProvider.local, index=True
     )
+    # True for local users who have not yet changed their initial password.
+    # Always False for LDAP users (they authenticate externally).
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     roles: Mapped[List["UserRole"]] = relationship(
         back_populates="user",

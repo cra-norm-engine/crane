@@ -74,6 +74,7 @@ class UserRepository(BaseRepository[User]):
         hashed_password: str,
         is_active: bool = True,
         auth_provider: str = "local",
+        must_change_password: bool = False,
     ) -> User:
         user = User(
             email=email,
@@ -81,6 +82,7 @@ class UserRepository(BaseRepository[User]):
             hashed_password=hashed_password,
             is_active=is_active,
             auth_provider=auth_provider,
+            must_change_password=must_change_password,
         )
         self.db.add(user)
         self.db.flush()
@@ -104,6 +106,23 @@ class UserRepository(BaseRepository[User]):
         if user is None:
             raise ValueError("User not found")
         return user
+
+    def set_password(
+        self,
+        user_id: UUID,
+        hashed_password: str,
+        must_change_password: bool = False,
+    ) -> User:
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise ValueError("User not found")
+        user.hashed_password = hashed_password
+        user.must_change_password = must_change_password
+        self.db.flush()
+        refreshed = self.get_by_id(user_id)
+        if refreshed is None:
+            raise ValueError("User not found")
+        return refreshed
 
     def set_user_active(self, user_id: UUID, is_active: bool) -> User:
         user = self.get_by_id(user_id)

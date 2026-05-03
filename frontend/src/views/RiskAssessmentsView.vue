@@ -121,7 +121,7 @@
       <div v-if="loading" class="loading-state">Loading risk assessments...</div>
 
       <div v-else-if="assessments.length === 0" class="empty-state">
-        No risk assessments found. Apply a product or release filter, or create a new assessment.
+        No risk assessments found. Create a new assessment to get started.
       </div>
 
       <div v-else class="table-wrapper">
@@ -235,9 +235,10 @@ function formatDate(value: string | null): string {
 }
 
 function getProductLabel(product: ProductSummaryRead): string {
-  return "name" in product && product.name
-    ? `${product.name} (${product.id})`
-    : product.id;
+  if (!("name" in product) || !product.name) return product.product_code;
+  return product.product_code
+    ? `${product.name} (${product.product_code})`
+    : product.name;
 }
 
 function getProductName(productId: string): string {
@@ -297,12 +298,6 @@ async function loadAssessments(): Promise<void> {
     const productId = filters.productId.trim();
     const productReleaseId = filters.productReleaseId.trim();
 
-    if (!productId && !productReleaseId) {
-      assessments.value = [];
-      errorMessage.value = "Provide a product or release to load assessments.";
-      return;
-    }
-
     assessments.value = await riskAssessmentService.list({
       product_id: productId || undefined,
       product_release_id: productReleaseId || undefined,
@@ -332,7 +327,7 @@ async function createAssessment(): Promise<void> {
       owner_user_id: createForm.owner_user_id.trim(),
     };
 
-    const created = await riskAssessmentService.create(payload);
+    await riskAssessmentService.create(payload);
 
     successMessage.value = "Risk assessment created successfully.";
     openCreateForm.value = false;
@@ -348,11 +343,7 @@ async function createAssessment(): Promise<void> {
     createForm.summary = "";
     createForm.owner_user_id = authStore.user?.id ?? "";
 
-    if (filters.productId.trim() || filters.productReleaseId.trim()) {
-      await loadAssessments();
-    } else {
-      assessments.value = [created, ...assessments.value];
-    }
+    await loadAssessments();
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to create risk assessment.";
   } finally {
@@ -364,9 +355,9 @@ function resetFilters(): void {
   filters.productId = "";
   filters.productReleaseId = "";
   filterReleases.value = [];
-  assessments.value = [];
   errorMessage.value = "";
   successMessage.value = "";
+  void loadAssessments();
 }
 
 function goToDetail(assessmentId: string): void {
@@ -378,8 +369,8 @@ function goToDetail(assessmentId: string): void {
 
 onMounted(async () => {
   createForm.owner_user_id = authStore.user?.id ?? "";
-  assessments.value = [];
   await loadProducts();
+  void loadAssessments();
 });
 
 watch(

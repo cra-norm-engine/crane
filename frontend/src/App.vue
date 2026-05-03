@@ -1,16 +1,7 @@
 <template>
-  <!--
-    App.vue — root component.
-
-    Wraps every route in a <Transition> so navigation between pages
-    feels smooth.  The "page" transition name maps to the
-    .page-enter-* / .page-leave-* keyframes defined in styles.css.
-
-    mode="out-in" ensures the leaving page finishes its exit before
-    the entering page starts, preventing a visual overlap flash.
-  -->
+  <!-- App.vue — root component. The "page" transition maps to .page-enter-* / .page-leave-* in styles.css. -->
   <RouterView v-slot="{ Component }">
-    <Transition name="page" mode="out-in">
+    <Transition name="page">
       <component :is="Component" />
     </Transition>
   </RouterView>
