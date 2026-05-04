@@ -18,7 +18,11 @@ from app.api.routes.risk_items import router as risk_items_router
 from app.api.routes.security_updates import router as security_updates_router
 from app.api.routes.certification_records import router as certification_records_router
 from app.api.routes.changes import router as changes_router
+from app.api.routes.cvd_policies import router as cvd_policies_router
+from app.api.routes.sbom_records import router as sbom_records_router
+from app.api.routes.security_advisories import router as security_advisories_router
 from app.api.routes.support_periods import router as support_periods_router
+from app.api.routes.vulnerability_reports import router as vulnerability_reports_router
 
 api_router = APIRouter()
 
@@ -87,6 +91,26 @@ api_router.include_router(
     changes_router,
     prefix="/changes",
     tags=["changes"],
+)
+api_router.include_router(
+    cvd_policies_router,
+    prefix="/cvd-policies",
+    tags=["cvd-policies"],
+)
+api_router.include_router(
+    security_advisories_router,
+    prefix="/security-advisories",
+    tags=["security-advisories"],
+)
+api_router.include_router(
+    vulnerability_reports_router,
+    prefix="/vulnerability-reports",
+    tags=["vulnerability-reports"],
+)
+api_router.include_router(
+    sbom_records_router,
+    prefix="/sbom-records",
+    tags=["sbom-records"],
 )
 
 api_router.include_router(admin_router)

@@ -130,6 +130,40 @@ class VulnerabilityStatus(StrEnum):
     accepted_risk = "accepted_risk"
 
 
+# Gap 6 — Annex I Part II §2/§5: full lifecycle from first report to retirement.
+class VulnerabilityLifecycleStatus(StrEnum):
+    reported = "reported"
+    triaged = "triaged"
+    fix_in_progress = "fix_in_progress"
+    fixed = "fixed"
+    embargo = "embargo"
+    disclosed = "disclosed"
+    retired = "retired"
+
+
+# Gap 2 — CVD policy publication state.
+class CvdPolicyStatus(StrEnum):
+    draft = "draft"
+    active = "active"
+    archived = "archived"
+
+
+# Gap 3 — Security advisory publication state (includes embargo phase, Gap 7).
+class AdvisoryStatus(StrEnum):
+    draft = "draft"
+    embargo = "embargo"
+    published = "published"
+    archived = "archived"
+
+
+# Gap 10 — Machine-readable SBOM format (Annex I Part II §1).
+class SbomFormat(StrEnum):
+    cyclonedx = "cyclonedx"
+    spdx = "spdx"
+    swid = "swid"
+    other = "other"
+
+
 class ProductClassification(StrEnum):
     normal = "normal"
     important_class_1 = "important_class_1"
@@ -289,3 +323,7 @@ class EntityType(StrEnum):
     change = "change"
     substantial_modification_assessment = "substantial_modification_assessment"
     change_compliance_action = "change_compliance_action"
+    cvd_policy = "cvd_policy"
+    security_advisory = "security_advisory"
+    vulnerability_report = "vulnerability_report"
+    sbom_record = "sbom_record"

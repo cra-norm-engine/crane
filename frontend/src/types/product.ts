@@ -26,6 +26,10 @@ export interface ProductSummaryRead {
   is_pre_cra: boolean;
   /** Gap 4 — earliest known EU market placement date for this product line. */
   first_placed_on_market_date: string | null;
+  /** Gap 4 — Annex I Part II §6: vulnerability reporting contact email. */
+  security_contact_email: string | null;
+  /** Gap 4 — Annex I Part II §6: URL of the security contact or security.txt. */
+  security_contact_url: string | null;
 }
 
 export interface ProductHierarchyNode {
@@ -66,6 +70,11 @@ export interface ProductReleaseSummaryRead {
 
   /** Gap 5 — Art. 13(10): this release provides consolidated security coverage for all prior versions. */
   is_consolidated_support_version: boolean;
+
+  /** Gap 1 — CRA Art. 13(2): true if the release contains known exploitable vulnerabilities. */
+  has_known_exploitable_vulnerabilities: boolean;
+  /** Gap 1 — Free-text description of any known exploitable vulnerabilities. */
+  kev_notes: string | null;
 
   created_at: string;
   updated_at: string;
@@ -303,6 +312,18 @@ export interface SecurityUpdateRead {
   distribution_mechanism: DistributionMechanism;
   available_until: string | null;
   released_at: string | null;
+  /** Gap 5 — numeric CVSS score (0.0–10.0). */
+  cvss_score: number | null;
+  /** Gap 5 — CVSS vector string, e.g. "CVSS:3.1/AV:N/AC:L/...". */
+  cvss_vector: string | null;
+  /** Gap 5 — external CVE database links (NVD, MITRE, vendor advisories). */
+  cve_links_json: string[];
+  /** Gap 8 — date the vulnerability was discovered, anchoring the remediation SLA. */
+  vulnerability_discovered_at: string | null;
+  /** Gap 8 — deadline for fix delivery ("without delay", CRA Annex I Part II §2). */
+  remediation_deadline: string | null;
+  /** Gap 9 — Annex I Part II §8: security updates must be free of charge. */
+  is_free_of_charge: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -320,6 +341,12 @@ export interface SecurityUpdateCreate {
   distribution_mechanism: DistributionMechanism;
   available_until?: string | null;
   released_at?: string | null;
+  cvss_score?: number | null;
+  cvss_vector?: string | null;
+  cve_links_json?: string[];
+  vulnerability_discovered_at?: string | null;
+  remediation_deadline?: string | null;
+  is_free_of_charge?: boolean;
 }
 
 export interface SecurityUpdateUpdate {
@@ -334,6 +361,203 @@ export interface SecurityUpdateUpdate {
   distribution_mechanism?: DistributionMechanism;
   available_until?: string | null;
   released_at?: string | null;
+  cvss_score?: number | null;
+  cvss_vector?: string | null;
+  cve_links_json?: string[];
+  vulnerability_discovered_at?: string | null;
+  remediation_deadline?: string | null;
+  is_free_of_charge?: boolean | null;
+}
+
+// ── Gap 2: CVD Policy ──────────────────────────────────────────────────────
+export type CvdPolicyStatus = "draft" | "active" | "archived";
+
+export interface CvdPolicyRead {
+  id: string;
+  product_id: string;
+  status: CvdPolicyStatus;
+  policy_url: string | null;
+  disclosure_window_days: number;
+  contact_email: string | null;
+  policy_text: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CvdPolicyCreate {
+  product_id: string;
+  status?: CvdPolicyStatus;
+  policy_url?: string | null;
+  disclosure_window_days?: number;
+  contact_email?: string | null;
+  policy_text?: string | null;
+}
+
+export interface CvdPolicyUpdate {
+  status?: CvdPolicyStatus;
+  policy_url?: string | null;
+  disclosure_window_days?: number;
+  contact_email?: string | null;
+  policy_text?: string | null;
+}
+
+// ── Gaps 3 & 7: Security Advisory ─────────────────────────────────────────
+export type AdvisoryStatus = "draft" | "embargo" | "published" | "archived";
+
+export interface SecurityAdvisoryRead {
+  id: string;
+  product_release_id: string;
+  advisory_id: string;
+  title: string;
+  summary: string | null;
+  severity: SecurityUpdateSeverity | null;
+  status: AdvisoryStatus;
+  cve_ids_json: string[];
+  affected_versions_json: string[] | Record<string, unknown>;
+  fixed_in_versions_json: string[];
+  workaround: string | null;
+  remediation_steps: string | null;
+  embargo_until: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecurityAdvisoryCreate {
+  product_release_id: string;
+  advisory_id: string;
+  title: string;
+  summary?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  status?: AdvisoryStatus;
+  cve_ids_json?: string[];
+  affected_versions_json?: string[] | Record<string, unknown>;
+  fixed_in_versions_json?: string[];
+  workaround?: string | null;
+  remediation_steps?: string | null;
+  embargo_until?: string | null;
+  published_at?: string | null;
+}
+
+export interface SecurityAdvisoryUpdate {
+  title?: string;
+  summary?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  status?: AdvisoryStatus;
+  cve_ids_json?: string[];
+  affected_versions_json?: string[] | Record<string, unknown>;
+  fixed_in_versions_json?: string[];
+  workaround?: string | null;
+  remediation_steps?: string | null;
+  embargo_until?: string | null;
+  published_at?: string | null;
+}
+
+// ── Gap 6: Vulnerability Report lifecycle ─────────────────────────────────
+export type VulnerabilityLifecycleStatus =
+  | "reported"
+  | "triaged"
+  | "fix_in_progress"
+  | "fixed"
+  | "embargo"
+  | "disclosed"
+  | "retired";
+
+export interface VulnerabilityReportRead {
+  id: string;
+  product_release_id: string;
+  title: string;
+  description: string | null;
+  reporter_name: string | null;
+  reporter_email: string | null;
+  status: VulnerabilityLifecycleStatus;
+  severity: SecurityUpdateSeverity | null;
+  cve_ids_json: string[];
+  discovered_at: string | null;
+  remediation_deadline: string | null;
+  fixed_at: string | null;
+  disclosed_at: string | null;
+  linked_security_update_id: string | null;
+  linked_advisory_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VulnerabilityReportCreate {
+  product_release_id: string;
+  title: string;
+  description?: string | null;
+  reporter_name?: string | null;
+  reporter_email?: string | null;
+  status?: VulnerabilityLifecycleStatus;
+  severity?: SecurityUpdateSeverity | null;
+  cve_ids_json?: string[];
+  discovered_at?: string | null;
+  remediation_deadline?: string | null;
+  fixed_at?: string | null;
+  disclosed_at?: string | null;
+  linked_security_update_id?: string | null;
+  linked_advisory_id?: string | null;
+}
+
+export interface VulnerabilityReportUpdate {
+  title?: string;
+  description?: string | null;
+  reporter_name?: string | null;
+  reporter_email?: string | null;
+  status?: VulnerabilityLifecycleStatus;
+  severity?: SecurityUpdateSeverity | null;
+  cve_ids_json?: string[];
+  discovered_at?: string | null;
+  remediation_deadline?: string | null;
+  fixed_at?: string | null;
+  disclosed_at?: string | null;
+  linked_security_update_id?: string | null;
+  linked_advisory_id?: string | null;
+}
+
+// ── Gap 10: SBOM Record ────────────────────────────────────────────────────
+export type SbomFormat = "cyclonedx" | "spdx" | "swid" | "other";
+
+export interface SbomRecordRead {
+  id: string;
+  product_release_id: string;
+  format: SbomFormat;
+  spec_version: string | null;
+  components_json: Record<string, unknown>[];
+  component_count: number | null;
+  file_name: string | null;
+  tool_name: string | null;
+  tool_version: string | null;
+  generated_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SbomRecordCreate {
+  product_release_id: string;
+  format?: SbomFormat;
+  spec_version?: string | null;
+  components_json?: Record<string, unknown>[];
+  component_count?: number | null;
+  file_name?: string | null;
+  tool_name?: string | null;
+  tool_version?: string | null;
+  generated_at?: string | null;
+  notes?: string | null;
+}
+
+export interface SbomRecordUpdate {
+  format?: SbomFormat;
+  spec_version?: string | null;
+  components_json?: Record<string, unknown>[];
+  component_count?: number | null;
+  file_name?: string | null;
+  tool_name?: string | null;
+  tool_version?: string | null;
+  generated_at?: string | null;
+  notes?: string | null;
 }
 
 export interface LifecycleNotificationRead {

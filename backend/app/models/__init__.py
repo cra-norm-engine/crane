@@ -3,6 +3,7 @@ from app.models.change import Change, ChangeComplianceAction, SubstantialModific
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
+from app.models.cvd_policy import CvdPolicy
 from app.models.evidence_item import EvidenceItem
 from app.models.lifecycle_notification import LifecycleNotification
 from app.models.permission import Permission
@@ -22,9 +23,12 @@ from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, Releas
 from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
 from app.models.role_permission import RolePermission
+from app.models.sbom_record import SbomRecord
+from app.models.security_advisory import SecurityAdvisory
 from app.models.security_update import SecurityUpdate
 from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.user import Role, User, UserRole
+from app.models.vulnerability_report import VulnerabilityReport
 
 __all__ = [
     "AnnexRequirement",
@@ -36,6 +40,7 @@ __all__ = [
     "ArtifactRevision",
     "AuditLogEvent",
     "CertificationRecord",
+    "CvdPolicy",
     "EvidenceItem",
     "LifecycleNotification",
     "Permission",
@@ -53,10 +58,13 @@ __all__ = [
     "RiskAssessment",
     "RiskItem",
     "RolePermission",
+    "SbomRecord",
+    "SecurityAdvisory",
     "SecurityUpdate",
     "SupportPeriodRecord",
     "SupportPeriodNotificationRecipient",
     "Role",
     "User",
     "UserRole",
+    "VulnerabilityReport",
 ]

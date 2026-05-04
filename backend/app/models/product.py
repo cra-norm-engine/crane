@@ -41,6 +41,12 @@ class Product(UUIDTimestampMixin, Base):
     # Essential for pre-CRA products to anchor the transition period calculation.
     first_placed_on_market_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Gap 4 — Annex I Part II §6: manufacturer must provide a contact address for
+    # vulnerability disclosure. security_contact_email is the primary contact;
+    # security_contact_url can point to a security.txt or bug-bounty programme.
+    security_contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    security_contact_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
     parent_product: Mapped["Product | None"] = relationship(
         "Product",
         remote_side="Product.id",
@@ -93,6 +99,13 @@ class Product(UUIDTimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="desc(CertificationRecord.created_at)",
+    )
+    cvd_policies: Mapped[list["CvdPolicy"]] = relationship(
+        "CvdPolicy",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(CvdPolicy.created_at)",
     )
 
 
@@ -155,6 +168,15 @@ class ProductRelease(UUIDTimestampMixin, Base):
         index=True,
     )
 
+    # Gap 1 — CRA Art. 13(2) + Annex I Part I §2(a): products placed on the market
+    # must contain no known exploitable vulnerabilities. This flag must be False
+    # before the release gate approves the release.
+    has_known_exploitable_vulnerabilities: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    # Free-text notes describing any known exploitable vulnerabilities if the flag is set.
+    kev_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     product: Mapped[Product] = relationship(back_populates="releases")
 
     # Self-referential relationship: the base release this version derives from
@@ -202,6 +224,27 @@ class ProductRelease(UUIDTimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="desc(SecurityUpdate.created_at)",
+    )
+    security_advisories: Mapped[list["SecurityAdvisory"]] = relationship(
+        "SecurityAdvisory",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(SecurityAdvisory.created_at)",
+    )
+    vulnerability_reports: Mapped[list["VulnerabilityReport"]] = relationship(
+        "VulnerabilityReport",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(VulnerabilityReport.created_at)",
+    )
+    sbom_records: Mapped[list["SbomRecord"]] = relationship(
+        "SbomRecord",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(SbomRecord.created_at)",
     )
 
     # Changes recorded against this product version (for substantial change tracking).

@@ -52,6 +52,22 @@ class SecurityUpdate(UUIDTimestampMixin, Base):
     available_until: Mapped[datetime | None] = mapped_column(nullable=True)
     released_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    # Gap 5 — Annex I Part II §3/§4: numeric CVSS score and vector string for severity disclosure.
+    cvss_score: Mapped[float | None] = mapped_column(nullable=True)
+    cvss_vector: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # External CVE database links (NVD, MITRE, vendor advisories).
+    cve_links_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
+    # Gap 8 — Annex I Part II §2/§8: "without delay" SLA tracking.
+    # vulnerability_discovered_at anchors the remediation clock.
+    # remediation_deadline is auto-set or manually overridden.
+    vulnerability_discovered_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    remediation_deadline: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Gap 9 — Annex I Part II §8: security updates must be free of charge.
+    # Defaults to True; a False value triggers a compliance warning in the UI.
+    is_free_of_charge: Mapped[bool] = mapped_column(nullable=False, default=True)
+
     product_release: Mapped["ProductRelease"] = relationship(
         "ProductRelease",
         back_populates="security_updates",

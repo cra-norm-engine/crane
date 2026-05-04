@@ -22,6 +22,18 @@ class SecurityUpdateBase(BaseModel):
     available_until: datetime | None = None
     released_at: datetime | None = None
 
+    # Gap 5 — CVSS numeric score and vector string (Annex I Part II §3/§4).
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = None
+    cve_links_json: list[str] = Field(default_factory=list)
+
+    # Gap 8 — SLA timestamps: vulnerability discovery date anchors the remediation clock.
+    vulnerability_discovered_at: datetime | None = None
+    remediation_deadline: datetime | None = None
+
+    # Gap 9 — Annex I Part II §8: security updates must be free of charge.
+    is_free_of_charge: bool = True
+
 
 class SecurityUpdateCreate(SecurityUpdateBase):
     pass
@@ -39,6 +51,12 @@ class SecurityUpdateUpdate(BaseModel):
     distribution_mechanism: DistributionMechanism | None = None
     available_until: datetime | None = None
     released_at: datetime | None = None
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = None
+    cve_links_json: list[str] | None = None
+    vulnerability_discovered_at: datetime | None = None
+    remediation_deadline: datetime | None = None
+    is_free_of_charge: bool | None = None
 
 
 class SecurityUpdateRead(SecurityUpdateBase):

@@ -37,6 +37,11 @@ class ProductReleaseBase(BaseModel):
     # of a substantial modification assessment (CRA Art. 13(8) re-release obligation).
     caused_by_change_id: UUID | None = None
 
+    # Gap 1 — CRA Art. 13(2) + Annex I Part I §2(a): release must not contain known
+    # exploitable vulnerabilities. Flag must be False for the release gate to pass.
+    has_known_exploitable_vulnerabilities: bool = False
+    kev_notes: str | None = None
+
 
 class ProductReleaseCreate(ProductReleaseBase):
     pass
@@ -60,6 +65,9 @@ class ProductReleaseUpdate(BaseModel):
     # Allow updating the causal change link even after creation (e.g. if
     # the association was missed at release time and needs to be corrected)
     caused_by_change_id: UUID | None = None
+    # Gap 1 — KEV status can be updated as vulnerabilities are found/fixed
+    has_known_exploitable_vulnerabilities: bool | None = None
+    kev_notes: str | None = None
 
 
 class ProductReleaseRead(ProductReleaseBase):

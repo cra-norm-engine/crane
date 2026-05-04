@@ -286,6 +286,31 @@
         </div>
       </div>
 
+      <!-- Gap 5 — CVSS numeric score and vector -->
+      <label class="field">
+        <span class="field-label">CVSS score (0.0 – 10.0)</span>
+        <input v-model.number="createForm.cvss_score" type="number" min="0" max="10" step="0.1" placeholder="e.g. 8.1" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">CVSS vector string</span>
+        <input v-model.trim="createForm.cvss_vector" type="text" placeholder="e.g. CVSS:3.1/AV:N/AC:L/..." />
+      </label>
+
+      <!-- Gap 8 — SLA: vulnerability discovery date and remediation deadline -->
+      <label class="field">
+        <span class="field-label">Vulnerability discovered</span>
+        <input v-model="createForm.vulnerability_discovered_at" type="date" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Remediation deadline</span>
+        <input v-model="createForm.remediation_deadline" type="date" />
+        <p class="muted" style="font-size: var(--text-xs); margin-top: 0.25rem;">
+          CRA "without delay" — typically 90 days from discovery
+        </p>
+      </label>
+
       <div class="field field-span-2">
         <label class="checkbox-label">
           <input type="checkbox" v-model="createForm.is_security_only" />
@@ -294,6 +319,20 @@
             <span class="muted"> — this update contains only security fixes, with no functional changes (CRA Art. 14)</span>
           </span>
         </label>
+      </div>
+
+      <!-- Gap 9 — free of charge flag -->
+      <div class="field field-span-2">
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="createForm.is_free_of_charge" />
+          <span>
+            <strong>Free of charge</strong>
+            <span class="muted"> — Annex I Part II §8 requires security updates to be provided free of charge</span>
+          </span>
+        </label>
+        <div v-if="!createForm.is_free_of_charge" class="retention-warning" style="margin-top: 0.4rem;">
+          ⚠ This update is marked as paid. CRA compliance requires security updates to be free.
+        </div>
       </div>
     </form>
 
@@ -500,6 +539,14 @@ const createForm = reactive({
   distribution_mechanism: "vendor_download" as DistributionMechanism,
   released_at: "",
   available_until: "",
+  // Gap 5 — CVSS score and vector
+  cvss_score: null as number | null,
+  cvss_vector: "",
+  // Gap 8 — SLA tracking
+  vulnerability_discovered_at: "",
+  remediation_deadline: "",
+  // Gap 9 — free of charge
+  is_free_of_charge: true,
 });
 
 const filteredProducts = computed(() => {
@@ -699,6 +746,13 @@ async function createUpdate(): Promise<void> {
       affected_versions_json: selectedVersions.value,
       released_at: toIsoOrNull(createForm.released_at),
       available_until: toIsoOrNull(createForm.available_until),
+      // Gap 5, 8, 9 — new CRA fields
+      cvss_score: createForm.cvss_score,
+      cvss_vector: createForm.cvss_vector.trim() || null,
+      cve_links_json: [],
+      vulnerability_discovered_at: toIsoOrNull(createForm.vulnerability_discovered_at),
+      remediation_deadline: toIsoOrNull(createForm.remediation_deadline),
+      is_free_of_charge: createForm.is_free_of_charge,
     };
 
     await securityUpdateService.create(payload);
@@ -713,6 +767,11 @@ async function createUpdate(): Promise<void> {
     createForm.update_channels_json = [];
     createForm.released_at = "";
     createForm.available_until = "";
+    createForm.cvss_score = null;
+    createForm.cvss_vector = "";
+    createForm.vulnerability_discovered_at = "";
+    createForm.remediation_deadline = "";
+    createForm.is_free_of_charge = true;
     cveInput.value = "";
     selectedVersions.value = [];
 

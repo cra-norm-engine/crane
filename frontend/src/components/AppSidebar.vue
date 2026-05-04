@@ -176,6 +176,70 @@
         </RouterLink>
       </div>
 
+      <!-- Vulnerability handling group — CRA Annex I Part II -->
+      <template v-if="canViewSecurityUpdates">
+        <div class="nav-divider" role="separator" />
+        <div class="nav-group">
+          <p class="nav-group-label">Vulnerability handling</p>
+
+          <!-- Vulnerability reports — lifecycle state machine -->
+          <RouterLink
+            :to="{ name: 'vulnerability-reports' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <!-- Bug / report icon -->
+              <svg viewBox="0 0 20 20"><path d="M10 2a4 4 0 0 0-3.5 6H4v2h1.3A5 5 0 0 0 9 13.9V16H7v2h6v-2h-2v-2.1A5 5 0 0 0 14.7 10H16V8h-2.5A4 4 0 0 0 10 2zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 6a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" fill="currentColor"/></svg>
+            </span>
+            <span>Vulnerability reports</span>
+          </RouterLink>
+
+          <!-- Security advisories — with embargo management -->
+          <RouterLink
+            :to="{ name: 'security-advisories' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <!-- Broadcast / advisory icon -->
+              <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 10 4zm-1 3v4h2V7zm0 5v2h2v-2z" fill="currentColor"/></svg>
+            </span>
+            <span>Security advisories</span>
+          </RouterLink>
+
+          <!-- CVD policies -->
+          <RouterLink
+            :to="{ name: 'cvd-policies' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <!-- Scroll / policy icon -->
+              <svg viewBox="0 0 20 20"><path d="M5 2h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm1 2v12h8V4zm1 2h6v1.5H7zm0 3h6v1.5H7zm0 3h4v1.5H7z" fill="currentColor"/></svg>
+            </span>
+            <span>CVD policies</span>
+          </RouterLink>
+
+          <!-- SBOM records -->
+          <RouterLink
+            :to="{ name: 'sbom-records' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <!-- List / SBOM icon -->
+              <svg viewBox="0 0 20 20"><path d="M3 4h14v2H3zm0 4h14v2H3zm0 4h9v2H3zm11 0 3 3-3 3v-2h-4v-2h4z" fill="currentColor"/></svg>
+            </span>
+            <span>SBOM records</span>
+          </RouterLink>
+        </div>
+      </template>
+
       <div class="nav-divider" role="separator" />
 
       <!-- Governance group -->

@@ -27,6 +27,10 @@ class ProductBase(BaseModel):
     # Required for pre-CRA products to anchor the transition period calculation.
     first_placed_on_market_date: date | None = None
 
+    # Gap 4 — Annex I Part II §6: vulnerability reporting contact details.
+    security_contact_email: str | None = Field(default=None, max_length=320)
+    security_contact_url: str | None = Field(default=None, max_length=2048)
+
 
 class ProductCreate(ProductBase):
     pass
@@ -47,6 +51,8 @@ class ProductUpdate(BaseModel):
     # Allow updating the pre-CRA flag and first placement date independently
     is_pre_cra: bool | None = None
     first_placed_on_market_date: date | None = None
+    security_contact_email: str | None = Field(default=None, max_length=320)
+    security_contact_url: str | None = Field(default=None, max_length=2048)
 
 
 class ProductSummaryRead(BaseModel):
@@ -62,6 +68,8 @@ class ProductSummaryRead(BaseModel):
     # Gap 4 — exposed in list views so the product list can flag pre-CRA products
     is_pre_cra: bool
     first_placed_on_market_date: date | None
+    security_contact_email: str | None
+    security_contact_url: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -95,6 +103,10 @@ class ProductReleaseSummaryRead(BaseModel):
 
     # Gap 5 — Article 13(10) consolidated support flag
     is_consolidated_support_version: bool
+
+    # Gap 1 — Known exploitable vulnerability status for release gate
+    has_known_exploitable_vulnerabilities: bool
+    kev_notes: str | None
 
     created_at: datetime
     updated_at: datetime
