@@ -419,6 +419,7 @@ export interface SecurityAdvisoryRead {
   remediation_steps: string | null;
   embargo_until: string | null;
   published_at: string | null;
+  linked_security_update_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -437,6 +438,7 @@ export interface SecurityAdvisoryCreate {
   remediation_steps?: string | null;
   embargo_until?: string | null;
   published_at?: string | null;
+  linked_security_update_id?: string | null;
 }
 
 export interface SecurityAdvisoryUpdate {
@@ -451,6 +453,7 @@ export interface SecurityAdvisoryUpdate {
   remediation_steps?: string | null;
   embargo_until?: string | null;
   published_at?: string | null;
+  linked_security_update_id?: string | null;
 }
 
 // ── Gap 6: Vulnerability Report lifecycle ─────────────────────────────────

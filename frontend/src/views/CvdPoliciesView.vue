@@ -379,21 +379,154 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── Page layout ── */
+.page-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.85rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s, transform 0.12s, box-shadow 0.12s;
+  white-space: nowrap;
+}
+
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary {
+  background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(28, 107, 39, 0.22);
+}
+
+.btn-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(28, 107, 39, 0.3);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--color-border);
+  color: inherit;
+}
+
+.btn-secondary:not(:disabled):hover { background: var(--color-surface-elevated); }
+
+.btn-danger-outline {
+  background: transparent;
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.btn-danger-outline:not(:disabled):hover { background: var(--color-danger-bg); }
+
+/* ── Feedback banners ── */
+.feedback {
+  padding: 0.85rem 1.1rem;
+  border-radius: 1rem;
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+}
+
+.feedback-error   { background: var(--color-danger-bg);  border-color: var(--color-danger-border);  color: var(--color-danger-text); }
+.feedback-success { background: var(--color-success-bg); border-color: var(--color-success-border); color: var(--color-success-text); }
+.feedback-warning { background: var(--color-warning-bg); border-color: var(--color-warning-border); color: var(--color-warning-text); }
+
+/* ── Empty / loading panel ── */
+.empty-panel {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ── Form ── */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field { display: grid; gap: 0.4rem; }
+.field-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-muted); }
+.field-span-2 { grid-column: span 2; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  color: inherit;
+  font: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: rgba(175, 214, 46, 0.45);
+  box-shadow: 0 0 0 3px rgba(112, 185, 23, 0.12);
+}
+
+/* ── Table ── */
+.table-wrapper { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+  padding: 0.8rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-divider);
+  vertical-align: middle;
+}
+
+.data-table th {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td { border-bottom: none; }
+.table-row-clickable { cursor: pointer; transition: background 0.12s; }
+.table-row-clickable:hover { background: var(--color-surface-elevated); }
+.table-row-clickable:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+/* ── Policy status badges — design-system tokens only ── */
 .policy-status-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;
-  border-radius: var(--radius-full);
+  border-radius: 999px;
   font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.policy-status-draft    { background: var(--color-surface-raised); border: 1px solid var(--color-border); color: var(--color-text-muted); }
-.policy-status-active   { background: #1e3d2a; border: 1px solid #3a7a52; color: #6de98a; }
-.policy-status-archived { background: var(--color-surface-raised); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+
+.policy-status-draft    { background: var(--color-slate-bg);   color: var(--color-slate-text);   border: 1px solid var(--color-slate-border); }
+.policy-status-active   { background: var(--color-emerald-bg); color: var(--color-emerald-text); border: 1px solid var(--color-emerald-border); }
+.policy-status-archived { background: var(--color-slate-bg);   color: var(--color-slate-text);   border: 1px solid var(--color-slate-border); }
 
 .policy-url-link { font-size: var(--text-sm); color: var(--color-primary-2); text-decoration: none; }
 .policy-url-link:hover { text-decoration: underline; }
 .nowrap { white-space: nowrap; }
-.row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; }
+.row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; opacity: 0; transition: opacity 0.12s; }
+.table-row-clickable:hover .row-arrow,
+.table-row-clickable:focus-visible .row-arrow { opacity: 1; }
 </style>

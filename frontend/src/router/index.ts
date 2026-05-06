@@ -16,10 +16,7 @@ import CertificationRecordsView from "@/views/CertificationRecordsView.vue";
 import SupportHubView from "@/views/SupportHubView.vue";
 import ChangePasswordView from "@/views/ChangePasswordView.vue";
 
-import VulnerabilityReportsView from "@/views/VulnerabilityReportsView.vue";
-import SecurityAdvisoriesView from "@/views/SecurityAdvisoriesView.vue";
-import CvdPoliciesView from "@/views/CvdPoliciesView.vue";
-import SbomRecordsView from "@/views/SbomRecordsView.vue";
+import VulnerabilityHandlingView from "@/views/VulnerabilityHandlingView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -169,38 +166,11 @@ const routes: RouteRecordRaw[] = [
           permissions: ["audit_read"],
         },
       },
-      // Gap 6 — vulnerability lifecycle tracking (Annex I Part II §2, §5)
+      // PSIRT workflow — vulnerability handling (Annex I Part II §1, §2, §4, §5, §7, §8)
       {
-        path: "vulnerability-reports",
-        name: "vulnerability-reports",
-        component: VulnerabilityReportsView,
-        meta: {
-          permissions: ["security_update_read"],
-        },
-      },
-      // Gaps 3 & 7 — security advisories with embargo management (Annex I Part II §4, §8)
-      {
-        path: "security-advisories",
-        name: "security-advisories",
-        component: SecurityAdvisoriesView,
-        meta: {
-          permissions: ["security_update_read"],
-        },
-      },
-      // Gap 2 — CVD policies (Annex I Part II §5)
-      {
-        path: "cvd-policies",
-        name: "cvd-policies",
-        component: CvdPoliciesView,
-        meta: {
-          permissions: ["security_update_read"],
-        },
-      },
-      // Gap 10 — structured SBOM records (Annex I Part II §1)
-      {
-        path: "sbom-records",
-        name: "sbom-records",
-        component: SbomRecordsView,
+        path: "vulnerability-handling",
+        name: "vulnerability-handling",
+        component: VulnerabilityHandlingView,
         meta: {
           permissions: ["security_update_read"],
         },
