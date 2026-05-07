@@ -100,21 +100,6 @@
           <span>Annex I matrix</span>
         </RouterLink>
 
-        <!-- Security updates — permission-gated -->
-        <RouterLink
-          v-if="canViewSecurityUpdates"
-          :to="{ name: 'security-updates' }"
-          class="nav-link"
-          active-class="nav-link-active"
-          @click="handleNavClick"
-        >
-          <span class="nav-icon" aria-hidden="true">
-            <!-- Shield icon -->
-            <svg viewBox="0 0 20 20"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2.3 2.3 0 0 1 1.3 4.2v2.9H8.7V9.4A2.3 2.3 0 0 1 10 5.2z" fill="currentColor"/></svg>
-          </span>
-          <span>Security updates</span>
-        </RouterLink>
-
         <!-- Lifecycle alerts — permission-gated -->
         <RouterLink
           v-if="canViewLifecycleNotifications"
@@ -189,10 +174,21 @@
             @click="handleNavClick"
           >
             <span class="nav-icon" aria-hidden="true">
-              <!-- Shield / PSIRT icon -->
               <svg viewBox="0 0 20 20"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2.3 2.3 0 0 1 1.3 4.2v2.9H8.7V9.4A2.3 2.3 0 0 1 10 5.2z" fill="currentColor"/></svg>
             </span>
-            <span>Vulnerability handling</span>
+            <span>PSIRT workflow</span>
+          </RouterLink>
+
+          <RouterLink
+            :to="{ name: 'security-updates' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2zm-1 4h2v5H9zm0 6h2v2H9z" fill="currentColor"/></svg>
+            </span>
+            <span>Security updates</span>
           </RouterLink>
         </div>
       </template>
