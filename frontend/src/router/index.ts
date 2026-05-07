@@ -175,6 +175,12 @@ const routes: RouteRecordRaw[] = [
           permissions: ["security_update_read"],
         },
       },
+      // Product data export / import
+      {
+        path: "product-data",
+        name: "product-data",
+        component: () => import("@/views/ProductDataView.vue"),
+      },
     ],
   },
   {

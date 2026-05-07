@@ -213,6 +213,20 @@
           </span>
           <span>Audit history</span>
         </RouterLink>
+
+        <!-- Data export / import -->
+        <RouterLink
+          :to="{ name: 'product-data' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Transfer / arrows icon -->
+            <svg viewBox="0 0 20 20"><path d="M13 3v2H7V3H5v2H3v12h14V5h-2V3zM5 7h10v8H5zm3 2v4l4-2z" fill="currentColor"/></svg>
+          </span>
+          <span>Data export / import</span>
+        </RouterLink>
       </div>
 
       <!-- Administration group — only for admins -->
