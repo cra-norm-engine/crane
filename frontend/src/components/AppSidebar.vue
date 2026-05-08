@@ -21,11 +21,8 @@
          BRAND — logo + product name
          ══════════════════════════════════════════ -->
     <div class="brand">
-      <img src="/logo/logo.png" alt="CRANE logo" class="brand-logo" />
-      <div class="brand-text">
-        <div class="brand-title">CRANE</div>
-        <div class="brand-sub">CRA Norm Engine</div>
-      </div>
+      <img src="/logo/darkFullLogo.svg"  alt="CRANE logo" class="brand-logo logo-dark"  />
+      <img src="/logo/lightFullLogo.svg" alt="CRANE logo" class="brand-logo logo-light" />
     </div>
 
     <!-- ══════════════════════════════════════════
@@ -458,37 +455,23 @@ function logout(): void {
    ═══════════════════════════════════════════════ */
 .brand {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.35rem 1rem;
-  flex-shrink: 0; /* never shrink the brand even if nav is long */
+  padding: 1rem 1rem 0.75rem;
+  flex-shrink: 0;
 }
 
-/* Logo sized to fill most of the sidebar width for strong brand presence */
 .brand-logo {
-  width: 140px;
-  height: 140px;
+  max-width: 148px;
+  max-height: 64px;
+  width: 100%;
   object-fit: contain;
 }
 
-.brand-text {
-  text-align: center;
-}
-
-.brand-title {
-  font-size: 0.97rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  line-height: 1.2;
-}
-
-.brand-sub {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  margin-top: 0.1rem;
-  line-height: 1.3;
-}
+/* Theme-aware logo swap */
+.logo-light { display: none; }
+:root[data-theme="light"] .logo-dark  { display: none; }
+:root[data-theme="light"] .logo-light { display: block; }
 
 /* ═══════════════════════════════════════════════
    NAVIGATION AREA

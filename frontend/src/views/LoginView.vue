@@ -17,11 +17,8 @@
 
       <!-- ── Brand block ──────────────────────────────── -->
       <div class="brand">
-        <img src="/logo/logo.png" alt="CRANE logo" class="brand-logo" />
-        <div class="brand-text">
-          <div class="brand-title">CRANE</div>
-          <div class="brand-sub">CRA Norm Engine</div>
-        </div>
+        <img src="/logo/darkFullLogo.svg"  alt="CRANE logo" class="brand-logo logo-dark"  />
+        <img src="/logo/lightFullLogo.svg" alt="CRANE logo" class="brand-logo logo-light" />
       </div>
 
       <!-- Visual separator between logo and the form section -->
@@ -194,36 +191,23 @@ async function handleLogin(): Promise<void> {
 }
 
 /* ── Brand block ──────────────────────────────────── */
-/* Centred column: logo above the product name */
 .brand {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 0.65rem;
 }
 
-/* Larger logo for strong brand presence on the login screen */
 .brand-logo {
-  width: 120px;
-  height: 120px;
+  max-width: 220px;
+  max-height: 100px;
+  width: 100%;
   object-fit: contain;
 }
 
-.brand-text {
-  text-align: center;
-}
-
-.brand-title {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.brand-sub {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-top: 0.1rem;
-}
+/* Show dark logo by default; swap to light logo in light mode */
+.logo-light { display: none; }
+:root[data-theme="light"] .logo-dark  { display: none; }
+:root[data-theme="light"] .logo-light { display: block; }
 
 /* ── Heading block ────────────────────────────────── */
 .heading-block {

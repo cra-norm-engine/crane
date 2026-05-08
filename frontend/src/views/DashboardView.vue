@@ -36,11 +36,8 @@
     <!-- ── Hero banner — logo + tagline ──────────────── -->
     <section class="hero-banner" aria-label="CRANE branding">
       <div class="hero-glow" aria-hidden="true" />
-      <img
-        src="/logo/file.svg"
-        alt="CRANE — CRA Norm Engine"
-        class="hero-logo"
-      />
+      <img src="/logo/darkText.svg"  alt="CRANE — CRA Norm Engine" class="hero-logo logo-dark"  />
+      <img src="/logo/lightText.svg" alt="CRANE — CRA Norm Engine" class="hero-logo logo-light" />
       <div class="hero-copy">
         <h2 class="hero-title">CRA Compliance, End-to-End</h2>
         <p class="hero-tagline muted">
@@ -605,14 +602,19 @@ onMounted(() => {
 }
 
 .hero-logo {
-  width: 220px;
-  height: 220px;
+  max-width: 260px;
+  max-height: 120px;
+  width: 100%;
   object-fit: contain;
-  /* Subtle drop shadow to lift the logo off the background */
   filter: drop-shadow(0 8px 32px rgba(112, 185, 23, 0.18));
-  position: relative; /* stay above .hero-glow */
+  position: relative;
   z-index: 1;
 }
+
+/* Theme-aware logo swap */
+.logo-light { display: none; }
+:root[data-theme="light"] .logo-dark  { display: none; }
+:root[data-theme="light"] .logo-light { display: block; }
 
 .hero-copy {
   position: relative;

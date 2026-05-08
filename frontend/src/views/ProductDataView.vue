@@ -255,7 +255,7 @@ import {
   downloadBundleAsJson,
   parseBundleFile,
   summariseBundle,
-  importBundle,
+  importBundle as executeImport,
   MAX_IMPORT_BYTES,
 } from "@/services/export-service";
 import { EXPORT_SCHEMA_VERSION } from "@/types/export";
@@ -408,7 +408,7 @@ async function runImport(): Promise<void> {
   importError.value  = "";
 
   try {
-    const newId = await importBundle(
+    const newId = await executeImport(
       importBundleRef.value,
       { productName: importProductName.value.trim() || undefined },
       (p: ImportProgress) => { importProgress.value = p; },
