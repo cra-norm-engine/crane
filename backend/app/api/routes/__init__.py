@@ -23,6 +23,7 @@ from app.api.routes.sbom_records import router as sbom_records_router
 from app.api.routes.security_advisories import router as security_advisories_router
 from app.api.routes.support_periods import router as support_periods_router
 from app.api.routes.vulnerability_reports import router as vulnerability_reports_router
+from app.api.routes.market_actions import router as market_actions_router
 
 api_router = APIRouter()
 
@@ -111,6 +112,12 @@ api_router.include_router(
     sbom_records_router,
     prefix="/sbom-records",
     tags=["sbom-records"],
+)
+
+api_router.include_router(
+    market_actions_router,
+    prefix="/market-actions",
+    tags=["market-actions"],
 )
 
 api_router.include_router(admin_router)

@@ -63,6 +63,13 @@
           </strong>
         </article>
 
+        <article class="card stat-card">
+          <p class="muted stat-label">Active market actions</p>
+          <strong class="stat-value" :class="activeMarketActionsCount > 0 ? 'text-danger' : ''">
+            {{ activeMarketActionsCount }}
+          </strong>
+        </article>
+
       </section>
 
       <!-- ══════════════════════════════════════════
@@ -520,6 +527,229 @@
 
       </section>
 
+      <!-- ══════════════════════════════════════════
+           PANEL 5 — PRODUCT RECALLS & WITHDRAWALS
+           CRA Art. 35 workflow for initiating and tracking
+           recalls (FR39) and market withdrawals (FR38).
+           ══════════════════════════════════════════ -->
+      <section class="card panel">
+
+        <div class="panel-header">
+          <div>
+            <h2 class="section-title">Product recalls &amp; withdrawals</h2>
+            <p class="muted">
+              CRA Art. 35 workflow — initiate, track, and close recalls and withdrawals of non-compliant products.
+            </p>
+          </div>
+          <div class="action-row">
+            <button
+              class="btn btn-secondary btn-sm"
+              type="button"
+              :disabled="showMarketActionForm"
+              @click="openMarketActionForm('recall')"
+            >
+              Initiate recall
+            </button>
+            <button
+              class="btn btn-secondary btn-sm"
+              type="button"
+              :disabled="showMarketActionForm"
+              @click="openMarketActionForm('withdrawal')"
+            >
+              Initiate withdrawal
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Inline create / edit form ── -->
+        <div v-if="showMarketActionForm" class="ma-form-panel">
+          <h3 class="ma-form-title">
+            {{ editingMarketAction ? 'Edit market action' : (marketActionFormType === 'recall' ? 'Initiate recall' : 'Initiate withdrawal') }}
+          </h3>
+
+          <div v-if="maFormError" class="feedback feedback-error" role="alert">
+            {{ maFormError }}
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">Product release <span class="required">*</span></span>
+              <select v-model="maForm.product_release_id" class="select" :disabled="!!editingMarketAction">
+                <option value="">— select release —</option>
+                <option v-for="rel in allReleases" :key="rel.id" :value="rel.id">
+                  {{ productById[rel.product_id]?.name ?? rel.product_id.slice(0, 8) }} — v{{ rel.version }}
+                  ({{ rel.release_status }})
+                </option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Reason <span class="required">*</span></span>
+              <textarea v-model="maForm.reason" class="input textarea" rows="3" placeholder="Describe why this action is necessary (min 10 characters)…" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Affected scope</span>
+              <textarea v-model="maForm.affected_scope" class="input textarea" rows="2" placeholder="Which product batches / serial ranges are affected?" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Corrective action</span>
+              <textarea v-model="maForm.corrective_action" class="input textarea" rows="2" placeholder="What remediation or replacement is being provided?" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">User notice text</span>
+              <textarea v-model="maForm.user_notice_text" class="input textarea" rows="3" placeholder="Public-facing notice for end users…" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Authority reference number</span>
+              <input v-model="maForm.authority_reference_number" type="text" class="input" placeholder="e.g. BSI-2025-MA-001" maxlength="255" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Internal notes</span>
+              <textarea v-model="maForm.internal_notes" class="input textarea" rows="2" placeholder="Internal tracking notes (not shown to end users)…" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary btn-sm" type="button" :disabled="maFormSaving" @click="saveMarketAction">
+              {{ maFormSaving ? 'Saving…' : (editingMarketAction ? 'Save changes' : 'Create draft') }}
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" :disabled="maFormSaving" @click="cancelMarketActionForm">
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Error banner for list-level errors ── -->
+        <div v-if="maListError" class="feedback feedback-error" role="alert">
+          {{ maListError }}
+        </div>
+
+        <!-- ── Market actions table ── -->
+        <div v-if="marketActions.length === 0 && !showMarketActionForm" class="empty-panel muted">
+          No market actions recorded yet. Use the buttons above to initiate a recall or withdrawal under CRA Art. 35.
+        </div>
+
+        <div v-else-if="marketActions.length > 0" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product / release</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Authority notified</th>
+                <th>Initiated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ma in marketActions" :key="ma.id">
+                <td>
+                  <div class="product-cell">
+                    <strong>
+                      {{ productById[ma.product_release?.product_id ?? '']?.name ?? '—' }}
+                    </strong>
+                    <code class="muted">v{{ ma.product_release?.version ?? '?' }}</code>
+                  </div>
+                </td>
+
+                <td>
+                  <span class="badge" :class="ma.action_type === 'recall' ? 'badge-danger' : 'badge-warning'">
+                    {{ ma.action_type === 'recall' ? 'Recall' : 'Withdrawal' }}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="badge" :class="maStatusBadge(ma.status)">
+                    {{ formatMaStatus(ma.status) }}
+                  </span>
+                </td>
+
+                <td class="muted">
+                  {{ ma.authority_notified_at ? formatDate(ma.authority_notified_at) : '—' }}
+                </td>
+
+                <td class="muted">{{ formatDate(ma.created_at) }}</td>
+
+                <td>
+                  <div class="action-row">
+                    <!-- Edit — only while not closed -->
+                    <button
+                      v-if="ma.status !== 'closed'"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                      :disabled="!!maActionLoading[ma.id] || showMarketActionForm"
+                      @click="editMarketAction(ma)"
+                    >
+                      Edit
+                    </button>
+
+                    <!-- Activate — only draft -->
+                    <button
+                      v-if="ma.status === 'draft'"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                      :disabled="!!maActionLoading[ma.id]"
+                      @click="activateMarketAction(ma.id)"
+                    >
+                      {{ maActionLoading[ma.id] === 'activate' ? 'Activating…' : 'Activate' }}
+                    </button>
+
+                    <!-- Generate notice — only when user_notice_text is set -->
+                    <button
+                      v-if="ma.user_notice_text"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                      @click="copyNoticeText(ma)"
+                    >
+                      {{ maCopySuccessId === ma.id ? 'Copied!' : 'Copy notice' }}
+                    </button>
+
+                    <!-- Mark authority notified — only active -->
+                    <button
+                      v-if="ma.status === 'active'"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                      :disabled="!!maActionLoading[ma.id]"
+                      @click="notifyAuthority(ma.id)"
+                    >
+                      {{ maActionLoading[ma.id] === 'notify' ? 'Saving…' : 'Mark notified' }}
+                    </button>
+
+                    <!-- Close — authority_notified or active -->
+                    <button
+                      v-if="ma.status === 'active' || ma.status === 'authority_notified'"
+                      class="btn btn-secondary btn-sm"
+                      type="button"
+                      :disabled="!!maActionLoading[ma.id]"
+                      @click="closeMarketAction(ma.id)"
+                    >
+                      {{ maActionLoading[ma.id] === 'close' ? 'Closing…' : 'Close' }}
+                    </button>
+
+                    <!-- Delete — only draft -->
+                    <button
+                      v-if="ma.status === 'draft'"
+                      class="btn btn-secondary btn-sm ma-btn-delete"
+                      type="button"
+                      :disabled="!!maActionLoading[ma.id]"
+                      @click="deleteMarketAction(ma.id)"
+                    >
+                      {{ maActionLoading[ma.id] === 'delete' ? 'Deleting…' : 'Delete' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+
     </template>
 
   </section>
@@ -529,11 +759,13 @@
 import { computed, ref } from "vue";
 
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
+import { marketActionService } from "@/services/market-action-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { securityUpdateService } from "@/services/security-update-service";
 import { supportPeriodService } from "@/services/support-period-service";
 
+import type { MarketActionRead, MarketActionStatus, MarketActionType } from "@/types/market-action";
 import type { ProductReleaseRead } from "@/types/release-gate";
 import type {
   LifecycleNotificationRead,
@@ -564,9 +796,11 @@ const activeSupportPeriods  = ref<SupportPeriodRecordRead[]>([]);
 const pendingNotifications  = ref<LifecycleNotificationRead[]>([]);
 const allSecurityUpdates    = ref<SecurityUpdateRead[]>([]);
 const allReleases           = ref<ProductReleaseRead[]>([]);
+const marketActions         = ref<MarketActionRead[]>([]);
 
-const isLoading  = ref(false);
-const loadError  = ref<string | null>(null);
+const isLoading   = ref(false);
+const loadError   = ref<string | null>(null);
+const maListError = ref<string | null>(null);
 
 /* ─────────────────────────────────────────────────
    LOOKUP MAPS — computed from raw data
@@ -598,9 +832,12 @@ const releaseProductIdMap = computed<Record<string, string>>(() =>
 async function loadAll(): Promise<void> {
   isLoading.value = true;
   loadError.value = null;
+  maListError.value = null;
 
   try {
-    /* Fetch all five data sources in parallel to minimise wait time. */
+    /* Fetch core data sources in parallel. Market actions are fetched separately
+       so that a migration-not-applied or permission error does not break the rest
+       of the page. */
     const [loadedProducts, loadedSupports, loadedNotifs, loadedUpdates, loadedReleases] =
       await Promise.all([
         productService.list(),
@@ -619,6 +856,14 @@ async function loadAll(): Promise<void> {
     loadError.value = err instanceof Error ? err.message : "Failed to load Support Hub data.";
   } finally {
     isLoading.value = false;
+  }
+
+  /* Market actions — isolated so failures don't affect the rest of the page. */
+  try {
+    marketActions.value = await marketActionService.list();
+  } catch (err) {
+    maListError.value =
+      err instanceof Error ? err.message : "Failed to load market actions.";
   }
 }
 
@@ -827,6 +1072,206 @@ function productByReleaseId(releaseId: string): ProductSummaryRead | null {
 }
 
 /* ─────────────────────────────────────────────────
+   PANEL 5 — PRODUCT RECALLS & WITHDRAWALS
+   ───────────────────────────────────────────────── */
+
+/** Count of market actions that are not yet closed (draft + active + authority_notified). */
+const activeMarketActionsCount = computed<number>(
+  () => marketActions.value.filter((ma) => ma.status !== "closed").length,
+);
+
+/* ── Form state ── */
+const showMarketActionForm   = ref(false);
+const marketActionFormType   = ref<MarketActionType>("recall");
+const editingMarketAction    = ref<MarketActionRead | null>(null);
+const maFormSaving           = ref(false);
+const maFormError            = ref<string | null>(null);
+const maCopySuccessId        = ref<string | null>(null);
+
+/** Per-action loading key: action.id → operation name */
+const maActionLoading = ref<Record<string, "activate" | "notify" | "close" | "delete" | null>>({});
+
+const emptyMaForm = () => ({
+  product_release_id: "",
+  reason: "",
+  affected_scope: "",
+  corrective_action: "",
+  authority_reference_number: "",
+  user_notice_text: "",
+  internal_notes: "",
+});
+
+const maForm = ref(emptyMaForm());
+
+function openMarketActionForm(type: MarketActionType): void {
+  marketActionFormType.value = type;
+  editingMarketAction.value  = null;
+  maForm.value               = emptyMaForm();
+  maFormError.value          = null;
+  showMarketActionForm.value = true;
+}
+
+function editMarketAction(ma: MarketActionRead): void {
+  editingMarketAction.value      = ma;
+  marketActionFormType.value     = ma.action_type;
+  maForm.value = {
+    product_release_id:         ma.product_release_id,
+    reason:                     ma.reason,
+    affected_scope:             ma.affected_scope ?? "",
+    corrective_action:          ma.corrective_action ?? "",
+    authority_reference_number: ma.authority_reference_number ?? "",
+    user_notice_text:           ma.user_notice_text ?? "",
+    internal_notes:             ma.internal_notes ?? "",
+  };
+  maFormError.value          = null;
+  showMarketActionForm.value = true;
+}
+
+function cancelMarketActionForm(): void {
+  showMarketActionForm.value = false;
+  editingMarketAction.value  = null;
+  maFormError.value          = null;
+}
+
+async function saveMarketAction(): Promise<void> {
+  if (!maForm.value.product_release_id) {
+    maFormError.value = "Please select a product release.";
+    return;
+  }
+  if (maForm.value.reason.trim().length < 10) {
+    maFormError.value = "Reason must be at least 10 characters.";
+    return;
+  }
+
+  maFormSaving.value = true;
+  maFormError.value  = null;
+
+  try {
+    const nullify = (v: string) => v.trim() || null;
+
+    if (editingMarketAction.value) {
+      /* Update existing draft */
+      const updated = await marketActionService.update(editingMarketAction.value.id, {
+        reason:                     maForm.value.reason.trim(),
+        affected_scope:             nullify(maForm.value.affected_scope),
+        corrective_action:          nullify(maForm.value.corrective_action),
+        authority_reference_number: nullify(maForm.value.authority_reference_number),
+        user_notice_text:           nullify(maForm.value.user_notice_text),
+        internal_notes:             nullify(maForm.value.internal_notes),
+      });
+      const idx = marketActions.value.findIndex((m) => m.id === updated.id);
+      if (idx !== -1) marketActions.value[idx] = updated;
+    } else {
+      /* Create new market action */
+      const created = await marketActionService.create({
+        product_release_id:         maForm.value.product_release_id,
+        action_type:                marketActionFormType.value,
+        reason:                     maForm.value.reason.trim(),
+        affected_scope:             nullify(maForm.value.affected_scope),
+        corrective_action:          nullify(maForm.value.corrective_action),
+        authority_reference_number: nullify(maForm.value.authority_reference_number),
+        user_notice_text:           nullify(maForm.value.user_notice_text),
+        internal_notes:             nullify(maForm.value.internal_notes),
+      });
+      marketActions.value.unshift(created);
+    }
+
+    showMarketActionForm.value = false;
+    editingMarketAction.value  = null;
+  } catch (err) {
+    maFormError.value = err instanceof Error ? err.message : "Failed to save market action.";
+  } finally {
+    maFormSaving.value = false;
+  }
+}
+
+async function activateMarketAction(actionId: string): Promise<void> {
+  maActionLoading.value[actionId] = "activate";
+  maListError.value = null;
+  try {
+    const updated = await marketActionService.update(actionId, { status: "active" });
+    const idx = marketActions.value.findIndex((m) => m.id === actionId);
+    if (idx !== -1) marketActions.value[idx] = updated;
+    /* Also refresh releases so the recalled/withdrawn status appears elsewhere */
+    allReleases.value = await productReleaseService.list();
+  } catch (err) {
+    maListError.value = err instanceof Error ? err.message : "Failed to activate market action.";
+  } finally {
+    maActionLoading.value[actionId] = null;
+  }
+}
+
+async function notifyAuthority(actionId: string): Promise<void> {
+  maActionLoading.value[actionId] = "notify";
+  maListError.value = null;
+  try {
+    const updated = await marketActionService.markAuthorityNotified(actionId);
+    const idx = marketActions.value.findIndex((m) => m.id === actionId);
+    if (idx !== -1) marketActions.value[idx] = updated;
+  } catch (err) {
+    maListError.value = err instanceof Error ? err.message : "Failed to mark authority notified.";
+  } finally {
+    maActionLoading.value[actionId] = null;
+  }
+}
+
+async function closeMarketAction(actionId: string): Promise<void> {
+  maActionLoading.value[actionId] = "close";
+  maListError.value = null;
+  try {
+    const updated = await marketActionService.close(actionId);
+    const idx = marketActions.value.findIndex((m) => m.id === actionId);
+    if (idx !== -1) marketActions.value[idx] = updated;
+  } catch (err) {
+    maListError.value = err instanceof Error ? err.message : "Failed to close market action.";
+  } finally {
+    maActionLoading.value[actionId] = null;
+  }
+}
+
+async function deleteMarketAction(actionId: string): Promise<void> {
+  maActionLoading.value[actionId] = "delete";
+  maListError.value = null;
+  try {
+    await marketActionService.remove(actionId);
+    marketActions.value = marketActions.value.filter((m) => m.id !== actionId);
+  } catch (err) {
+    maListError.value = err instanceof Error ? err.message : "Failed to delete market action.";
+  } finally {
+    maActionLoading.value[actionId] = null;
+  }
+}
+
+async function copyNoticeText(ma: MarketActionRead): Promise<void> {
+  if (!ma.user_notice_text) return;
+  try {
+    await navigator.clipboard.writeText(ma.user_notice_text);
+    maCopySuccessId.value = ma.id;
+    setTimeout(() => { maCopySuccessId.value = null; }, 1800);
+  } catch {
+    /* Clipboard access denied */
+  }
+}
+
+function maStatusBadge(status: MarketActionStatus): string {
+  switch (status) {
+    case "draft":               return "badge-neutral";
+    case "active":              return "badge-danger";
+    case "authority_notified":  return "badge-warning";
+    case "closed":              return "badge-success";
+  }
+}
+
+function formatMaStatus(status: MarketActionStatus): string {
+  switch (status) {
+    case "draft":               return "Draft";
+    case "active":              return "Active";
+    case "authority_notified":  return "Authority notified";
+    case "closed":              return "Closed";
+  }
+}
+
+/* ─────────────────────────────────────────────────
    SHARED HELPER FUNCTIONS
    ───────────────────────────────────────────────── */
 
@@ -973,7 +1418,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
    ═══════════════════════════════════════════════ */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -1372,9 +1817,64 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 }
 
 /* ═══════════════════════════════════════════════
+   PANEL 5 — MARKET ACTIONS FORM
+   ═══════════════════════════════════════════════ */
+.ma-form-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
+  border-radius: var(--radius-md, 0.85rem);
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+}
+
+.ma-form-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 4rem;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Required field asterisk */
+.required {
+  color: #fda4af;
+}
+
+/* Delete button subtle danger tint */
+.ma-btn-delete {
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.3);
+}
+
+.ma-btn-delete:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.08);
+}
+
+/* ═══════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS
    ═══════════════════════════════════════════════ */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1407,4 +1907,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 :root[data-theme="light"] .cve-chip       { background: rgba(71,85,105,0.1); color: #475569; }
 :root[data-theme="light"] .cve-chip-highlight { background: rgba(184,155,18,0.15); color: #78350f; }
 :root[data-theme="light"] .btn-primary    { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+:root[data-theme="light"] .ma-form-panel { background: rgba(241, 245, 249, 0.6); }
+:root[data-theme="light"] .required      { color: #be123c; }
+:root[data-theme="light"] .ma-btn-delete { color: #be123c; border-color: rgba(190,18,60,0.3); }
 </style>

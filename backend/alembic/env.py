@@ -12,6 +12,7 @@ from app.models import (  # noqa: F401
     artifact,
     audit_log_event,
     evidence_item,
+    market_action,
     placeholders,
     product,
     release_gate,

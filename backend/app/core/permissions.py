@@ -63,6 +63,10 @@ class Permission(StrEnum):
     change_read = "change_read"
     change_write = "change_write"
 
+    # CRA Art. 35 — recall and withdrawal management
+    market_action_read = "market_action_read"
+    market_action_write = "market_action_write"
+
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()
 

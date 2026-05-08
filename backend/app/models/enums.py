@@ -303,6 +303,20 @@ class ComplianceActionStatus(StrEnum):
     completed = "completed"
 
 
+# CRA Art. 35 — market action types covering both voluntary/mandatory recalls
+# and withdrawals of non-compliant products.
+class MarketActionType(StrEnum):
+    recall = "recall"
+    withdrawal = "withdrawal"
+
+
+class MarketActionStatus(StrEnum):
+    draft = "draft"
+    active = "active"
+    authority_notified = "authority_notified"
+    closed = "closed"
+
+
 class EntityType(StrEnum):
     user = "user"
     role = "role"
@@ -327,3 +341,4 @@ class EntityType(StrEnum):
     security_advisory = "security_advisory"
     vulnerability_report = "vulnerability_report"
     sbom_record = "sbom_record"
+    market_action = "market_action"
