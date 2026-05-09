@@ -42,6 +42,11 @@ const routes: RouteRecordRaw[] = [
         component: DashboardView,
       },
       {
+        path: "my-tasks",
+        name: "my-tasks",
+        component: () => import("@/views/MyTasksView.vue"),
+      },
+      {
         path: "products",
         name: "products",
         component: ProductsView,

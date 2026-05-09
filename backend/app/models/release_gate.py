@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -75,7 +75,18 @@ class ReleaseGateItem(UUIDTimestampMixin, Base):
         index=True,
     )
 
+    # Task assignment — the team member responsible for completing this gate item.
+    assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Optional deadline for this specific gate item.
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     release_gate: Mapped["ReleaseGate"] = relationship("ReleaseGate", back_populates="items")
+    assigned_to_user: Mapped["User | None"] = relationship("User", foreign_keys=[assigned_to_user_id])
     evidence_links: Mapped[list["ReleaseGateEvidenceLink"]] = relationship(
         "ReleaseGateEvidenceLink",
         back_populates="release_gate_item",

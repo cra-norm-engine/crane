@@ -37,6 +37,8 @@ class ReleaseGateItemRead(BaseModel):
     is_required: bool
     sort_order: int
     status: ArtifactReviewDecision
+    assigned_to_user_id: UUID | None = None
+    due_date: datetime | None = None
     evidence_links: list[ReleaseGateEvidenceLinkRead] = []
 
 

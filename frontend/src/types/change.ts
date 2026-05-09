@@ -136,6 +136,8 @@ export interface ChangeUpdate {
   title?: string;
   description?: string;
   change_date?: string;          // ISO date string
+  assigned_to_user_id?: string | null;
+  due_date?: string | null;
 }
 
 /**
@@ -148,10 +150,12 @@ export interface ChangeRead {
   product_version_id: string;
   initiator_user_id: string | null;
   assessor_user_id: string | null;
+  assigned_to_user_id: string | null;
   change_type: ChangeType;
   title: string;
   description: string;
   change_date: string;           // ISO date string
+  due_date: string | null;
   status: ChangeStatus;
   submitted_at: string | null;   // ISO date string
   assessed_at: string | null;    // ISO date string

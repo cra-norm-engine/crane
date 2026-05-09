@@ -34,6 +34,7 @@ from app.repositories.product_release_repository import ProductReleaseRepository
 from app.schemas.change import (
     AssessmentCreate,
     AssessmentRead,
+    ChangeAssign,
     ChangeCreate,
     ChangeRead,
     ChangeSummary,
@@ -173,6 +174,32 @@ class ChangeService:
             entity_id=change.id,
             status=AuditStatus.success,
             details_json=audit_details,
+        )
+        self.db.commit()
+        self.db.refresh(change)
+        return self._to_read(change)
+
+    def assign_change(self, change_id: UUID, payload: ChangeAssign, *, actor: object) -> ChangeRead:
+        """
+        Update assignee and/or due date on a change regardless of its workflow status.
+        Unlike update_change, this is not restricted to 'draft'.
+        """
+        change = self.repo.get_or_404(change_id)
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(change, field, value)
+
+        create_audit_event(
+            self.db,
+            actor_user_id=getattr(actor, "id", None),
+            action_type="update",
+            entity_type=EntityType.change,
+            entity_id=change.id,
+            status=AuditStatus.success,
+            details_json={"action": "assign", **{
+                k: v.isoformat() if isinstance(v, date) else str(v) if v else None
+                for k, v in payload.model_dump(exclude_unset=True).items()
+            }},
         )
         self.db.commit()
         self.db.refresh(change)
@@ -443,10 +470,12 @@ class ChangeService:
             product_version_id=change.product_version_id,
             initiator_user_id=change.initiator_user_id,
             assessor_user_id=change.assessor_user_id,
+            assigned_to_user_id=change.assigned_to_user_id,
             change_type=change.change_type,
             title=change.title,
             description=change.description,
             change_date=change.change_date,
+            due_date=change.due_date,
             status=change.status,
             submitted_at=change.submitted_at,
             assessed_at=change.assessed_at,

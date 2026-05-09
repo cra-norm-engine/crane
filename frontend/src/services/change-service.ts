@@ -54,6 +54,17 @@ export const changeService = {
     return data;
   },
 
+  /**
+   * Set assignee / due date on a change. Works regardless of workflow status.
+   */
+  async assign(
+    changeId: string,
+    payload: { assigned_to_user_id?: string | null; due_date?: string | null },
+  ): Promise<ChangeRead> {
+    const { data } = await apiClient.patch<ChangeRead>(`/changes/${changeId}/assign`, payload);
+    return data;
+  },
+
   // ---------------------------------------------------------------------------
   // Workflow transition endpoints
   // ---------------------------------------------------------------------------

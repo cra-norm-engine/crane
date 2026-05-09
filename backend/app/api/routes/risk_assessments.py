@@ -15,6 +15,7 @@ from app.schemas.risk_assessment import (
     RiskAssessmentDetailRead,
     RiskAssessmentDuplicateVersionRequest,
     RiskAssessmentRead,
+    RiskAssessmentRejectRequest,
     RiskAssessmentUpdate,
 )
 from app.services.risk_assessment_service import RiskAssessmentService
@@ -126,6 +127,66 @@ def approve_risk_assessment(
         )
     except NotFoundException as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/{assessment_id}/submit", response_model=RiskAssessmentRead)
+def submit_risk_assessment_for_review(
+    assessment_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RiskAssessmentRead:
+    """
+    Transition a risk assessment from draft → in_review.
+
+    The calling user must have risk_assessment_write permission.
+    Returns 409 if the assessment is not currently in draft status.
+    """
+    require_permissions(current_user, {Permission.risk_assessment_write})
+
+    service = RiskAssessmentService(db)
+    try:
+        return service.submit_for_review(
+            assessment_id,
+            actor_user_id=current_user.id,
+            ip_address=_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+    except NotFoundException as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ConflictException as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/{assessment_id}/reject", response_model=RiskAssessmentRead)
+def reject_risk_assessment(
+    assessment_id: UUID,
+    payload: RiskAssessmentRejectRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RiskAssessmentRead:
+    """
+    Transition a risk assessment from in_review → draft with a rejection reason.
+
+    The calling user must have risk_assessment_write permission.
+    Returns 409 if the assessment is not currently in in_review status.
+    """
+    require_permissions(current_user, {Permission.risk_assessment_write})
+
+    service = RiskAssessmentService(db)
+    try:
+        return service.reject_assessment(
+            assessment_id,
+            payload.rejection_reason,
+            actor_user_id=current_user.id,
+            ip_address=_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
+    except NotFoundException as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ConflictException as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.post(

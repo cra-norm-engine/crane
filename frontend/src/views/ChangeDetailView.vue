@@ -142,6 +142,16 @@
               <dd>{{ formatDate(change.created_at) }}</dd>
             </div>
           </dl>
+
+          <!-- Task assignment -->
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border, #e2e8f0);">
+            <AssigneeSelector
+              :assigned-to-user-id="change.assigned_to_user_id ?? null"
+              :model-due-date="change.due_date ?? null"
+              @update:assigned-to-user-id="(id) => updateChangeAssignment({ assigned_to_user_id: id })"
+              @update:model-due-date="(d) => updateChangeAssignment({ due_date: d })"
+            />
+          </div>
         </section>
 
         <!-- Assessment results card (shown once assessed) -->
@@ -438,11 +448,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import AssigneeSelector from "@/components/AssigneeSelector.vue";
 import CommentThread from "@/components/CommentThread.vue";
 import { changeService } from "@/services/change-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
-import { adminService } from "@/services/admin-service";
+import { userService } from "@/services/user-service";
 import type { AssessmentCreate, ChangeRead, ChangeUpdate, ComplianceActionUpdate } from "@/types/change";
 
 const route = useRoute();
@@ -568,18 +579,17 @@ async function resolveDisplayNames(c: ChangeRead): Promise<void> {
   }).catch(() => { /* leave null if lookup fails */ });
 
   // Fetch all users once, then look up initiator and assessor by ID
-  const usersPromise = adminService.listUsers().then((users) => {
+  const usersPromise = userService.listSummary().then((users) => {
     const findName = (id: string | null) => {
       if (!id) return null;
       const u = users.find((user) => user.id === id);
       return u ? (u.full_name || u.email) : id;
     };
-    initiatorName.value = findName(c.initiator_user_id);
-    assessorName.value  = findName(c.assessor_user_id);
+    initiatorName.value = findName(c.initiator_user_id ? String(c.initiator_user_id) : null);
+    assessorName.value  = findName(c.assessor_user_id ? String(c.assessor_user_id) : null);
   }).catch(() => {
-    // Fall back to showing the raw IDs if user list is inaccessible
-    initiatorName.value = c.initiator_user_id;
-    assessorName.value  = c.assessor_user_id;
+    initiatorName.value = c.initiator_user_id ? String(c.initiator_user_id) : null;
+    assessorName.value  = c.assessor_user_id ? String(c.assessor_user_id) : null;
   });
 
   await Promise.all([releasePromise, usersPromise]);
@@ -604,6 +614,17 @@ async function doClose(): Promise<void> {
 }
 
 /** Generic action runner: sets loading, calls fn, refreshes, shows feedback. */
+async function updateChangeAssignment(
+  patch: { assigned_to_user_id?: string | null; due_date?: string | null },
+): Promise<void> {
+  if (!change.value) return;
+  try {
+    change.value = await changeService.assign(change.value.id, patch);
+  } catch {
+    errorMessage.value = "Failed to save assignment.";
+  }
+}
+
 async function runAction(fn: () => Promise<ChangeRead>, successMsg: string): Promise<void> {
   isActing.value = true;
   errorMessage.value = "";

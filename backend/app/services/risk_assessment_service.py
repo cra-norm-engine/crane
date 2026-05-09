@@ -26,6 +26,7 @@ from app.schemas.risk_assessment import (
     RiskAssessmentDuplicateVersionRequest,
     RiskAssessmentRead,
     RiskAssessmentUpdate,
+    RiskAssessmentRejectRequest,
 )
 
 
@@ -248,6 +249,106 @@ class RiskAssessmentService:
         self.db.refresh(assessment)
         return RiskAssessmentRead.model_validate(assessment)
 
+    def submit_for_review(
+        self,
+        assessment_id: UUID,
+        *,
+        actor_user_id: UUID | None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> RiskAssessmentRead:
+        """
+        Transition a risk assessment from draft → in_review.
+
+        Only assessments currently in 'draft' status may be submitted.
+        Clears any prior rejection_reason so the reviewer sees a clean slate.
+        Emits an audit event for traceability.
+        """
+        assessment = self.risk_assessment_repository.get_or_404(assessment_id)
+
+        if assessment.status != RiskAssessmentStatus.draft:
+            raise ConflictException("Only draft assessments can be submitted for review.")
+
+        before = self._assessment_snapshot(assessment)
+        assessment.status = RiskAssessmentStatus.in_review
+        assessment.rejection_reason = None  # clear any previous rejection text
+
+        self.db.flush()
+        self.db.refresh(assessment)
+
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="risk_assessment.submitted_for_review",
+            entity_type=EntityType.risk_assessment.value,
+            entity_id=assessment.id,
+            status=AuditStatus.success.value,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details_json={
+                "product_id": str(assessment.product_id),
+                "title": assessment.title,
+                "version_label": assessment.version_label,
+                "before": before,
+                "after": self._assessment_snapshot(assessment),
+            },
+        )
+
+        self.db.commit()
+        self.db.refresh(assessment)
+        return RiskAssessmentRead.model_validate(assessment)
+
+    def reject_assessment(
+        self,
+        assessment_id: UUID,
+        reason: str,
+        *,
+        actor_user_id: UUID | None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> RiskAssessmentRead:
+        """
+        Transition a risk assessment from in_review → draft with a rejection reason.
+
+        Only assessments currently 'in_review' may be rejected.  The rejection
+        reason is persisted so the owner can see the reviewer's feedback.
+        Emits an audit event for traceability.
+        """
+        assessment = self.risk_assessment_repository.get_or_404(assessment_id)
+
+        if assessment.status != RiskAssessmentStatus.in_review:
+            raise ConflictException("Only assessments under review can be rejected.")
+
+        before = self._assessment_snapshot(assessment)
+        assessment.status = RiskAssessmentStatus.draft
+        assessment.rejection_reason = reason
+
+        self.db.flush()
+        self.db.refresh(assessment)
+
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="risk_assessment.rejected",
+            entity_type=EntityType.risk_assessment.value,
+            entity_id=assessment.id,
+            status=AuditStatus.success.value,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details_json={
+                "product_id": str(assessment.product_id),
+                "title": assessment.title,
+                "version_label": assessment.version_label,
+                "rejection_reason": reason,
+                "before": before,
+                "after": self._assessment_snapshot(assessment),
+            },
+        )
+
+        self.db.commit()
+        self.db.refresh(assessment)
+        return RiskAssessmentRead.model_validate(assessment)
+
     def duplicate_version(
         self,
         assessment_id: UUID,
@@ -418,6 +519,7 @@ class RiskAssessmentService:
         self.db.commit()
 
     def _assessment_snapshot(self, assessment: RiskAssessment) -> dict[str, Any]:
+        # Include approval-workflow fields so before/after diffs capture reviewer changes.
         return {
             "id": str(assessment.id),
             "product_id": str(assessment.product_id),
@@ -429,4 +531,6 @@ class RiskAssessmentService:
             "summary": assessment.summary,
             "owner_user_id": str(assessment.owner_user_id),
             "approved_at": assessment.approved_at.isoformat() if assessment.approved_at else None,
+            "reviewer_user_id": str(assessment.reviewer_user_id) if assessment.reviewer_user_id else None,
+            "rejection_reason": assessment.rejection_reason,
         }

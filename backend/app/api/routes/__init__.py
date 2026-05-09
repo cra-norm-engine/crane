@@ -25,6 +25,8 @@ from app.api.routes.support_periods import router as support_periods_router
 from app.api.routes.vulnerability_reports import router as vulnerability_reports_router
 from app.api.routes.comments import router as comments_router
 from app.api.routes.market_actions import router as market_actions_router
+from app.api.routes.my_tasks import router as my_tasks_router
+from app.api.routes.dashboard import router as dashboard_router
 
 api_router = APIRouter()
 
@@ -127,4 +129,12 @@ api_router.include_router(
     tags=["comments"],
 )
 
+api_router.include_router(
+    my_tasks_router,
+    prefix="/my-tasks",
+    tags=["my-tasks"],
+)
+
 api_router.include_router(admin_router)
+
+api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])

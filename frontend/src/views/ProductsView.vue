@@ -233,10 +233,10 @@
                 Pre-CRA indicator so compliance status is visible at a glance
                 without opening the detail page.
               -->
-              <td>
+              <td class="col-product">
                 <div class="product-cell">
-                  <strong>{{ product.name }}</strong>
-                  <span class="muted product-description">
+                  <strong class="text-truncate" :title="product.name">{{ product.name }}</strong>
+                  <span class="muted product-description text-truncate" :title="'description' in product ? product.description || '' : ''">
                     {{ "description" in product ? product.description || "No description provided" : "Open detail to view more" }}
                   </span>
                   <!-- Pre-CRA flag — shown inline so it's always visible in the list -->
@@ -245,9 +245,9 @@
                   </span>
                 </div>
               </td>
-              <td><code>{{ product.product_code }}</code></td>
-              <td>{{ product.manufacturer_name }}</td>
-              <td>{{ product.product_type }}</td>
+              <td class="col-code"><code class="text-truncate" :title="product.product_code">{{ product.product_code }}</code></td>
+              <td class="col-manufacturer"><span class="text-truncate" :title="product.manufacturer_name">{{ product.manufacturer_name }}</span></td>
+              <td class="col-type"><span class="text-truncate" :title="product.product_type">{{ product.product_type }}</span></td>
               <td>
                 <span class="badge" :class="classificationClass(product.current_classification)">
                   {{ formatClassification(product.current_classification) }}
@@ -268,20 +268,19 @@
                   {{ formatDate(product.first_placed_on_market_date) }}
                 </span>
               </td>
-              <td>
+              <td class="col-support">
                 <div class="support-cell">
                   <template v-if="supportByProductId[product.id]">
                     <span class="badge" :class="supportStatusClass(getSupportStatus(product.id))">
                       {{ formatSupportStatus(getSupportStatus(product.id)) }}
                     </span>
-                    <span class="support-meta">
+                    <span class="support-meta text-truncate">
                       {{ formatSupportType(supportByProductId[product.id]!.support_type) }}
                       · ends {{ formatDate(supportByProductId[product.id]!.support_end_date) }}
                     </span>
                   </template>
                   <template v-else>
                     <span class="badge badge-neutral">Not set</span>
-                    <span class="support-meta muted">No active support period</span>
                   </template>
                 </div>
               </td>
@@ -755,6 +754,7 @@ onMounted(() => {
 .products-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;  /* fixed layout lets column widths be enforced */
 }
 
 .products-table th,
@@ -762,13 +762,33 @@ onMounted(() => {
   padding: 0.9rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
-  vertical-align: top;
+  vertical-align: middle;
+  overflow: hidden;
 }
 
 .products-table th {
   color: var(--color-text-muted, #94a3b8);
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Column widths — total adds up to 100% */
+.col-product      { width: 22%; }
+.col-code         { width: 9%; }
+.col-manufacturer { width: 13%; }
+.col-type         { width: 12%; }
+/* Classification, Scope columns get auto width */
+.col-support      { width: 14%; }
+/* Placed on market, Updated get natural narrow width */
+
+/* Truncation helper — applied to inline elements inside cells */
+.text-truncate {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .table-row {
@@ -783,12 +803,13 @@ onMounted(() => {
 .product-cell,
 .support-cell {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  min-width: 0;   /* allows grid children to shrink below their content size */
 }
 
 .product-description,
 .support-meta {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
 /* Pre-CRA badge sits below the description inside the product preview cell */

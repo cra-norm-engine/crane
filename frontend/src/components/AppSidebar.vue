@@ -47,6 +47,22 @@
         </RouterLink>
       </div>
 
+      <!-- My Tasks — personal task dashboard -->
+      <div class="nav-group">
+        <RouterLink
+          :to="{ name: 'my-tasks' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Checkbox / tasks icon -->
+            <svg viewBox="0 0 20 20"><path d="M3 5h14v2H3zm0 4h9v2H3zm0 4h6v2H3zm12-2-4 4-2-2 1.4-1.4L15 12.2l2.6-2.6z" fill="currentColor"/></svg>
+          </span>
+          <span>My Tasks</span>
+        </RouterLink>
+      </div>
+
       <div class="nav-divider" role="separator" />
 
       <!-- Main workspace links -->

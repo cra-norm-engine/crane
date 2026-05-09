@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -21,6 +22,7 @@ class RiskItemCreate(BaseModel):
     residual_risk_level: RiskLevel | None = None
     status: RiskItemStatus = RiskItemStatus.open
     owner_user_id: UUID | None = None
+    due_date: date | None = None
 
 
 class RiskItemUpdate(BaseModel):
@@ -35,6 +37,7 @@ class RiskItemUpdate(BaseModel):
     residual_risk_level: RiskLevel | None = None
     status: RiskItemStatus | None = None
     owner_user_id: UUID | None = None
+    due_date: date | None = None
 
 
 class RiskItemRead(TimestampedRead):
@@ -50,6 +53,7 @@ class RiskItemRead(TimestampedRead):
     residual_risk_level: RiskLevel | None
     status: RiskItemStatus
     owner_user_id: UUID | None
+    due_date: date | None
 
 
 class RiskItemSummaryRead(ORMBaseModel):

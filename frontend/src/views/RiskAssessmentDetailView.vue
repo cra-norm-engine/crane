@@ -374,6 +374,16 @@
               <div><strong>Residual:</strong> {{ item.residual_risk_level ?? "—" }}</div>
               <div><strong>Owner:</strong> {{ getUserDisplay(item.owner_user_id) }}</div>
             </div>
+
+            <!-- Task assignment for this risk item -->
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border, #e2e8f0);">
+              <AssigneeSelector
+                :assigned-to-user-id="item.owner_user_id ?? null"
+                :model-due-date="item.due_date ?? null"
+                @update:assigned-to-user-id="(id: string | null) => updateRiskItemAssignment(item.id, { owner_user_id: id })"
+                @update:model-due-date="(d: string | null) => updateRiskItemAssignment(item.id, { due_date: d })"
+              />
+            </div>
           </article>
         </div>
       </section>
@@ -385,11 +395,11 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { adminService } from "@/services/admin-service";
+import AssigneeSelector from "@/components/AssigneeSelector.vue";
+import { userService, type UserSummary } from "@/services/user-service";
 import { productService } from "@/services/product-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { riskItemService } from "@/services/risk-item-service";
-import type { AdminUserRead } from "@/types/admin";
 import type { ProductSummaryRead } from "@/types/product";
 import type {
   RiskAssessmentDetailRead,
@@ -404,7 +414,7 @@ const router = useRouter();
 
 const assessment = ref<RiskAssessmentDetailRead | null>(null);
 const riskItems = ref<RiskItemRead[]>([]);
-const users = ref<AdminUserRead[]>([]);
+const users = ref<UserSummary[]>([]);
 const products = ref<ProductSummaryRead[]>([]);
 const loading = ref(false);
 const riskItemsLoading = ref(false);
@@ -474,7 +484,7 @@ function formatDate(value: string | null): string {
 function getUserDisplay(userId: string | null | undefined): string {
   if (!userId) return "—";
 
-  const user = users.value.find((item) => item.id === userId);
+  const user = users.value.find((item: UserSummary) => item.id === userId);
   if (!user) return userId;
 
   const fullName = user.full_name?.trim();
@@ -484,7 +494,7 @@ function getUserDisplay(userId: string | null | undefined): string {
 function getProductName(productId: string | null | undefined): string {
   if (!productId) return "—";
 
-  const product = products.value.find((item) => item.id === productId);
+  const product = products.value.find((item: ProductSummaryRead) => item.id === productId);
   if (!product) return productId;
 
   return "name" in product && product.name ? product.name : product.id;
@@ -492,7 +502,7 @@ function getProductName(productId: string | null | undefined): string {
 
 async function loadUsers(): Promise<void> {
   try {
-    users.value = await adminService.listUsers();
+    users.value = await userService.listSummary();
   } catch (error: any) {
     console.error("Failed to load users.", error);
   }
@@ -661,6 +671,19 @@ async function createRiskItem(): Promise<void> {
     errorMessage.value = error?.message ?? "Failed to create risk item.";
   } finally {
     creatingRiskItem.value = false;
+  }
+}
+
+async function updateRiskItemAssignment(
+  itemId: string,
+  patch: { owner_user_id?: string | null; due_date?: string | null },
+): Promise<void> {
+  try {
+    const updated = await riskItemService.update(itemId, patch);
+    const idx = riskItems.value.findIndex((r: RiskItemRead) => r.id === itemId);
+    if (idx !== -1) riskItems.value[idx] = updated;
+  } catch {
+    // Silent — the UI stays unchanged if the patch fails.
   }
 }
 

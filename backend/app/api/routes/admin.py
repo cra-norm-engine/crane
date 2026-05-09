@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_permissions_dependency
+from app.api.deps import get_current_user, require_permissions_dependency
 from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
@@ -25,6 +25,27 @@ from app.services.role_service import RoleService
 from app.services import ldap_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class UserSummary(BaseModel):
+    """Lightweight user summary accessible to any authenticated user for pickers/selectors."""
+    id: str
+    full_name: str | None
+    email: str
+
+
+@router.get("/users/summary", response_model=list[UserSummary], tags=["admin"])
+def list_users_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a minimal id/name list for all active users. Used by AssigneeSelector dropdowns."""
+    users = AdminUserService(db).list_users()
+    return [
+        UserSummary(id=str(u.id), full_name=u.full_name, email=u.email)
+        for u in users
+        if u.is_active
+    ]
 
 
 @router.get("/users", response_model=list[AdminUserRead])

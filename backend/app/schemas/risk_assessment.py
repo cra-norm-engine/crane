@@ -33,6 +33,9 @@ class RiskAssessmentUpdate(BaseModel):
     summary: str | None = Field(default=None, min_length=1)
     owner_user_id: UUID | None = None
     approved_at: datetime | None = None
+    # Approval workflow fields — set by the reviewer, not by the owner directly.
+    reviewer_user_id: UUID | None = None
+    rejection_reason: str | None = None
 
 
 class RiskAssessmentDuplicateVersionRequest(BaseModel):
@@ -53,6 +56,18 @@ class RiskAssessmentApproveRequest(BaseModel):
 
 class RiskAssessmentRead(RiskAssessmentBase, TimestampedRead):
     approved_at: datetime | None
+    # Approval workflow — populated after submit/review cycle.
+    reviewer_user_id: UUID | None = None
+    rejection_reason: str | None = None
+
+
+class RiskAssessmentRejectRequest(BaseModel):
+    """Payload for the POST /{assessment_id}/reject endpoint."""
+
+    rejection_reason: str = Field(
+        min_length=5,
+        description="Required explanation for rejection; must be at least 5 characters.",
+    )
 
 class RiskItemSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

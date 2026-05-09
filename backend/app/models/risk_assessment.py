@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint  # Text needed for rejection_reason
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -48,6 +48,18 @@ class RiskAssessment(UUIDTimestampMixin, Base):
     )
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    # Approval workflow — reviewer fields (Track B: risk assessment approval).
+    # reviewer_user_id is set when an assessor submits the assessment for review
+    # and a reviewer then accepts or rejects it.
+    reviewer_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # rejection_reason is populated when a reviewer rejects the assessment and
+    # the status is rolled back to draft so the owner can revise and re-submit.
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     product: Mapped["Product"] = relationship(
         "Product",
         back_populates="risk_assessments",
@@ -59,6 +71,11 @@ class RiskAssessment(UUIDTimestampMixin, Base):
     owner_user: Mapped["User"] = relationship(
         "User",
         foreign_keys=[owner_user_id],
+    )
+    # The user who reviewed (approved or rejected) this assessment.
+    reviewer_user: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys=[reviewer_user_id],
     )
 
     risk_items: Mapped[list["RiskItem"]] = relationship(

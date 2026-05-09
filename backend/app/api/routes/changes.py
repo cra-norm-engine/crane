@@ -26,6 +26,7 @@ from app.models.enums import ChangeStatus, ChangeType
 from app.models.user import User
 from app.schemas.change import (
     AssessmentCreate,
+    ChangeAssign,
     ChangeCreate,
     ChangeRead,
     ChangeSummary,
@@ -114,6 +115,24 @@ def update_change(
     current_user: User = Depends(require_permissions_dependency(Permission.change_write)),
 ):
     return ChangeService(db).update_change(change_id, payload, actor=current_user)
+
+
+@router.patch(
+    "/{change_id}/assign",
+    response_model=ChangeRead,
+    summary="Assign / set due date on a change",
+    description=(
+        "Update assigned_to_user_id and/or due_date on a change. "
+        "Unlike the general update endpoint, this works regardless of workflow status."
+    ),
+)
+def assign_change(
+    change_id: UUID,
+    payload: ChangeAssign,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.change_write)),
+):
+    return ChangeService(db).assign_change(change_id, payload, actor=current_user)
 
 
 # ---------------------------------------------------------------------------

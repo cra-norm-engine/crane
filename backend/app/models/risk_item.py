@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Date, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -40,6 +41,9 @@ class RiskItem(UUIDTimestampMixin, Base):
         nullable=True,
         index=True,
     )
+
+    # Due date for completing the mitigation plan for this risk item.
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     risk_assessment: Mapped["RiskAssessment"] = relationship(
         "RiskAssessment",

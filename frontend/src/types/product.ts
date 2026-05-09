@@ -482,6 +482,8 @@ export interface VulnerabilityReportRead {
   disclosed_at: string | null;
   linked_security_update_id: string | null;
   linked_advisory_id: string | null;
+  assigned_to_user_id: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -517,6 +519,8 @@ export interface VulnerabilityReportUpdate {
   disclosed_at?: string | null;
   linked_security_update_id?: string | null;
   linked_advisory_id?: string | null;
+  assigned_to_user_id?: string | null;
+  due_date?: string | null;
 }
 
 // ── Gap 10: SBOM Record ────────────────────────────────────────────────────

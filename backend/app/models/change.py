@@ -61,6 +61,16 @@ class Change(UUIDTimestampMixin, Base):
         nullable=True,
     )
 
+    # Task assignment — the user responsible for moving this change forward.
+    assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Optional deadline for completing the assessment or closing the change.
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # --- Change details ---
 
     # Category of the change (security patch, new feature, bug fix, maintenance)

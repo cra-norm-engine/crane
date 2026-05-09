@@ -129,6 +129,14 @@ class ChangeUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=3, max_length=255)
     description: str | None = Field(default=None, min_length=10)
     change_date: date | None = None
+    assigned_to_user_id: UUID | None = None
+    due_date: date | None = None
+
+
+class ChangeAssign(BaseModel):
+    """Assignment-only patch — works regardless of change status."""
+    assigned_to_user_id: UUID | None = None
+    due_date: date | None = None
 
 
 class ChangeRead(TimestampedRead):
@@ -138,11 +146,13 @@ class ChangeRead(TimestampedRead):
     product_version_id: UUID
     initiator_user_id: UUID | None
     assessor_user_id: UUID | None
+    assigned_to_user_id: UUID | None
 
     change_type: ChangeType
     title: str
     description: str
     change_date: date
+    due_date: date | None
 
     # Workflow state
     status: ChangeStatus

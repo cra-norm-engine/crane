@@ -21,6 +21,7 @@ export interface RiskItemRead {
   residual_risk_level: RiskLevel | null;
   status: RiskItemStatus;
   owner_user_id: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +62,7 @@ export interface RiskItemUpdate {
   residual_risk_level?: RiskLevel | null;
   status?: RiskItemStatus;
   owner_user_id?: string | null;
+  due_date?: string | null;
 }
 
 export type RiskItem = RiskItemRead;
