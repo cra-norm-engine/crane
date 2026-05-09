@@ -342,3 +342,4 @@ class EntityType(StrEnum):
     vulnerability_report = "vulnerability_report"
     sbom_record = "sbom_record"
     market_action = "market_action"
+    comment = "comment"

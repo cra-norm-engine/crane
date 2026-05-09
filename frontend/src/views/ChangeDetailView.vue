@@ -292,6 +292,11 @@
         </section>
       </div>
     </div>
+
+    <!-- Comment thread for this change record -->
+    <div class="card" style="margin-top: 1.5rem;">
+      <CommentThread entity-type="change" :entity-id="change.id" />
+    </div>
   </section>
 
   <!-- Loading state -->
@@ -433,6 +438,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import CommentThread from "@/components/CommentThread.vue";
 import { changeService } from "@/services/change-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";

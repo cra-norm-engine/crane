@@ -67,6 +67,10 @@ class Permission(StrEnum):
     market_action_read = "market_action_read"
     market_action_write = "market_action_write"
 
+    # Threaded comments — attached to any entity in the system
+    comment_read = "comment_read"
+    comment_write = "comment_write"
+
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()
 

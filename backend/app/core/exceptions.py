@@ -21,6 +21,11 @@ class ConflictException(AppException):
         super().__init__(message, status.HTTP_409_CONFLICT)
 
 
+class ForbiddenException(AppException):
+    def __init__(self, message: str = "Forbidden") -> None:
+        super().__init__(message, status.HTTP_403_FORBIDDEN)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppException)
     async def app_exception_handler(_: Request, exc: AppException) -> JSONResponse:

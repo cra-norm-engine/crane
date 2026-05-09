@@ -11,6 +11,7 @@ from app.models import (  # noqa: F401
     annex_requirement,
     artifact,
     audit_log_event,
+    comment,
     evidence_item,
     market_action,
     placeholders,

@@ -1,4 +1,5 @@
 from app.models.annex_requirement import AnnexRequirement
+from app.models.comment import Comment
 from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
 from app.models.audit_log_event import AuditLogEvent
@@ -33,6 +34,7 @@ from app.models.vulnerability_report import VulnerabilityReport
 
 __all__ = [
     "AnnexRequirement",
+    "Comment",
     "Change",
     "ChangeComplianceAction",
     "SubstantialModificationAssessment",
