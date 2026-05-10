@@ -364,9 +364,10 @@ const scoreArc = computed(() => {
 
 const scoreColor = computed(() => {
   const s = data.value?.compliance_score ?? 0;
-  if (s >= 75) return "#4ade80";
-  if (s >= 50) return "#facc15";
-  return "#f87171";
+  // Use saturated mid-range colours readable on both dark and light backgrounds.
+  if (s >= 75) return "#16a34a";
+  if (s >= 50) return "#ca8a04";
+  return "#dc2626";
 });
 
 // ── Bar charts ────────────────────────────────────────────────────────────────
@@ -455,7 +456,7 @@ function timeAgo(iso: string): string {
   margin: 0 0 0.15rem;
   font-size: 1.55rem;
   font-weight: 800;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   letter-spacing: -0.02em;
 }
 
@@ -468,9 +469,9 @@ function timeAgo(iso: string): string {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  background: var(--color-surface-elevated, rgba(255,255,255,0.06));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.2));
-  color: var(--color-text, #e2e8f0);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   transition: opacity 0.15s;
   flex-shrink: 0;
 }
@@ -487,9 +488,9 @@ function timeAgo(iso: string): string {
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  background: rgba(239,68,68,0.12);
-  border: 1px solid rgba(239,68,68,0.25);
-  color: #fca5a5;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
   font-size: 0.875rem;
 }
 
@@ -505,9 +506,9 @@ function timeAgo(iso: string): string {
   border-radius: 12px;
   background: linear-gradient(
     90deg,
-    var(--color-surface-elevated, rgba(255,255,255,0.05)) 25%,
-    rgba(255,255,255,0.09) 50%,
-    var(--color-surface-elevated, rgba(255,255,255,0.05)) 75%
+    var(--color-surface-elevated) 25%,
+    var(--color-surface-elevated-strong) 50%,
+    var(--color-surface-elevated) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
@@ -531,29 +532,29 @@ function timeAgo(iso: string): string {
   gap: 0.85rem;
   padding: 1rem 1.1rem;
   border-radius: 12px;
-  background: var(--color-surface, rgba(15,23,42,0.8));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.15));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .kpi-card:hover {
-  border-color: rgba(99,102,241,0.4);
-  box-shadow: 0 0 0 1px rgba(99,102,241,0.12);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-surface-soft);
 }
 
-.kpi-card.kpi-danger { border-color: rgba(239,68,68,0.3); }
-.kpi-card.kpi-warn   { border-color: rgba(234,179,8,0.3); }
+.kpi-card.kpi-danger { border-color: var(--color-danger-border); }
+.kpi-card.kpi-warn   { border-color: var(--color-warning-border); }
 
 .kpi-num {
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   letter-spacing: -0.03em;
   flex-shrink: 0;
 }
-.num-danger { color: #f87171; }
-.num-warn   { color: #facc15; }
+.num-danger { color: var(--color-danger); }
+.num-warn   { color: var(--color-warning); }
 
 .kpi-card-text {
   display: flex;
@@ -565,15 +566,13 @@ function timeAgo(iso: string): string {
 .kpi-label {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   white-space: nowrap;
 }
 
-.kpi-sub {
-  font-size: 0.75rem;
-}
-.sub-danger { color: #f87171; }
-.sub-warn   { color: #facc15; }
+.kpi-sub { font-size: 0.75rem; }
+.sub-danger { color: var(--color-danger); }
+.sub-warn   { color: var(--color-warning); }
 
 /* ── Score donut ──────────────────────────────────────────────────────────── */
 .kpi-score { cursor: pointer; }
@@ -585,14 +584,11 @@ function timeAgo(iso: string): string {
   flex-shrink: 0;
 }
 
-.kpi-ring {
-  width: 52px;
-  height: 52px;
-}
+.kpi-ring { width: 52px; height: 52px; }
 
 .ring-track {
   fill: none;
-  stroke: rgba(148,163,184,0.15);
+  stroke: var(--color-border);
   stroke-width: 5;
 }
 
@@ -636,8 +632,8 @@ function timeAgo(iso: string): string {
 
 /* ── Hub cards ────────────────────────────────────────────────────────────── */
 .hub-card {
-  background: var(--color-surface, rgba(15,23,42,0.8));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.15));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1.2rem 1.3rem;
   display: flex;
@@ -656,9 +652,17 @@ function timeAgo(iso: string): string {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   letter-spacing: -0.01em;
 }
+
+.hub-card-sub {
+  font-size: 0.78rem;
+  margin: -0.25rem 0 0;
+  line-height: 1.5;
+}
+
+.hub-card-alert { border-color: var(--color-danger-border); }
 
 .link-btn {
   background: none;
@@ -666,12 +670,12 @@ function timeAgo(iso: string): string {
   padding: 0;
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(99,102,241,0.9);
+  color: var(--color-primary);
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.12s;
 }
-.link-btn:hover { color: rgba(99,102,241,1); }
+.link-btn:hover { color: var(--color-primary-2); }
 
 /* ── Bar chart ────────────────────────────────────────────────────────────── */
 .bar-chart {
@@ -690,14 +694,14 @@ function timeAgo(iso: string): string {
 .bar-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--color-text-muted, #94a3b8);
+  color: var(--color-text-muted);
   text-align: right;
 }
 
 .bar-track {
   height: 8px;
   border-radius: 4px;
-  background: rgba(148,163,184,0.1);
+  background: var(--color-inset-border);
   overflow: hidden;
 }
 
@@ -711,7 +715,7 @@ function timeAgo(iso: string): string {
 .bar-value {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   text-align: right;
 }
 
@@ -721,7 +725,7 @@ function timeAgo(iso: string): string {
   padding: 0.5rem 0;
 }
 
-/* ── Hub alert ────────────────────────────────────────────────────────────── */
+/* ── Hub alerts ───────────────────────────────────────────────────────────── */
 .hub-alert {
   display: flex;
   align-items: center;
@@ -732,35 +736,30 @@ function timeAgo(iso: string): string {
   border-radius: 6px;
 }
 .hub-alert-danger {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.2);
-  color: #fca5a5;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+.hub-alert-info {
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info-text);
 }
 
 /* ── Change stats ─────────────────────────────────────────────────────────── */
-.change-stats {
-  display: flex;
-  gap: 1.5rem;
-}
+.change-stats { display: flex; gap: 1.5rem; }
 
-.change-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
+.change-stat { display: flex; flex-direction: column; gap: 0.15rem; }
 
 .change-stat-num {
   font-size: 1.8rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   line-height: 1;
 }
 
-.change-stat-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-}
+.change-stat-label { font-size: 0.75rem; font-weight: 600; }
 
 /* ── Upcoming releases ────────────────────────────────────────────────────── */
 .release-list {
@@ -779,32 +778,25 @@ function timeAgo(iso: string): string {
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
-  background: var(--color-surface-elevated, rgba(255,255,255,0.04));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.1));
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: border-color 0.12s;
 }
-.release-item:hover { border-color: rgba(99,102,241,0.3); }
+.release-item:hover { border-color: var(--color-primary); }
 
-.release-item-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
+.release-item-left { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 
 .release-name {
   font-size: 0.84rem;
   font-weight: 700;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.release-version {
-  font-size: 0.75rem;
-}
+.release-version { font-size: 0.75rem; }
 
 .release-item-right {
   display: flex;
@@ -821,15 +813,12 @@ function timeAgo(iso: string): string {
   border-radius: 4px;
   white-space: nowrap;
 }
-.chip-danger { background: rgba(239,68,68,0.2);  color: #fca5a5; }
-.chip-warn   { background: rgba(234,179,8,0.18); color: #fde68a; }
-.chip-ok     { background: rgba(34,197,94,0.15); color: #86efac; }
-.chip-muted  { background: rgba(148,163,184,0.1); color: #94a3b8; }
+.chip-danger { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.chip-warn   { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); }
+.chip-ok     { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
+.chip-muted  { background: var(--color-slate-bg);   color: var(--color-slate-text);   border: 1px solid var(--color-slate-border); }
 
-.release-status {
-  font-size: 0.72rem;
-  text-transform: capitalize;
-}
+.release-status { font-size: 0.72rem; text-transform: capitalize; }
 
 /* ── Activity feed ────────────────────────────────────────────────────────── */
 .hub-card-activity { overflow: hidden; }
@@ -847,7 +836,7 @@ function timeAgo(iso: string): string {
   align-items: flex-start;
   gap: 0.65rem;
   padding: 0.6rem 0;
-  border-bottom: 1px solid var(--color-border, rgba(148,163,184,0.08));
+  border-bottom: 1px solid var(--color-divider);
 }
 .activity-item:last-child { border-bottom: none; }
 
@@ -858,50 +847,24 @@ function timeAgo(iso: string): string {
   flex-shrink: 0;
   margin-top: 0.35rem;
 }
-.dot-red    { background: #f87171; }
-.dot-amber  { background: #fb923c; }
-.dot-blue   { background: #60a5fa; }
-.dot-green  { background: #4ade80; }
-.dot-purple { background: #a78bfa; }
-.dot-grey   { background: #94a3b8; }
+.dot-red    { background: var(--color-danger); }
+.dot-amber  { background: #ea580c; }
+.dot-blue   { background: var(--color-info); }
+.dot-green  { background: var(--color-success); }
+.dot-purple { background: var(--color-purple); }
+.dot-grey   { background: var(--color-text-muted); }
 
-.activity-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
+.activity-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 
 .activity-summary {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   line-height: 1.4;
 }
 
-.activity-meta {
-  font-size: 0.72rem;
-}
-
-/* ── Hub card subtitle ────────────────────────────────────────────────────── */
-.hub-card-sub {
-  font-size: 0.78rem;
-  margin: -0.25rem 0 0;
-  line-height: 1.5;
-}
-
-/* ── Hub card alert variant ───────────────────────────────────────────────── */
-.hub-card-alert {
-  border-color: rgba(239,68,68,0.3);
-}
-
-/* ── Hub alert variants ───────────────────────────────────────────────────── */
-.hub-alert-info {
-  background: rgba(99,102,241,0.1);
-  border: 1px solid rgba(99,102,241,0.25);
-  color: #a5b4fc;
-}
+.activity-meta { font-size: 0.72rem; }
 
 /* ── Lifecycle grid ───────────────────────────────────────────────────────── */
 .lc-grid {
@@ -917,33 +880,26 @@ function timeAgo(iso: string): string {
   gap: 0.15rem;
   padding: 0.65rem 0.5rem;
   border-radius: 8px;
-  background: var(--color-surface-elevated, rgba(255,255,255,0.04));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.1));
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
   text-align: center;
 }
 
-.lc-cell.lc-danger { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.06); }
-.lc-cell.lc-warn   { border-color: rgba(234,179,8,0.3);  background: rgba(234,179,8,0.06);  }
+.lc-cell.lc-danger { border-color: var(--color-danger-border); background: var(--color-danger-bg); }
+.lc-cell.lc-warn   { border-color: var(--color-warning-border); background: var(--color-warning-bg); }
 
 .lc-num {
   font-size: 1.6rem;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.03em;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
 }
-.lc-num-ok { color: #4ade80; }
+.lc-num-ok { color: var(--color-success); }
 
-.lc-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--color-text, #e2e8f0);
-  white-space: nowrap;
-}
+.lc-label { font-size: 0.72rem; font-weight: 700; color: var(--color-text); white-space: nowrap; }
 
-.lc-hint {
-  font-size: 0.68rem;
-}
+.lc-hint { font-size: 0.68rem; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {

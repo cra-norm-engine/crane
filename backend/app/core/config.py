@@ -32,8 +32,21 @@ class Settings(BaseSettings):
     )
 
     # --- Security ---
-    secret_key: str = Field(default="change-me", alias="BACKEND_SECRET_KEY")
+    secret_key: str = Field(alias="BACKEND_SECRET_KEY")
     audit_hmac_key: str = Field(default="", alias="BACKEND_AUDIT_HMAC_KEY")
+
+    @field_validator("secret_key")
+    @classmethod
+    def secret_key_must_not_be_default(cls, v: str) -> str:
+        # Refuse to start with known-insecure defaults that exist in the repository.
+        _INSECURE_DEFAULTS = {"change-me", "change-me-in-production", "secret", ""}
+        if v in _INSECURE_DEFAULTS or len(v) < 32:
+            raise ValueError(
+                "BACKEND_SECRET_KEY must be a cryptographically random value "
+                "(minimum 32 characters). Generate one with: "
+                "python3 -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
 
     access_token_expire_minutes: int = Field(
         default=60,

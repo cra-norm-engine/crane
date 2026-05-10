@@ -22,6 +22,7 @@ from app.models.requirement_mapping import (
     RequirementMappingArtifactLink,
 )
 from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
+from app.models.revoked_token import RevokedToken
 from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
 from app.models.role_permission import RolePermission
@@ -59,6 +60,7 @@ __all__ = [
     "ProductRequirementDecision",
     "RequirementMapping",
     "RequirementMappingArtifactLink",
+    "RevokedToken",
     "RiskAssessment",
     "RiskItem",
     "RolePermission",

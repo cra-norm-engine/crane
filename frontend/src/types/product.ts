@@ -376,9 +376,23 @@ export interface CvdPolicyRead {
   id: string;
   product_id: string;
   status: CvdPolicyStatus;
-  policy_url: string | null;
-  disclosure_window_days: number;
+  // Contact & reporting channels
   contact_email: string | null;
+  pgp_key_url: string | null;
+  security_txt_url: string | null;
+  bug_bounty_url: string | null;
+  // Timelines
+  response_sla_hours: number;
+  disclosure_window_days: number;
+  // Legal & researcher relations
+  safe_harbor: boolean;
+  acknowledgement_offered: boolean;
+  // Scope
+  scope_description: string | null;
+  out_of_scope_description: string | null;
+  supported_versions: string | null;
+  // Policy document
+  policy_url: string | null;
   policy_text: string | null;
   created_at: string;
   updated_at: string;
@@ -387,17 +401,35 @@ export interface CvdPolicyRead {
 export interface CvdPolicyCreate {
   product_id: string;
   status?: CvdPolicyStatus;
-  policy_url?: string | null;
-  disclosure_window_days?: number;
   contact_email?: string | null;
+  pgp_key_url?: string | null;
+  security_txt_url?: string | null;
+  bug_bounty_url?: string | null;
+  response_sla_hours?: number;
+  disclosure_window_days?: number;
+  safe_harbor?: boolean;
+  acknowledgement_offered?: boolean;
+  scope_description?: string | null;
+  out_of_scope_description?: string | null;
+  supported_versions?: string | null;
+  policy_url?: string | null;
   policy_text?: string | null;
 }
 
 export interface CvdPolicyUpdate {
   status?: CvdPolicyStatus;
-  policy_url?: string | null;
-  disclosure_window_days?: number;
   contact_email?: string | null;
+  pgp_key_url?: string | null;
+  security_txt_url?: string | null;
+  bug_bounty_url?: string | null;
+  response_sla_hours?: number;
+  disclosure_window_days?: number;
+  safe_harbor?: boolean;
+  acknowledgement_offered?: boolean;
+  scope_description?: string | null;
+  out_of_scope_description?: string | null;
+  supported_versions?: string | null;
+  policy_url?: string | null;
   policy_text?: string | null;
 }
 

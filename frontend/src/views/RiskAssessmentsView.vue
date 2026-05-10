@@ -192,6 +192,8 @@ const products = ref<ProductSummaryRead[]>([]);
 const filterReleases = ref<ProductReleaseRead[]>([]);
 const createReleases = ref<ProductReleaseRead[]>([]);
 const createReleaseId = ref("");
+// Maps release UUID → version string for all releases referenced by loaded assessments.
+const releaseMap = ref<Record<string, string>>({});
 
 const assessmentStatuses: RiskAssessmentStatus[] = [
   "draft",
@@ -264,6 +266,11 @@ function getReleaseName(releaseId: string | null): string {
     return "—";
   }
 
+  // Check the global map built from all loaded assessments first.
+  if (releaseMap.value[releaseId]) {
+    return releaseMap.value[releaseId];
+  }
+
   const release = [...filterReleases.value, ...createReleases.value].find((item) => item.id === releaseId);
   return release ? release.version : releaseId;
 }
@@ -289,6 +296,32 @@ async function loadReleases(productId: string): Promise<ProductReleaseRead[]> {
   }
 }
 
+async function buildReleaseMap(loaded: RiskAssessmentRead[]): Promise<void> {
+  // Collect product IDs that have at least one assessment with a release.
+  const productIds = [
+    ...new Set(
+      loaded
+        .filter((a) => a.product_release_id !== null)
+        .map((a) => a.product_id),
+    ),
+  ];
+
+  const map: Record<string, string> = {};
+  await Promise.all(
+    productIds.map(async (pid) => {
+      try {
+        const releases = await productReleaseService.list(pid);
+        for (const r of releases) {
+          map[r.id] = r.version;
+        }
+      } catch {
+        // Non-critical: table will fall back to UUID for this product's releases.
+      }
+    }),
+  );
+  releaseMap.value = map;
+}
+
 async function loadAssessments(): Promise<void> {
   loading.value = true;
   errorMessage.value = "";
@@ -298,10 +331,12 @@ async function loadAssessments(): Promise<void> {
     const productId = filters.productId.trim();
     const productReleaseId = filters.productReleaseId.trim();
 
-    assessments.value = await riskAssessmentService.list({
+    const loaded = await riskAssessmentService.list({
       product_id: productId || undefined,
       product_release_id: productReleaseId || undefined,
     });
+    assessments.value = loaded;
+    void buildReleaseMap(loaded);
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load risk assessments.";
     assessments.value = [];

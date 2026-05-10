@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.permissions import Permission, require_permissions
 from app.core.security import decode_access_token, get_token_subject
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
@@ -29,6 +30,15 @@ def get_current_user(
 
     payload = decode_access_token(credentials.credentials)
     subject = get_token_subject(payload)
+
+    # Reject tokens that were explicitly revoked (e.g. via logout).
+    jti = payload.get("jti")
+    if jti and db.get(RevokedToken, jti) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         user_id = UUID(subject)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.enums import AuthProvider, AuditActionType, AuditStatus, EntityType
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenRead
@@ -250,9 +252,17 @@ class AuthService:
         self,
         *,
         user: User,
+        access_token_payload: dict,
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
+        # Revoke the current access token so it cannot be reused after logout.
+        jti = access_token_payload.get("jti")
+        exp = access_token_payload.get("exp")
+        if jti and exp:
+            expires_at = datetime.fromtimestamp(exp, tz=UTC)
+            self.db.merge(RevokedToken(jti=jti, expires_at=expires_at))
+
         self.audit_logger.log_event(
             actor_user_id=user.id,
             action_type=AuditActionType.logout.value,

@@ -29,7 +29,7 @@
           {{ isLoading ? "Refreshing…" : "Load" }}
         </button>
 
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button class="btn btn-primary" @click="openCreateModal">
           + New policy
         </button>
       </div>
@@ -60,8 +60,10 @@
             <tr>
               <th>Product</th>
               <th>Status</th>
+              <th>Contact</th>
               <th>Disclosure window</th>
-              <th>Contact email</th>
+              <th>Response SLA</th>
+              <th>Safe harbour</th>
               <th>Policy URL</th>
               <th>Updated</th>
               <th></th>
@@ -82,11 +84,16 @@
                   {{ p.status }}
                 </span>
               </td>
-              <td>{{ p.disclosure_window_days }} days</td>
               <td>{{ p.contact_email || "—" }}</td>
+              <td>{{ p.disclosure_window_days }} days</td>
+              <td>{{ p.response_sla_hours }}h</td>
+              <td>
+                <span v-if="p.safe_harbor" class="check-yes">✓</span>
+                <span v-else class="check-no">—</span>
+              </td>
               <td>
                 <a v-if="p.policy_url" :href="p.policy_url" target="_blank" rel="noopener" @click.stop class="policy-url-link">
-                  {{ p.policy_url.slice(0, 40) }}{{ p.policy_url.length > 40 ? "…" : "" }}
+                  {{ p.policy_url.slice(0, 36) }}{{ p.policy_url.length > 36 ? "…" : "" }}
                 </a>
                 <span v-else class="muted">—</span>
               </td>
@@ -101,46 +108,145 @@
 
   <!-- ── Create Modal ── -->
   <AppModal v-model="showCreateModal" title="New CVD policy" size="lg" :persistent="true">
-    <form id="cvd-create-form" class="form-grid" @submit.prevent="createPolicy">
-      <div class="field field-span-2">
-        <span class="field-label">Product</span>
-        <select v-model="createForm.product_id" required>
-          <option value="">— Select a product —</option>
-          <option v-for="p in products" :key="p.id" :value="p.id">
-            {{ p.name }} ({{ p.product_code }})
-          </option>
-        </select>
+    <form id="cvd-create-form" class="modal-form" @submit.prevent="createPolicy">
+
+      <!-- Product -->
+      <div class="form-section">
+        <div class="form-section-title">General</div>
+        <div class="form-grid">
+          <div class="field field-span-2">
+            <span class="field-label">Product <span class="req">*</span></span>
+            <select v-model="createForm.product_id" required>
+              <option value="">— Select a product —</option>
+              <option v-for="p in products" :key="p.id" :value="p.id">
+                {{ p.name }} ({{ p.product_code }})
+              </option>
+            </select>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Status</span>
+            <select v-model="createForm.status">
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Supported versions</span>
+            <input v-model.trim="createForm.supported_versions" type="text" placeholder="e.g. 2.x, 3.x (EOL: 1.x)" />
+            <p class="hint">Versions currently receiving security patches.</p>
+          </label>
+        </div>
       </div>
 
-      <label class="field">
-        <span class="field-label">Status</span>
-        <select v-model="createForm.status">
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </label>
+      <!-- Contact & Channels -->
+      <div class="form-section">
+        <div class="form-section-title">Contact &amp; reporting channels</div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Security contact email <span class="req">*</span></span>
+            <input v-model.trim="createForm.contact_email" type="email" placeholder="security@example.com" required />
+            <p class="hint">Published address for vulnerability reports.</p>
+          </label>
 
-      <label class="field">
-        <span class="field-label">Disclosure window (days)</span>
-        <input v-model.number="createForm.disclosure_window_days" type="number" min="1" max="365" />
-        <p class="muted" style="font-size:var(--text-xs);margin-top:0.25rem;">CRA guidance recommends ≤ 90 days</p>
-      </label>
+          <label class="field">
+            <span class="field-label">PGP key URL</span>
+            <input v-model.trim="createForm.pgp_key_url" type="url" placeholder="https://example.com/pgp-key.txt" />
+            <p class="hint">URL to the PGP public key for encrypted submissions.</p>
+          </label>
 
-      <label class="field">
-        <span class="field-label">Contact email</span>
-        <input v-model.trim="createForm.contact_email" type="email" placeholder="security@example.com" />
-      </label>
+          <label class="field">
+            <span class="field-label">security.txt URL <span class="badge-ref">RFC 9116</span></span>
+            <input v-model.trim="createForm.security_txt_url" type="url" placeholder="https://example.com/.well-known/security.txt" />
+            <p class="hint">Canonical security.txt location.</p>
+          </label>
 
-      <label class="field">
-        <span class="field-label">Policy URL</span>
-        <input v-model.trim="createForm.policy_url" type="url" placeholder="https://example.com/.well-known/security.txt" />
-      </label>
+          <label class="field">
+            <span class="field-label">Bug bounty / VDP platform</span>
+            <input v-model.trim="createForm.bug_bounty_url" type="url" placeholder="https://hackerone.com/your-program" />
+            <p class="hint">HackerOne, Bugcrowd, Intigriti, or internal VDP URL.</p>
+          </label>
+        </div>
+      </div>
 
-      <label class="field field-span-2">
-        <span class="field-label">Policy text (optional)</span>
-        <textarea v-model.trim="createForm.policy_text" rows="4" placeholder="Full policy text for offline reference…" />
-      </label>
+      <!-- Timelines -->
+      <div class="form-section">
+        <div class="form-section-title">Timelines</div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Initial response SLA (hours)</span>
+            <input v-model.number="createForm.response_sla_hours" type="number" min="1" max="8760" />
+            <p class="hint">Commitment to acknowledge a report within this many hours. Best practice: ≤ 48 h.</p>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Disclosure window (days)</span>
+            <input v-model.number="createForm.disclosure_window_days" type="number" min="1" max="365" />
+            <p class="hint">Embargo period before public disclosure. CRA guidance: ≤ 90 days.</p>
+          </label>
+        </div>
+      </div>
+
+      <!-- Legal & researcher relations -->
+      <div class="form-section">
+        <div class="form-section-title">Researcher relations</div>
+        <div class="form-grid">
+          <label class="field field-checkbox">
+            <input v-model="createForm.safe_harbor" type="checkbox" />
+            <span>
+              <span class="field-label">Safe harbour clause</span>
+              <p class="hint">Policy commits not to pursue legal action against good-faith security researchers.</p>
+            </span>
+          </label>
+
+          <label class="field field-checkbox">
+            <input v-model="createForm.acknowledgement_offered" type="checkbox" />
+            <span>
+              <span class="field-label">Researcher acknowledgement</span>
+              <p class="hint">Policy offers public credit (hall of fame, CVE acknowledgement, etc.).</p>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Scope -->
+      <div class="form-section">
+        <div class="form-section-title">Scope</div>
+        <div class="form-grid">
+          <label class="field field-span-2">
+            <span class="field-label">In-scope targets</span>
+            <textarea v-model.trim="createForm.scope_description" rows="3"
+              placeholder="e.g. All versions of ProductX firmware, the companion mobile app (iOS & Android), and the cloud API at api.example.com." />
+          </label>
+
+          <label class="field field-span-2">
+            <span class="field-label">Out-of-scope</span>
+            <textarea v-model.trim="createForm.out_of_scope_description" rows="3"
+              placeholder="e.g. Third-party components, end-of-life versions (< 1.x), physical attacks, social engineering." />
+          </label>
+        </div>
+      </div>
+
+      <!-- Policy document -->
+      <div class="form-section">
+        <div class="form-section-title">Policy document</div>
+        <div class="form-grid">
+          <label class="field field-span-2">
+            <span class="field-label">Public policy URL</span>
+            <input v-model.trim="createForm.policy_url" type="url" placeholder="https://example.com/security/cvd-policy" />
+            <p class="hint">Where the human-readable policy is published.</p>
+          </label>
+
+          <label class="field field-span-2">
+            <span class="field-label">Policy text (offline reference)</span>
+            <textarea v-model.trim="createForm.policy_text" rows="5"
+              placeholder="Paste the full policy text here for compliance-package storage…" />
+          </label>
+        </div>
+      </div>
+
     </form>
 
     <template #footer>
@@ -153,40 +259,126 @@
 
   <!-- ── Detail / Edit Modal ── -->
   <AppModal v-if="detailItem" v-model="showDetailModal" title="CVD policy" size="lg">
-    <form id="cvd-edit-form" class="form-grid" @submit.prevent="saveEdit">
-      <div class="field field-span-2">
-        <span class="field-label">Product</span>
-        <input :value="productName(detailItem.product_id)" disabled />
+    <form id="cvd-edit-form" class="modal-form" @submit.prevent="saveEdit">
+
+      <div class="form-section">
+        <div class="form-section-title">General</div>
+        <div class="form-grid">
+          <div class="field field-span-2">
+            <span class="field-label">Product</span>
+            <input :value="productName(detailItem.product_id)" disabled />
+          </div>
+
+          <label class="field">
+            <span class="field-label">Status</span>
+            <select v-model="editForm.status">
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Supported versions</span>
+            <input v-model.trim="editForm.supported_versions" type="text" placeholder="e.g. 2.x, 3.x (EOL: 1.x)" />
+            <p class="hint">Versions currently receiving security patches.</p>
+          </label>
+        </div>
       </div>
 
-      <label class="field">
-        <span class="field-label">Status</span>
-        <select v-model="editForm.status">
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
-      </label>
+      <div class="form-section">
+        <div class="form-section-title">Contact &amp; reporting channels</div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Security contact email</span>
+            <input v-model.trim="editForm.contact_email" type="email" />
+          </label>
 
-      <label class="field">
-        <span class="field-label">Disclosure window (days)</span>
-        <input v-model.number="editForm.disclosure_window_days" type="number" min="1" max="365" />
-      </label>
+          <label class="field">
+            <span class="field-label">PGP key URL</span>
+            <input v-model.trim="editForm.pgp_key_url" type="url" />
+          </label>
 
-      <label class="field">
-        <span class="field-label">Contact email</span>
-        <input v-model.trim="editForm.contact_email" type="email" />
-      </label>
+          <label class="field">
+            <span class="field-label">security.txt URL <span class="badge-ref">RFC 9116</span></span>
+            <input v-model.trim="editForm.security_txt_url" type="url" />
+          </label>
 
-      <label class="field">
-        <span class="field-label">Policy URL</span>
-        <input v-model.trim="editForm.policy_url" type="url" />
-      </label>
+          <label class="field">
+            <span class="field-label">Bug bounty / VDP platform</span>
+            <input v-model.trim="editForm.bug_bounty_url" type="url" />
+          </label>
+        </div>
+      </div>
 
-      <label class="field field-span-2">
-        <span class="field-label">Policy text</span>
-        <textarea v-model.trim="editForm.policy_text" rows="5" />
-      </label>
+      <div class="form-section">
+        <div class="form-section-title">Timelines</div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Initial response SLA (hours)</span>
+            <input v-model.number="editForm.response_sla_hours" type="number" min="1" max="8760" />
+            <p class="hint">Best practice: ≤ 48 h.</p>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Disclosure window (days)</span>
+            <input v-model.number="editForm.disclosure_window_days" type="number" min="1" max="365" />
+            <p class="hint">CRA guidance: ≤ 90 days.</p>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Researcher relations</div>
+        <div class="form-grid">
+          <label class="field field-checkbox">
+            <input v-model="editForm.safe_harbor" type="checkbox" />
+            <span>
+              <span class="field-label">Safe harbour clause</span>
+              <p class="hint">Policy commits not to pursue legal action against good-faith security researchers.</p>
+            </span>
+          </label>
+
+          <label class="field field-checkbox">
+            <input v-model="editForm.acknowledgement_offered" type="checkbox" />
+            <span>
+              <span class="field-label">Researcher acknowledgement</span>
+              <p class="hint">Policy offers public credit (hall of fame, CVE acknowledgement, etc.).</p>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Scope</div>
+        <div class="form-grid">
+          <label class="field field-span-2">
+            <span class="field-label">In-scope targets</span>
+            <textarea v-model.trim="editForm.scope_description" rows="3" />
+          </label>
+
+          <label class="field field-span-2">
+            <span class="field-label">Out-of-scope</span>
+            <textarea v-model.trim="editForm.out_of_scope_description" rows="3" />
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Policy document</div>
+        <div class="form-grid">
+          <label class="field field-span-2">
+            <span class="field-label">Public policy URL</span>
+            <input v-model.trim="editForm.policy_url" type="url" />
+          </label>
+
+          <label class="field field-span-2">
+            <span class="field-label">Policy text (offline reference)</span>
+            <textarea v-model.trim="editForm.policy_text" rows="5" />
+          </label>
+        </div>
+      </div>
+
     </form>
 
     <template #footer>
@@ -231,20 +423,47 @@ const policies = ref<CvdPolicyRead[]>([]);
 const productQuery = ref("");
 const selectedProductId = ref("");
 
-const createForm = reactive({
-  product_id: "",
-  status: "draft" as CvdPolicyStatus,
-  policy_url: "",
-  disclosure_window_days: 90,
-  contact_email: "",
-  policy_text: "",
-});
+function blankCreateForm() {
+  return {
+    product_id: "",
+    status: "draft" as CvdPolicyStatus,
+    // Contact & channels
+    contact_email: "",
+    pgp_key_url: "",
+    security_txt_url: "",
+    bug_bounty_url: "",
+    // Timelines
+    response_sla_hours: 48,
+    disclosure_window_days: 90,
+    // Researcher relations
+    safe_harbor: false,
+    acknowledgement_offered: false,
+    // Scope
+    scope_description: "",
+    out_of_scope_description: "",
+    supported_versions: "",
+    // Policy document
+    policy_url: "",
+    policy_text: "",
+  };
+}
+
+const createForm = reactive(blankCreateForm());
 
 const editForm = reactive({
   status: "draft" as CvdPolicyStatus,
-  policy_url: "",
-  disclosure_window_days: 90,
   contact_email: "",
+  pgp_key_url: "",
+  security_txt_url: "",
+  bug_bounty_url: "",
+  response_sla_hours: 48,
+  disclosure_window_days: 90,
+  safe_harbor: false,
+  acknowledgement_offered: false,
+  scope_description: "",
+  out_of_scope_description: "",
+  supported_versions: "",
+  policy_url: "",
   policy_text: "",
 });
 
@@ -275,6 +494,10 @@ function formatDate(val: string): string {
   return new Date(val).toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+function nullify(v: string | undefined | null): string | null {
+  return v?.trim() || null;
+}
+
 async function loadProducts(): Promise<void> {
   isLoadingProducts.value = true;
   try {
@@ -297,6 +520,11 @@ async function loadPolicies(): Promise<void> {
   }
 }
 
+function openCreateModal(): void {
+  Object.assign(createForm, blankCreateForm());
+  showCreateModal.value = true;
+}
+
 async function createPolicy(): Promise<void> {
   isCreating.value = true;
   errorMessage.value = "";
@@ -304,15 +532,23 @@ async function createPolicy(): Promise<void> {
     const payload: CvdPolicyCreate = {
       product_id: createForm.product_id,
       status: createForm.status,
-      policy_url: createForm.policy_url || null,
+      contact_email: nullify(createForm.contact_email),
+      pgp_key_url: nullify(createForm.pgp_key_url),
+      security_txt_url: nullify(createForm.security_txt_url),
+      bug_bounty_url: nullify(createForm.bug_bounty_url),
+      response_sla_hours: createForm.response_sla_hours,
       disclosure_window_days: createForm.disclosure_window_days,
-      contact_email: createForm.contact_email || null,
-      policy_text: createForm.policy_text || null,
+      safe_harbor: createForm.safe_harbor,
+      acknowledgement_offered: createForm.acknowledgement_offered,
+      scope_description: nullify(createForm.scope_description),
+      out_of_scope_description: nullify(createForm.out_of_scope_description),
+      supported_versions: nullify(createForm.supported_versions),
+      policy_url: nullify(createForm.policy_url),
+      policy_text: nullify(createForm.policy_text),
     };
     await cvdPolicyService.create(payload);
     showCreateModal.value = false;
     successMessage.value = "CVD policy created.";
-    Object.assign(createForm, { product_id: "", status: "draft", policy_url: "", disclosure_window_days: 90, contact_email: "", policy_text: "" });
     await loadPolicies();
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : "Failed to create policy.";
@@ -325,9 +561,18 @@ function openDetail(item: CvdPolicyRead): void {
   detailItem.value = item;
   Object.assign(editForm, {
     status: item.status,
-    policy_url: item.policy_url ?? "",
-    disclosure_window_days: item.disclosure_window_days,
     contact_email: item.contact_email ?? "",
+    pgp_key_url: item.pgp_key_url ?? "",
+    security_txt_url: item.security_txt_url ?? "",
+    bug_bounty_url: item.bug_bounty_url ?? "",
+    response_sla_hours: item.response_sla_hours,
+    disclosure_window_days: item.disclosure_window_days,
+    safe_harbor: item.safe_harbor,
+    acknowledgement_offered: item.acknowledgement_offered,
+    scope_description: item.scope_description ?? "",
+    out_of_scope_description: item.out_of_scope_description ?? "",
+    supported_versions: item.supported_versions ?? "",
+    policy_url: item.policy_url ?? "",
     policy_text: item.policy_text ?? "",
   });
   showDetailModal.value = true;
@@ -340,10 +585,19 @@ async function saveEdit(): Promise<void> {
   try {
     const payload: CvdPolicyUpdate = {
       status: editForm.status,
-      policy_url: editForm.policy_url || null,
+      contact_email: nullify(editForm.contact_email),
+      pgp_key_url: nullify(editForm.pgp_key_url),
+      security_txt_url: nullify(editForm.security_txt_url),
+      bug_bounty_url: nullify(editForm.bug_bounty_url),
+      response_sla_hours: editForm.response_sla_hours,
       disclosure_window_days: editForm.disclosure_window_days,
-      contact_email: editForm.contact_email || null,
-      policy_text: editForm.policy_text || null,
+      safe_harbor: editForm.safe_harbor,
+      acknowledgement_offered: editForm.acknowledgement_offered,
+      scope_description: nullify(editForm.scope_description),
+      out_of_scope_description: nullify(editForm.out_of_scope_description),
+      supported_versions: nullify(editForm.supported_versions),
+      policy_url: nullify(editForm.policy_url),
+      policy_text: nullify(editForm.policy_text),
     };
     await cvdPolicyService.update(detailItem.value.id, payload);
     showDetailModal.value = false;
@@ -452,16 +706,76 @@ onMounted(async () => {
   font-size: var(--text-sm);
 }
 
-/* ── Form ── */
+/* ── Modal form sections ── */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form-section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-divider);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
-.field { display: grid; gap: 0.4rem; }
+.field { display: grid; gap: 0.35rem; }
 .field-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-muted); }
 .field-span-2 { grid-column: span 2; }
+
+/* Checkbox row */
+.field-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.field-checkbox input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.hint {
+  margin: 0.15rem 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.req { color: var(--color-danger-text); margin-left: 0.1rem; }
+
+.badge-ref {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--color-slate-bg);
+  color: var(--color-slate-text);
+  border: 1px solid var(--color-slate-border);
+  vertical-align: middle;
+}
 
 input, select, textarea {
   width: 100%;
@@ -471,6 +785,7 @@ input, select, textarea {
   background: var(--color-surface-soft);
   color: inherit;
   font: inherit;
+  box-sizing: border-box;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -478,6 +793,8 @@ input:focus, select:focus, textarea:focus {
   border-color: rgba(175, 214, 46, 0.45);
   box-shadow: 0 0 0 3px rgba(112, 185, 23, 0.12);
 }
+
+input:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── Table ── */
 .table-wrapper { overflow-x: auto; }
@@ -508,7 +825,7 @@ input:focus, select:focus, textarea:focus {
 .table-row-clickable:hover { background: var(--color-surface-elevated); }
 .table-row-clickable:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 
-/* ── Policy status badges — design-system tokens only ── */
+/* ── Policy status badges ── */
 .policy-status-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;
@@ -523,10 +840,19 @@ input:focus, select:focus, textarea:focus {
 .policy-status-active   { background: var(--color-emerald-bg); color: var(--color-emerald-text); border: 1px solid var(--color-emerald-border); }
 .policy-status-archived { background: var(--color-slate-bg);   color: var(--color-slate-text);   border: 1px solid var(--color-slate-border); }
 
+.check-yes { color: var(--color-success-text); font-weight: 700; }
+.check-no  { color: var(--color-text-muted); }
+
 .policy-url-link { font-size: var(--text-sm); color: var(--color-primary-2); text-decoration: none; }
 .policy-url-link:hover { text-decoration: underline; }
 .nowrap { white-space: nowrap; }
 .row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; opacity: 0; transition: opacity 0.12s; }
 .table-row-clickable:hover .row-arrow,
 .table-row-clickable:focus-visible .row-arrow { opacity: 1; }
+
+@media (max-width: 700px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .field-span-2 { grid-column: span 1; }
+}
 </style>
+ 
