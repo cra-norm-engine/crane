@@ -203,6 +203,20 @@
             </span>
             <span>Security updates</span>
           </RouterLink>
+
+          <!-- SBOM Analyzer — Annex I Part II §1 -->
+          <RouterLink
+            :to="{ name: 'sbom-records' }"
+            class="nav-link"
+            active-class="nav-link-active"
+            @click="handleNavClick"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <!-- Layers / SBOM icon -->
+              <svg viewBox="0 0 20 20"><path d="M10 2 2 6l8 4 8-4zm-8 6 8 4 8-4v4l-8 4-8-4zm0 6 8 4 8-4v2l-8 4-8-4z" fill="currentColor"/></svg>
+            </span>
+            <span>SBOM Analyzer</span>
+          </RouterLink>
         </div>
       </template>
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permissions_dependency
@@ -18,10 +18,14 @@ router = APIRouter()
 @router.get("/", response_model=list[SbomRecordRead])
 def list_sbom_records(
     product_release_id: UUID | None = Query(default=None),
+    product_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
 ) -> list[SbomRecordRead]:
-    return SbomRecordService(db).list_sbom_records(product_release_id=product_release_id)
+    return SbomRecordService(db).list_sbom_records(
+        product_release_id=product_release_id,
+        product_id=product_id,
+    )
 
 
 @router.post("/", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
@@ -50,6 +54,35 @@ def update_sbom_record(
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
 ) -> SbomRecordRead:
     return SbomRecordService(db).update_sbom_record(sbom_id, payload, actor=current_user)
+
+
+@router.post("/upload", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
+async def upload_sbom_record(
+    product_release_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    notes: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
+) -> SbomRecordRead:
+    """Upload a raw SBOM file, run sbom-tools analysis, and create a record."""
+    content = (await file.read()).decode("utf-8", errors="replace")
+    return SbomRecordService(db).upload_and_analyze(
+        product_release_id=product_release_id,
+        sbom_content=content,
+        file_name=file.filename,
+        notes=notes,
+        actor=current_user,
+    )
+
+
+@router.post("/{sbom_id}/analyze", response_model=SbomRecordRead)
+def reanalyze_sbom_record(
+    sbom_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
+) -> SbomRecordRead:
+    """Re-run sbom-tools analysis on an existing record's stored content."""
+    return SbomRecordService(db).reanalyze(sbom_id, actor=current_user)
 
 
 @router.delete("/{sbom_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

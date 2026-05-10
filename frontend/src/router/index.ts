@@ -17,6 +17,7 @@ import SupportHubView from "@/views/SupportHubView.vue";
 import ChangePasswordView from "@/views/ChangePasswordView.vue";
 
 import VulnerabilityHandlingView from "@/views/VulnerabilityHandlingView.vue";
+import SbomRecordsView from "@/views/SbomRecordsView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -169,6 +170,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/admin/AuditLogView.vue"),
         meta: {
           permissions: ["audit_read"],
+        },
+      },
+      // SBOM Analyzer — Annex I Part II §1: machine-readable SBOM requirement
+      {
+        path: "sbom-records",
+        name: "sbom-records",
+        component: SbomRecordsView,
+        meta: {
+          permissions: ["security_update_read"],
         },
       },
       // PSIRT workflow — vulnerability handling (Annex I Part II §1, §2, §4, §5, §7, §8)

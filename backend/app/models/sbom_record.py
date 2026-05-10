@@ -53,6 +53,15 @@ class SbomRecord(UUIDTimestampMixin, Base):
     # Optional human-readable notes about scope, exclusions, etc.
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Raw uploaded SBOM file content — stored for re-analysis runs.
+    sbom_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # sbom-tools quality score (0–100). Null if analysis has not been run.
+    quality_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Full JSON output from sbom-tools validate + quality runs.
+    analysis_findings: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
     product_release: Mapped["ProductRelease"] = relationship(
         "ProductRelease",
         back_populates="sbom_records",

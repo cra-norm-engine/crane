@@ -572,6 +572,12 @@ export interface SbomRecordRead {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  /** Raw SBOM file content stored for re-analysis (may be null for manually created records). */
+  sbom_content: string | null;
+  /** Quality score 0–100 from sbom-tools quality --profile security. Null if not yet analyzed. */
+  quality_score: number | null;
+  /** Full JSON output from sbom-tools validate + quality + diff runs. */
+  analysis_findings: Record<string, unknown> | null;
 }
 
 export interface SbomRecordCreate {

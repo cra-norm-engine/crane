@@ -20,6 +20,10 @@ class SbomRecordBase(BaseModel):
     tool_version: str | None = Field(default=None, max_length=100)
     generated_at: datetime | None = None
     notes: str | None = None
+    # Analysis fields — populated by sbom-tools on upload or re-analysis.
+    sbom_content: str | None = None
+    quality_score: int | None = Field(default=None, ge=0, le=100)
+    analysis_findings: dict[str, Any] | None = None
 
 
 class SbomRecordCreate(SbomRecordBase):

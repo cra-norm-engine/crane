@@ -33,6 +33,7 @@ from app.repositories.release_gate_repository import (
     ReleaseGateRepository,
 )
 from app.schemas.product_release import ProductReleaseRead
+from app.services.sbom_record_service import SbomRecordService
 
 
 DEFAULT_GATE_ITEMS: list[tuple[ReleaseGateItemCode, str, str]] = [
@@ -304,6 +305,8 @@ class ReleaseGateService:
         description: str | None = None,
         change_summary: str | None = None,
     ) -> dict:
+        from app.models.enums import EvidenceType
+
         release = self.release_repository.get_or_404(product_release_id)
         _, revision = await self.artifact_service.create_with_upload_record(
             title=title,
@@ -315,12 +318,36 @@ class ReleaseGateService:
             product_id=release.product_id,
             commit=False,
         )
-        return self.attach_revision(
+        result = self.attach_revision(
             product_release_id,
             gate_item_id,
             revision.id,
             actor_user_id=actor_user_id,
         )
+
+        # Auto-create an SbomRecord when an SBOM artifact is uploaded via the release gate.
+        # The file is already on disk at revision.storage_path; read it and run analysis.
+        if artifact_type == EvidenceType.sbom and revision.storage_path:
+            try:
+                sbom_content = Path(revision.storage_path).read_text(encoding="utf-8")
+                # Use a fresh service instance so analysis runs in its own transaction.
+                SbomRecordService(self.db).upload_and_analyze(
+                    product_release_id=product_release_id,
+                    sbom_content=sbom_content,
+                    file_name=revision.original_filename,
+                    notes=f"Auto-created from release gate artifact: {title}",
+                    actor=type("_Actor", (), {"id": actor_user_id})(),
+                )
+            except Exception:
+                # Analysis failure must never block the gate upload.
+                import logging
+                logging.getLogger(__name__).warning(
+                    "SBOM auto-analysis failed for release %s — gate upload succeeded.",
+                    product_release_id,
+                    exc_info=True,
+                )
+
+        return result
 
     def create_and_attach_external_evidence(
         self,
