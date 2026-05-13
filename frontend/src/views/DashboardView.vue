@@ -4,7 +4,7 @@
     <!-- ── Page header ────────────────────────────────────────────────────── -->
     <div class="page-header">
       <div class="page-header-info">
-        <h1 class="page-title">Operations Hub</h1>
+        <h1 class="page-title">Cyber Resilience Act Norm Engine (CRANE)</h1>
         <p class="muted">{{ todayLabel }}</p>
       </div>
       <button class="btn-refresh" :class="{ spinning: loading }" @click="load" :disabled="loading" aria-label="Refresh">
