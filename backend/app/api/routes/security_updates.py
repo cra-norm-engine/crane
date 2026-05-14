@@ -18,10 +18,14 @@ router = APIRouter()
 @router.get("/", response_model=list[SecurityUpdateRead])
 def list_security_updates(
     product_release_id: UUID | None = Query(default=None),
+    product_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
 ) -> list[SecurityUpdateRead]:
-    return SecurityUpdateService(db).list_security_updates(product_release_id=product_release_id)
+    return SecurityUpdateService(db).list_security_updates(
+        product_release_id=product_release_id,
+        product_id=product_id,
+    )
 
 
 @router.post("/", response_model=SecurityUpdateRead, status_code=status.HTTP_201_CREATED)

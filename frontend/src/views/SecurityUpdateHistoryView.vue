@@ -1,8 +1,8 @@
 <template>
   <section class="page">
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">Security update history</h1>
+        <h1 class="page-title">Security updates</h1>
         <p class="muted page-subtitle">
           Track security updates issued for a product release, including CVEs addressed,
           affected versions, distribution mechanism, and retention availability.
@@ -52,12 +52,8 @@
           </select>
         </label>
 
-        <button class="btn btn-secondary" type="button" @click="loadUpdates" :disabled="isLoading">
-          {{ isLoading ? "Refreshing..." : "Load" }}
-        </button>
-
         <button
-          class="btn btn-primary"
+          class="button"
           type="button"
           @click="showCreateModal = true"
         >
@@ -496,6 +492,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
+import { apiClient } from "@/services/api";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { securityUpdateService } from "@/services/security-update-service";
@@ -716,9 +713,14 @@ async function loadUpdates(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    /* Pass release ID when one is selected; omit it to fetch all updates. */
-    const releaseId = selectedReleaseId.value.trim() || undefined;
-    updates.value = await securityUpdateService.list(releaseId);
+    const params: Record<string, string> = {};
+    if (selectedReleaseId.value) {
+      params.product_release_id = selectedReleaseId.value;
+    } else if (selectedProductId.value) {
+      params.product_id = selectedProductId.value;
+    }
+    const { data } = await apiClient.get<SecurityUpdateRead[]>("/security-updates/", { params });
+    updates.value = data;
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load security updates.";
@@ -804,6 +806,7 @@ watch(
     supportEndDate.value = null;
 
     if (!productId) {
+      await loadUpdates();
       return;
     }
 
@@ -811,6 +814,7 @@ watch(
     await Promise.all([
       loadReleasesForProduct(productId),
       loadSupportPeriod(productId),
+      loadUpdates(),
     ]);
   },
 );
@@ -844,6 +848,7 @@ onMounted(() => {
 
 .page-actions {
   display: flex;
+  align-items: flex-end;
   gap: 0.75rem;
   flex-wrap: wrap;
   width: 100%;
@@ -959,9 +964,12 @@ select {
 .btn {
   border: 1px solid transparent;
   border-radius: 0.85rem;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1.1rem;
   font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .btn-primary {

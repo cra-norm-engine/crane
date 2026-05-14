@@ -1,8 +1,8 @@
 <template>
   <section class="page">
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">SBOM records</h1>
+        <h1 class="page-title">SBOM analyzer</h1>
         <p class="muted page-subtitle">
           Manage machine-readable Software Bills of Materials per product release.
           A machine-readable SBOM listing top-level dependencies is required under
@@ -34,8 +34,14 @@
           </select>
         </label>
 
-        <button class="btn btn-secondary" @click="loadSbomRecords" :disabled="isLoading">
-          {{ isLoading ? "Refreshing…" : "Load" }}
+        <!-- Import from release gate artifact -->
+        <button
+          class="btn btn-secondary"
+          :disabled="!selectedReleaseId || isImporting"
+          :title="!selectedReleaseId ? 'Select a release first' : 'Re-create SBOM record from the artifact already attached in the release gate'"
+          @click="importFromArtifact"
+        >
+          {{ isImporting ? "Importing…" : "Import from artifact" }}
         </button>
 
         <!-- Upload & Analyze: primary action for new SBOMs -->
@@ -235,206 +241,241 @@
   </AppModal>
 
   <!-- ── Detail Modal ── -->
-  <AppModal v-if="detailItem" v-model="showDetailModal" title="SBOM record" size="lg">
-    <!-- Tab bar -->
-    <div class="detail-tabs">
-      <button
-        v-for="tab in detailTabs"
-        :key="tab.id"
-        class="detail-tab"
-        :class="{ active: activeDetailTab === tab.id }"
-        @click="activeDetailTab = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+  <AppModal v-if="detailItem" v-model="showDetailModal" :title="detailItem.file_name || 'SBOM record'" size="lg">
+    <div class="sbom-detail-layout">
 
-    <!-- Tab: Overview -->
-    <div v-if="activeDetailTab === 'overview'" class="tab-panel">
-      <div class="detail-grid">
-        <div class="detail-section">
-          <h3 class="detail-section-title">Format &amp; Tool</h3>
-          <div class="detail-kv">
-            <span class="detail-key">Format</span>
-            <span class="format-badge" :class="`format-${detailItem.format}`">{{ detailItem.format.toUpperCase() }}</span>
-          </div>
-          <div class="detail-kv">
-            <span class="detail-key">Spec version</span>
-            <span>{{ detailItem.spec_version || "—" }}</span>
-          </div>
-          <div class="detail-kv">
-            <span class="detail-key">Tool</span>
-            <span>{{ detailItem.tool_name || "—" }} {{ detailItem.tool_version || "" }}</span>
-          </div>
-        </div>
-
-        <div class="detail-section">
-          <h3 class="detail-section-title">Contents</h3>
-          <div class="detail-kv">
-            <span class="detail-key">Components</span>
-            <span class="component-count">{{ detailItem.component_count ?? "—" }}</span>
-          </div>
-          <div class="detail-kv">
-            <span class="detail-key">File</span>
-            <span class="file-name">{{ detailItem.file_name || "—" }}</span>
-          </div>
-          <div class="detail-kv">
-            <span class="detail-key">Generated</span>
-            <span>{{ formatDate(detailItem.generated_at) }}</span>
-          </div>
-          <div class="detail-kv">
-            <span class="detail-key">Quality</span>
-            <span
-              v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined"
-              class="quality-badge"
-              :class="qualityClass(detailItem.quality_score)"
-            >
-              {{ detailItem.quality_score }}/100
-            </span>
-            <span v-else class="muted">Not analyzed</span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="detailItem.notes" class="detail-block">
-        <h3 class="detail-section-title">Notes</h3>
-        <p>{{ detailItem.notes }}</p>
-      </div>
-    </div>
-
-    <!-- Tab: CRA / NTIA Compliance -->
-    <div v-else-if="activeDetailTab === 'compliance'" class="tab-panel">
-      <div v-if="!detailItem.analysis_findings" class="empty-panel">
-        No compliance analysis available.
-        <span v-if="detailItem.sbom_content">Click "Re-analyze" to run sbom-tools.</span>
-        <span v-else>Upload the SBOM file using "Upload &amp; Analyze" to enable analysis.</span>
-      </div>
-      <div v-else-if="validateList.length" class="standards-list">
-        <!-- Each item in the list is one standard's results -->
-        <div
-          v-for="(std, idx) in validateList"
-          :key="idx"
-          class="standard-block"
-        >
-          <div class="standard-header">
-            <span class="standard-name">{{ std.level ?? `Standard ${idx + 1}` }}</span>
-            <span
-              class="compliance-verdict"
-              :class="std.is_compliant ? 'verdict-pass' : 'verdict-fail'"
-            >
-              {{ std.is_compliant ? "PASS" : "FAIL" }}
-            </span>
-          </div>
-          <ul v-if="(std.violations as unknown[])?.length" class="findings-list">
-            <li
-              v-for="(v, i) in (std.violations as Record<string,unknown>[])"
-              :key="i"
-              class="finding-item"
-              :class="v.severity === 'Error' ? 'finding-fail' : 'finding-warn'"
-            >
-              <span class="finding-severity">{{ v.severity }}</span>
-              {{ v.message }}
-              <span v-if="v.element" class="finding-element">({{ v.element }})</span>
-            </li>
-          </ul>
-          <p v-else class="finding-none">All checks passed.</p>
-        </div>
-      </div>
-      <div v-else class="empty-panel muted">Validation output not available in findings.</div>
-    </div>
-
-    <!-- Tab: Quality & Recommendations -->
-    <div v-else-if="activeDetailTab === 'quality'" class="tab-panel">
-      <div v-if="!detailItem.analysis_findings" class="empty-panel">
-        No quality analysis available. Upload the SBOM file to enable analysis.
-      </div>
-      <div v-else-if="qualityReport">
-        <div class="quality-score-row">
-          <span class="quality-score-label">Quality score</span>
+      <!-- ── Left sidebar: permanent metadata ── -->
+      <aside class="sbom-sidebar">
+        <!-- Quality score hero -->
+        <div class="sidebar-score-hero">
+          <span class="sidebar-score-label">Quality score</span>
           <span
             v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined"
-            class="quality-score-large"
+            class="sidebar-score-value"
             :class="qualityClass(detailItem.quality_score)"
+          >{{ detailItem.quality_score }}<span class="score-denom">/100</span></span>
+          <span v-else class="sidebar-score-value muted">—</span>
+          <div v-if="qualityReport?.grade" class="sidebar-grade-row">
+            <span class="sidebar-grade">Grade {{ qualityReport.grade }}</span>
+            <span
+              class="grade-info-icon"
+              title="Grading scale — A: 80–100 · B: 60–79 · C: 40–59 · D: 20–39 · F: 0–19"
+            >ⓘ</span>
+          </div>
+        </div>
+
+        <!-- Compliance status pills (one per standard) -->
+        <div v-if="validateList.length" class="sidebar-compliance-pills">
+          <span
+            v-for="(std, i) in validateList"
+            :key="i"
+            class="compliance-pill"
+            :class="std.is_compliant ? 'pill-pass' : 'pill-fail'"
+            :title="`${standardName(std.level)}${standardDescription(std.level) ? '\n\n' + standardDescription(std.level) : ''}`"
           >
-            {{ detailItem.quality_score }}<span class="quality-score-max">/100</span>
+            {{ std.level ?? `STD ${i + 1}` }}&nbsp;{{ std.is_compliant ? "✓" : "✗" }}
           </span>
-          <span v-else class="muted">—</span>
-          <span v-if="qualityReport.grade" class="quality-grade">Grade: {{ qualityReport.grade }}</span>
         </div>
 
-        <!-- Prioritised recommendations from sbom-tools -->
-        <div v-if="qualityRecommendations.length" class="recommendations">
-          <h3 class="detail-section-title" style="margin-bottom:0.5rem;">
-            Recommendations ({{ qualityRecommendations.length }})
-          </h3>
-          <ul class="rec-list">
-            <li
-              v-for="(rec, i) in (qualityRecommendations as Record<string,unknown>[])"
-              :key="i"
-              class="rec-item"
-            >
-              <span class="rec-priority">P{{ rec.priority ?? i + 1 }}</span>
-              <span class="rec-body">
-                {{ rec.message ?? rec.text ?? JSON.stringify(rec) }}
-                <span v-if="rec.affected_count" class="rec-count">
-                  ({{ rec.affected_count }} component{{ (rec.affected_count as number) !== 1 ? 's' : '' }})
-                </span>
-              </span>
-              <span v-if="rec.impact" class="rec-impact">+{{ rec.impact }} pts</span>
-            </li>
-          </ul>
-        </div>
-        <p v-else class="muted" style="margin-top:0.75rem;">No recommendations — SBOM is well-formed.</p>
-      </div>
-      <div v-else class="empty-panel muted">Quality output not available in findings.</div>
-    </div>
+        <div class="sidebar-divider" />
 
-    <!-- Tab: Diff -->
-    <div v-else-if="activeDetailTab === 'diff'" class="tab-panel">
-      <div v-if="!detailItem.analysis_findings?.diff" class="empty-panel">
-        No diff available. A diff is generated automatically when a newer SBOM is uploaded
-        for the same release and a previous version exists.
-      </div>
-      <div v-else>
-        <!-- Added components -->
-        <div v-if="diffAdded.length" class="diff-section">
-          <h3 class="detail-section-title diff-added-title">Added ({{ diffAdded.length }})</h3>
-          <ul class="diff-list">
-            <li v-for="(c, i) in diffAdded" :key="i" class="diff-item diff-item-added">
-              {{ formatComponent(c) }}
-            </li>
-          </ul>
-        </div>
+        <!-- Key-value metadata -->
+        <dl class="sidebar-meta">
+          <dt>Format</dt>
+          <dd><span class="format-badge" :class="`format-${detailItem.format}`">{{ detailItem.format.toUpperCase() }}</span></dd>
 
-        <!-- Removed components -->
-        <div v-if="diffRemoved.length" class="diff-section">
-          <h3 class="detail-section-title diff-removed-title">Removed ({{ diffRemoved.length }})</h3>
-          <ul class="diff-list">
-            <li v-for="(c, i) in diffRemoved" :key="i" class="diff-item diff-item-removed">
-              {{ formatComponent(c) }}
-            </li>
-          </ul>
+          <dt>Spec version</dt>
+          <dd>{{ detailItem.spec_version || "—" }}</dd>
+
+          <dt>Components</dt>
+          <dd>
+            <span v-if="detailItem.component_count !== null" class="component-count">{{ detailItem.component_count }}</span>
+            <span v-else class="muted">—</span>
+          </dd>
+
+          <dt>Tool</dt>
+          <dd>{{ detailItem.tool_name ? `${detailItem.tool_name}${detailItem.tool_version ? " " + detailItem.tool_version : ""}` : "—" }}</dd>
+
+          <dt>Generated</dt>
+          <dd>{{ formatDate(detailItem.generated_at) }}</dd>
+
+          <dt>Added</dt>
+          <dd>{{ formatDate(detailItem.created_at) }}</dd>
+        </dl>
+
+        <!-- Notes -->
+        <div v-if="detailItem.notes" class="sidebar-notes">
+          <span class="sidebar-notes-label">Notes</span>
+          <p class="sidebar-notes-text">{{ detailItem.notes }}</p>
+        </div>
+      </aside>
+
+      <!-- ── Right pane: tabbed analysis ── -->
+      <div class="sbom-analysis-pane">
+        <div class="detail-tabs">
+          <button
+            v-for="tab in detailTabs"
+            :key="tab.id"
+            class="detail-tab"
+            :class="{ active: activeDetailTab === tab.id }"
+            @click="activeDetailTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
         </div>
 
-        <!-- Changed components -->
-        <div v-if="diffChanged.length" class="diff-section">
-          <h3 class="detail-section-title diff-changed-title">Changed ({{ diffChanged.length }})</h3>
-          <ul class="diff-list">
-            <li v-for="(c, i) in diffChanged" :key="i" class="diff-item diff-item-changed">
-              {{ formatComponent(c) }}
-            </li>
-          </ul>
-        </div>
+        <div class="tab-scroll-area">
 
-        <!-- Raw diff fallback -->
-        <div v-if="!diffAdded.length && !diffRemoved.length && !diffChanged.length" class="raw-json">
-          <pre>{{ JSON.stringify(detailItem.analysis_findings.diff, null, 2) }}</pre>
-        </div>
-      </div>
-    </div>
+          <!-- Tab: CRA compliance -->
+          <div v-if="activeDetailTab === 'compliance'" class="tab-panel">
+            <div v-if="!detailItem.analysis_findings" class="empty-panel">
+              No compliance analysis available.
+              <span v-if="detailItem.sbom_content">Click "Re-analyze" to run sbom-tools.</span>
+              <span v-else>Upload the SBOM file using "Upload &amp; Analyze" to enable analysis.</span>
+            </div>
+            <div v-else-if="validateList.length" class="standards-list">
+              <div v-for="(std, idx) in validateList" :key="idx" class="standard-block">
+                <!-- Standard header: human name + PASS/FAIL -->
+                <div class="standard-header">
+                  <div class="standard-name-group">
+                    <span class="standard-name">{{ standardName(std.level) }}</span>
+                    <span v-if="standardDescription(std.level)" class="standard-desc">{{ standardDescription(std.level) }}</span>
+                  </div>
+                  <span class="compliance-verdict" :class="std.is_compliant ? 'verdict-pass' : 'verdict-fail'">
+                    {{ std.is_compliant ? "PASS" : "FAIL" }}
+                  </span>
+                </div>
+
+                <template v-if="(std.violations as unknown[])?.length">
+                  <!-- Errors section -->
+                  <div v-if="violationErrors(std.violations as Record<string,unknown>[]).length" class="violation-group">
+                    <span class="violation-group-label violation-group-error">
+                      Errors ({{ violationErrors(std.violations as Record<string,unknown>[]).length }})
+                    </span>
+                    <ul class="findings-list">
+                      <li
+                        v-for="(v, i) in violationErrors(std.violations as Record<string,unknown>[])"
+                        :key="`e-${i}`"
+                        class="finding-item finding-fail"
+                      >
+                        {{ v.message }}
+                        <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <!-- Warnings section -->
+                  <div v-if="violationWarnings(std.violations as Record<string,unknown>[]).length" class="violation-group">
+                    <span class="violation-group-label violation-group-warn">
+                      Warnings ({{ violationWarnings(std.violations as Record<string,unknown>[]).length }})
+                    </span>
+                    <ul class="findings-list">
+                      <li
+                        v-for="(v, i) in violationWarnings(std.violations as Record<string,unknown>[])"
+                        :key="`w-${i}`"
+                        class="finding-item finding-warn"
+                      >
+                        {{ v.message }}
+                        <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </template>
+                <p v-else class="finding-none">All checks passed.</p>
+              </div>
+            </div>
+            <div v-else class="empty-panel muted">Validation output not available in findings.</div>
+          </div>
+
+          <!-- Tab: Quality -->
+          <div v-else-if="activeDetailTab === 'quality'" class="tab-panel">
+            <div v-if="!detailItem.analysis_findings" class="empty-panel">
+              No quality analysis available. Upload the SBOM file to enable analysis.
+            </div>
+            <div v-else-if="qualityReport">
+              <div v-if="qualityRecommendations.length" class="recommendations">
+                <h3 class="tab-section-title">Recommendations ({{ qualityRecommendations.length }})</h3>
+                <ul class="rec-list">
+                  <li
+                    v-for="(rec, i) in (qualityRecommendations as Record<string,unknown>[])"
+                    :key="i"
+                    class="rec-item"
+                  >
+                    <span class="rec-priority">P{{ rec.priority ?? i + 1 }}</span>
+                    <span class="rec-body">
+                      {{ rec.message ?? rec.text ?? JSON.stringify(rec) }}
+                      <span v-if="rec.affected_count" class="rec-count">
+                        ({{ rec.affected_count }} component{{ (rec.affected_count as number) !== 1 ? "s" : "" }})
+                      </span>
+                    </span>
+                    <span v-if="rec.impact" class="rec-impact">+{{ rec.impact }} pts</span>
+                  </li>
+                </ul>
+              </div>
+              <p v-else class="empty-panel muted">No recommendations — SBOM is well-formed.</p>
+            </div>
+            <div v-else class="empty-panel muted">Quality output not available in findings.</div>
+          </div>
+
+          <!-- Tab: Differential analysis -->
+          <div v-else-if="activeDetailTab === 'diff'" class="tab-panel">
+            <div v-if="!detailItem.analysis_findings?.diff" class="diff-empty-state">
+              <p class="diff-empty-title">No differential analysis available</p>
+              <p class="diff-empty-hint">
+                A differential analysis is generated automatically when you upload a <strong>new version</strong>
+                of the SBOM for the same release. It compares the new SBOM against the immediately preceding one
+                and shows which components were added, removed, or updated — making it easy to audit supply-chain
+                changes between releases.
+              </p>
+            </div>
+            <div v-else>
+              <!-- Explanation note -->
+              <p class="diff-context-note">
+                This diff compares the SBOM you are viewing against the record that existed
+                immediately before it was uploaded for this release. It is computed once at
+                upload time and does not change if newer records are added later.
+              </p>
+
+              <!-- Summary banner -->
+              <div class="diff-summary-bar">
+                <span class="diff-summary-chip diff-chip-added">+{{ diffAdded.length }} added</span>
+                <span class="diff-summary-chip diff-chip-removed">−{{ diffRemoved.length }} removed</span>
+                <span class="diff-summary-chip diff-chip-changed">~{{ diffChanged.length }} changed</span>
+                <span class="diff-summary-note">compared to the previous SBOM for this release</span>
+              </div>
+
+              <div v-if="diffAdded.length" class="diff-section">
+                <h3 class="tab-section-title diff-added-title">Added components ({{ diffAdded.length }})</h3>
+                <ul class="diff-list">
+                  <li v-for="(c, i) in diffAdded" :key="i" class="diff-item diff-item-added">{{ formatComponent(c) }}</li>
+                </ul>
+              </div>
+              <div v-if="diffRemoved.length" class="diff-section">
+                <h3 class="tab-section-title diff-removed-title">Removed components ({{ diffRemoved.length }})</h3>
+                <ul class="diff-list">
+                  <li v-for="(c, i) in diffRemoved" :key="i" class="diff-item diff-item-removed">{{ formatComponent(c) }}</li>
+                </ul>
+              </div>
+              <div v-if="diffChanged.length" class="diff-section">
+                <h3 class="tab-section-title diff-changed-title">Changed components ({{ diffChanged.length }})</h3>
+                <ul class="diff-list">
+                  <li v-for="(c, i) in diffChanged" :key="i" class="diff-item diff-item-changed">{{ formatComponent(c) }}</li>
+                </ul>
+              </div>
+              <div v-if="!diffAdded.length && !diffRemoved.length && !diffChanged.length" class="finding-none" style="margin-top:0.5rem;">
+                No component changes detected — the two SBOMs are identical in composition.
+              </div>
+              <div v-if="!diffAdded.length && !diffRemoved.length && !diffChanged.length && detailItem.analysis_findings?.diff" class="raw-json" style="margin-top:0.75rem;">
+                <pre>{{ JSON.stringify(detailItem.analysis_findings.diff, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end tab-scroll-area -->
+      </div><!-- end sbom-analysis-pane -->
+    </div><!-- end sbom-detail-layout -->
 
     <template #footer>
-      <!-- Re-analyze button — only shown when sbom_content is stored -->
       <button
         v-if="detailItem.sbom_content"
         class="btn btn-secondary"
@@ -472,6 +513,7 @@ const isCreating = ref(false);
 const isUploading = ref(false);
 const isDeleting = ref(false);
 const isReanalyzing = ref(false);
+const isImporting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showCreateModal = ref(false);
@@ -490,12 +532,11 @@ const selectedReleaseId = ref("");
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// Detail tabs definition
+// Detail tabs — Overview is replaced by the permanent sidebar
 const detailTabs = [
-  { id: "overview", label: "Overview" },
-  { id: "compliance", label: "CRA / NTIA" },
+  { id: "compliance", label: "CRA" },
   { id: "quality", label: "Quality" },
-  { id: "diff", label: "Diff" },
+  { id: "diff", label: "Differential analysis" },
 ];
 
 const createForm = reactive({
@@ -596,6 +637,40 @@ function qualityClass(score: number): string {
   return "quality-low";
 }
 
+// Maps sbom-tools internal standard identifiers to human-readable names + descriptions.
+const STANDARD_META: Record<string, { name: string; description: string }> = {
+  CraPhase2: {
+    name: "EU Cyber Resilience Act — Phase 2",
+    description:
+      "Checks SBOM completeness against the requirements of the EU Cyber Resilience Act (CRA), " +
+      "Annex I Part II §1. Phase 2 corresponds to the obligations that apply to manufacturers " +
+      "of products with digital elements from August 2027.",
+  },
+  NtiaMinimum: {
+    name: "NTIA Minimum Elements",
+    description:
+      "Checks the seven minimum data fields defined by the US National Telecommunications and " +
+      "Information Administration (NTIA): supplier name, component name, component version, " +
+      "other unique identifiers, dependency relationships, author of SBOM data, and timestamp.",
+  },
+};
+
+function standardName(level: unknown): string {
+  return STANDARD_META[String(level)]?.name ?? String(level);
+}
+
+function standardDescription(level: unknown): string {
+  return STANDARD_META[String(level)]?.description ?? "";
+}
+
+function violationErrors(violations: Record<string, unknown>[]): Record<string, unknown>[] {
+  return violations.filter((v) => v.severity === "Error");
+}
+
+function violationWarnings(violations: Record<string, unknown>[]): Record<string, unknown>[] {
+  return violations.filter((v) => v.severity !== "Error");
+}
+
 function formatDate(val: string | null | undefined): string {
   if (!val) return "—";
   return new Date(val).toLocaleDateString(undefined, { dateStyle: "medium" });
@@ -668,11 +743,13 @@ watch(selectedProductId, (id) => {
   releases.value = [];
   selectedReleaseId.value = "";
   if (id) loadReleases(id);
+  loadSbomRecords();
 });
 
 watch(selectedReleaseId, (id) => {
   createForm.product_release_id = id;
   uploadForm.product_release_id = id;
+  loadSbomRecords();
 });
 
 async function createRecord(): Promise<void> {
@@ -738,8 +815,26 @@ async function uploadRecord(): Promise<void> {
 
 function openDetail(item: SbomRecordRead): void {
   detailItem.value = item;
-  activeDetailTab.value = "overview";
+  activeDetailTab.value = "compliance";
   showDetailModal.value = true;
+}
+
+async function importFromArtifact(): Promise<void> {
+  if (!selectedReleaseId.value) return;
+  isImporting.value = true;
+  errorMessage.value = "";
+  try {
+    await apiClient.post("/sbom-records/import-from-artifact", null, {
+      params: { product_release_id: selectedReleaseId.value },
+    });
+    successMessage.value = "SBOM imported from release gate artifact and analyzed successfully.";
+    await loadSbomRecords();
+  } catch (err) {
+    errorMessage.value =
+      err instanceof Error ? err.message : "No SBOM artifact found in the release gate for this release.";
+  } finally {
+    isImporting.value = false;
+  }
 }
 
 async function reanalyzeRecord(): Promise<void> {
@@ -777,7 +872,10 @@ async function deleteRecord(): Promise<void> {
   }
 }
 
-onMounted(loadProducts);
+onMounted(async () => {
+  await loadProducts();
+  loadSbomRecords();
+});
 </script>
 
 <style scoped>
@@ -947,12 +1045,165 @@ input:focus, select:focus, textarea:focus {
 .component-count { font-weight: 700; font-size: var(--text-sm); }
 .file-name { font-family: monospace; font-size: var(--text-xs); }
 
-/* ── Detail tabs ── */
+/* ── Two-column detail layout ── */
+.sbom-detail-layout {
+  display: flex;
+  gap: 0;
+  height: 460px; /* fixed — modal never resizes when switching tabs */
+}
+
+/* ── Left sidebar ── */
+.sbom-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  padding-right: 1.25rem;
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.sidebar-score-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-bottom: 0.1rem;
+}
+
+.sidebar-score-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sidebar-score-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.65rem;
+  border: 1px solid transparent;
+  align-self: flex-start;
+}
+
+.score-denom { font-size: 1rem; font-weight: 500; opacity: 0.6; }
+
+.sidebar-grade-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.sidebar-grade {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.grade-info-icon {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  cursor: help;
+  opacity: 0.7;
+  user-select: none;
+}
+
+/* Compliance status pills in sidebar */
+.sidebar-compliance-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.compliance-pill {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pill-pass { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
+.pill-fail { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+/* Key-value pairs */
+.sidebar-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 0.65rem;
+  align-items: start;
+  margin: 0;
+}
+
+.sidebar-meta dt {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  padding-top: 0.1rem;
+}
+
+.sidebar-meta dd {
+  font-size: var(--text-xs);
+  margin: 0;
+  word-break: break-all;
+}
+
+/* Notes at the bottom of the sidebar */
+.sidebar-notes {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.sidebar-notes-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.sidebar-notes-text {
+  font-size: var(--text-xs);
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Right analysis pane ── */
+.sbom-analysis-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: 1.25rem;
+  overflow: hidden;
+}
+
+/* Tab bar */
 .detail-tabs {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 1.25rem;
+  flex-shrink: 0;
 }
 
 .detail-tab {
@@ -972,24 +1223,25 @@ input:focus, select:focus, textarea:focus {
 .detail-tab:hover { color: inherit; }
 .detail-tab.active { color: inherit; border-bottom-color: rgba(175, 214, 46, 0.9); }
 
-.tab-panel { min-height: 120px; }
-
-/* ── Detail panels ── */
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1rem; }
-.detail-section { display: flex; flex-direction: column; gap: 0.5rem; }
-.detail-section-title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-muted); margin-bottom: 0.25rem; }
-.detail-kv { display: flex; gap: 0.5rem; align-items: flex-start; }
-.detail-key { font-size: var(--text-sm); color: var(--color-text-muted); min-width: 90px; flex-shrink: 0; }
-.detail-block { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
-
-/* ── Compliance tab ── */
-.compliance-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+/* Scrollable tab content — fills remaining height, never changes size */
+.tab-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 0.9rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
+.tab-panel { /* no min-height — parent is fixed-height */ }
+
+.tab-section-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin: 0 0 0.6rem;
+}
+
+/* ── Compliance tab ── */
 .compliance-verdict {
   display: inline-block;
   padding: 0.2rem 0.7rem;
@@ -1003,52 +1255,139 @@ input:focus, select:focus, textarea:focus {
 .verdict-fail { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
 
 .standards-list { display: flex; flex-direction: column; gap: 1rem; }
-.standard-block { padding: 0.75rem; border-radius: 0.75rem; border: 1px solid var(--color-border); background: var(--color-surface-soft); }
-.standard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.standard-name { font-size: var(--text-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 
-.findings-list { margin: 0.4rem 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
-.finding-item { font-size: var(--text-sm); display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.standard-block {
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.standard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.standard-name-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.standard-name {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.standard-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* Violation group (errors / warnings) */
+.violation-group { margin-bottom: 0.65rem; }
+.violation-group:last-child { margin-bottom: 0; }
+
+.violation-group-label {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.violation-group-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+.violation-group-warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+.findings-list { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.finding-item { font-size: var(--text-sm); display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; padding: 0.25rem 0; }
 .finding-fail { color: var(--color-danger-text); }
 .finding-warn { color: var(--color-warning-text); }
 .finding-none { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: 0.25rem; }
-.finding-severity { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
 .finding-element { font-family: monospace; font-size: var(--text-xs); opacity: 0.7; }
 
-/* ── Recommendations list ── */
+/* ── Quality tab ── */
 .rec-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
 .rec-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.6rem; background: var(--color-surface-soft); border: 1px solid var(--color-border); font-size: var(--text-sm); flex-wrap: wrap; }
 .rec-priority { font-size: var(--text-xs); font-weight: 800; color: var(--color-text-muted); flex-shrink: 0; min-width: 1.8rem; }
 .rec-body { flex: 1; }
 .rec-count { color: var(--color-text-muted); font-size: var(--text-xs); }
 .rec-impact { font-size: var(--text-xs); font-weight: 700; color: var(--color-success-text); margin-left: auto; flex-shrink: 0; }
-.quality-grade { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-muted); margin-left: 0.5rem; }
-
-/* ── Quality tab ── */
-.quality-score-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 1rem;
-}
-
-.quality-score-label { font-weight: 600; font-size: var(--text-sm); color: var(--color-text-muted); }
-
-.quality-score-large {
-  font-size: 1.75rem;
-  font-weight: 800;
-  padding: 0.2rem 0.8rem;
-  border-radius: 0.75rem;
-  border: 1px solid transparent;
-}
-
-.quality-score-max { font-size: 0.9rem; font-weight: 500; opacity: 0.7; }
-
-.recommendations { margin-top: 0.5rem; }
+.recommendations { display: flex; flex-direction: column; gap: 0.5rem; }
 
 /* ── Diff tab ── */
+.diff-empty-state {
+  padding: 1.25rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface-soft);
+}
+
+.diff-empty-title {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  margin: 0 0 0.5rem;
+}
+
+.diff-empty-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.diff-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.65rem;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  margin-bottom: 1rem;
+  font-size: var(--text-xs);
+}
+
+.diff-summary-chip {
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+.diff-chip-added   { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
+.diff-chip-removed { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.diff-chip-changed { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); }
+
+.diff-summary-note { color: var(--color-text-muted); margin-left: 0.25rem; }
+
+.diff-context-note {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--color-border);
+  line-height: 1.5;
+}
+
 .diff-section { margin-bottom: 1rem; }
 .diff-added-title   { color: var(--color-success-text); }
 .diff-removed-title { color: var(--color-danger-text);  }
@@ -1067,7 +1406,6 @@ input:focus, select:focus, textarea:focus {
   border-radius: 0.75rem;
   padding: 0.75rem;
   overflow-x: auto;
-  max-height: 320px;
   overflow-y: auto;
 }
 

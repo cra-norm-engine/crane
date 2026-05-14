@@ -2,9 +2,9 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">User management</h1>
+        <h1 class="page-title">Users</h1>
         <p class="muted page-subtitle">
           Invite users, assign roles, and control account status. Changes take effect immediately.
         </p>

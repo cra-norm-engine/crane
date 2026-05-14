@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
+from app.models.product import ProductRelease
 from app.models.security_update import SecurityUpdate
 from app.repositories.base import BaseRepository
 
@@ -18,11 +19,17 @@ class SecurityUpdateRepository(BaseRepository[SecurityUpdate]):
         self,
         *,
         product_release_id: UUID | None = None,
+        product_id: UUID | None = None,
     ) -> list[SecurityUpdate]:
         statement = select(SecurityUpdate).order_by(SecurityUpdate.created_at.desc())
 
         if product_release_id:
             statement = statement.where(SecurityUpdate.product_release_id == product_release_id)
+        elif product_id:
+            statement = statement.join(
+                ProductRelease,
+                SecurityUpdate.product_release_id == ProductRelease.id,
+            ).where(ProductRelease.product_id == product_id)
 
         return list(self.db.scalars(statement).all())
 

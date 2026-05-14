@@ -1,9 +1,9 @@
 <template>
   <section class="page">
     <!-- Page header with filters and create button -->
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">Substantial Change Tracking</h1>
+        <h1 class="page-title">Substantial changes</h1>
         <p class="muted page-subtitle">
           Record, assess, and track modifications to products under CRA substantial modification rules (Art. 3(4)).
         </p>
@@ -46,7 +46,7 @@
           </select>
         </label>
 
-        <button class="btn btn-primary" type="button" @click="openCreateModal">
+        <button class="button" type="button" @click="openCreateModal">
           + New change
         </button>
       </div>

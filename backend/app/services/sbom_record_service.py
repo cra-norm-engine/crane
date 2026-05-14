@@ -226,6 +226,55 @@ class SbomRecordService:
             raise ConflictException("Unable to save analysis results") from exc
         return SbomRecordRead.model_validate(record)
 
+    def import_from_artifact(self, product_release_id: UUID, actor: object) -> SbomRecordRead:
+        """Find the latest SBOM artifact attached to this release's gate and create a SbomRecord from it."""
+        from pathlib import Path
+
+        from sqlalchemy import select
+
+        from app.models.artifact import Artifact, ArtifactRevision
+        from app.models.enums import EvidenceType
+        from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
+
+        stmt = (
+            select(ArtifactRevision, Artifact)
+            .join(Artifact, ArtifactRevision.artifact_id == Artifact.id)
+            .join(ReleaseGateEvidenceLink, ReleaseGateEvidenceLink.artifact_revision_id == ArtifactRevision.id)
+            .join(ReleaseGateItem, ReleaseGateEvidenceLink.release_gate_item_id == ReleaseGateItem.id)
+            .join(ReleaseGate, ReleaseGateItem.release_gate_id == ReleaseGate.id)
+            .where(ReleaseGate.product_release_id == product_release_id)
+            .where(Artifact.artifact_type == EvidenceType.sbom)
+            .order_by(ArtifactRevision.revision_number.desc())
+            .limit(1)
+        )
+        row = self.db.execute(stmt).first()
+        if row is None:
+            raise NotFoundException("No SBOM artifact found in the release gate for this release.")
+        revision, artifact = row
+        if not revision.storage_path:
+            raise NotFoundException("SBOM artifact has no file stored on disk.")
+        sbom_content = Path(revision.storage_path).read_text(encoding="utf-8")
+
+        # If a record for this file already exists on this release, re-analyze it rather than
+        # inserting a duplicate.
+        from sqlalchemy import select as sa_select
+        existing = self.db.execute(
+            sa_select(SbomRecord)
+            .where(SbomRecord.product_release_id == product_release_id)
+            .where(SbomRecord.file_name == revision.original_filename)
+            .limit(1)
+        ).scalar_one_or_none()
+        if existing is not None:
+            return self.reanalyze(existing.id, actor=actor)
+
+        return self.upload_and_analyze(
+            product_release_id=product_release_id,
+            sbom_content=sbom_content,
+            file_name=revision.original_filename,
+            notes=f"Imported from release gate artifact: {artifact.title}",
+            actor=actor,
+        )
+
     def delete_sbom_record(self, sbom_id: UUID, actor: object) -> None:
         record = self.repository.get_or_404(sbom_id)
         release = self.release_repository.get_or_404(record.product_release_id)

@@ -56,6 +56,16 @@ def update_sbom_record(
     return SbomRecordService(db).update_sbom_record(sbom_id, payload, actor=current_user)
 
 
+@router.post("/import-from-artifact", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
+def import_sbom_from_artifact(
+    product_release_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
+) -> SbomRecordRead:
+    """Create a SbomRecord from the SBOM artifact already attached to the release gate."""
+    return SbomRecordService(db).import_from_artifact(product_release_id, actor=current_user)
+
+
 @router.post("/upload", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
 async def upload_sbom_record(
     product_release_id: UUID = Form(...),

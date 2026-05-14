@@ -4,7 +4,7 @@
     <!-- ══════════════════════════════════════════
          PAGE HEADER
          ══════════════════════════════════════════ -->
-    <header class="page-header card">
+    <header class="page-header">
       <div>
         <h1 class="page-title">Support Hub</h1>
         <p class="muted page-subtitle">

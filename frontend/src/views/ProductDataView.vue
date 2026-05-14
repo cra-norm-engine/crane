@@ -2,9 +2,9 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">Data export &amp; import</h1>
+        <h1 class="page-title">Data export / import</h1>
         <p class="muted page-subtitle">
           Export a complete product record as a portable JSON file, or import one to create a new product with all its data.
         </p>

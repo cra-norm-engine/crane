@@ -2,9 +2,9 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">Roles &amp; access control</h1>
+        <h1 class="page-title">Roles &amp; access</h1>
         <p class="muted page-subtitle">
           Define roles, assign grouped permissions, and audit access across the platform.
           Changes take effect immediately on the user's next request.

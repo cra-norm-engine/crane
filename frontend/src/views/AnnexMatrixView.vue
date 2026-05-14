@@ -1,18 +1,13 @@
 <template>
   <section class="annex-page">
 
-    <!-- ── Hero ──────────────────────────────────────────── -->
-    <header class="hero card">
-      <div class="hero-copy">
-        <p class="eyebrow">Annex I compliance matrix</p>
-        <h1>Requirement coverage by product</h1>
-        <p class="hero-text">
-          Select a product, review every CRA Annex I requirement, and trace each one to risk items,
-          rationale, and supporting artifacts.
-        </p>
+    <!-- ── Header ────────────────────────────────────────── -->
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">CRA requirements</h1>
+        <p class="muted">Select a product, review every CRA Annex I requirement, and trace each one to risk items, rationale, and supporting artifacts.</p>
       </div>
-
-      <div class="hero-actions">
+      <div class="page-actions">
         <button class="button secondary" type="button" :disabled="loading" @click="resetFilters">
           Reset filters
         </button>
@@ -1188,40 +1183,22 @@ onMounted(async () => {
   gap: 1rem;
 }
 
-/* ── Hero ─────────────────────────────────────────── */
-.hero {
+.page-title { margin: 0; }
+
+.page-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
+  align-items: flex-end;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  padding: 1.4rem;
-  background:
-    radial-gradient(circle at top left, rgba(110, 168, 254, 0.24), transparent 38%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  flex-shrink: 0;
 }
 
-.hero-copy { max-width: 56rem; }
-
-.hero-copy h1,
+.section-heading h1,
 .section-heading h2,
 .section-heading h3 {
   margin: 0;
 }
 
-.hero-text {
-  color: var(--color-text-muted);
-}
-
-.eyebrow {
-  margin: 0 0 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.74rem;
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.hero-actions,
 .editor-actions,
 .trace-actions {
   display: flex;
@@ -1792,7 +1769,6 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
-  .hero,
   .section-heading {
     flex-direction: column;
   }
@@ -1820,11 +1796,6 @@ onMounted(async () => {
 
 <style>
 /* ── Light theme overrides ────────────────────────── */
-:root[data-theme="light"] .hero {
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.1), transparent 38%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(240, 250, 236, 0.7));
-}
 :root[data-theme="light"] .matrix-row {
   border-color: rgba(28, 107, 39, 0.1);
   background: rgba(255, 255, 255, 0.6);

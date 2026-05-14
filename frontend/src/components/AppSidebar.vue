@@ -110,7 +110,7 @@
             <!-- Table / matrix icon -->
             <svg viewBox="0 0 20 20"><path d="M3 4h14v12H3zm2 2v2h10V6zm0 4v4h3v-4zm5 0v4h5v-4z" fill="currentColor"/></svg>
           </span>
-          <span>Annex I matrix</span>
+          <span>CRA requirements</span>
         </RouterLink>
 
         <!-- Lifecycle alerts — permission-gated -->
@@ -215,7 +215,7 @@
               <!-- Layers / SBOM icon -->
               <svg viewBox="0 0 20 20"><path d="M10 2 2 6l8 4 8-4zm-8 6 8 4 8-4v4l-8 4-8-4zm0 6 8 4 8-4v2l-8 4-8-4z" fill="currentColor"/></svg>
             </span>
-            <span>SBOM Analyzer</span>
+            <span>SBOM analyzer</span>
           </RouterLink>
         </div>
       </template>

@@ -1,8 +1,8 @@
 <template>
   <section class="page">
-    <header class="page-header card">
+    <header class="page-header">
       <div>
-        <h1 class="page-title">Lifecycle notifications</h1>
+        <h1 class="page-title">Lifecycle alerts</h1>
         <p class="muted page-subtitle">
           Run End of Support (EOS) analysis from active support periods and review products nearing end of support.
         </p>
@@ -13,7 +13,7 @@
           {{ isLoading ? "Refreshing..." : "Refresh" }}
         </button>
 
-        <button class="btn btn-primary" type="button" @click="runScheduler" :disabled="isRunningScheduler">
+        <button class="button" type="button" @click="runScheduler" :disabled="isRunningScheduler">
           {{ isRunningScheduler ? "Running..." : "Run EOS check" }}
         </button>
       </div>

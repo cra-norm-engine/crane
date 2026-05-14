@@ -1,9 +1,9 @@
 <template>
   <section class="page">
     <!-- ── Page header ── -->
-    <header class="page-header card">
+    <header class="page-header">
       <div class="header-text">
-        <h1 class="page-title">Certification records</h1>
+        <h1 class="page-title">Certifications</h1>
         <p class="muted page-subtitle">
           Track third-party certifications (IEC 62443, Common Criteria, ETSI EN 303 645, EUCC, etc.)
           for critical and important products. Required under CRA Article 32 for products subject to

@@ -24,8 +24,12 @@ class SecurityUpdateService:
         self,
         *,
         product_release_id: UUID | None = None,
+        product_id: UUID | None = None,
     ) -> list[SecurityUpdateRead]:
-        updates = self.repository.list_all(product_release_id=product_release_id)
+        updates = self.repository.list_all(
+            product_release_id=product_release_id,
+            product_id=product_id,
+        )
         return [SecurityUpdateRead.model_validate(item) for item in updates]
 
     def get_security_update(self, security_update_id: UUID) -> SecurityUpdateRead:
