@@ -8,11 +8,6 @@
         </p>
       </div>
 
-      <div class="page-actions">
-        <button class="button secondary" type="button" :disabled="isLoadingTimeline" @click="loadTimeline">
-          {{ isLoadingTimeline ? "Refreshing..." : "Refresh" }}
-        </button>
-      </div>
     </div>
 
     <section class="card filters-card">

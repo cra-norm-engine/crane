@@ -34,14 +34,6 @@
           </select>
         </label>
 
-        <div class="filter-actions">
-          <button class="button secondary" type="button" @click="loadAssessments">
-            Apply Filters
-          </button>
-          <button class="button secondary subtle-button" type="button" @click="resetFilters">
-            Reset
-          </button>
-        </div>
       </div>
     </section>
 
@@ -386,14 +378,6 @@ async function createAssessment(): Promise<void> {
   }
 }
 
-function resetFilters(): void {
-  filters.productId = "";
-  filters.productReleaseId = "";
-  filterReleases.value = [];
-  errorMessage.value = "";
-  successMessage.value = "";
-  void loadAssessments();
-}
 
 function goToDetail(assessmentId: string): void {
   router.push({
@@ -413,7 +397,13 @@ watch(
   async (productId) => {
     filters.productReleaseId = "";
     filterReleases.value = await loadReleases(productId);
+    void loadAssessments();
   },
+);
+
+watch(
+  () => filters.productReleaseId,
+  () => { void loadAssessments(); },
 );
 
 watch(
@@ -489,7 +479,6 @@ watch(createReleaseId, (releaseId) => {
   grid-column: 1 / -1;
 }
 
-.filter-actions,
 .form-actions {
   display: flex;
   align-items: end;
@@ -512,9 +501,6 @@ watch(createReleaseId, (releaseId) => {
   color: var(--color-success-text);
 }
 
-.subtle-button {
-  opacity: 0.86;
-}
 
 .table-wrapper {
   overflow-x: auto;
@@ -600,7 +586,6 @@ watch(createReleaseId, (releaseId) => {
 
   .page-header,
   .panel-header,
-  .filter-actions,
   .form-actions {
     flex-direction: column;
     align-items: stretch;

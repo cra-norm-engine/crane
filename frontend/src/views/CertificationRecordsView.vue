@@ -45,7 +45,7 @@
             click a row to view details
           </p>
         </div>
-        <button v-if="canWrite" class="btn btn-primary" type="button" @click="openCreateModal">
+        <button v-if="canWrite" class="button" type="button" @click="openCreateModal">
           Add record
         </button>
       </div>

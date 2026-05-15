@@ -9,10 +9,6 @@
       </div>
 
       <div class="page-actions">
-        <button class="btn btn-secondary" type="button" @click="loadPageData" :disabled="isLoading">
-          {{ isLoading ? "Refreshing..." : "Refresh" }}
-        </button>
-
         <button class="button" type="button" @click="runScheduler" :disabled="isRunningScheduler">
           {{ isRunningScheduler ? "Running..." : "Run EOS check" }}
         </button>

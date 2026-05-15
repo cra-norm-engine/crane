@@ -13,11 +13,6 @@
         </p>
       </div>
 
-      <div class="page-actions">
-        <button class="btn btn-secondary" type="button" :disabled="isLoading" @click="loadAll">
-          {{ isLoading ? "Refreshing…" : "Refresh" }}
-        </button>
-      </div>
     </header>
 
     <!-- ══════════════════════════════════════════

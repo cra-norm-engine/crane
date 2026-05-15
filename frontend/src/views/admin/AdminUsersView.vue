@@ -10,9 +10,6 @@
         </p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-secondary" type="button" @click="loadData" :disabled="isLoading">
-          {{ isLoading ? "Refreshing…" : "Refresh" }}
-        </button>
         <button class="btn btn-primary" type="button" @click="showCreateModal = true">
           + Invite user
         </button>
