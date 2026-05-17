@@ -1,0 +1,8 @@
+#!/bin/sh
+'''exec' "/home/ali/Desktop/CRA Project/CRA-Compliance-Tool/.venv/bin/python3" "$0" "$@"
+' '''
+import sys
+from watchfiles.cli import cli
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(cli())

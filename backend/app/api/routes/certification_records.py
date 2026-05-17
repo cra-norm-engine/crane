@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_permissions_dependency
+from app.api.deps import get_current_user, require_permissions_dependency
 from app.core.database import get_db
 from app.core.permissions import Permission
-from app.models.enums import CertificationStatus
+from app.models.enums import CertificationStatus, EvidenceType
 from app.models.user import User
+from app.schemas.artifact import ArtifactCreateLinkRevisionRequest
 from app.schemas.certification_record import (
     CertificationRecordCreate,
     CertificationRecordRead,
@@ -67,3 +68,60 @@ def delete_certification_record(
 ) -> Response:
     CertificationRecordService(db).delete_record(record_id, actor=current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Evidence attachment endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{record_id}/evidence", response_model=CertificationRecordRead)
+def attach_artifact_to_certification(
+    record_id: UUID,
+    payload: ArtifactCreateLinkRevisionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.certification_record_write)),
+) -> CertificationRecordRead:
+    return CertificationRecordService(db).attach_revision(
+        record_id,
+        payload.artifact_revision_id,
+        actor_user_id=current_user.id,
+    )
+
+
+@router.post("/{record_id}/evidence/upload", response_model=CertificationRecordRead)
+async def upload_evidence_for_certification(
+    record_id: UUID,
+    title: str = Form(...),
+    artifact_type: EvidenceType = Form(...),
+    description: str | None = Form(default=None),
+    change_summary: str | None = Form(default=None),
+    upload: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.certification_record_write)),
+) -> CertificationRecordRead:
+    return CertificationRecordRead.model_validate(
+        await CertificationRecordService(db).upload_and_attach_evidence(
+            record_id,
+            actor_user_id=current_user.id,
+            title=title,
+            artifact_type=artifact_type,
+            upload=upload,
+            description=description,
+            change_summary=change_summary,
+        )
+    )
+
+
+@router.delete("/{record_id}/evidence/{link_id}", response_model=CertificationRecordRead)
+def detach_evidence_from_certification(
+    record_id: UUID,
+    link_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.certification_record_write)),
+) -> CertificationRecordRead:
+    return CertificationRecordService(db).detach_revision(
+        record_id,
+        link_id,
+        actor_user_id=current_user.id,
+    )

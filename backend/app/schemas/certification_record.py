@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -52,6 +53,12 @@ class CertificationRecordUpdate(BaseModel):
         return self
 
 
+class CertificationRecordArtifactLinkRead(BaseModel):
+    id: UUID
+    artifact_revision: Any
+    linked_by_user_id: UUID | None
+
+
 class CertificationRecordRead(TimestampedRead):
     product_id: UUID
     certification_scheme: CertificationScheme
@@ -64,3 +71,4 @@ class CertificationRecordRead(TimestampedRead):
     status: CertificationStatus
     notes: str | None
     recertification_required_by: date | None
+    artifact_links: list[CertificationRecordArtifactLinkRead] | None = None

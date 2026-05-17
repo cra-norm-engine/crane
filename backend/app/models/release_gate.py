@@ -4,6 +4,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -40,6 +41,9 @@ class ReleaseGate(UUIDTimestampMixin, Base):
     )
     bundle_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     bundle_generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Compliance snapshot captured at gate approval (frozen state of all evidence)
+    snapshot_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     product_release: Mapped["ProductRelease"] = relationship("ProductRelease", back_populates="release_gate")
     submitted_by_user: Mapped["User | None"] = relationship("User", foreign_keys=[submitted_by_user_id])
@@ -94,6 +98,14 @@ class ReleaseGateItem(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(ReleaseGateEvidenceLink.created_at)",
     )
+    prerequisites: Mapped[list["ReleaseGateItem"]] = relationship(
+        "ReleaseGateItem",
+        secondary="release_gate_item_prerequisites",
+        primaryjoin="ReleaseGateItem.id == foreign(release_gate_item_prerequisites.c.dependent_item_id)",
+        secondaryjoin="ReleaseGateItem.id == foreign(release_gate_item_prerequisites.c.prerequisite_item_id)",
+        lazy="selectin",
+        viewonly=True,
+    )
 
 
 class ReleaseGateEvidenceLink(UUIDTimestampMixin, Base):
@@ -138,3 +150,34 @@ class ReleaseGateEvidenceLink(UUIDTimestampMixin, Base):
     artifact_revision: Mapped["ArtifactRevision"] = relationship("ArtifactRevision", back_populates="release_gate_links")
     linked_by_user: Mapped["User"] = relationship("User", foreign_keys=[linked_by_user_id])
     reviewed_by_user: Mapped["User | None"] = relationship("User", foreign_keys=[reviewed_by_user_id])
+
+
+class ReleaseGateItemPrerequisite(UUIDTimestampMixin, Base):
+    """
+    A prerequisite dependency between two release gate items in the same gate.
+
+    When a dependent item requires its prerequisite(s) to be accepted before it can be accepted,
+    this table records the relationship. E.g., "Test Report depends on SBOM" means the Test Report
+    item cannot be accepted until the SBOM item is accepted.
+    """
+
+    __tablename__ = "release_gate_item_prerequisites"
+    __table_args__ = (
+        UniqueConstraint(
+            "dependent_item_id",
+            "prerequisite_item_id",
+            name="uq_release_gate_prerequisites_edge",
+        ),
+    )
+
+    dependent_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("release_gate_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    prerequisite_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("release_gate_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )

@@ -288,22 +288,16 @@
                 </label>
                 <div class="field field-full">
                   <span class="field-label">Choose file</span>
-                  <label class="file-drop">
-                    <input
-                      type="file"
-                      accept=".pdf,image/*,.png,.jpg,.jpeg,.webp,.svg,.txt,.md,.csv,.json,.xml,.spdx,.cdx,.zip"
-                      required
-                      @change="onFileSelected"
-                    />
-                    <span v-if="!selectedFile" class="file-drop-prompt">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      Click to choose a file
-                    </span>
-                    <span v-else class="file-drop-selected">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                      {{ selectedFile.name }}
-                    </span>
-                  </label>
+                  <DropZone
+                    accept=".pdf,image/*,.png,.jpg,.jpeg,.webp,.svg,.txt,.md,.csv,.json,.xml,.spdx,.cdx,.zip"
+                    :multiple="false"
+                    hint="Supports: PDF, images, SBOM files, test reports"
+                    @files-selected="onFilesSelected"
+                  />
+                  <div v-if="selectedFile" class="file-selected-info">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    {{ selectedFile.name }}
+                  </div>
                 </div>
               </div>
               <div class="form-footer">
@@ -373,8 +367,59 @@
             </div>
           </div>
 
-          <!-- ── Evidence snapshot ── -->
-          <div class="evidence-section">
+          <!-- ── Detail tabs navigation ── -->
+          <div class="detail-tabs-nav">
+            <button
+              class="detail-tab"
+              :class="{ 'detail-tab--active': detailTabsActive === 'evidence' }"
+              type="button"
+              @click="detailTabsActive = 'evidence'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Evidence
+            </button>
+            <button
+              class="detail-tab"
+              :class="{ 'detail-tab--active': detailTabsActive === 'history' }"
+              type="button"
+              @click="loadRevisionHistory"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              History
+            </button>
+            <button
+              v-if="selectedItem.code === 'sbom'"
+              class="detail-tab"
+              :class="{ 'detail-tab--active': detailTabsActive === 'diff' }"
+              type="button"
+              @click="loadSbomDiff"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M20.24 12.52a6.5 6.5 0 0 0-9.26-9.26M4.2 4.2a6.5 6.5 0 0 0 9.26 9.26"/></svg>
+              Diff
+            </button>
+            <button
+              class="detail-tab"
+              :class="{ 'detail-tab--active': detailTabsActive === 'dependencies' }"
+              type="button"
+              @click="detailTabsActive = 'dependencies'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
+              Dependencies
+            </button>
+            <button
+              v-if="isApproved"
+              class="detail-tab"
+              :class="{ 'detail-tab--active': detailTabsActive === 'snapshot' }"
+              type="button"
+              @click="detailTabsActive = 'snapshot'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Snapshot
+            </button>
+          </div>
+
+          <!-- ── Evidence tab ── -->
+          <div v-if="detailTabsActive === 'evidence'" class="evidence-section">
             <div class="evidence-section-header">
               <div class="evidence-section-title">
                 <svg v-if="isApproved" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -490,6 +535,89 @@
             </div>
           </div>
 
+          <!-- ── History tab ── -->
+          <div v-if="detailTabsActive === 'history'" class="history-section">
+            <div v-if="revisionHistoryLoading" class="loading-panel">
+              <div class="spinner-small"></div>
+              <p>Loading revision history…</p>
+            </div>
+            <div v-else-if="!revisionHistory" class="empty-panel">
+              No artifact linked to this item yet.
+            </div>
+            <div v-else class="revision-panel">
+              <p class="revision-title">{{ revisionHistory.title }}</p>
+              <p class="revision-meta">{{ revisionHistory.artifact_type }} · {{ revisionHistory.revisions?.length ?? 0 }} revision{{ (revisionHistory.revisions?.length ?? 0) !== 1 ? 's' : '' }}</p>
+              <div v-if="!revisionHistory.revisions || revisionHistory.revisions.length === 0" class="empty-panel">
+                No revisions available.
+              </div>
+              <div v-else class="revisions-list">
+                <article v-for="rev in revisionHistory.revisions" :key="rev.id" class="revision-card">
+                  <div class="revision-header">
+                    <span class="revision-number">Rev {{ rev.revision_number }}</span>
+                    <span class="revision-date">{{ formatDateTime(rev.created_at) }}</span>
+                  </div>
+                  <p v-if="rev.change_summary" class="revision-summary">{{ rev.change_summary }}</p>
+                  <p class="revision-uploader">Uploaded by {{ formatUser(rev.uploaded_by_user) }}</p>
+                  <div class="revision-meta-row">
+                    <span>{{ formatLabel(rev.source_type) }}</span>
+                    <span v-if="rev.file_size_bytes">{{ formatSize(rev.file_size_bytes) }}</span>
+                    <span v-if="rev.sha256" class="sha-label">{{ rev.sha256.slice(0, 12) }}…</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── SBOM Diff tab ── -->
+          <div v-if="detailTabsActive === 'diff'" class="diff-section">
+            <div v-if="sbomDiffData === null && !revisionHistoryLoading" class="empty-panel">
+              No SBOM found for this item. Ensure an SBOM file is attached above.
+            </div>
+            <SbomDiffPanel v-else :diff="sbomDiffData" :loading="revisionHistoryLoading" />
+          </div>
+
+          <!-- ── Dependencies tab ── -->
+          <div v-if="detailTabsActive === 'dependencies'" class="dependencies-section">
+            <p class="section-hint">Define prerequisite relationships between checklist items.</p>
+            <div class="dependencies-graph">
+              <div v-for="item in releaseDetail.gate.items" :key="item.id" class="dep-node">
+                <div class="node-card" :class="`node-${item.status}`">
+                  <strong class="node-title">{{ item.title }}</strong>
+                  <span class="node-status">{{ formatLabel(item.status) }}</span>
+                </div>
+                <div v-if="item.prerequisites && item.prerequisites.length > 0" class="node-prereqs">
+                  <p class="prereq-label">Requires:</p>
+                  <div v-for="prereq in item.prerequisites" :key="prereq.id" class="prereq-item">
+                    {{ prereq.title }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="canEdit && !isApproved" class="dependencies-editor">
+              <p class="editor-label">Add prerequisite</p>
+              <p class="editor-hint">Mark {{ selectedItem.title }} as requiring another item to be completed first.</p>
+              <button class="btn-secondary btn-sm" type="button" @click="showDependenciesEditor = !showDependenciesEditor">
+                {{ showDependenciesEditor ? "Cancel" : "Add prerequisite" }}
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Snapshot tab ── -->
+          <div v-if="detailTabsActive === 'snapshot' && isApproved && releaseDetail.gate.snapshot_json" class="snapshot-section">
+            <div class="snapshot-info">
+              <p class="snapshot-label">Approved at</p>
+              <p class="snapshot-value">{{ formatDateTime(releaseDetail.gate.approved_at) }}</p>
+              <p class="snapshot-label">Approved by</p>
+              <p class="snapshot-value">{{ formatUser(releaseDetail.gate.approved_by_user) }}</p>
+              <p class="snapshot-label">Bundle SHA-256</p>
+              <p class="snapshot-hash">{{ releaseDetail.gate.bundle_sha256?.slice(0, 20) }}…</p>
+            </div>
+            <details class="snapshot-json-view">
+              <summary>View snapshot JSON</summary>
+              <pre class="snapshot-json"><code>{{ JSON.stringify(releaseDetail.gate.snapshot_json, null, 2) }}</code></pre>
+            </details>
+          </div>
+
         </section>
       </div>
     </template>
@@ -526,10 +654,14 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 
+import DropZone from "@/components/DropZone.vue";
+import SbomDiffPanel from "@/components/SbomDiffPanel.vue";
 import { artifactService } from "@/services/artifact-service";
 import { releaseGateService } from "@/services/release-gate-service";
+import { sbomRecordService } from "@/services/sbom-record-service";
 import { useAuthStore } from "@/stores/auth";
-import type { ArtifactListRead, ArtifactType } from "@/types/artifact";
+import { extractDiffData, formatComponent } from "@/utils/sbomDiff";
+import type { ArtifactRead, ArtifactListRead, ArtifactType } from "@/types/artifact";
 import type { GateDecision, ReleaseGateDetailRead, ReleaseGateItemRead } from "@/types/release-gate";
 
 const props = defineProps<{ releaseId: string }>();
@@ -571,6 +703,13 @@ const externalForm = reactive({
   external_url: "",
   description: "",
 });
+
+// Detail panel tabs and state
+const detailTabsActive = ref<"evidence" | "history" | "diff" | "dependencies" | "snapshot">("evidence");
+const revisionHistory = ref<ArtifactRead | null>(null);
+const revisionHistoryLoading = ref(false);
+const sbomDiffData = ref<ReturnType<typeof extractDiffData> | null>(null);
+const showDependenciesEditor = ref(false);
 
 const selectedItem = computed<ReleaseGateItemRead | null>(() => {
   if (!releaseDetail.value) return null;
@@ -660,6 +799,17 @@ function toggleExistingEvidence(): void {
   showExistingEvidence.value = !showExistingEvidence.value;
   if (showExistingEvidence.value) {
     void refreshLibrary();
+  }
+}
+
+function onFilesSelected(files: File[]): void {
+  selectedFile.value = files[0] ?? null;
+  if (!selectedFile.value) {
+    return;
+  }
+
+  if (!uploadForm.title.trim()) {
+    uploadForm.title = selectedFile.value.name.replace(/\.[^/.]+$/, "");
   }
 }
 
@@ -975,6 +1125,52 @@ function reviewActionLabel(decision: GateDecision): string {
 function fileTypeLabel(filename: string | null): string {
   if (!filename || !filename.includes(".")) return "FILE";
   return filename.split(".").pop()?.slice(0, 4).toUpperCase() ?? "FILE";
+}
+
+async function loadRevisionHistory(): Promise<void> {
+  detailTabsActive.value = "history";
+  if (!selectedItem.value || !selectedItem.value.evidence_links.length) {
+    revisionHistory.value = null;
+    return;
+  }
+
+  revisionHistoryLoading.value = true;
+  try {
+    const artifact = selectedItem.value.evidence_links[0]?.artifact_revision;
+    if (artifact?.artifact_id) {
+      const history = await artifactService.getById(artifact.artifact_id);
+      revisionHistory.value = history;
+    }
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to load revision history.";
+    revisionHistory.value = null;
+  } finally {
+    revisionHistoryLoading.value = false;
+  }
+}
+
+async function loadSbomDiff(): Promise<void> {
+  detailTabsActive.value = "diff";
+  if (!releaseDetail.value || selectedItem.value?.code !== "sbom") {
+    sbomDiffData.value = null;
+    return;
+  }
+
+  revisionHistoryLoading.value = true;
+  try {
+    const sbomRecords = await sbomRecordService.list(releaseDetail.value.release.id);
+    const latestSbom = sbomRecords[0];
+    if (latestSbom?.analysis_findings) {
+      sbomDiffData.value = extractDiffData(latestSbom.analysis_findings);
+    } else {
+      sbomDiffData.value = null;
+    }
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to load SBOM diff.";
+    sbomDiffData.value = null;
+  } finally {
+    revisionHistoryLoading.value = false;
+  }
 }
 
 onMounted(() => {
@@ -1996,6 +2192,342 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
+}
+
+/* ─────────────────────────────────────────
+   Loading and empty states
+───────────────────────────────────────── */
+.loading-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--color-text-muted, rgba(233, 238, 252, 0.65));
+  text-align: center;
+}
+
+.spinner-small {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid rgba(110, 168, 254, 0.3);
+  border-top-color: #6ea8fe;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─────────────────────────────────────────
+   Detail tabs navigation
+───────────────────────────────────────── */
+.detail-tabs-nav {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid rgba(233, 238, 252, 0.08);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.detail-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: transparent;
+  color: rgba(233, 238, 252, 0.55);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.detail-tab:hover {
+  color: rgba(233, 238, 252, 0.75);
+}
+
+.detail-tab--active {
+  color: #6ea8fe;
+  border-bottom-color: #6ea8fe;
+}
+
+/* ─────────────────────────────────────────
+   History section
+───────────────────────────────────────── */
+.history-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.revision-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #e9eefc);
+}
+
+.revision-meta {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.revisions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.revision-card {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(233, 238, 252, 0.08);
+  transition: background 0.2s ease;
+}
+
+.revision-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.revision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.revision-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.revision-date {
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.4);
+}
+
+.revision-summary {
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+  color: rgba(233, 238, 252, 0.7);
+}
+
+.revision-uploader {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.revision-meta-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(233, 238, 252, 0.35);
+}
+
+.sha-label {
+  font-family: monospace;
+  letter-spacing: -0.02em;
+}
+
+/* ─────────────────────────────────────────
+   SBOM Diff section
+───────────────────────────────────────── */
+.diff-section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─────────────────────────────────────────
+   Dependencies section
+───────────────────────────────────────── */
+.dependencies-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(233, 238, 252, 0.5);
+  font-style: italic;
+}
+
+.dependencies-graph {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.dep-node {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.node-card {
+  padding: 1rem;
+  border-radius: 0.65rem;
+  border: 2px solid rgba(233, 238, 252, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.node-card.node-accepted {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.node-card.node-pending_review {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.node-card.node-rejected,
+.node-card.node-needs_update {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.node-title {
+  font-size: 0.9rem;
+  color: var(--color-text, #e9eefc);
+}
+
+.node-status {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.3rem;
+  background: rgba(110, 168, 254, 0.15);
+  color: #93c5fd;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.node-prereqs {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-left: 3px solid rgba(110, 168, 254, 0.4);
+}
+
+.prereq-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  color: rgba(233, 238, 252, 0.4);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.prereq-item {
+  margin: 0.15rem 0;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.6);
+  padding-left: 0.5rem;
+}
+
+.dependencies-editor {
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: rgba(110, 168, 254, 0.08);
+  border: 1px solid rgba(110, 168, 254, 0.2);
+}
+
+.editor-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text, #e9eefc);
+}
+
+.editor-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+/* ─────────────────────────────────────────
+   Snapshot section
+───────────────────────────────────────── */
+.snapshot-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.snapshot-info {
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.snapshot-label {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.5);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.snapshot-value {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(233, 238, 252, 0.8);
+}
+
+.snapshot-hash {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #86efac;
+  font-family: monospace;
+  letter-spacing: -0.02em;
+}
+
+.snapshot-json-view {
+  border: 1px solid rgba(233, 238, 252, 0.1);
+  border-radius: 0.65rem;
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.snapshot-json-view > summary {
+  color: #6ea8fe;
+  font-weight: 600;
+  user-select: none;
+}
+
+.snapshot-json-view > summary:hover {
+  text-decoration: underline;
+}
+
+.snapshot-json {
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.4rem;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  color: rgba(233, 238, 252, 0.7);
+  line-height: 1.4;
+}
+
+.snapshot-json code {
+  font-family: monospace;
 }
 
 /* ─────────────────────────────────────────

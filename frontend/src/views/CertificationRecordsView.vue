@@ -185,6 +185,104 @@
               </div>
 
             </div>
+
+            <!-- Evidence section -->
+            <div class="evidence-section">
+              <div class="evidence-header">
+                <h3 class="evidence-title">Supporting Evidence</h3>
+                <span v-if="detailRec.artifact_links" class="evidence-count">{{ detailRec.artifact_links.length }}</span>
+              </div>
+
+              <div v-if="!detailRec.artifact_links || detailRec.artifact_links.length === 0" class="empty-evidence">
+                No evidence attached yet. Upload certification documentation, test reports, or audit results.
+              </div>
+
+              <div v-else class="evidence-list">
+                <article v-for="link in detailRec.artifact_links" :key="link.id" class="evidence-item">
+                  <div class="evidence-info">
+                    <strong class="evidence-name">{{ link.artifact_revision.original_filename || 'Artifact' }}</strong>
+                    <p class="evidence-meta">
+                      Rev {{ link.artifact_revision.revision_number }}
+                      · {{ formatLabel(link.artifact_revision.source_type) }}
+                      <template v-if="link.artifact_revision.file_size_bytes">· {{ formatSize(link.artifact_revision.file_size_bytes) }}</template>
+                    </p>
+                  </div>
+                  <div v-if="canWrite" class="evidence-actions">
+                    <button
+                      v-if="link.artifact_revision.storage_path"
+                      class="btn btn-sm btn-ghost"
+                      type="button"
+                      @click="downloadArtifact(link.artifact_revision.id, link.artifact_revision.original_filename || 'artifact')"
+                    >
+                      Download
+                    </button>
+                    <a
+                      v-else-if="link.artifact_revision.external_url"
+                      class="btn btn-sm btn-ghost"
+                      :href="link.artifact_revision.external_url"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open link
+                    </a>
+                    <button
+                      class="btn btn-sm btn-danger-soft"
+                      type="button"
+                      :disabled="isActing"
+                      @click="removeEvidence(link.id)"
+                    >
+                      {{ isActing ? 'Removing…' : 'Remove' }}
+                    </button>
+                  </div>
+                </article>
+              </div>
+
+              <div v-if="canWrite && detailRec" class="evidence-upload">
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  @click="showEvidenceUpload = !showEvidenceUpload"
+                >
+                  {{ showEvidenceUpload ? 'Cancel' : 'Upload evidence' }}
+                </button>
+
+                <form v-if="showEvidenceUpload" class="evidence-form" @submit.prevent="uploadEvidence">
+                  <label class="field">
+                    <span class="field-label">File *</span>
+                    <input type="file" @change="onEvidenceFileSelected" required />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Title *</span>
+                    <input
+                      v-model.trim="evidenceForm.title"
+                      type="text"
+                      maxlength="255"
+                      placeholder="e.g. Certification audit report"
+                      required
+                    />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Type *</span>
+                    <select v-model="evidenceForm.artifact_type" required>
+                      <option value="">Select type</option>
+                      <option value="document">Document</option>
+                      <option value="test_report">Test Report</option>
+                      <option value="certificate">Certificate</option>
+                      <option value="audit">Audit Report</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Description</span>
+                    <textarea v-model.trim="evidenceForm.description" rows="2" placeholder="What does this file show?" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" :disabled="!evidenceFile || isActing">
+                      {{ isActing ? 'Uploading…' : 'Upload' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
 
           <!-- Modal footer -->
@@ -361,6 +459,16 @@ const form = reactive({
   recertification_required_by: "",
 });
 
+// Evidence management state
+const showEvidenceUpload = ref(false);
+const evidenceFile = ref<File | null>(null);
+const isActing = ref(false);
+const evidenceForm = reactive({
+  title: "",
+  artifact_type: "",
+  description: "",
+});
+
 const filteredRecords = computed(() => {
   let result = records.value;
   if (selectedProductId.value) result = result.filter((r) => r.product_id === selectedProductId.value);
@@ -479,6 +587,95 @@ async function deleteFromModal(id: string) {
   } catch {
     errorMessage.value = "Failed to delete record.";
   }
+}
+
+function onEvidenceFileSelected(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  evidenceFile.value = input.files?.[0] ?? null;
+}
+
+async function uploadEvidence(): Promise<void> {
+  if (!evidenceFile.value || !detailRec.value) return;
+  isActing.value = true;
+  clearMessages();
+
+  try {
+    const formData = new FormData();
+    formData.append("title", evidenceForm.title);
+    formData.append("artifact_type", evidenceForm.artifact_type);
+    formData.append("description", evidenceForm.description);
+    formData.append("upload", evidenceFile.value);
+
+    const response = await fetch(`/api/certification-records/${detailRec.value.id}/evidence/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error("Upload failed");
+
+    detailRec.value = await response.json();
+    successMessage.value = "Evidence uploaded successfully.";
+    evidenceFile.value = null;
+    evidenceForm.title = "";
+    evidenceForm.artifact_type = "";
+    evidenceForm.description = "";
+    showEvidenceUpload.value = false;
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : "Failed to upload evidence.";
+  } finally {
+    isActing.value = false;
+  }
+}
+
+async function removeEvidence(linkId: string): Promise<void> {
+  if (!detailRec.value) return;
+  isActing.value = true;
+  clearMessages();
+
+  try {
+    const response = await fetch(
+      `/api/certification-records/${detailRec.value.id}/evidence/${linkId}`,
+      { method: "DELETE" }
+    );
+
+    if (!response.ok) throw new Error("Removal failed");
+
+    detailRec.value = await response.json();
+    successMessage.value = "Evidence removed.";
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : "Failed to remove evidence.";
+  } finally {
+    isActing.value = false;
+  }
+}
+
+async function downloadArtifact(revisionId: string, filename: string): Promise<void> {
+  try {
+    const response = await fetch(`/api/artifacts/revisions/${revisionId}/download`);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    errorMessage.value = "Failed to download artifact.";
+  }
+}
+
+function formatLabel(value: string): string {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatSize(value: number): string {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 onMounted(async () => {
@@ -922,6 +1119,114 @@ textarea:focus {
   font-size: 0.9rem;
   line-height: 1.55;
   color: var(--color-meta-text);
+}
+
+/* Evidence section */
+.evidence-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--color-modal-header-border);
+}
+
+.evidence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.evidence-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.evidence-count {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(110, 168, 254, 0.15);
+  color: #93c5fd;
+  border-radius: 0.3rem;
+  font-weight: 600;
+}
+
+.empty-evidence {
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(233, 238, 252, 0.15);
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.evidence-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(233, 238, 252, 0.08);
+}
+
+.evidence-info {
+  flex: 1;
+}
+
+.evidence-name {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.evidence-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(233, 238, 252, 0.5);
+}
+
+.evidence-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.evidence-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: rgba(110, 168, 254, 0.08);
+  border: 1px solid rgba(110, 168, 254, 0.2);
+}
+
+.evidence-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.evidence-form .field:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
 }
 
 /* Modal footer */

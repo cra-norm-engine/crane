@@ -59,6 +59,15 @@ export interface ReleaseGateItemRead {
   sort_order: number;
   status: GateDecision;
   evidence_links: ReleaseGateEvidenceLinkRead[];
+  prerequisites?: ReleaseGateItemSummary[];
+  unmet_prerequisites?: ReleaseGateItemSummary[];
+}
+
+export interface ReleaseGateItemSummary {
+  id: string;
+  code: ReleaseGateItemCode | null;
+  title: string;
+  status: GateDecision;
 }
 
 export interface ReleaseGateRead {
@@ -73,6 +82,7 @@ export interface ReleaseGateRead {
   approved_by_user: UserSummaryRead | null;
   bundle_sha256: string | null;
   bundle_generated_at: string | null;
+  snapshot_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   items: ReleaseGateItemRead[];

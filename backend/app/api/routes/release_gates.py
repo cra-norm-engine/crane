@@ -248,3 +248,69 @@ def download_gate_bundle(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/product-releases/{product_release_id}/gate/prerequisites", response_model=ReleaseGateDetailRead)
+def add_gate_item_prerequisite(
+    product_release_id: UUID,
+    dependent_item_id: UUID,
+    prerequisite_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReleaseGateDetailRead:
+    require_permissions(current_user, {Permission.release_write})
+    service = ReleaseGateService(db)
+    try:
+        return ReleaseGateDetailRead.model_validate(
+            service.add_prerequisite(
+                product_release_id,
+                dependent_item_id,
+                prerequisite_item_id,
+                actor_user_id=current_user.id,
+            )
+        )
+    except (NotFoundException, ConflictException) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.delete("/product-releases/{product_release_id}/gate/prerequisites", response_model=ReleaseGateDetailRead)
+def remove_gate_item_prerequisite(
+    product_release_id: UUID,
+    dependent_item_id: UUID,
+    prerequisite_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReleaseGateDetailRead:
+    require_permissions(current_user, {Permission.release_write})
+    service = ReleaseGateService(db)
+    try:
+        return ReleaseGateDetailRead.model_validate(
+            service.remove_prerequisite(
+                product_release_id,
+                dependent_item_id,
+                prerequisite_item_id,
+                actor_user_id=current_user.id,
+            )
+        )
+    except (NotFoundException, ConflictException) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/product-releases/{product_release_id}/gate/snapshot")
+def get_gate_snapshot(
+    product_release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    require_permissions(current_user, {Permission.release_read})
+    service = ReleaseGateService(db)
+    try:
+        gate = service.gate_repository.get_or_404_by_product_release_id(product_release_id)
+        return {
+            "snapshot": gate.snapshot_json,
+            "bundle_sha256": gate.bundle_sha256,
+            "approved_at": gate.approved_at,
+            "approved_by_user_id": gate.approved_by_user_id,
+        }
+    except NotFoundException as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

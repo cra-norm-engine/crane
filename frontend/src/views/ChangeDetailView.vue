@@ -324,65 +324,23 @@
         @click.self="closeAssessModal"
         role="dialog"
         aria-modal="true"
-        aria-label="Submit assessment"
+        aria-label="Assessment Wizard"
       >
-        <div class="modal-panel">
+        <div class="modal-panel modal-panel--large">
           <div class="modal-header">
-            <h2 class="section-title">Submit substantiality assessment</h2>
+            <h2 class="section-title">Substantiality Assessment</h2>
             <button class="btn btn-icon btn-close" @click="closeAssessModal" aria-label="Close">✕</button>
           </div>
 
-          <form class="modal-body" @submit.prevent="doAssess">
-            <!-- Explanation note -->
-            <p class="assess-note muted">
-              Answer the four CRA evaluation criteria below. If <em>any</em> criterion is
-              met, the change is automatically classified as substantial and will trigger
-              four compliance actions.
-            </p>
-
-            <!-- Four criteria checkboxes -->
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="assessForm.alters_intended_use" />
-              <span>Alters the intended use of the product</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="assessForm.increases_cybersecurity_risk" />
-              <span>Increases cybersecurity risk</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="assessForm.changes_hazard_nature" />
-              <span>Changes the nature of the hazard</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="assessForm.expands_attack_surface" />
-              <span>Expands the attack surface</span>
-            </label>
-
-            <!-- Reasoning (required, min 10 chars) -->
-            <label class="field">
-              <span class="field-label">Reasoning / justification</span>
-              <textarea
-                v-model.trim="assessForm.reasoning"
-                rows="4"
-                minlength="10"
-                placeholder="Explain the basis for the assessment decision (min 10 chars)"
-                required
-              />
-            </label>
-
-            <!-- Decision date -->
-            <label class="field">
-              <span class="field-label">Decision date</span>
-              <input v-model="assessForm.decision_date" type="date" required />
-            </label>
-
-            <div class="modal-actions">
-              <button type="button" class="btn btn-secondary" @click="closeAssessModal">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="isActing">
-                {{ isActing ? "Saving…" : "Submit assessment" }}
-              </button>
-            </div>
-          </form>
+          <div class="modal-body">
+            <AssessmentWizard
+              :key="change?.id"
+              :change-id="change?.id || ''"
+              :change-type="change?.change_type"
+              @cancel="closeAssessModal"
+              @submitted="onAssessmentSubmitted"
+            />
+          </div>
         </div>
       </div>
     </Transition>
@@ -449,6 +407,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import AssigneeSelector from "@/components/AssigneeSelector.vue";
+import AssessmentWizard from "@/components/AssessmentWizard.vue";
 import CommentThread from "@/components/CommentThread.vue";
 import { changeService } from "@/services/change-service";
 import { productReleaseService } from "@/services/product-release-service";
@@ -654,19 +613,16 @@ function closeAssessModal(): void {
   showAssessModal.value = false;
 }
 
-async function doAssess(): Promise<void> {
-  isActing.value = true;
-  errorMessage.value = "";
-  successMessage.value = "";
-
+async function onAssessmentSubmitted(): Promise<void> {
   try {
-    change.value = await changeService.assess(change.value!.id, { ...assessForm });
-    successMessage.value = `Assessment recorded. Change is ${change.value.assessment?.is_substantial ? "substantial" : "not substantial"}.`;
+    // Reload change to get updated assessment
+    if (change.value) {
+      change.value = await changeService.get(change.value.id);
+      successMessage.value = `Assessment recorded. Change is ${change.value.assessment?.is_substantial ? "substantial" : "not substantial"}.`;
+    }
     showAssessModal.value = false;
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : "Assessment failed.";
-  } finally {
-    isActing.value = false;
+    errorMessage.value = err instanceof Error ? err.message : "Failed to load updated change.";
   }
 }
 
@@ -1202,6 +1158,10 @@ dd { margin: 0; word-break: break-all; }
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.modal-panel--large {
+  max-width: 60rem;
 }
 
 .modal-header {

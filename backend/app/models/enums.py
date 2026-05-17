@@ -178,6 +178,12 @@ class ConformityRoute(StrEnum):
     undecided = "undecided"
 
 
+class AssessmentMethodology(StrEnum):
+    stride = "stride"
+    tara = "tara"
+    custom = "custom"
+
+
 class SupportType(StrEnum):
     standard = "standard"
     limited = "limited"

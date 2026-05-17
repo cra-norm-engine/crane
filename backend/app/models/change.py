@@ -15,10 +15,12 @@ import uuid
 from datetime import date
 
 from sqlalchemy import Boolean, Date, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import (
+    AssessmentMethodology,
     ChangeStatus,
     ChangeType,
     ComplianceActionStatus,
@@ -176,6 +178,12 @@ class SubstantialModificationAssessment(UUIDTimestampMixin, Base):
 
     # Date the assessment decision was made
     decision_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Assessment methodology (STRIDE, TARA, or custom)
+    methodology: Mapped[AssessmentMethodology | None] = mapped_column(nullable=True, index=True)
+
+    # Structured answers per methodology (e.g. {S1: true, S2: false, ...})
+    template_answers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # --- ORM relationships ---
 

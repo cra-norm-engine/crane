@@ -278,14 +278,14 @@ class ChangeService:
             raise AppException("This change has already been assessed.", status_code=409)
 
         # Derive substantiality from the four criteria.
-        # Exception: security-type changes are never substantial per CRA Art. 3(4)
+        # CRA Art. 3(4): Security-type changes are never substantial by definition
         criteria_positive = (
             payload.alters_intended_use
             or payload.increases_cybersecurity_risk
             or payload.changes_hazard_nature
             or payload.expands_attack_surface
         )
-        is_substantial = criteria_positive  # security patches stay False regardless
+        is_substantial = criteria_positive and change.change_type != ChangeType.security
 
         # Create the assessment record
         assessment = SubstantialModificationAssessment(

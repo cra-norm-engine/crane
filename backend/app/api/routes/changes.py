@@ -34,6 +34,10 @@ from app.schemas.change import (
     ComplianceActionRead,
     ComplianceActionUpdate,
 )
+from app.services.assessment_template_service import (
+    get_questions,
+    recommend_actions,
+)
 from app.services.change_service import ChangeService
 
 router = APIRouter()
@@ -228,3 +232,65 @@ def update_compliance_action(
     return ChangeService(db).update_compliance_action(
         action_id, payload, actor=current_user
     )
+
+
+# ---------------------------------------------------------------------------
+# Assessment templates
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/assessment-templates/{methodology}",
+    summary="Get assessment questions for a methodology",
+    description=(
+        "Returns the structured questions for STRIDE (6 questions) or TARA (4 questions) "
+        "assessment methodologies. Each question maps to one of the four CRA Art. 3(3)(c) criteria."
+    ),
+)
+def get_assessment_template(
+    methodology: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get assessment questions for the specified methodology."""
+    questions = get_questions(methodology.lower())
+    if not questions:
+        return Response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content="Invalid methodology. Use 'stride' or 'tara'.",
+        )
+
+    return {
+        "methodology": methodology.lower(),
+        "questions": [q.to_dict() for q in questions],
+    }
+
+
+@router.get(
+    "/{change_id}/recommended-actions",
+    summary="Get recommended compliance actions for a change",
+    description=(
+        "Returns a list of recommended actions based on the change type and assessment outcome. "
+        "Note: CRA Art. 3(4) — security-type changes are never substantial and receive "
+        "simplified recommendations."
+    ),
+)
+def get_recommended_actions(
+    change_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.change_read)),
+):
+    """Get recommended compliance actions for the change."""
+    service = ChangeService(db)
+    change = service.repo.get_or_404(change_id)
+    assessment = service.repo.get_assessment(change_id)
+
+    is_substantial = assessment.is_substantial if assessment else False
+    actions = recommend_actions(is_substantial, change.change_type)
+
+    return {
+        "change_id": str(change_id),
+        "change_type": change.change_type,
+        "is_assessed": assessment is not None,
+        "is_substantial": is_substantial,
+        "recommended_actions": actions,
+    }

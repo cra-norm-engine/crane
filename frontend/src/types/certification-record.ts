@@ -14,6 +14,26 @@ export type CertificationStatus =
   | "suspended"
   | "withdrawn";
 
+export interface CertificationRecordArtifactLink {
+  id: string;
+  artifact_revision: {
+    id: string;
+    artifact_id: string;
+    revision_number: number;
+    source_type: 'upload' | 'external_link';
+    original_filename: string | null;
+    content_type: string | null;
+    file_size_bytes: number | null;
+    sha256: string | null;
+    storage_path: string | null;
+    external_url: string | null;
+    change_summary: string | null;
+    uploaded_by_user_id: string;
+    created_at: string;
+  };
+  linked_by_user_id: string | null;
+}
+
 export interface CertificationRecord {
   id: string;
   product_id: string;
@@ -27,6 +47,7 @@ export interface CertificationRecord {
   status: CertificationStatus;
   notes: string | null;
   recertification_required_by: string | null;
+  artifact_links?: CertificationRecordArtifactLink[] | null;
   created_at: string;
   updated_at: string;
 }

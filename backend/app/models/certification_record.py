@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, String, Text
+from sqlalchemy import Date, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -45,3 +45,52 @@ class CertificationRecord(UUIDTimestampMixin, Base):
         "Product",
         back_populates="certification_records",
     )
+    artifact_links: Mapped[list["CertificationRecordArtifactLink"]] = relationship(
+        "CertificationRecordArtifactLink",
+        back_populates="certification_record",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class CertificationRecordArtifactLink(UUIDTimestampMixin, Base):
+    """
+    Links an artifact revision to a certification record as supporting evidence.
+
+    Allows certification records to have file attachments (reports, test evidence, etc.)
+    with full revision history and SHA-256 integrity verification.
+    """
+
+    __tablename__ = "certification_record_artifact_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "certification_record_id",
+            "artifact_revision_id",
+            name="uq_certification_artifact_revision",
+        ),
+    )
+
+    certification_record_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("certification_records.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    artifact_revision_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("artifact_revisions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    linked_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    certification_record: Mapped["CertificationRecord"] = relationship(
+        "CertificationRecord",
+        back_populates="artifact_links",
+    )
+    artifact_revision: Mapped["ArtifactRevision"] = relationship("ArtifactRevision")
+    linked_by_user: Mapped["User"] = relationship("User")

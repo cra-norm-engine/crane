@@ -7,6 +7,11 @@ export const artifactService = {
     return data;
   },
 
+  async getById(artifactId: string): Promise<ArtifactRead> {
+    const { data } = await apiClient.get<ArtifactRead>(`/artifacts/${artifactId}`);
+    return data;
+  },
+
   async createUpload(formData: FormData): Promise<ArtifactRead> {
     const { data } = await apiClient.post<ArtifactRead>("/artifacts/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },

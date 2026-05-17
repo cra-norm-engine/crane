@@ -24,7 +24,7 @@ from app.models.enums import (
     ReleaseStatus,
 )
 from app.models.product import ProductRelease
-from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
+from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem, ReleaseGateItemPrerequisite
 from app.services.artifact_service import ArtifactService
 from app.repositories.artifact_repository import ArtifactRevisionRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
@@ -139,6 +139,9 @@ class ReleaseGateService:
         _, bundle_sha256 = self._generate_bundle(release, gate)
         gate.bundle_sha256 = bundle_sha256
         gate.bundle_generated_at = datetime.now(UTC)
+
+        # Generate and store the compliance snapshot
+        gate.snapshot_json = self._generate_snapshot(gate)
         self.db.flush()
 
         create_audit_event(
@@ -638,6 +641,11 @@ class ReleaseGateService:
             gate.status = ReleaseGateWorkflowStatus.draft
 
     def _derive_item_status(self, item: ReleaseGateItem) -> ArtifactReviewDecision:
+        # Check if any unmet prerequisites exist
+        unmet_prereqs = self._get_unmet_prerequisites(item)
+        if unmet_prereqs:
+            return ArtifactReviewDecision.pending_review
+
         if not item.evidence_links:
             return ArtifactReviewDecision.pending_review
         decisions = [link.decision for link in item.evidence_links]
@@ -650,6 +658,160 @@ class ReleaseGateService:
         if ArtifactReviewDecision.waived in decisions:
             return ArtifactReviewDecision.waived
         return ArtifactReviewDecision.pending_review
+
+    def _get_unmet_prerequisites(self, item: ReleaseGateItem) -> list[ReleaseGateItem]:
+        """Return prerequisites of this item that are not yet accepted."""
+        unmet = []
+        for prereq in item.prerequisites:
+            if prereq.status not in {ArtifactReviewDecision.accepted, ArtifactReviewDecision.waived}:
+                unmet.append(prereq)
+        return unmet
+
+    def _generate_snapshot(self, gate: ReleaseGate) -> dict:
+        """Generate a compliance snapshot capturing the frozen state of all gate items and evidence at approval time."""
+        import json
+        snapshot = {
+            "approved_at": gate.approved_at.isoformat() if gate.approved_at else None,
+            "approved_by_user_id": str(gate.approved_by_user_id) if gate.approved_by_user_id else None,
+            "bundle_sha256": gate.bundle_sha256,
+            "items": [],
+        }
+
+        for item in gate.items:
+            item_snapshot = {
+                "id": str(item.id),
+                "code": item.code.value if item.code else None,
+                "title": item.title,
+                "status": item.status.value,
+                "evidence": [],
+            }
+
+            for link in item.evidence_links:
+                rev = link.artifact_revision
+                evidence_snapshot = {
+                    "artifact_title": rev.artifact.title if rev.artifact else rev.original_filename or "unknown",
+                    "revision_number": rev.revision_number,
+                    "sha256": rev.sha256,
+                    "decision": link.decision.value,
+                    "reviewed_by_user_id": str(link.reviewed_by_user_id) if link.reviewed_by_user_id else None,
+                    "reviewed_at": link.reviewed_at.isoformat() if link.reviewed_at else None,
+                }
+                item_snapshot["evidence"].append(evidence_snapshot)
+
+            snapshot["items"].append(item_snapshot)
+
+        return snapshot
+
+    def add_prerequisite(
+        self,
+        product_release_id: UUID,
+        dependent_item_id: UUID,
+        prerequisite_item_id: UUID,
+        *,
+        actor_user_id: UUID,
+    ) -> dict:
+        """Add a prerequisite dependency: dependent_item depends on prerequisite_item."""
+        release = self.release_repository.get_or_404(product_release_id)
+        gate = self.gate_repository.get_or_404_by_product_release_id(product_release_id)
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Dependencies cannot be modified.")
+
+        dependent = next((item for item in gate.items if item.id == dependent_item_id), None)
+        prerequisite = next((item for item in gate.items if item.id == prerequisite_item_id), None)
+
+        if dependent is None or prerequisite is None:
+            raise NotFoundException("One or both gate items not found in this release's gate.")
+
+        if dependent_item_id == prerequisite_item_id:
+            raise ConflictException("An item cannot be a prerequisite of itself.")
+
+        # Check if this prerequisite already exists
+        existing = self.db.query(ReleaseGateItemPrerequisite).filter(
+            ReleaseGateItemPrerequisite.dependent_item_id == dependent_item_id,
+            ReleaseGateItemPrerequisite.prerequisite_item_id == prerequisite_item_id,
+        ).first()
+
+        if existing is not None:
+            raise ConflictException("This prerequisite relationship already exists.")
+
+        prereq_link = ReleaseGateItemPrerequisite(
+            dependent_item_id=dependent_item_id,
+            prerequisite_item_id=prerequisite_item_id,
+        )
+        self.db.add(prereq_link)
+        self.db.flush()
+        self.db.refresh(gate)
+        self._refresh_gate_status(gate)
+
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="release_gate.prerequisite_added",
+            entity_type=EntityType.product_release,
+            entity_id=product_release_id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "add_gate_item_prerequisite",
+                "product_release_id": str(product_release_id),
+                "dependent_item_id": str(dependent_item_id),
+                "dependent_item_title": dependent.title,
+                "prerequisite_item_id": str(prerequisite_item_id),
+                "prerequisite_item_title": prerequisite.title,
+            },
+        )
+        self.db.commit()
+        return self._detail_payload(release, gate)
+
+    def remove_prerequisite(
+        self,
+        product_release_id: UUID,
+        dependent_item_id: UUID,
+        prerequisite_item_id: UUID,
+        *,
+        actor_user_id: UUID,
+    ) -> dict:
+        """Remove a prerequisite dependency."""
+        release = self.release_repository.get_or_404(product_release_id)
+        gate = self.gate_repository.get_or_404_by_product_release_id(product_release_id)
+
+        if gate.status == ReleaseGateWorkflowStatus.approved:
+            raise ConflictException("Gate is approved and frozen. Dependencies cannot be modified.")
+
+        prereq_link = self.db.query(ReleaseGateItemPrerequisite).filter(
+            ReleaseGateItemPrerequisite.dependent_item_id == dependent_item_id,
+            ReleaseGateItemPrerequisite.prerequisite_item_id == prerequisite_item_id,
+        ).first()
+
+        if prereq_link is None:
+            raise NotFoundException("Prerequisite relationship not found.")
+
+        dependent = next((item for item in gate.items if item.id == dependent_item_id), None)
+        prerequisite = next((item for item in gate.items if item.id == prerequisite_item_id), None)
+
+        self.db.delete(prereq_link)
+        self.db.flush()
+        self.db.refresh(gate)
+        self._refresh_gate_status(gate)
+
+        create_audit_event(
+            self.db,
+            actor_user_id=actor_user_id,
+            action_type="release_gate.prerequisite_removed",
+            entity_type=EntityType.product_release,
+            entity_id=product_release_id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "remove_gate_item_prerequisite",
+                "product_release_id": str(product_release_id),
+                "dependent_item_id": str(dependent_item_id),
+                "dependent_item_title": dependent.title if dependent else None,
+                "prerequisite_item_id": str(prerequisite_item_id),
+                "prerequisite_item_title": prerequisite.title if prerequisite else None,
+            },
+        )
+        self.db.commit()
+        return self._detail_payload(release, gate)
 
     def _detail_payload(self, release: ProductRelease, gate: ReleaseGate) -> dict:
         required_items = [item for item in gate.items if item.is_required]
@@ -673,6 +835,7 @@ class ReleaseGateService:
                 "approved_by_user": self._user_summary_payload(gate.approved_by_user),
                 "bundle_sha256": gate.bundle_sha256,
                 "bundle_generated_at": gate.bundle_generated_at,
+                "snapshot_json": gate.snapshot_json,
                 "created_at": gate.created_at,
                 "updated_at": gate.updated_at,
                 "items": [
@@ -684,6 +847,15 @@ class ReleaseGateService:
                         "is_required": item.is_required,
                         "sort_order": item.sort_order,
                         "status": item.status,
+                        "prerequisites": [
+                            {
+                                "id": prereq.id,
+                                "code": prereq.code,
+                                "title": prereq.title,
+                                "status": prereq.status,
+                            }
+                            for prereq in item.prerequisites
+                        ],
                         "evidence_links": [
                             {
                                 "id": link.id,
