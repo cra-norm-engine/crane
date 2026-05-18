@@ -25,6 +25,7 @@ from app.models.change import Change, ChangeComplianceAction, SubstantialModific
 from app.models.enums import (
     AuditStatus,
     ChangeStatus,
+    ChangeType,
     ComplianceActionStatus,
     ComplianceActionType,
     EntityType,
@@ -298,6 +299,8 @@ class ChangeService:
             is_substantial=is_substantial,
             reasoning=payload.reasoning,
             decision_date=payload.decision_date,
+            methodology=payload.methodology,
+            template_answers=payload.template_answers,
         )
         self.db.add(assessment)
         self.db.flush()  # Need assessment.id for compliance actions

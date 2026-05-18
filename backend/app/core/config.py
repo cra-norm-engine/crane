@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     cors_origins: List[str] | str = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173"],
+        default=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8000", "http://127.0.0.1:8000"],
         alias="BACKEND_CORS_ORIGINS",
     )
 

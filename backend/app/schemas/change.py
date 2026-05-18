@@ -74,11 +74,15 @@ class AssessmentCreate(BaseModel):
     changes_hazard_nature: bool = False
     expands_attack_surface: bool = False
 
-    # Free-text justification for the decision — required
-    reasoning: str = Field(min_length=10)
+    # Free-text justification for the decision (optional)
+    reasoning: str = Field(default="", min_length=0)
 
     # Date the decision was made
     decision_date: date
+
+    # Assessment methodology and structured answers (optional, Phase 2a feature)
+    methodology: str | None = None
+    template_answers: dict | None = None
 
 
 class AssessmentRead(TimestampedRead):

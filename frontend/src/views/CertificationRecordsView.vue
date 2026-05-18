@@ -606,9 +606,16 @@ async function uploadEvidence(): Promise<void> {
     formData.append("description", evidenceForm.description);
     formData.append("upload", evidenceFile.value);
 
-    const response = await fetch(`/api/certification-records/${detailRec.value.id}/evidence/upload`, {
+    const headers: Record<string, string> = {};
+    if (authStore.accessToken) {
+      headers['Authorization'] = `Bearer ${authStore.accessToken}`;
+    }
+
+    const response = await fetch(`/api/v1/certification-records/${detailRec.value.id}/evidence/upload`, {
       method: "POST",
+      headers,
       body: formData,
+      credentials: 'include'
     });
 
     if (!response.ok) throw new Error("Upload failed");
@@ -633,9 +640,14 @@ async function removeEvidence(linkId: string): Promise<void> {
   clearMessages();
 
   try {
+    const headers: Record<string, string> = {};
+    if (authStore.accessToken) {
+      headers['Authorization'] = `Bearer ${authStore.accessToken}`;
+    }
+
     const response = await fetch(
-      `/api/certification-records/${detailRec.value.id}/evidence/${linkId}`,
-      { method: "DELETE" }
+      `/api/v1/certification-records/${detailRec.value.id}/evidence/${linkId}`,
+      { method: "DELETE", headers, credentials: 'include' }
     );
 
     if (!response.ok) throw new Error("Removal failed");
@@ -651,7 +663,16 @@ async function removeEvidence(linkId: string): Promise<void> {
 
 async function downloadArtifact(revisionId: string, filename: string): Promise<void> {
   try {
-    const response = await fetch(`/api/artifacts/revisions/${revisionId}/download`);
+    const headers: Record<string, string> = {};
+    if (authStore.accessToken) {
+      headers['Authorization'] = `Bearer ${authStore.accessToken}`;
+    }
+
+    const response = await fetch(`/api/v1/artifacts/revisions/${revisionId}/download`, {
+      headers,
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error("Download failed");
     const blob = await response.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");

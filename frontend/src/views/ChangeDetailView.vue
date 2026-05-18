@@ -3,8 +3,6 @@
     <!-- Page header: title, status badge, action buttons -->
     <header class="page-header card">
       <div class="header-left">
-        <!-- Back navigation -->
-        <button class="btn btn-ghost back-btn" @click="router.back()">← Back</button>
         <div class="header-meta">
           <div class="header-badges">
             <span class="type-badge" :class="`type-${change.change_type}`">

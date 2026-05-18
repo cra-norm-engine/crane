@@ -249,7 +249,6 @@ def update_compliance_action(
 )
 def get_assessment_template(
     methodology: str,
-    current_user: User = Depends(get_current_user),
 ):
     """Get assessment questions for the specified methodology."""
     questions = get_questions(methodology.lower())

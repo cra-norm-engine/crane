@@ -1,5 +1,10 @@
 <template>
   <div class="assessment-wizard">
+    <!-- Error message -->
+    <div v-if="errorMessage" class="error-banner">
+      <p>{{ errorMessage }}</p>
+    </div>
+
     <!-- Step 1: Select methodology -->
     <div v-if="currentStep === 1" class="wizard-step">
       <h2 class="step-title">Select Assessment Methodology</h2>
@@ -218,6 +223,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 interface AssessmentQuestion {
   id: string;
@@ -256,6 +262,7 @@ const answers = ref<Record<string, boolean | null>>({});
 const reasoning = ref('');
 const submitting = ref(false);
 const currentQuestions = ref<AssessmentQuestion[]>([]);
+const errorMessage = ref('');
 
 const progressPercent = computed(() => {
   if (currentQuestions.value.length === 0) return 0;
@@ -287,6 +294,7 @@ const isSubstantial = computed(() => {
 
 function selectMethodology(methodology: 'stride' | 'tara' | 'custom') {
   selectedMethodology.value = methodology;
+  errorMessage.value = '';
 }
 
 async function nextStep() {
@@ -295,8 +303,45 @@ async function nextStep() {
   } else if (currentStep.value === 1) {
     // Load questions for selected methodology
     try {
-      const response = await fetch(`/api/changes/assessment-templates/${selectedMethodology.value}`);
-      const data = (await response.json()) as TemplateResponse;
+      const authStore = useAuthStore();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      // Include auth token if available
+      if (authStore.accessToken) {
+        headers['Authorization'] = `Bearer ${authStore.accessToken}`;
+      }
+
+      const url = `http://localhost:8000/api/v1/changes/assessment-templates/${selectedMethodology.value}?t=${Date.now()}`;
+      console.log('📤 Fetching assessment template from:', url);
+      const response = await fetch(url, {
+        headers,
+        credentials: 'include'
+      });
+
+      console.log('📥 Response received - status:', response.status, 'content-type:', response.headers.get('content-type'));
+
+      // Read response body once - it can only be read once!
+      const text = await response.text();
+      console.log('📄 Response body length:', text.length);
+      console.log('📄 Response body JSON:', text);
+      console.log('📄 Response body bytes:', text.split('').map(c => c.charCodeAt(0)));
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+
+      if (!text) {
+        throw new Error('Empty response from API');
+      }
+
+      if (text === 'null' || text.trim() === '') {
+        throw new Error(`Invalid response: "${text}"`);
+      }
+
+      console.log('🔄 Parsing JSON...');
+      const data = JSON.parse(text) as TemplateResponse;
+      console.log('✅ Successfully parsed, got', data.questions.length, 'questions');
       currentQuestions.value = data.questions;
       // Initialize all answers to null
       currentQuestions.value.forEach(q => {
@@ -306,7 +351,10 @@ async function nextStep() {
       });
       currentStep.value = 2;
     } catch (error) {
-      console.error('Failed to load assessment template:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const fullError = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack}` : String(error);
+      console.error('❌ Failed to load assessment template:', fullError);
+      errorMessage.value = `Error: ${errorMsg}`;
     }
   } else if (currentStep.value === 2) {
     currentStep.value = 3;
@@ -345,14 +393,29 @@ async function submitAssessment() {
       decision_date: new Date().toISOString().split('T')[0],
     };
 
-    const response = await fetch(`/api/changes/${props.changeId}/assess`, {
+    const authStore = useAuthStore();
+    if (!authStore.accessToken) {
+      throw new Error('Not authenticated. Please log in first.');
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authStore.accessToken}`
+    };
+
+    const response = await fetch(`http://localhost:8000/api/v1/changes/${props.changeId}/assess`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
+      credentials: 'include'
     });
 
+    const responseText = await response.text();
+    console.log('Submit response status:', response.status);
+    console.log('Submit response:', responseText);
+
     if (!response.ok) {
-      throw new Error('Failed to submit assessment');
+      throw new Error(`HTTP ${response.status}: ${responseText}`);
     }
 
     emit('submitted');
@@ -375,6 +438,19 @@ function formatLabel(value: string): string {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.error-banner {
+  padding: 1rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.5rem;
+  color: #ef4444;
+}
+
+.error-banner p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 /* Step container */
