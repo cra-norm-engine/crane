@@ -1,17 +1,167 @@
 <template>
+  <!-- Edit Assessment Modal -->
+  <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h2>Edit Assessment</h2>
+        <button class="modal-close" @click="showEditModal = false">✕</button>
+      </div>
+
+      <form class="modal-form" @submit.prevent="updateAssessment">
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Title</span>
+            <input v-model="editForm.title" class="input" type="text" maxlength="255" required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Version Label</span>
+            <input v-model="editForm.version_label" class="input" type="text" maxlength="100" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Status</span>
+            <select v-model="editForm.status" class="select">
+              <option value="">No change</option>
+              <option v-for="option in assessmentStatuses" :key="option" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Owner</span>
+            <select v-model="editForm.owner_user_id" class="select">
+              <option value="">No owner</option>
+              <option v-for="user in users" :key="user.id" :value="user.id">
+                {{ getUserDisplay(user.id) }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Methodology</span>
+            <input v-model="editForm.methodology" class="input" type="text" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Product Release</span>
+            <input v-model="editForm.product_release_id" class="input" type="text" placeholder="Optional ID" />
+          </label>
+        </div>
+
+        <label class="field field-full">
+          <span class="field-label">Summary</span>
+          <textarea v-model="editForm.summary" class="textarea" rows="3" placeholder="Summary of findings and recommendations" />
+        </label>
+
+        <div class="modal-actions">
+          <button class="button secondary" type="button" @click="showEditModal = false">Cancel</button>
+          <button class="button" type="submit" :disabled="savingAssessment">
+            {{ savingAssessment ? "Saving..." : "Save Changes" }}
+          </button>
+          <button
+            class="button"
+            type="button"
+            @click="approveAssessment"
+            :disabled="approvingAssessment"
+          >
+            {{ approvingAssessment ? "Approving..." : "Approve" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Duplicate Modal -->
+  <div v-if="showDuplicateModal" class="modal-overlay" @click="showDuplicateModal = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h2>Duplicate Assessment Version</h2>
+        <button class="modal-close" @click="showDuplicateModal = false">✕</button>
+      </div>
+
+      <form class="modal-form" @submit.prevent="duplicateAssessment">
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">New Version Label</span>
+            <input v-model="duplicateForm.version_label" class="input" type="text" required maxlength="100" placeholder="e.g., v2.0" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">New Title</span>
+            <input v-model="duplicateForm.title" class="input" type="text" maxlength="255" placeholder="Leave blank to keep current" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Product Release</span>
+            <input v-model="duplicateForm.product_release_id" class="input" type="text" placeholder="Optional" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Owner</span>
+            <select v-model="duplicateForm.owner_user_id" class="select">
+              <option value="">Keep current owner</option>
+              <option v-for="user in users" :key="user.id" :value="user.id">
+                {{ getUserDisplay(user.id) }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field field-full">
+          <span class="field-label">Summary Override</span>
+          <textarea v-model="duplicateForm.summary" class="textarea" rows="2" placeholder="Leave blank to keep current" />
+        </label>
+
+        <div class="checkbox-group">
+          <label class="checkbox-field">
+            <input v-model="duplicateForm.reset_status_to_draft" type="checkbox" />
+            <span>Reset status to draft</span>
+          </label>
+
+          <label class="checkbox-field">
+            <input v-model="duplicateForm.copy_risk_items" type="checkbox" />
+            <span>Copy risk items to new version</span>
+          </label>
+
+          <label class="checkbox-field">
+            <input v-model="duplicateForm.copy_requirement_mappings" type="checkbox" />
+            <span>Copy requirement mappings</span>
+          </label>
+
+          <label class="checkbox-field">
+            <input v-model="duplicateForm.copy_evidence_links" type="checkbox" />
+            <span>Copy evidence links</span>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="button secondary" type="button" @click="showDuplicateModal = false">Cancel</button>
+          <button class="button" type="submit" :disabled="duplicatingAssessment">
+            {{ duplicatingAssessment ? "Duplicating..." : "Create New Version" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <section class="page">
     <header class="page-header">
       <div>
         <p class="eyebrow">Risk Assessment</p>
         <h1 class="page-title">{{ assessment?.title ?? "Risk Assessment Detail" }}</h1>
-        <p class="muted page-subtitle">
-          View assessment metadata, edit the assessment, manage risk items, and duplicate a new version.
-        </p>
       </div>
       <div class="header-actions">
-        <button class="button secondary" type="button" @click="goBack">Back</button>
+        <button class="button secondary" type="button" @click="goBack">← Back</button>
         <button class="button" type="button" @click="loadAssessment" :disabled="loading">
-          {{ loading ? "Refreshing..." : "Refresh" }}
+          {{ loading ? "Refreshing…" : "Refresh" }}
         </button>
       </div>
     </header>
@@ -24,231 +174,101 @@
     </section>
 
     <template v-else-if="assessment">
-      <section class="details-grid">
-        <article class="panel">
-          <div class="panel-header">
+      <!-- Assessment Overview Card -->
+      <article class="panel">
+        <div class="panel-header">
+          <div>
             <h2>Assessment Overview</h2>
+          </div>
+          <div class="overview-actions">
             <span class="count-badge">{{ assessment.version_label }}</span>
+            <button class="button secondary" @click="showEditModal = true">Edit Assessment</button>
+          </div>
+        </div>
+
+        <!-- Modern overview grid -->
+        <div class="overview-grid">
+          <div class="overview-card">
+            <div class="overview-label">Product</div>
+            <div class="overview-value">{{ getProductName(assessment.product_id) }}</div>
           </div>
 
-          <dl class="detail-list">
-            <div>
-              <dt>ID</dt>
-              <dd class="mono">{{ assessment.id }}</dd>
+          <div class="overview-card">
+            <div class="overview-label">Release Version</div>
+            <div class="overview-value">
+              {{ productRelease?.version ?? assessment.product_release_id ?? "—" }}
             </div>
-            <div>
-              <dt>Product</dt>
-              <dd>{{ getProductName(assessment.product_id) }}</dd>
-            </div>
-            <div>
-              <dt>Product ID</dt>
-              <dd class="mono">{{ assessment.product_id }}</dd>
-            </div>
-            <div>
-              <dt>Product Release ID</dt>
-              <dd class="mono">{{ assessment.product_release_id ?? "—" }}</dd>
-            </div>
-            <div>
-              <dt>Version</dt>
-              <dd>{{ assessment.version_label }}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd><span class="status-pill">{{ assessment.status.replaceAll("_", " ") }}</span></dd>
-            </div>
-            <div>
-              <dt>Methodology</dt>
-              <dd>{{ assessment.methodology }}</dd>
-            </div>
-            <div>
-              <dt>Owner</dt>
-              <dd>{{ getUserDisplay(assessment.owner_user_id) }}</dd>
-            </div>
-            <div>
-              <dt>Approved At</dt>
-              <dd>{{ formatDate(assessment.approved_at) }}</dd>
-            </div>
-            <div>
-              <dt>Created At</dt>
-              <dd>{{ formatDate(assessment.created_at) }}</dd>
-            </div>
-            <div>
-              <dt>Updated At</dt>
-              <dd>{{ formatDate(assessment.updated_at) }}</dd>
-            </div>
-            <div class="detail-full">
-              <dt>Summary</dt>
-              <dd>{{ assessment.summary || "—" }}</dd>
-            </div>
-          </dl>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <h2>Edit Assessment</h2>
-            <span class="count-badge accent-badge">Live</span>
           </div>
 
-          <form class="form-grid" @submit.prevent="updateAssessment">
-            <label class="field">
-              <span class="field-label">Title</span>
-              <input v-model="editForm.title" class="input" type="text" maxlength="255" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Version Label</span>
-              <input v-model="editForm.version_label" class="input" type="text" maxlength="100" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Status</span>
-              <select v-model="editForm.status" class="select">
-                <option value="">No change</option>
-                <option v-for="option in assessmentStatuses" :key="option" :value="option">
-                  {{ option }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span class="field-label">Methodology</span>
-              <input v-model="editForm.methodology" class="input" type="text" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Product Release ID</span>
-              <input v-model="editForm.product_release_id" class="input" type="text" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Owner</span>
-              <select v-model="editForm.owner_user_id" class="select">
-                <option value="">No owner</option>
-                <option v-for="user in users" :key="user.id" :value="user.id">
-                  {{ getUserDisplay(user.id) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field field-full">
-              <span class="field-label">Summary</span>
-              <textarea v-model="editForm.summary" class="textarea" rows="4" />
-            </label>
-
-            <div class="form-actions field-full">
-              <button class="button" type="submit" :disabled="savingAssessment">
-                {{ savingAssessment ? "Saving..." : "Save Changes" }}
-              </button>
-              <button
-                class="button secondary"
-                type="button"
-                @click="approveAssessment"
-                :disabled="approvingAssessment"
-              >
-                {{ approvingAssessment ? "Approving..." : "Approve Assessment" }}
-              </button>
+          <div class="overview-card">
+            <div class="overview-label">Status</div>
+            <div class="overview-value">
+              <span class="status-pill">{{ assessment.status.replaceAll("_", " ") }}</span>
             </div>
-          </form>
-        </article>
-      </section>
-
-      <section class="details-grid">
-        <article class="panel">
-          <div class="panel-header">
-            <h2>Duplicate New Version</h2>
-            <span class="count-badge">Versioning</span>
           </div>
 
-          <form class="form-grid" @submit.prevent="duplicateAssessment">
-            <label class="field">
-              <span class="field-label">New Version Label</span>
-              <input v-model="duplicateForm.version_label" class="input" type="text" required maxlength="100" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">New Title</span>
-              <input v-model="duplicateForm.title" class="input" type="text" maxlength="255" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Product Release ID</span>
-              <input v-model="duplicateForm.product_release_id" class="input" type="text" />
-            </label>
-
-            <label class="field">
-              <span class="field-label">Owner</span>
-              <select v-model="duplicateForm.owner_user_id" class="select">
-                <option value="">Keep / no override</option>
-                <option v-for="user in users" :key="user.id" :value="user.id">
-                  {{ getUserDisplay(user.id) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field field-full">
-              <span class="field-label">Summary Override</span>
-              <textarea v-model="duplicateForm.summary" class="textarea" rows="3" />
-            </label>
-
-            <label class="checkbox-field">
-              <input v-model="duplicateForm.reset_status_to_draft" type="checkbox" />
-              <span>Reset status to draft</span>
-            </label>
-
-            <label class="checkbox-field">
-              <input v-model="duplicateForm.copy_risk_items" type="checkbox" />
-              <span>Copy risk items</span>
-            </label>
-
-            <label class="checkbox-field">
-              <input v-model="duplicateForm.copy_requirement_mappings" type="checkbox" />
-              <span>Copy requirement mappings</span>
-            </label>
-
-            <label class="checkbox-field">
-              <input v-model="duplicateForm.copy_evidence_links" type="checkbox" />
-              <span>Copy evidence links</span>
-            </label>
-
-            <div class="form-actions field-full">
-              <button class="button" type="submit" :disabled="duplicatingAssessment">
-                {{ duplicatingAssessment ? "Duplicating..." : "Duplicate Version" }}
-              </button>
-            </div>
-          </form>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <h2>Supporting Evidence</h2>
+          <div class="overview-card">
+            <div class="overview-label">Methodology</div>
+            <div class="overview-value">{{ assessment.methodology }}</div>
           </div>
 
-          <div class="placeholder-box">
-            <p class="placeholder-title">Add evidence through the release workflow</p>
-            <p class="placeholder-text">
-              To keep the workflow simple for non-experts, files and links are added from the release workflow, not as
-              generic evidence records from this screen.
-            </p>
-            <div class="placeholder-actions">
-              <RouterLink
-                v-if="assessment.product_release_id"
-                class="button workflow-link"
-                :to="{ name: 'release-gate', params: { releaseId: assessment.product_release_id } }"
-              >
-                Open release workflow
-              </RouterLink>
-              <p v-else class="placeholder-note">
-                Link this assessment to a product release first, then open the release workflow to add files for review.
-              </p>
-            </div>
-            <ul class="placeholder-list">
-              <li>Assessment-linked evidence count: {{ assessment.evidence_items_count ?? 0 }}</li>
-              <li>Best for contributors: upload evidence from the release checklist</li>
-              <li>Best for reviewers: approve or request updates from the release workflow</li>
-            </ul>
+          <div class="overview-card">
+            <div class="overview-label">Owner</div>
+            <div class="overview-value">{{ getUserDisplay(assessment.owner_user_id) }}</div>
           </div>
-        </article>
-      </section>
+
+          <div class="overview-card">
+            <div class="overview-label">Created</div>
+            <div class="overview-value">{{ formatDate(assessment.created_at) }}</div>
+          </div>
+
+          <div class="overview-card">
+            <div class="overview-label">Updated</div>
+            <div class="overview-value">{{ formatDate(assessment.updated_at) }}</div>
+          </div>
+
+          <div class="overview-card">
+            <div class="overview-label">Approved</div>
+            <div class="overview-value">{{ assessment.approved_at ? formatDate(assessment.approved_at) : "—" }}</div>
+          </div>
+        </div>
+
+        <!-- Summary section -->
+        <div v-if="assessment.summary" class="summary-section">
+          <h3 class="summary-title">Summary</h3>
+          <p class="summary-text">{{ assessment.summary }}</p>
+        </div>
+      </article>
+
+<!-- Quick Actions Bar -->
+      <div class="actions-bar">
+        <div class="action-group">
+          <div class="action-content">
+            <h3 class="action-title">Release Workflow</h3>
+            <p class="action-description">Add and review evidence through the structured release process</p>
+          </div>
+          <RouterLink
+            v-if="assessment.product_release_id"
+            class="button"
+            :to="{ name: 'release-gate', params: { releaseId: assessment.product_release_id } }"
+          >
+            Open Workflow →
+          </RouterLink>
+          <button v-else class="button" disabled title="Link this assessment to a product release first">
+            No Release Linked
+          </button>
+        </div>
+
+        <div class="action-group">
+          <div class="action-content">
+            <h3 class="action-title">Create New Version</h3>
+            <p class="action-description">Duplicate this assessment with optional modifications</p>
+          </div>
+          <button class="button secondary" @click="showDuplicateModal = true">
+            Duplicate Version →
+          </button>
+        </div>
+      </div>
 
       <section class="panel">
         <div class="panel-header">
@@ -416,6 +436,7 @@ const assessment = ref<RiskAssessmentDetailRead | null>(null);
 const riskItems = ref<RiskItemRead[]>([]);
 const users = ref<UserSummary[]>([]);
 const products = ref<ProductSummaryRead[]>([]);
+const productRelease = ref<any>(null);
 const loading = ref(false);
 const riskItemsLoading = ref(false);
 const savingAssessment = ref(false);
@@ -423,6 +444,8 @@ const approvingAssessment = ref(false);
 const duplicatingAssessment = ref(false);
 const creatingRiskItem = ref(false);
 const showRiskItemForm = ref(false);
+const showDuplicateModal = ref(false);
+const showEditModal = ref(false);
 
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -516,6 +539,19 @@ async function loadProducts(): Promise<void> {
   }
 }
 
+async function loadProductRelease(releaseId: string): Promise<void> {
+  try {
+    const response = await fetch(
+      `http://localhost:8000/api/v1/product-releases/${releaseId}`
+    );
+    if (response.ok) {
+      productRelease.value = await response.json();
+    }
+  } catch (error: any) {
+    console.error("Failed to load product release.", error);
+  }
+}
+
 function syncEditForm(): void {
   if (!assessment.value) return;
   editForm.title = assessment.value.title;
@@ -534,6 +570,10 @@ async function loadAssessment(): Promise<void> {
   try {
     assessment.value = await riskAssessmentService.get(assessmentId.value);
     syncEditForm();
+    // Load product release if linked
+    if (assessment.value?.product_release_id) {
+      await loadProductRelease(assessment.value.product_release_id);
+    }
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load assessment.";
   } finally {
@@ -700,6 +740,116 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── Modal ───────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color 0.2s;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.modal-form {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  margin-top: 1rem;
+}
+
+/* ── Page Layout ─────────────────────────────────────────────────────────────── */
 .page {
   display: flex;
   flex-direction: column;
@@ -745,6 +895,113 @@ onMounted(async () => {
   gap: 0.75rem;
 }
 
+/* ── Actions Bar ─────────────────────────────────────────────────────────────── */
+.actions-bar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  transition: all 0.2s ease;
+}
+
+.action-group:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-elevated);
+}
+
+.action-content {
+  flex: 1;
+}
+
+.action-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.action-description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ── Edit Form ───────────────────────────────────────────────────────────────── */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.panel-description {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .form-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .actions-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-grid-2,
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .modal-close {
+    align-self: flex-end;
+    margin-top: -0.5rem;
+  }
+
+  .action-group {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .action-content {
+    width: 100%;
+  }
+
+  .overview-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .overview-actions .button {
+    width: 100%;
+  }
+}
+
 .details-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -761,34 +1018,88 @@ onMounted(async () => {
   backdrop-filter: blur(14px);
 }
 
-.detail-list {
+/* ── Modern Overview Grid ──────────────────────────────────────────────────── */
+.overview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
-  margin: 0;
+  margin-bottom: 1.5rem;
 }
 
-.detail-list dt {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.25rem;
+.overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease;
+}
+
+.overview-card:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-elevated);
+}
+
+.overview-label {
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
 }
 
-.detail-list dd {
-  margin: 0;
+.overview-value {
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--color-text);
+  word-break: break-word;
+}
+
+.summary-section {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+}
+
+.summary-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.summary-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* ── Overview Actions ────────────────────────────────────────────────────────── */
+.overview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .detail-full {
   grid-column: 1 / -1;
 }
 
-.form-grid {
+/* ── Form Styling ────────────────────────────────────────────────────────────── */
+.form-grid,
+.form-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .field,
@@ -796,6 +1107,13 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .checkbox-field {
@@ -983,10 +1301,16 @@ onMounted(async () => {
   color: var(--color-success-text);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1200px) {
+  .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .overview-grid,
   .details-grid,
   .form-grid,
-  .detail-list,
   .risk-card-grid {
     grid-template-columns: 1fr;
   }
