@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -35,10 +36,17 @@ class ProductReleaseService:
     def create_release(self, payload: ProductReleaseCreate, actor: object) -> ProductReleaseRead:
         self.product_repository.get_or_404(payload.product_id)
 
-        if self.repository.get_by_product_and_version(product_id=payload.product_id, version=payload.version):
-            raise ConflictException("Release version already exists for this product")
+        # Auto-generate system_version: find the maximum system_version for this product and increment
+        max_system_version = self.db.scalar(
+            func.max(ProductRelease.system_version).where(ProductRelease.product_id == payload.product_id)
+        ) or 0
+        next_system_version = max_system_version + 1
 
-        release = ProductRelease(**payload.model_dump())
+        # Create release with auto-generated system_version
+        release = ProductRelease(
+            **payload.model_dump(),
+            system_version=next_system_version,
+        )
 
         try:
             self.repository.add(release)
@@ -54,8 +62,9 @@ class ProductReleaseService:
                 status=AuditStatus.success,
                 details_json={
                     "product_id": str(release.product_id),
-                    "version": release.version,
-                    "release_version": release.version,
+                    "system_version": release.system_version,
+                    "system_version_label": f"v{release.system_version}",
+                    "user_version": release.user_version,
                     "release_status": release.release_status.value,
                     # Record the causal change ID in the audit trail for traceability
                     "caused_by_change_id": str(payload.caused_by_change_id) if payload.caused_by_change_id else None,
@@ -83,13 +92,9 @@ class ProductReleaseService:
         updates = payload.model_dump(exclude_unset=True)
         previous_release_status = release.release_status
 
-        if "version" in updates and updates["version"] != release.version:
-            existing = self.repository.get_by_product_and_version(
-                product_id=release.product_id,
-                version=updates["version"],
-            )
-            if existing and existing.id != release.id:
-                raise ConflictException("Release version already exists for this product")
+        # system_version is immutable and cannot be updated from the client
+        if "system_version" in updates:
+            raise ConflictException("system_version cannot be updated; it is auto-generated and immutable")
 
         for field_name, value in updates.items():
             setattr(release, field_name, value)
@@ -111,8 +116,9 @@ class ProductReleaseService:
                 details_json={
                     "product_id": str(release.product_id),
                     "product_release_id": str(release.id),
-                    "version": release.version,
-                    "release_version": release.version,
+                    "system_version": release.system_version,
+                    "system_version_label": f"v{release.system_version}",
+                    "user_version": release.user_version,
                     "release_status": release.release_status.value,
                     "previous_release_status": previous_release_status.value,
                     "updated_fields": sorted(updates.keys()),
@@ -178,8 +184,9 @@ class ProductReleaseService:
             status=AuditStatus.success,
             details_json={
                 "product_id": str(release.product_id),
-                "version": release.version,
-                "release_version": release.version,
+                "system_version": release.system_version,
+                "system_version_label": f"v{release.system_version}",
+                "user_version": release.user_version,
             },
         )
         self.db.commit()

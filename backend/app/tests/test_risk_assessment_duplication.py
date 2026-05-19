@@ -42,7 +42,8 @@ def test_duplicate_risk_assessment_copies_items_and_mappings_but_not_evidence(db
         product_id=product.id,
         product_release_id=None,
         title="Initial risk assessment",
-        version_label="v1",
+        system_version=1,
+        user_version=None,
         status=RiskAssessmentStatus.approved,
         methodology="STRIDE",
         summary="Initial approved assessment",
@@ -86,7 +87,7 @@ def test_duplicate_risk_assessment_copies_items_and_mappings_but_not_evidence(db
     duplicated = service.duplicate_version(
         source_assessment.id,
         RiskAssessmentDuplicateVersionRequest(
-            version_label="v2",
+            user_version=None,
             title="Initial risk assessment - Release 2",
             reset_status_to_draft=True,
             copy_risk_items=True,
@@ -99,7 +100,7 @@ def test_duplicate_risk_assessment_copies_items_and_mappings_but_not_evidence(db
     assert duplicated.id != source_assessment.id
     assert duplicated.product_id == source_assessment.product_id
     assert duplicated.title == "Initial risk assessment - Release 2"
-    assert duplicated.version_label == "v2"
+    assert duplicated.system_version == 2  # Auto-generated
     assert duplicated.status == RiskAssessmentStatus.draft
     assert duplicated.approved_at is None
 
@@ -148,7 +149,8 @@ def test_duplicate_risk_assessment_without_copying_items_creates_empty_new_versi
         product_id=product.id,
         product_release_id=None,
         title="Controller risk assessment",
-        version_label="2026.1",
+        system_version=1,
+        user_version="2026.1",
         status=RiskAssessmentStatus.in_review,
         methodology="Attack tree",
         summary="Baseline",
@@ -179,7 +181,7 @@ def test_duplicate_risk_assessment_without_copying_items_creates_empty_new_versi
     duplicated = service.duplicate_version(
         source_assessment.id,
         RiskAssessmentDuplicateVersionRequest(
-            version_label="2026.2",
+            user_version="2026.2",
             copy_risk_items=False,
             copy_requirement_mappings=False,
             copy_evidence_links=False,
@@ -189,7 +191,8 @@ def test_duplicate_risk_assessment_without_copying_items_creates_empty_new_versi
     )
 
     duplicated_full = service.get(duplicated.id)
-    assert duplicated_full.version_label == "2026.2"
+    assert duplicated_full.user_version == "2026.2"
+    assert duplicated_full.system_version == 2  # Auto-generated
     assert duplicated_full.status == RiskAssessmentStatus.draft
     assert len(duplicated_full.risk_items) == 0
     assert len(duplicated_full.evidence_items) == 0

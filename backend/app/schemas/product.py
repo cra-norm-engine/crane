@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import ConformityRoute, ProductClassification, ReleaseStatus
 
@@ -88,7 +88,8 @@ class ProductReleaseSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    version: str
+    system_version: int
+    user_version: str | None
     release_status: ReleaseStatus
     classification_snapshot: ProductClassification
     conformity_route_snapshot: ConformityRoute
@@ -110,6 +111,18 @@ class ProductReleaseSummaryRead(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore
+    @property
+    def display_version(self) -> str:
+        """
+        Smart display:
+        - If user_version is set: "Spring 2026 (v2)"
+        - If not set: "v2"
+        """
+        if self.user_version:
+            return f"{self.user_version} (v{self.system_version})"
+        return f"v{self.system_version}"
 
 
 class RemoteProcessingElementSummaryRead(BaseModel):

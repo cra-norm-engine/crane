@@ -281,7 +281,7 @@ def get_dashboard(
             UpcomingRelease(
                 id=rel.id,
                 product_name=product_name,
-                version=rel.version,
+                version=f"v{rel.system_version}" if rel.system_version else "unknown",
                 planned_date=planned_date_only,
                 days_until=days_until,
                 release_status=rel.release_status,

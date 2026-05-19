@@ -70,8 +70,8 @@
         </label>
 
         <label class="field">
-          <span class="field-label">Version Label</span>
-          <input v-model="createForm.version_label" class="input" type="text" required maxlength="100" />
+          <span class="field-label">Version Name (Optional)</span>
+          <input v-model="createForm.user_version" class="input" type="text" maxlength="100" placeholder="e.g., Q2 Assessment, Annual Review" />
         </label>
 
         <label class="field">
@@ -138,7 +138,7 @@
               @click="goToDetail(assessment.id)"
             >
               <td>{{ assessment.title }}</td>
-              <td>{{ assessment.version_label }}</td>
+              <td>{{ assessment.display_version }}</td>
               <td>
                 <span class="status-pill">{{ formatReleaseStatus(assessment.status) }}</span>
               </td>
@@ -184,7 +184,7 @@ const products = ref<ProductSummaryRead[]>([]);
 const filterReleases = ref<ProductReleaseRead[]>([]);
 const createReleases = ref<ProductReleaseRead[]>([]);
 const createReleaseId = ref("");
-// Maps release UUID → version string for all releases referenced by loaded assessments.
+// Maps release UUID → display_version string for all releases referenced by loaded assessments.
 const releaseMap = ref<Record<string, string>>({});
 
 const assessmentStatuses: RiskAssessmentStatus[] = [
@@ -203,7 +203,7 @@ const createForm = reactive<RiskAssessmentCreate>({
   product_id: "",
   product_release_id: null,
   title: "",
-  version_label: "",
+  user_version: null,
   status: "draft",
   methodology: "STRIDE",
   summary: "",
@@ -250,7 +250,7 @@ function formatReleaseStatus(value: string): string {
 }
 
 function getReleaseLabel(release: ProductReleaseRead): string {
-  return `${release.version} (${formatReleaseStatus(release.release_status)})`;
+  return `${release.display_version} (${formatReleaseStatus(release.release_status)})`;
 }
 
 function getReleaseName(releaseId: string | null): string {
@@ -264,7 +264,7 @@ function getReleaseName(releaseId: string | null): string {
   }
 
   const release = [...filterReleases.value, ...createReleases.value].find((item) => item.id === releaseId);
-  return release ? release.version : releaseId;
+  return release ? release.display_version : releaseId;
 }
 
 async function loadProducts(): Promise<void> {
@@ -304,7 +304,7 @@ async function buildReleaseMap(loaded: RiskAssessmentRead[]): Promise<void> {
       try {
         const releases = await productReleaseService.list(pid);
         for (const r of releases) {
-          map[r.id] = r.version;
+          map[r.id] = r.display_version;
         }
       } catch {
         // Non-critical: table will fall back to UUID for this product's releases.
@@ -347,7 +347,7 @@ async function createAssessment(): Promise<void> {
       product_id: createForm.product_id.trim(),
       product_release_id: normalizeOptional(createReleaseId.value),
       title: createForm.title.trim(),
-      version_label: createForm.version_label.trim(),
+      user_version: normalizeOptional(createForm.user_version),
       status: createForm.status,
       methodology: createForm.methodology.trim(),
       summary: createForm.summary.trim(),
@@ -364,7 +364,7 @@ async function createAssessment(): Promise<void> {
     createReleaseId.value = "";
     createReleases.value = [];
     createForm.title = "";
-    createForm.version_label = "";
+    createForm.user_version = null;
     createForm.status = "draft";
     createForm.methodology = "STRIDE";
     createForm.summary = "";

@@ -14,7 +14,9 @@ export type ReleaseGateItemCode =
 export interface ProductReleaseRead {
   id: string;
   product_id: string;
-  version: string;
+  system_version: number;
+  user_version: string | null;
+  display_version: string;
   release_status:
     | "draft"
     | "in_review"

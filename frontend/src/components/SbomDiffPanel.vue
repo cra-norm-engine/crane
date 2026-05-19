@@ -8,7 +8,7 @@
     <div v-else-if="!diff" class="diff-empty-state">
       <p class="diff-empty-title">No differential analysis available</p>
       <p class="diff-empty-hint">
-        A differential analysis is generated automatically when you upload a <strong>new version</strong>
+        A differential analysis is generated automatically when you upload a <strong>new display_version</strong>
         of the SBOM.
       </p>
     </div>
@@ -60,7 +60,7 @@
 
       <!-- Empty state when no changes -->
       <div v-if="!diff.added.length && !diff.removed.length && !diff.changed.length" class="finding-none">
-        <p>No component changes detected between this SBOM and the previous version.</p>
+        <p>No component changes detected between this SBOM and the previous display_version.</p>
       </div>
     </div>
   </div>

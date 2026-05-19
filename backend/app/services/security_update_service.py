@@ -54,7 +54,7 @@ class SecurityUpdateService:
                     "product_release_id": str(security_update.product_release_id),
                     "product_id": str(release.product_id),
                     "title": security_update.title,
-                    "release_version": release.version,
+                    "release_version": f"v{release.system_version}",
                     "distribution_mechanism": security_update.distribution_mechanism.value,
                 },
             )
@@ -91,7 +91,7 @@ class SecurityUpdateService:
                 details_json={
                     "product_id": str(release.product_id),
                     "product_release_id": str(security_update.product_release_id),
-                    "release_version": release.version,
+                    "release_version": f"v{release.system_version}",
                     "title": security_update.title,
                     "updated_fields": sorted(updates.keys()),
                 },
@@ -118,7 +118,7 @@ class SecurityUpdateService:
             details_json={
                 "product_id": str(release.product_id),
                 "product_release_id": str(security_update.product_release_id),
-                "release_version": release.version,
+                "release_version": f"v{release.system_version}",
                 "title": security_update.title,
             },
         )

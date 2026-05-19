@@ -214,7 +214,7 @@
               >
                 <!-- Version label + CRA lineage micro-tags -->
                 <div class="release-row-left">
-                  <span class="release-version">v{{ release.version }}</span>
+                  <span class="release-display_version">v{{ release.display_version }}</span>
                   <!-- Gap 5 — Art. 13(10) consolidated support designation tag -->
                   <span v-if="release.is_consolidated_support_version" class="release-tag release-tag-amber">
                     Art. 13(10)
@@ -348,7 +348,7 @@
               <div>
                 <h2 class="section-title">Support period</h2>
                 <!-- Show number of historical versions recorded -->
-                <p class="muted section-sub">{{ supportHistoryCount }} version(s) on record.</p>
+                <p class="muted section-sub">{{ supportHistoryCount }} display_version(s) on record.</p>
               </div>
               <!-- Label adapts: "Set up" if none exists, "Edit" if one is active -->
               <button
@@ -576,7 +576,7 @@
                 :key="rel.id"
                 :value="rel.id"
               >
-                v{{ rel.version }}
+                v{{ rel.display_version }}
                 <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
                 <template v-else> · not yet placed</template>
               </option>
@@ -735,7 +735,7 @@
             {{ isSavingSupportPeriod
               ? "Saving…"
               : activeSupportPeriod
-                ? "Save new version"
+                ? "Save new display_version"
                 : "Create support period" }}
           </button>
         </template>
@@ -762,7 +762,7 @@
           <label class="field">
             <span class="field-label">Version</span>
             <input
-              v-model.trim="releaseForm.version"
+              v-model.trim="releaseForm.display_version"
               type="text"
               maxlength="100"
               required
@@ -822,7 +822,7 @@
                 :key="rel.id"
                 :value="rel.id"
               >
-                v{{ rel.version }}
+                v{{ rel.display_version }}
                 <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
               </option>
             </select>
@@ -832,7 +832,7 @@
           <label class="check-field-inline modal-field-span-2">
             <input v-model="releaseForm.is_consolidated_support_version" type="checkbox" />
             <span>
-              <strong>Art. 13(10) consolidated support version</strong>
+              <strong>Art. 13(10) consolidated support display_version</strong>
               <small class="muted"> — this release provides security updates for all prior versions</small>
             </span>
           </label>
@@ -845,7 +845,7 @@
             </span>
             <select v-model="releaseForm.caused_by_change_id">
               <option value="">Not triggered by a substantial change</option>
-              <!-- Each option includes title, version, and date for unambiguous identification -->
+              <!-- Each option includes title, display_version, and date for unambiguous identification -->
               <option
                 v-for="c in substantialChanges"
                 :key="c.id"
@@ -1116,7 +1116,7 @@ const editForm = reactive({
 
 // Support period form — synced from the active record before modal opens
 const supportForm = reactive({
-  // Gap 1 — per-version support period target release; empty string = product-level
+  // Gap 1 — per-display_version support period target release; empty string = product-level
   product_release_id:                   "" as string,
   support_start_date:                   "",
   support_end_date:                     "",
@@ -1133,7 +1133,7 @@ const supportForm = reactive({
 
 // New release form — reset before each modal open
 const releaseForm = reactive({
-  version:                        "",
+  display_version:                        "",
   planned_release_date:           "",
   classification_snapshot:        "normal" as ProductClassification,
   conformity_route_snapshot:      "undecided" as ConformityRoute,
@@ -1142,7 +1142,7 @@ const releaseForm = reactive({
   placed_on_market_date:          "" as string,
   // Gap 2 — parent release for non-substantial update lineage; empty = none
   parent_release_id:              "" as string,
-  // Gap 5 — Art. 13(10) consolidated support version flag
+  // Gap 5 — Art. 13(10) consolidated support display_version flag
   is_consolidated_support_version: false as boolean,
   // CRA Art. 13(8) — link to the substantial change that triggered this release; empty = none
   caused_by_change_id:            "" as string,
@@ -1270,7 +1270,7 @@ function openReleaseModal(): void {
 
 /** Reset all release form fields back to their defaults. */
 function resetReleaseForm(): void {
-  releaseForm.version                        = "";
+  releaseForm.display_version                        = "";
   releaseForm.planned_release_date           = "";
   releaseForm.classification_snapshot        = product.value?.current_classification ?? "normal";
   releaseForm.conformity_route_snapshot      = "undecided";
@@ -1541,7 +1541,7 @@ async function saveSupportPeriod(): Promise<void> {
 
   try {
     if (activeSupportPeriod.value) {
-      // Update path: creates a new immutable version of the support record
+      // Update path: creates a new immutable display_version of the support record
       await supportPeriodService.update(activeSupportPeriod.value.id, {
         support_start_date:                  supportForm.support_start_date,
         support_end_date:                    supportForm.support_end_date,
@@ -1556,7 +1556,7 @@ async function saveSupportPeriod(): Promise<void> {
         user_facing_summary:  supportForm.user_facing_summary.trim() || null,
         packaging_summary:    supportForm.packaging_summary.trim() || null,
       });
-      supportPeriodSuccess.value = "Support period version recorded.";
+      supportPeriodSuccess.value = "Support period display_version recorded.";
     } else {
       // Create path: new product-level or release-level support record
       await supportPeriodService.create({
@@ -1619,7 +1619,7 @@ async function createRelease(): Promise<void> {
   try {
     const payload: ProductReleaseCreate = {
       product_id:            product.value.id,
-      version:               releaseForm.version.trim(),
+      user_version:          releaseForm.display_version.trim() || null,
       release_status:        "draft",
       classification_snapshot:   releaseForm.classification_snapshot,
       conformity_route_snapshot: releaseForm.conformity_route_snapshot,
@@ -1632,14 +1632,14 @@ async function createRelease(): Promise<void> {
       release_notes:         releaseForm.release_notes.trim() || null,
       // Gap 2 — base release for non-substantial update lineage
       parent_release_id:     releaseForm.parent_release_id || null,
-      // Gap 5 — Art. 13(10) consolidated support version flag
+      // Gap 5 — Art. 13(10) consolidated support display_version flag
       is_consolidated_support_version: releaseForm.is_consolidated_support_version,
       // Pass causal change ID only when selected; empty string means no link
       caused_by_change_id:   releaseForm.caused_by_change_id || null,
     };
 
     const createdRelease = await productReleaseService.create(payload);
-    successMessage.value = `Release ${createdRelease.version} created.`;
+    successMessage.value = `Release ${createdRelease.display_version} created.`;
     // Close modal, reset form, then navigate straight to the new release workflow
     showReleaseModal.value = false;
     resetReleaseForm();
@@ -1883,7 +1883,7 @@ onBeforeUnmount(() => {
 /* Each release is a full-row link — no nested buttons */
 .release-row {
   display: grid;
-  /* version+tags | status | conformity | date | arrow */
+  /* display_version+tags | status | conformity | date | arrow */
   grid-template-columns: 1fr auto auto auto auto;
   align-items: center;
   gap: 0.75rem;
@@ -1901,7 +1901,7 @@ onBeforeUnmount(() => {
   border-color: rgba(110, 168, 254, 0.22);
 }
 
-/* Left cluster: version text + CRA micro-tags */
+/* Left cluster: display_version text + CRA micro-tags */
 .release-row-left {
   display: flex;
   align-items: center;
@@ -1910,7 +1910,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.release-version {
+.release-display_version {
   font-weight: 700;
   font-size: var(--text-sm);
 }

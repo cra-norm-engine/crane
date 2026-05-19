@@ -30,7 +30,7 @@
           <span class="field-label">Release</span>
           <select v-model="selectedReleaseId" :disabled="!selectedProductId || isLoadingReleases">
             <option value="">{{ !selectedProductId ? "Select a product first" : "All releases" }}</option>
-            <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.version }}</option>
+            <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.display_version }}</option>
           </select>
         </label>
 
@@ -75,7 +75,7 @@
           <thead>
             <tr>
               <th>Format</th>
-              <th>Spec version</th>
+              <th>Spec display_version</th>
               <th>Components</th>
               <th>Quality</th>
               <th>Tool</th>
@@ -133,7 +133,7 @@
         <span class="field-label">Release <span class="req">*</span></span>
         <select v-model="uploadForm.product_release_id" required>
           <option value="">— Select a release —</option>
-          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.version }}</option>
+          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.display_version }}</option>
         </select>
         <p v-if="!selectedProductId" class="muted hint">Select a product and release in the filters first.</p>
       </div>
@@ -180,7 +180,7 @@
         <span class="field-label">Release</span>
         <select v-model="createForm.product_release_id" required>
           <option value="">— Select a release —</option>
-          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.version }}</option>
+          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.display_version }}</option>
         </select>
       </div>
 
@@ -195,7 +195,7 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Specification version</span>
+        <span class="field-label">Specification display_version</span>
         <input v-model.trim="createForm.spec_version" type="text" placeholder="e.g. 1.5" />
       </label>
 
@@ -205,7 +205,7 @@
       </label>
 
       <label class="field">
-        <span class="field-label">Tool version</span>
+        <span class="field-label">Tool display_version</span>
         <input v-model.trim="createForm.tool_version" type="text" placeholder="e.g. 2.4.1" />
       </label>
 
@@ -284,7 +284,7 @@
           <dt>Format</dt>
           <dd><span class="format-badge" :class="`format-${detailItem.format}`">{{ detailItem.format.toUpperCase() }}</span></dd>
 
-          <dt>Spec version</dt>
+          <dt>Spec display_version</dt>
           <dd>{{ detailItem.spec_version || "—" }}</dd>
 
           <dt>Components</dt>
@@ -422,7 +422,7 @@
             <div v-if="!detailItem.analysis_findings?.diff" class="diff-empty-state">
               <p class="diff-empty-title">No differential analysis available</p>
               <p class="diff-empty-hint">
-                A differential analysis is generated automatically when you upload a <strong>new version</strong>
+                A differential analysis is generated automatically when you upload a <strong>new display_version</strong>
                 of the SBOM for the same release. It compares the new SBOM against the immediately preceding one
                 and shows which components were added, removed, or updated — making it easy to audit supply-chain
                 changes between releases.
@@ -650,7 +650,7 @@ const STANDARD_META: Record<string, { name: string; description: string }> = {
     name: "NTIA Minimum Elements",
     description:
       "Checks the seven minimum data fields defined by the US National Telecommunications and " +
-      "Information Administration (NTIA): supplier name, component name, component version, " +
+      "Information Administration (NTIA): supplier name, component name, component display_version, " +
       "other unique identifiers, dependency relationships, author of SBOM data, and timestamp.",
   },
 };
@@ -686,8 +686,8 @@ function formatComponent(c: unknown): string {
   if (c && typeof c === "object") {
     const obj = c as Record<string, unknown>;
     const name = obj.name ?? obj.component ?? "";
-    const version = obj.version ? `@${obj.version}` : "";
-    return `${name}${version}`;
+    const display_version = obj.display_version ? `@${obj.display_version}` : "";
+    return `${name}${display_version}`;
   }
   return JSON.stringify(c);
 }

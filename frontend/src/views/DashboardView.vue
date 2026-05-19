@@ -278,7 +278,7 @@
               >
                 <div class="release-item-left">
                   <span class="release-name">{{ rel.product_name ?? '—' }}</span>
-                  <span class="release-version muted">v{{ rel.version }}</span>
+                  <span class="release-display_version muted">v{{ rel.display_version }}</span>
                 </div>
                 <div class="release-item-right">
                   <span
@@ -796,7 +796,7 @@ function timeAgo(iso: string): string {
   text-overflow: ellipsis;
 }
 
-.release-version { font-size: 0.75rem; }
+.release-display_version { font-size: 0.75rem; }
 
 .release-item-right {
   display: flex;

@@ -49,7 +49,8 @@ export interface RiskAssessmentRead {
   product_id: string;
   product_release_id: string | null;
   title: string;
-  version_label: string;
+  system_version: number;
+  user_version: string | null;
   status: RiskAssessmentStatus;
   methodology: string;
   summary: string;
@@ -57,6 +58,8 @@ export interface RiskAssessmentRead {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  system_version_label: string;
+  display_version: string;
 }
 
 export interface RiskAssessmentDetailRead extends RiskAssessmentRead {
@@ -70,7 +73,7 @@ export interface RiskAssessmentCreate {
   product_id: string;
   product_release_id?: string | null;
   title: string;
-  version_label: string;
+  user_version?: string | null;
   status?: RiskAssessmentStatus;
   methodology: string;
   summary: string;
@@ -80,12 +83,14 @@ export interface RiskAssessmentCreate {
 export interface RiskAssessmentUpdate {
   product_release_id?: string | null;
   title?: string;
-  version_label?: string;
+  user_version?: string | null;
   status?: RiskAssessmentStatus;
   methodology?: string;
   summary?: string;
   owner_user_id?: string | null;
   approved_at?: string | null;
+  reviewer_user_id?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface RiskAssessmentApproveRequest {
@@ -93,7 +98,7 @@ export interface RiskAssessmentApproveRequest {
 }
 
 export interface RiskAssessmentDuplicateRequest {
-  version_label: string;
+  user_version?: string | null;
   title?: string | null;
   product_release_id?: string | null;
   summary?: string | null;

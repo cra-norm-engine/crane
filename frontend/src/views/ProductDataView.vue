@@ -72,7 +72,7 @@
             <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.85rem;height:0.85rem;flex-shrink:0">
               <path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm.93-9.412-3 .75a.75.75 0 0 0 .36 1.456l1.061-.265-.812 3.25a.75.75 0 0 0 1.454.363l1-4a.75.75 0 0 0-.563-.9l-.5-.124V5.588zm.07-1.838a.75.75 0 0 0 0-1.5.75.75 0 0 0 0 1.5z" clip-rule="evenodd"/>
             </svg>
-            <span>Schema version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong> · Includes all product entities except file attachments.</span>
+            <span>Schema display_version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong> · Includes all product entities except file attachments.</span>
           </div>
         </div>
       </div>
@@ -228,7 +228,7 @@
     <div class="card schema-doc">
       <h2 class="doc-title">Export schema reference</h2>
       <p class="muted">
-        The JSON file follows schema version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong>.
+        The JSON file follows schema display_version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong>.
         Each export is self-contained and includes the following sections:
       </p>
       <div class="doc-grid">
@@ -307,7 +307,7 @@ const countItems = computed(() => {
 });
 
 const schemaSections = [
-  { key: "_meta",                label: "Export metadata",      hint: "Schema version, timestamp, exporting user, tool name." },
+  { key: "_meta",                label: "Export metadata",      hint: "Schema display_version, timestamp, exporting user, tool name." },
   { key: "product",              label: "Product record",        hint: "Core product fields — name, code, classification, scope status, manufacturer." },
   { key: "releases[]",           label: "Product releases",      hint: "All releases with their status, dates, conformity route, and four nested entity types below." },
   { key: "releases[].vulnerability_reports", label: "Vulnerability reports", hint: "Per-release PSIRT intake records with lifecycle status and severity." },

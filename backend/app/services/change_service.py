@@ -500,7 +500,7 @@ class ChangeService:
         # product_version is loaded by _base_query; its .product is also loaded.
         release = change.product_version  # ProductRelease ORM object or None
         product_name = release.product.name if release and release.product else None
-        release_version = release.version if release else None
+        release_version = f"v{release.system_version}" if release else None
 
         return ChangeSummary(
             id=change.id,

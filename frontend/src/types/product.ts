@@ -55,7 +55,9 @@ export type ReleaseStatus =
 
 export interface ProductReleaseSummaryRead {
   id: string;
-  version: string;
+  system_version: number;
+  user_version: string | null;
+  display_version: string;
   release_status: ReleaseStatus;
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;
@@ -82,7 +84,7 @@ export interface ProductReleaseSummaryRead {
 
 export interface ProductReleaseCreate {
   product_id: string;
-  version: string;
+  user_version?: string | null;
   release_status?: ReleaseStatus;
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;

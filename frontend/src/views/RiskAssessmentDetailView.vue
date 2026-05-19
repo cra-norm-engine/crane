@@ -15,8 +15,8 @@
           </label>
 
           <label class="field">
-            <span class="field-label">Version Label</span>
-            <input v-model="editForm.version_label" class="input" type="text" maxlength="100" />
+            <span class="field-label">Version Name (Optional)</span>
+            <input v-model="editForm.user_version" class="input" type="text" maxlength="100" placeholder="e.g., Q2 Assessment, Annual Review" />
           </label>
         </div>
 
@@ -88,8 +88,8 @@
       <form class="modal-form" @submit.prevent="duplicateAssessment">
         <div class="form-row">
           <label class="field">
-            <span class="field-label">New Version Label</span>
-            <input v-model="duplicateForm.version_label" class="input" type="text" required maxlength="100" placeholder="e.g., v2.0" />
+            <span class="field-label">Version Name (Optional)</span>
+            <input v-model="duplicateForm.user_version" class="input" type="text" maxlength="100" placeholder="e.g., Q2 Assessment, Annual Review" />
           </label>
 
           <label class="field">
@@ -128,7 +128,7 @@
 
           <label class="checkbox-field">
             <input v-model="duplicateForm.copy_risk_items" type="checkbox" />
-            <span>Copy risk items to new version</span>
+            <span>Copy risk items to new display_version</span>
           </label>
 
           <label class="checkbox-field">
@@ -181,7 +181,7 @@
             <h2>Assessment Overview</h2>
           </div>
           <div class="overview-actions">
-            <span class="count-badge">{{ assessment.version_label }}</span>
+            <span class="count-badge">{{ assessment.display_version }}</span>
             <button class="button secondary" @click="showEditModal = true">Edit Assessment</button>
           </div>
         </div>
@@ -196,7 +196,7 @@
           <div class="overview-card">
             <div class="overview-label">Release Version</div>
             <div class="overview-value">
-              {{ productRelease?.version ?? assessment.product_release_id ?? "—" }}
+              {{ productRelease?.display_version ?? assessment.product_release_id ?? "—" }}
             </div>
           </div>
 
@@ -418,6 +418,7 @@ import { useRoute, useRouter } from "vue-router";
 import AssigneeSelector from "@/components/AssigneeSelector.vue";
 import { userService, type UserSummary } from "@/services/user-service";
 import { productService } from "@/services/product-service";
+import { productReleaseService } from "@/services/product-release-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { riskItemService } from "@/services/risk-item-service";
 import type { ProductSummaryRead } from "@/types/product";
@@ -458,7 +459,7 @@ const assessmentId = computed(() => String(route.params.assessmentId));
 
 const editForm = reactive({
   title: "",
-  version_label: "",
+  user_version: "",
   status: "" as RiskAssessmentStatus | "",
   methodology: "",
   summary: "",
@@ -467,7 +468,7 @@ const editForm = reactive({
 });
 
 const duplicateForm = reactive({
-  version_label: "",
+  user_version: "",
   title: "",
   product_release_id: "",
   summary: "",
@@ -541,12 +542,7 @@ async function loadProducts(): Promise<void> {
 
 async function loadProductRelease(releaseId: string): Promise<void> {
   try {
-    const response = await fetch(
-      `http://localhost:8000/api/v1/product-releases/${releaseId}`
-    );
-    if (response.ok) {
-      productRelease.value = await response.json();
-    }
+    productRelease.value = await productReleaseService.get(releaseId);
   } catch (error: any) {
     console.error("Failed to load product release.", error);
   }
@@ -555,7 +551,7 @@ async function loadProductRelease(releaseId: string): Promise<void> {
 function syncEditForm(): void {
   if (!assessment.value) return;
   editForm.title = assessment.value.title;
-  editForm.version_label = assessment.value.version_label;
+  editForm.user_version = assessment.value.user_version ?? "";
   editForm.status = assessment.value.status;
   editForm.methodology = assessment.value.methodology;
   editForm.summary = assessment.value.summary ?? "";
@@ -601,7 +597,7 @@ async function updateAssessment(): Promise<void> {
   try {
     const payload: RiskAssessmentUpdate = {
       title: editForm.title.trim() || undefined,
-      version_label: editForm.version_label.trim() || undefined,
+      user_version: normalizeOptional(editForm.user_version),
       status: editForm.status || undefined,
       methodology: editForm.methodology.trim() || undefined,
       summary: editForm.summary.trim() || undefined,
@@ -642,7 +638,7 @@ async function duplicateAssessment(): Promise<void> {
 
   try {
     const payload: RiskAssessmentDuplicateRequest = {
-      version_label: duplicateForm.version_label.trim(),
+      user_version: normalizeOptional(duplicateForm.user_version),
       title: normalizeOptional(duplicateForm.title),
       product_release_id: normalizeOptional(duplicateForm.product_release_id),
       summary: normalizeOptional(duplicateForm.summary),
@@ -655,7 +651,7 @@ async function duplicateAssessment(): Promise<void> {
 
     const duplicated = await riskAssessmentService.duplicateVersion(assessmentId.value, payload);
 
-    successMessage.value = "Assessment version duplicated.";
+    successMessage.value = "Assessment display_version duplicated.";
     router.push({
       name: "risk-assessment-detail",
       params: { assessmentId: duplicated.id },

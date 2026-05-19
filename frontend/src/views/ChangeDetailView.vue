@@ -528,9 +528,9 @@ async function loadChange(): Promise<void> {
  * Runs in parallel and silently ignores individual lookup failures.
  */
 async function resolveDisplayNames(c: ChangeRead): Promise<void> {
-  // Resolve product release → version string and product name
+  // Resolve product release → display_version string and product name
   const releasePromise = productReleaseService.get(c.product_version_id).then(async (release) => {
-    releaseVersion.value = release.version;
+    releaseVersion.value = release.display_version;
     const product = await productService.get(release.product_id);
     productName.value = product.name;
   }).catch(() => { /* leave null if lookup fails */ });

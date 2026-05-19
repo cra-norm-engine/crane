@@ -111,7 +111,7 @@ class ReleaseGateService:
                 "action": "submit_release_gate",
                 "product_id": str(release.product_id),
                 "product_release_id": str(release.id),
-                "release_version": release.version,
+                "release_version": f"v{release.system_version}",
                 "gate_status": gate.status.value,
             },
         )
@@ -155,7 +155,7 @@ class ReleaseGateService:
                 "action": "approve_release_gate",
                 "product_id": str(release.product_id),
                 "product_release_id": str(release.id),
-                "release_version": release.version,
+                "release_version": f"v{release.system_version}",
                 "gate_status": gate.status.value,
                 "bundle_sha256": bundle_sha256,
             },
@@ -192,7 +192,7 @@ class ReleaseGateService:
                 "action": "detach_artifact_revision",
                 "product_id": str(release.product_id),
                 "product_release_id": str(release.id),
-                "release_version": release.version,
+                "release_version": f"v{release.system_version}",
                 "gate_item_id": str(gate_item.id),
                 "link_id": str(link_id),
             },
@@ -244,7 +244,7 @@ class ReleaseGateService:
                 "action": "attach_artifact_revision",
                 "product_id": str(gate.product_release.product_id),
                 "product_release_id": str(product_release_id),
-                "release_version": gate.product_release.version,
+                "release_version": f"v{gate.product_release.system_version}",
                 "gate_item_id": str(gate_item.id),
                 "artifact_title": revision.artifact.title,
                 "artifact_revision_id": str(revision.id),
@@ -287,7 +287,7 @@ class ReleaseGateService:
                 "action": "review_release_gate_evidence",
                 "product_id": str(release.product_id),
                 "product_release_id": str(release.id),
-                "release_version": release.version,
+                "release_version": f"v{release.system_version}",
                 "link_id": str(link.id),
                 "artifact_title": link.artifact_revision.artifact.title,
                 "decision": decision.value,
@@ -584,7 +584,7 @@ class ReleaseGateService:
                 })
         return json.dumps({
             "product_release_id": str(release.id),
-            "release_version": release.version,
+            "release_version": f"v{release.system_version}",
             "approved_at": str(gate.approved_at),
             "files": files,
         }, indent=2)

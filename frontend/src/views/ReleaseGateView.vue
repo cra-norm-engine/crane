@@ -6,7 +6,7 @@
       <div class="hero-body">
         <div>
           <p class="eyebrow">Release Workspace</p>
-          <h1 class="hero-title">{{ releaseDetail.release.version }}</h1>
+          <h1 class="hero-title">{{ releaseDetail.release.display_version }}</h1>
         </div>
         <div class="hero-meta-row">
           <span class="meta-chip" :class="`chip-${releaseDetail.release.release_status}`">
@@ -284,7 +284,7 @@
                 </label>
                 <label class="field field-full">
                   <span class="field-label">Version note <span class="field-optional">(optional)</span></span>
-                  <textarea v-model.trim="uploadForm.change_summary" rows="2" placeholder="Describe what changed in this version" />
+                  <textarea v-model.trim="uploadForm.change_summary" rows="2" placeholder="Describe what changed in this display_version" />
                 </label>
                 <div class="field field-full">
                   <span class="field-label">Choose file</span>

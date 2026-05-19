@@ -12,7 +12,9 @@ export type MarketActionStatus =
 export interface ProductReleaseSummary {
   id: string;
   product_id: string;
-  version: string;
+  system_version: number;
+  user_version: string | null;
+  display_version: string;
 }
 
 export interface MarketActionRead {

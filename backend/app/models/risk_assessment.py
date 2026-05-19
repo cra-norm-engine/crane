@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint  # Text needed for rejection_reason
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint  # Text needed for rejection_reason
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -15,8 +15,8 @@ class RiskAssessment(UUIDTimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint(
             "product_id",
-            "version_label",
-            name="uq_risk_assessments_product_version_label",
+            "system_version",
+            name="uq_risk_assessments_product_system_version",
         ),
     )
 
@@ -32,7 +32,10 @@ class RiskAssessment(UUIDTimestampMixin, Base):
     )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    version_label: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    # Auto-incremented system version (v1, v2, v3, etc.)
+    system_version: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # User-defined assessment name (optional: "Q2 Assessment", "Annual Review", etc.)
+    user_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[RiskAssessmentStatus] = mapped_column(
         nullable=False,
         default=RiskAssessmentStatus.draft,

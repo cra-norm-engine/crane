@@ -36,15 +36,16 @@ class RiskAssessmentRepository(BaseRepository[RiskAssessment]):
         )
         return list(self.db.scalars(stmt).all())
 
-    def get_by_product_and_version_label(
+    def get_by_product_and_system_version(
         self,
         *,
         product_id: UUID,
-        version_label: str,
+        system_version: int,
     ) -> RiskAssessment | None:
+        # Retrieve an assessment by product ID and system version (immutable version number)
         stmt = select(RiskAssessment).where(
             RiskAssessment.product_id == product_id,
-            RiskAssessment.version_label == version_label,
+            RiskAssessment.system_version == system_version,
         )
         return self.db.scalar(stmt)
 
@@ -65,25 +66,3 @@ class RiskAssessmentRepository(BaseRepository[RiskAssessment]):
             raise NotFoundException("Risk assessment not found")
         return assessment
 
-    def duplicate(
-        self,
-        *,
-        source: RiskAssessment,
-        version_label: str,
-        title: str | None = None,
-        product_release_id: UUID | None = None,
-        owner_user_id: UUID | None = None,
-        reset_status_to_draft: bool = True,
-    ) -> RiskAssessment:
-        new_assessment = RiskAssessment(
-            product_id=source.product_id,
-            product_release_id=product_release_id if product_release_id is not None else source.product_release_id,
-            title=title if title is not None else source.title,
-            version_label=version_label,
-            status=RiskAssessmentStatus.draft if reset_status_to_draft else source.status,
-            methodology=source.methodology,
-            summary=source.summary,
-            owner_user_id=owner_user_id if owner_user_id is not None else source.owner_user_id,
-            approved_at=None if reset_status_to_draft else source.approved_at,
-        )
-        return self.add(new_assessment)

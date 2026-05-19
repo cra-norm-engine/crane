@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -88,18 +89,19 @@ class RiskAssessmentService:
         if self.user_repository.get_by_id(payload.owner_user_id) is None:
             raise NotFoundException("Owner user not found")
 
-        existing = self.risk_assessment_repository.get_by_product_and_version_label(
-            product_id=payload.product_id,
-            version_label=payload.version_label,
-        )
-        if existing is not None:
-            raise ConflictException("Risk assessment version label already exists for this product")
+        # Auto-generate system_version: find the maximum system_version for this product and increment
+        max_system_version = self.db.scalar(
+            func.max(RiskAssessment.system_version).where(RiskAssessment.product_id == payload.product_id)
+        ) or 0
+        next_system_version = max_system_version + 1
 
+        # Create assessment with auto-generated system_version
         assessment = RiskAssessment(
             product_id=payload.product_id,
             product_release_id=payload.product_release_id,
             title=payload.title,
-            version_label=payload.version_label,
+            user_version=payload.user_version,
+            system_version=next_system_version,
             status=payload.status,
             methodology=payload.methodology,
             summary=payload.summary,
@@ -126,7 +128,9 @@ class RiskAssessmentService:
                     "product_id": str(assessment.product_id),
                     "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
                     "title": assessment.title,
-                    "version_label": assessment.version_label,
+                    "system_version": assessment.system_version,
+                    "system_version_label": f"v{assessment.system_version}",
+                    "user_version": assessment.user_version,
                     "assessment_status": assessment.status.value,
                 },
             )
@@ -158,14 +162,9 @@ class RiskAssessmentService:
             if self.user_repository.get_by_id(updates["owner_user_id"]) is None:
                 raise NotFoundException("Owner user not found")
 
-        new_version_label = updates.get("version_label", assessment.version_label)
-        if new_version_label != assessment.version_label:
-            existing = self.risk_assessment_repository.get_by_product_and_version_label(
-                product_id=assessment.product_id,
-                version_label=new_version_label,
-            )
-            if existing is not None and existing.id != assessment.id:
-                raise ConflictException("Risk assessment version label already exists for this product")
+        # system_version is immutable and cannot be updated from the client
+        if "system_version" in updates:
+            raise ConflictException("system_version cannot be updated; it is auto-generated and immutable")
 
         for field_name, value in updates.items():
             setattr(assessment, field_name, value)
@@ -192,7 +191,9 @@ class RiskAssessmentService:
                     "product_id": str(assessment.product_id),
                     "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
                     "title": assessment.title,
-                    "version_label": assessment.version_label,
+                    "system_version": assessment.system_version,
+                    "system_version_label": f"v{assessment.system_version}",
+                    "user_version": assessment.user_version,
                     "before": before,
                     "after": self._assessment_snapshot(assessment),
                     "updated_fields": sorted(updates.keys()),
@@ -238,7 +239,9 @@ class RiskAssessmentService:
                 "product_id": str(assessment.product_id),
                 "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
                 "title": assessment.title,
-                "version_label": assessment.version_label,
+                "system_version": assessment.system_version,
+                "system_version_label": f"v{assessment.system_version}",
+                "user_version": assessment.user_version,
                 "before": before,
                 "after": self._assessment_snapshot(assessment),
                 "approved_at": assessment.approved_at.isoformat() if assessment.approved_at else None,
@@ -288,7 +291,9 @@ class RiskAssessmentService:
             details_json={
                 "product_id": str(assessment.product_id),
                 "title": assessment.title,
-                "version_label": assessment.version_label,
+                "system_version": assessment.system_version,
+                "system_version_label": f"v{assessment.system_version}",
+                "user_version": assessment.user_version,
                 "before": before,
                 "after": self._assessment_snapshot(assessment),
             },
@@ -338,7 +343,9 @@ class RiskAssessmentService:
             details_json={
                 "product_id": str(assessment.product_id),
                 "title": assessment.title,
-                "version_label": assessment.version_label,
+                "system_version": assessment.system_version,
+                "system_version_label": f"v{assessment.system_version}",
+                "user_version": assessment.user_version,
                 "rejection_reason": reason,
                 "before": before,
                 "after": self._assessment_snapshot(assessment),
@@ -362,19 +369,18 @@ class RiskAssessmentService:
         if source is None:
             raise NotFoundException("Risk assessment not found")
 
-        existing = self.risk_assessment_repository.get_by_product_and_version_label(
-            product_id=source.product_id,
-            version_label=payload.version_label,
-        )
-        if existing is not None:
-            raise ConflictException("Risk assessment version label already exists for this product")
-
         if payload.product_release_id is not None:
             self.product_release_repository.get_or_404(payload.product_release_id)
 
         new_owner_user_id = payload.owner_user_id or source.owner_user_id
         if self.user_repository.get_by_id(new_owner_user_id) is None:
             raise NotFoundException("Owner user not found")
+
+        # Auto-generate system_version for the duplicate: find max and increment
+        max_system_version = self.db.scalar(
+            func.max(RiskAssessment.system_version).where(RiskAssessment.product_id == source.product_id)
+        ) or 0
+        next_system_version = max_system_version + 1
 
         duplicate_status = (
             RiskAssessmentStatus.draft
@@ -387,7 +393,8 @@ class RiskAssessmentService:
             product_id=source.product_id,
             product_release_id=payload.product_release_id if payload.product_release_id is not None else source.product_release_id,
             title=payload.title or source.title,
-            version_label=payload.version_label,
+            user_version=payload.user_version,
+            system_version=next_system_version,
             status=duplicate_status,
             methodology=source.methodology,
             summary=payload.summary if payload.summary is not None else source.summary,
@@ -470,11 +477,17 @@ class RiskAssessmentService:
                     "product_id": str(duplicate.product_id),
                     "product_release_id": str(duplicate.product_release_id) if duplicate.product_release_id else None,
                     "title": duplicate.title,
-                    "version_label": duplicate.version_label,
+                    "system_version": duplicate.system_version,
+                    "system_version_label": f"v{duplicate.system_version}",
+                    "user_version": duplicate.user_version,
                     "source_assessment_id": str(source.id),
-                    "source_version_label": source.version_label,
+                    "source_system_version": source.system_version,
+                    "source_system_version_label": f"v{source.system_version}",
+                    "source_user_version": source.user_version,
                     "new_assessment_id": str(duplicate.id),
-                    "new_version_label": duplicate.version_label,
+                    "new_system_version": duplicate.system_version,
+                    "new_system_version_label": f"v{duplicate.system_version}",
+                    "new_user_version": duplicate.user_version,
                     "copied_risk_items": copied_risk_items,
                     "copied_requirement_mappings": copied_requirement_mappings,
                     "copied_evidence_items": copied_evidence_items,
@@ -525,7 +538,9 @@ class RiskAssessmentService:
             "product_id": str(assessment.product_id),
             "product_release_id": str(assessment.product_release_id) if assessment.product_release_id else None,
             "title": assessment.title,
-            "version_label": assessment.version_label,
+            "system_version": assessment.system_version,
+            "system_version_label": f"v{assessment.system_version}",
+            "user_version": assessment.user_version,
             "status": assessment.status.value,
             "methodology": assessment.methodology,
             "summary": assessment.summary,

@@ -572,7 +572,7 @@
               <select v-model="maForm.product_release_id" class="select" :disabled="!!editingMarketAction">
                 <option value="">— select release —</option>
                 <option v-for="rel in allReleases" :key="rel.id" :value="rel.id">
-                  {{ productById[rel.product_id]?.name ?? rel.product_id.slice(0, 8) }} — v{{ rel.version }}
+                  {{ productById[rel.product_id]?.name ?? rel.product_id.slice(0, 8) }} — v{{ rel.display_version }}
                   ({{ rel.release_status }})
                 </option>
               </select>
@@ -648,7 +648,7 @@
                     <strong>
                       {{ productById[ma.product_release?.product_id ?? '']?.name ?? '—' }}
                     </strong>
-                    <code class="muted">v{{ ma.product_release?.version ?? '?' }}</code>
+                    <code class="muted">v{{ ma.product_release?.display_version ?? '?' }}</code>
                   </div>
                 </td>
 

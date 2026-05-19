@@ -76,7 +76,7 @@
           >
             <option value="">Product baseline (all releases)</option>
             <option v-for="rel in productReleases" :key="rel.id" :value="rel.id">
-              v{{ rel.version }} · {{ formatLabel(rel.release_status) }}
+              v{{ rel.display_version }} · {{ formatLabel(rel.release_status) }}
             </option>
           </select>
         </label>
@@ -99,7 +99,7 @@
       <div v-if="releaseCoverage" class="release-banner">
         <div class="release-banner-left">
           <span class="release-label">
-            Release scope: <strong>v{{ selectedRelease?.version }}</strong>
+            Release scope: <strong>v{{ selectedRelease?.display_version }}</strong>
             <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
               {{ formatLabel(selectedRelease?.release_status) }}
             </span>
@@ -402,7 +402,7 @@
               <h3>
                 Trace records
                 <span v-if="selectedReleaseId" class="release-scope-tag">
-                  — v{{ selectedRelease?.version }} only
+                  — v{{ selectedRelease?.display_version }} only
                 </span>
               </h3>
               <p class="muted">

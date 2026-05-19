@@ -30,7 +30,7 @@
         </label>
 
         <label class="field">
-          <span class="field-label">Release version</span>
+          <span class="field-label">Release display_version</span>
           <select
             v-model="selectedReleaseId"
             :disabled="!selectedProductId || isLoadingReleases || releases.length === 0"
@@ -62,7 +62,7 @@
       </div>
 
       <p v-if="selectedProduct && selectedRelease" class="selection-summary muted">
-        Selected release: {{ selectedProduct.name }} · {{ selectedRelease.version }}
+        Selected release: {{ selectedProduct.name }} · {{ selectedRelease.display_version }}
         ({{ formatLabel(selectedRelease.release_status) }})
       </p>
     </header>
@@ -161,7 +161,7 @@
         <span class="field-label">Selected release</span>
         <div class="selection-card" :class="{ 'selection-card-empty': !selectedRelease || !selectedProduct }">
           <template v-if="selectedRelease && selectedProduct">
-            <strong>{{ selectedProduct.name }} · Release {{ selectedRelease.version }}</strong>
+            <strong>{{ selectedProduct.name }} · Release {{ selectedRelease.display_version }}</strong>
             <span class="muted">
               Product code {{ selectedProduct.product_code }} ·
               Status {{ formatLabel(selectedRelease.release_status) }}
@@ -264,17 +264,17 @@
           <label
             v-for="release in releases"
             :key="release.id"
-            class="version-option"
+            class="display_version-option"
           >
             <input
               type="checkbox"
-              :value="release.version"
+              :value="release.display_version"
               v-model="selectedVersions"
             />
-            <span class="version-label">
-              <strong>{{ release.version }}</strong>
-              <span class="version-status">{{ formatLabel(release.release_status) }}</span>
-              <span v-if="release.actual_release_date ?? release.planned_release_date" class="version-date muted">
+            <span class="display_version-label">
+              <strong>{{ release.display_version }}</strong>
+              <span class="display_version-status">{{ formatLabel(release.release_status) }}</span>
+              <span v-if="release.actual_release_date ?? release.planned_release_date" class="display_version-date muted">
                 · {{ formatDate(release.actual_release_date ?? release.planned_release_date) }}
               </span>
             </span>
@@ -462,11 +462,11 @@
                 <h3 class="detail-section-title">Affected Versions</h3>
                 <div class="detail-val">
                   <template v-if="Array.isArray(detailItem.affected_versions_json) && (detailItem.affected_versions_json as string[]).length">
-                    <div class="version-tags">
+                    <div class="display_version-tags">
                       <span
                         v-for="v in (detailItem.affected_versions_json as string[])"
                         :key="v"
-                        class="version-tag"
+                        class="display_version-tag"
                       >{{ v }}</span>
                     </div>
                   </template>
@@ -647,7 +647,7 @@ function formatLabel(value: string): string {
 
 function formatReleaseOption(release: ProductReleaseRead): string {
   const releaseDate = release.actual_release_date ?? release.planned_release_date;
-  return `Release ${release.version} · ${formatLabel(release.release_status)} · ${formatDate(releaseDate)}`;
+  return `Release ${release.display_version} · ${formatLabel(release.release_status)} · ${formatDate(releaseDate)}`;
 }
 
 function parseCommaSeparated(value: string): string[] {
@@ -1026,7 +1026,7 @@ select {
   overflow-y: auto;
 }
 
-.version-option {
+.display_version-option {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -1036,11 +1036,11 @@ select {
   transition: background 0.13s;
 }
 
-.version-option:hover {
+.display_version-option:hover {
   background: var(--color-surface-elevated, rgba(255, 255, 255, 0.05));
 }
 
-.version-option input[type="checkbox"] {
+.display_version-option input[type="checkbox"] {
   width: auto;
   padding: 0;
   border: none;
@@ -1050,7 +1050,7 @@ select {
   flex-shrink: 0;
 }
 
-.version-label {
+.display_version-label {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -1058,7 +1058,7 @@ select {
   font-size: 0.9rem;
 }
 
-.version-status {
+.display_version-status {
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
   background: var(--color-surface-elevated, rgba(255, 255, 255, 0.07));
@@ -1066,7 +1066,7 @@ select {
   text-transform: capitalize;
 }
 
-.version-date {
+.display_version-date {
   font-size: 0.82rem;
 }
 
@@ -1412,13 +1412,13 @@ select {
 }
 
 /* Version tags */
-.version-tags {
+.display_version-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
 
-.version-tag {
+.display_version-tag {
   display: inline-block;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
@@ -1512,5 +1512,5 @@ select {
 :root[data-theme="light"] .channel-chip { background: rgba(37, 99, 235, 0.07); border-color: rgba(37, 99, 235, 0.18); }
 :root[data-theme="light"] .table-row-clickable:hover { background: rgba(37, 99, 235, 0.04); }
 :root[data-theme="light"] .cve-pill { background: rgba(79, 70, 229, 0.1); color: #4f46e5; }
-:root[data-theme="light"] .version-tag { background: rgba(100, 116, 139, 0.1); color: #475569; }
+:root[data-theme="light"] .display_version-tag { background: rgba(100, 116, 139, 0.1); color: #475569; }
 </style>

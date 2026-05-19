@@ -26,9 +26,10 @@ class ProductReleaseRepository(BaseRepository[ProductRelease]):
             raise NotFoundException("Product release not found")
         return release
 
-    def get_by_product_and_version(self, *, product_id: UUID, version: str) -> ProductRelease | None:
+    def get_by_product_and_system_version(self, *, product_id: UUID, system_version: int) -> ProductRelease | None:
+        # Retrieve a release by product ID and system version (immutable version number)
         statement = select(ProductRelease).where(
             ProductRelease.product_id == product_id,
-            ProductRelease.version == version,
+            ProductRelease.system_version == system_version,
         )
         return self.db.scalar(statement)

@@ -280,7 +280,7 @@ class AuditService:
             "risk_assessment.created": f"Created risk assessment {details.get('title') or 'record'}",
             "risk_assessment.updated": f"Updated risk assessment {details.get('title') or 'record'}",
             "risk_assessment.approved": f"Approved risk assessment {details.get('title') or 'record'}",
-            "risk_assessment.duplicated": f"Duplicated risk assessment to {details.get('version_label') or 'new version'}",
+            "risk_assessment.duplicated": f"Duplicated risk assessment to {details.get('system_version_label') or 'new version'}",
             "risk_assessment.deleted": f"Deleted risk assessment {details.get('title') or 'record'}",
             "security_update.created": f"Created security update {details.get('title') or 'record'}",
             "security_update.updated": f"Updated security update {details.get('title') or 'record'}",

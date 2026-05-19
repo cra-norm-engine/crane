@@ -119,11 +119,11 @@
                 <strong>{{ change.title }}</strong>
               </td>
 
-              <!-- Product and release version — resolved server-side to avoid UUID display -->
+              <!-- Product and release display_version — resolved server-side to avoid UUID display -->
               <td>
                 <span v-if="change.product_name" class="product-cell">
                   <span class="product-name">{{ change.product_name }}</span>
-                  <span v-if="change.release_version" class="release-version muted"> v{{ change.release_version }}</span>
+                  <span v-if="change.release_version" class="release-display_version muted"> v{{ change.release_version }}</span>
                 </span>
                 <span v-else class="muted">—</span>
               </td>
@@ -216,7 +216,7 @@
                   }}
                 </option>
                 <option v-for="r in releases" :key="r.id" :value="r.id">
-                  {{ r.version }} — {{ formatLabel(r.release_status) }}
+                  {{ r.display_version }} — {{ formatLabel(r.release_status) }}
                   {{ r.actual_release_date ? `(${formatDate(r.actual_release_date)})` : "" }}
                 </option>
               </select>
@@ -421,14 +421,14 @@ async function onProductChange(): Promise<void> {
   isLoadingReleases.value = true;
   try {
     const all = await productReleaseService.list(selectedProductId.value);
-    // Show all releases so users can associate a change with any version,
+    // Show all releases so users can associate a change with any display_version,
     // but sort released/approved first for convenience.
     const priority = ["released", "approved"];
     releases.value = [...all].sort((a, b) => {
       const ai = priority.indexOf(a.release_status);
       const bi = priority.indexOf(b.release_status);
       if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-      return (b.version ?? "").localeCompare(a.version ?? "");
+      return (b.display_version ?? "").localeCompare(a.display_version ?? "");
     });
   } catch {
     releases.value = [];
@@ -661,7 +661,7 @@ function formatLabel(value: string): string {
 /* Product/release column in the changes list */
 .product-cell { display: flex; flex-direction: column; gap: 0.1rem; }
 .product-name  { font-size: 0.875rem; font-weight: 500; }
-.release-version { font-size: 0.78rem; }
+.release-display_version { font-size: 0.78rem; }
 
 /* Change-type badges */
 .type-badge {

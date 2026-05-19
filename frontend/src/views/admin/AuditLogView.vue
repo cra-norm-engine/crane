@@ -118,7 +118,7 @@ const instanceOptions = computed<InstanceOption[]>(() => {
   if (selectedEntity.value === "product_release") {
     return releaseOptions.value.map((release) => ({
       id: release.id,
-      label: `Release ${release.version}`,
+      label: `Release ${release.display_version}`,
       subtitle: release.product_id,
     }));
   }

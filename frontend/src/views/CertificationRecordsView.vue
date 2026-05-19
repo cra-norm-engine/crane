@@ -391,7 +391,7 @@
               <label class="field field-span-2">
                 <span class="field-label">Scope description *</span>
                 <textarea v-model.trim="form.scope_description" rows="3" required
-                  placeholder="Describe what is covered — product version, features, deployment model…" />
+                  placeholder="Describe what is covered — product display_version, features, deployment model…" />
               </label>
 
               <label class="field field-span-2">

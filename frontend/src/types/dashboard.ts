@@ -36,7 +36,9 @@ export interface ChangeSummary {
 export interface UpcomingRelease {
   id: string;
   product_name: string | null;
-  version: string;
+  system_version: number;
+  user_version: string | null;
+  display_version: string;
   planned_date: string | null;
   days_until: number | null;
   release_status: string;

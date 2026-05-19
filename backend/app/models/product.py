@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -112,7 +112,7 @@ class Product(UUIDTimestampMixin, Base):
 class ProductRelease(UUIDTimestampMixin, Base):
     __tablename__ = "product_releases"
     __table_args__ = (
-        UniqueConstraint("product_id", "version", name="uq_product_releases_product_version"),
+        UniqueConstraint("product_id", "system_version", name="uq_product_releases_product_system_version"),
     )
 
     product_id: Mapped[uuid.UUID] = mapped_column(
@@ -120,7 +120,11 @@ class ProductRelease(UUIDTimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Auto-incremented system version (v1, v2, v3, etc.)
+    system_version: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # User-defined version name (optional: "Spring 2026", "RC-1", etc.)
+    user_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     release_status: Mapped[ReleaseStatus] = mapped_column(nullable=False, default=ReleaseStatus.draft)
 
     planned_release_date: Mapped[datetime | None] = mapped_column(nullable=True)

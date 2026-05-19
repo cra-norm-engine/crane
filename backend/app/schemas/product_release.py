@@ -3,14 +3,13 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import ConformityRoute, ProductClassification, ReleaseStatus
 
 
 class ProductReleaseBase(BaseModel):
     product_id: UUID
-    version: str = Field(min_length=1, max_length=100)
     release_status: ReleaseStatus = ReleaseStatus.draft
     planned_release_date: datetime | None = None
     actual_release_date: datetime | None = None
@@ -42,13 +41,15 @@ class ProductReleaseBase(BaseModel):
     has_known_exploitable_vulnerabilities: bool = False
     kev_notes: str | None = None
 
+    # User-defined version name (optional: "Spring 2026", "RC-1", etc.)
+    user_version: str | None = Field(default=None, max_length=100)
+
 
 class ProductReleaseCreate(ProductReleaseBase):
     pass
 
 
 class ProductReleaseUpdate(BaseModel):
-    version: str | None = Field(default=None, min_length=1, max_length=100)
     release_status: ReleaseStatus | None = None
     planned_release_date: datetime | None = None
     actual_release_date: datetime | None = None
@@ -74,5 +75,24 @@ class ProductReleaseRead(ProductReleaseBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    system_version: int  # Auto-incremented version number
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore
+    @property
+    def system_version_label(self) -> str:
+        """Display system version as v1, v2, v3"""
+        return f"v{self.system_version}"
+
+    @computed_field  # type: ignore
+    @property
+    def display_version(self) -> str:
+        """
+        Smart display:
+        - If user_version is set: "Spring 2026 (v2)"
+        - If not set: "v2"
+        """
+        if self.user_version:
+            return f"{self.user_version} ({self.system_version_label})"
+        return self.system_version_label

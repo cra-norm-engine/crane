@@ -29,7 +29,7 @@
           <span class="field-label">Release</span>
           <select v-model="selectedReleaseId" :disabled="!selectedProductId || isLoadingReleases">
             <option value="">{{ !selectedProductId ? "Select a product first" : "All releases" }}</option>
-            <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.version }}</option>
+            <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.display_version }}</option>
           </select>
         </label>
 
@@ -181,7 +181,7 @@
         <span class="field-label">Release</span>
         <select v-model="createForm.product_release_id" required>
           <option value="">— Select a release —</option>
-          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.version }}</option>
+          <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.display_version }}</option>
         </select>
       </div>
     </form>
