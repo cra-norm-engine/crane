@@ -1,0 +1,97 @@
+@startuml CRA_Compliance_MVP_SaaS
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+skinparam arrowThickness 2
+
+package "Client" {
+    actor User
+    component "Browser\n(Vue.js SPA)" as browser
+}
+
+package "Web Server (Single instance)" {
+    component "Nginx\n(Reverse proxy, SSL)" as nginx {
+        note right : Static file serving\nSSL termination\nBasic rate limiting
+    }
+}
+
+package "Application Server" {
+    component "FastAPI\n(Python)" as api {
+        note right : All endpoints\nTenant-aware\nAuth middleware
+    }
+}
+
+package "Database" {
+    database "PostgreSQL" as db {
+        note right : Single instance\nShared tables\ntenant_id column\non all tables
+    }
+}
+
+package "File Storage" {
+    component "Local filesystem\nor S3" as storage {
+        note right : /uploads/\nArtifacts\nSBOM files
+    }
+}
+
+package "Authentication" {
+    component "Auth Module" as auth {
+        note right : Email/password\nJWT tokens\nBasic session mgmt
+    }
+}
+
+package "Background Jobs" {
+    component "Celery/APScheduler" as jobs {
+        note right : SBOM parsing\nEmail notifications\nScheduled reports
+    }
+}
+
+package "Logs & Monitoring" {
+    component "Application logs" as logs {
+        note right : File-based or stdout\nSimple log rotation
+    }
+    component "Basic metrics" as metrics {
+        note right : Response times\nError counts\nDatabase size
+    }
+}
+
+User --> browser
+browser --> nginx
+
+nginx --> api
+nginx --> storage
+
+api --> auth
+api --> db
+api --> storage
+api --> jobs
+
+jobs --> storage
+jobs --> logs
+
+api --> logs
+api --> metrics
+
+note bottom of db
+    Multitenancy:
+    - Every table has tenant_id column
+    - No row-level security (application enforces)
+    - Queries filter by current_user.tenant_id
+    - Shared schema, isolated data
+end note
+
+note bottom of api
+    Single instance handles:
+    - All API endpoints
+    - WebSocket connections
+    - Background jobs (threaded)
+    - Scheduled tasks
+end note
+
+note bottom of storage
+    Simple file management:
+    - Local disk: /uploads/{tenant_id}/{change_id}/
+    - S3: s3://bucket/uploads/{tenant_id}/{change_id}/
+    - No versioning service (yet)
+end note
+
+@enduml

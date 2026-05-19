@@ -1,0 +1,230 @@
+@startuml CRA_Compliance_SaaS_Architecture
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+skinparam arrowThickness 2
+
+package "Client Layer" {
+    actor User as user
+    component "Web Browser" as browser
+}
+
+package "CDN & Load Balancing" {
+    component "CloudFront/CDN" as cdn {
+        note right : Static assets\nGeo-distribution\nCaching
+    }
+    component "API Gateway\n(ALB/NLB)" as apigw {
+        note right : Rate limiting\nTenant routing\nSSL termination
+    }
+}
+
+package "Frontend (Tier 1)" {
+    component "Vue.js SPA" as frontend {
+        note right : Multi-tenant UI\nTenant context switching\nRole-based views
+    }
+}
+
+package "Authentication & Authorization" {
+    component "Auth Service" as auth {
+        note right : JWT token issuance\nLDAP/OAuth integration\nTenant verification
+    }
+    component "Identity Provider" as idp {
+        note right : User credentials\nTenant membership\nRole assignment
+    }
+    database "Identity DB" as identity_db {
+        note right : Users per tenant\nGroup membership\nPermissions
+    }
+}
+
+package "API Layer (Tier 2)" {
+    component "API Server 1" as api1
+    component "API Server 2" as api2
+    component "API Server N" as api3
+    note right of api1
+        FastAPI instances
+        Stateless design
+        Horizontal scaling
+    end note
+}
+
+package "Business Logic & Services" {
+    component "Change Service" as change_svc
+    component "Release Gate Service" as gate_svc
+    component "Certification Service" as cert_svc
+    component "Assessment Service" as assess_svc
+    component "SBOM Service" as sbom_svc
+    note right of change_svc
+        Domain services
+        Tenant-aware queries
+        Business rule enforcement
+    end note
+}
+
+package "Data Layer (Tier 3)" {
+    component "Connection Pool" as connpool {
+        note right : Tenant routing\nConnection isolation\nLoad balancing
+    }
+
+    database "PostgreSQL\nPrimary (Tenant A)" as db_a {
+        note right : Row-Level Security (RLS)\nper tenant isolation
+    }
+
+    database "PostgreSQL\nPrimary (Tenant B)" as db_b
+
+    database "PostgreSQL\nReplica (Read-Only)" as db_replica {
+        note right : For analytics\nReporting queries
+    }
+}
+
+package "Storage & Artifacts" {
+    component "S3/Object Storage" as s3 {
+        note right : Artifacts\nSBOM files\nEvidence documents\nTenant-namespaced buckets
+    }
+    component "Artifact Cache" as artifact_cache {
+        note right : Redis/Memcached\nRevision history\nMetadata caching
+    }
+}
+
+package "Audit & Compliance" {
+    component "Audit Service" as audit_svc {
+        note right : HMAC-chained events\nImmutable audit log\nTenant isolation
+    }
+    database "Audit Log Store\n(Time-series)" as audit_db {
+        note right : PostgreSQL JSONB\nOr separate TimescaleDB
+    }
+}
+
+package "Background Jobs & Events" {
+    component "Message Queue" as queue {
+        note right : RabbitMQ/SQS\nTenant-scoped topics\nEvent replay capability
+    }
+    component "Job Worker 1" as worker1
+    component "Job Worker 2" as worker2
+    note right of worker1
+        Async processing\nArtifact analysis\nNotifications\nScheduled tasks
+    end note
+}
+
+package "Integrations" {
+    component "LDAP Adapter" as ldap {
+        note right : Multi-tenant\nper-tenant config
+    }
+    component "Webhook Dispatcher" as webhooks {
+        note right : Tenant-specific\nintegrations\n(GitHub, Jira, etc.)
+    }
+}
+
+package "Observability & Logging" {
+    component "Logging Service" as logging {
+        note right : ELK/Datadog\nTenant-scoped logs\nPII masking
+    }
+    component "Metrics & Monitoring" as metrics {
+        note right : Prometheus/Grafana\nPer-tenant dashboards\nHealth checks
+    }
+    component "Distributed Tracing" as tracing {
+        note right : Jaeger/Zipkin\nCross-service tracking
+    }
+}
+
+package "Deployment & Infrastructure" {
+    component "Kubernetes Cluster" as k8s {
+        note right : Multi-zone deployment\nAuto-scaling\nTenant isolation via namespaces
+    }
+    component "Config Management" as config {
+        note right : Tenant configurations\nFeature flags\nEnvironment-specific settings
+    }
+}
+
+' Connections
+user --> browser
+browser --> cdn
+browser --> apigw
+
+apigw --> frontend
+apigw --> api1
+apigw --> api2
+apigw --> api3
+
+frontend --> auth
+auth --> idp
+idp --> identity_db
+
+api1 --> change_svc
+api1 --> gate_svc
+api1 --> cert_svc
+api1 --> assess_svc
+api1 --> sbom_svc
+
+api2 --> change_svc
+api2 --> gate_svc
+
+change_svc --> connpool
+gate_svc --> connpool
+cert_svc --> connpool
+assess_svc --> connpool
+sbom_svc --> connpool
+
+connpool --> db_a
+connpool --> db_b
+connpool --> db_replica
+
+change_svc --> audit_svc
+gate_svc --> audit_svc
+cert_svc --> audit_svc
+assess_svc --> audit_svc
+
+audit_svc --> audit_db
+
+sbom_svc --> s3
+cert_svc --> s3
+artifact_cache -.-> s3
+
+change_svc --> queue
+gate_svc --> queue
+assess_svc --> queue
+
+queue --> worker1
+queue --> worker2
+
+worker1 --> sbom_svc
+worker2 --> logging
+
+api1 --> logging
+api2 --> logging
+change_svc --> metrics
+gate_svc --> metrics
+
+api1 --> tracing
+change_svc --> tracing
+
+ldap -.-> auth
+webhooks -.-> queue
+
+k8s -.-> api1
+k8s -.-> api2
+k8s -.-> worker1
+
+config -.-> api1
+
+note bottom of db_a
+    Multi-tenant strategies:
+    Option A: Separate DB per tenant (most isolation)
+    Option B: Shared DB with Row-Level Security (cost-effective)
+    Option C: Hybrid (large tenants get isolated DBs)
+end note
+
+note bottom of frontend
+    Tenant context maintained via:
+    - JWT claims (tenant_id)
+    - Session storage
+    - API headers (X-Tenant-ID)
+end note
+
+note bottom of audit_db
+    Compliance requirements:
+    - Non-repudiation via HMAC
+    - Immutable audit trail
+    - Regulatory compliance (CRA)
+end note
+
+@enduml
