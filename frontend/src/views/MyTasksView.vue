@@ -75,7 +75,6 @@
                 <th>Title</th>
                 <th>Product / Release</th>
                 <th>Status</th>
-                <th>Severity</th>
                 <th>Due</th>
                 <th></th>
               </tr>
@@ -97,10 +96,6 @@
                   <span v-if="!task.product_name">—</span>
                 </td>
                 <td><span class="status-text">{{ formatStatus(task.status) }}</span></td>
-                <td>
-                  <span v-if="task.severity" class="severity-badge" :class="`severity-${task.severity}`">{{ task.severity }}</span>
-                  <span v-else class="muted">—</span>
-                </td>
                 <td><span class="due-date due-date--overdue">{{ formatDate(task.due_date) }}</span></td>
                 <td class="row-arrow">›</td>
               </tr>
@@ -126,7 +121,6 @@
                 <th>Title</th>
                 <th>Product / Release</th>
                 <th>Status</th>
-                <th>Severity</th>
                 <th>Due</th>
                 <th></th>
               </tr>
@@ -148,10 +142,6 @@
                   <span v-if="!task.product_name">—</span>
                 </td>
                 <td><span class="status-text">{{ formatStatus(task.status) }}</span></td>
-                <td>
-                  <span v-if="task.severity" class="severity-badge" :class="`severity-${task.severity}`">{{ task.severity }}</span>
-                  <span v-else class="muted">—</span>
-                </td>
                 <td class="muted">{{ formatDate(task.due_date) }}</td>
                 <td class="row-arrow">›</td>
               </tr>
@@ -177,7 +167,6 @@
                 <th>Title</th>
                 <th>Product / Release</th>
                 <th>Status</th>
-                <th>Severity</th>
                 <th>Due</th>
                 <th></th>
               </tr>
@@ -199,10 +188,6 @@
                   <span v-if="!task.product_name">—</span>
                 </td>
                 <td><span class="status-text">{{ formatStatus(task.status) }}</span></td>
-                <td>
-                  <span v-if="task.severity" class="severity-badge" :class="`severity-${task.severity}`">{{ task.severity }}</span>
-                  <span v-else class="muted">—</span>
-                </td>
                 <td class="muted">{{ formatDate(task.due_date) }}</td>
                 <td class="row-arrow">›</td>
               </tr>
@@ -228,7 +213,6 @@
                 <th>Title</th>
                 <th>Product / Release</th>
                 <th>Status</th>
-                <th>Severity</th>
                 <th></th>
               </tr>
             </thead>
@@ -249,10 +233,6 @@
                   <span v-if="!task.product_name">—</span>
                 </td>
                 <td><span class="status-text">{{ formatStatus(task.status) }}</span></td>
-                <td>
-                  <span v-if="task.severity" class="severity-badge" :class="`severity-${task.severity}`">{{ task.severity }}</span>
-                  <span v-else class="muted">—</span>
-                </td>
                 <td class="row-arrow">›</td>
               </tr>
             </tbody>
@@ -631,17 +611,4 @@ function formatDate(iso: string | null): string {
 .type-release_gate_item    { background: rgba(22,163,74,0.15);  color: #86efac; }
 .type-risk_item            { background: rgba(217,119,6,0.15);  color: #fcd34d; }
 
-/* ── Severity badges ────────────────────────────────────────────────────────── */
-.severity-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  text-transform: capitalize;
-}
-
-.severity-critical { background: rgba(220,38,38,0.2);  color: #fca5a5; }
-.severity-high     { background: rgba(217,119,6,0.2);  color: #fcd34d; }
-.severity-medium   { background: rgba(202,138,4,0.15); color: #fde68a; }
-.severity-low      { background: rgba(22,163,74,0.15); color: #86efac; }
 </style>
