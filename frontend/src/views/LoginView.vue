@@ -127,6 +127,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
+import type { ApiError } from "@/services/error-handler";
 
 /* ── Reactive form state ─────────────────────────── */
 const email    = ref("");
@@ -171,9 +172,14 @@ async function handleLogin(): Promise<void> {
     await router.push(redirect);
 
   } catch (err: unknown) {
-    /* Show the server's error message, or a generic fallback */
-    error.value =
-      err instanceof Error ? err.message : "Login failed. Please try again.";
+    /* Show the user-friendly error message from ApiError, or fallback to generic message */
+    if (err instanceof Error && 'userMessage' in err) {
+      error.value = (err as ApiError).userMessage || err.message;
+    } else if (err instanceof Error) {
+      error.value = err.message;
+    } else {
+      error.value = "Login failed. Please try again.";
+    }
   } finally {
     loading.value = false;
   }

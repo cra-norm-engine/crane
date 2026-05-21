@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -49,10 +49,7 @@ def get_annex_requirement(
     require_permissions(current_user, {Permission.annex_requirement_read})
 
     service = AnnexRequirementService(db)
-    try:
-        return service.get(annex_requirement_id)
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return service.get(annex_requirement_id)
 
 
 @router.post("", response_model=AnnexRequirementRead, status_code=status.HTTP_201_CREATED)
@@ -65,15 +62,12 @@ def create_annex_requirement(
     require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
-    try:
-        return service.create(
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.create(
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.patch("/{annex_requirement_id}", response_model=AnnexRequirementRead)
@@ -87,18 +81,13 @@ def update_annex_requirement(
     require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
-    try:
-        return service.update(
-            annex_requirement_id,
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.update(
+        annex_requirement_id,
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.delete(
@@ -115,14 +104,10 @@ def delete_annex_requirement(
     require_permissions(current_user, {Permission.annex_requirement_write})
 
     service = AnnexRequirementService(db)
-    try:
-        service.delete(
-            annex_requirement_id,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
+    service.delete(
+        annex_requirement_id,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

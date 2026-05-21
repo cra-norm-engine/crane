@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.exceptions import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -36,14 +37,11 @@ def list_evidence_items(
         )
 
     service = EvidenceItemService(db)
-    try:
-        return service.list(
-            product_release_id=product_release_id,
-            risk_assessment_id=risk_assessment_id,
-            requirement_mapping_id=requirement_mapping_id,
-        )
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return service.list(
+        product_release_id=product_release_id,
+        risk_assessment_id=risk_assessment_id,
+        requirement_mapping_id=requirement_mapping_id,
+    )
 
 
 @router.get("/{evidence_item_id}", response_model=EvidenceItemRead)
@@ -55,10 +53,7 @@ def get_evidence_item(
     require_permissions(current_user, {Permission.evidence_item_read})
 
     service = EvidenceItemService(db)
-    try:
-        return service.get(evidence_item_id)
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return service.get(evidence_item_id)
 
 
 @router.post("", response_model=EvidenceItemRead, status_code=status.HTTP_201_CREATED)
@@ -71,17 +66,12 @@ def create_evidence_item(
     require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
-    try:
-        return service.create(
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.create(
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.patch("/{evidence_item_id}", response_model=EvidenceItemRead)
@@ -95,18 +85,13 @@ def update_evidence_item(
     require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
-    try:
-        return service.update(
-            evidence_item_id,
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.update(
+        evidence_item_id,
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.delete(
@@ -123,14 +108,10 @@ def delete_evidence_item(
     require_permissions(current_user, {Permission.evidence_item_write})
 
     service = EvidenceItemService(db)
-    try:
-        service.delete(
-            evidence_item_id,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
+    service.delete(
+        evidence_item_id,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

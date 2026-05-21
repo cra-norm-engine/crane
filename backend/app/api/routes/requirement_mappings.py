@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.exceptions import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -37,14 +38,11 @@ def list_requirement_mappings(
     require_permissions(current_user, {Permission.requirement_mapping_read})
 
     service = RequirementMappingService(db)
-    try:
-        return service.list(
-            risk_item_id=risk_item_id,
-            annex_requirement_id=annex_requirement_id,
-            matrix=matrix,
-        )
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return service.list(
+        risk_item_id=risk_item_id,
+        annex_requirement_id=annex_requirement_id,
+        matrix=matrix,
+    )
 
 
 @router.get("/product-matrix", response_model=list[ProductRequirementMatrixRowRead])
@@ -86,10 +84,7 @@ def get_requirement_mapping(
     require_permissions(current_user, {Permission.requirement_mapping_read})
 
     service = RequirementMappingService(db)
-    try:
-        return service.get(mapping_id)
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return service.get(mapping_id)
 
 
 @router.post("/{mapping_id}/artifacts", response_model=RequirementMappingMatrixRead)
@@ -101,12 +96,9 @@ def attach_artifact_to_requirement_mapping(
 ) -> RequirementMappingMatrixRead:
     require_permissions(current_user, {Permission.requirement_mapping_write})
     service = RequirementMappingService(db)
-    try:
-        return RequirementMappingMatrixRead.model_validate(
-            service.attach_artifact(mapping_id, payload.artifact_id, actor_user_id=current_user.id)
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return RequirementMappingMatrixRead.model_validate(
+        service.attach_artifact(mapping_id, payload.artifact_id, actor_user_id=current_user.id)
+    )
 
 
 @router.delete("/{mapping_id}/artifacts/{artifact_id}", response_model=RequirementMappingMatrixRead)
@@ -118,12 +110,9 @@ def detach_artifact_from_requirement_mapping(
 ) -> RequirementMappingMatrixRead:
     require_permissions(current_user, {Permission.requirement_mapping_write})
     service = RequirementMappingService(db)
-    try:
-        return RequirementMappingMatrixRead.model_validate(
-            service.detach_artifact(mapping_id, artifact_id, actor_user_id=current_user.id)
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return RequirementMappingMatrixRead.model_validate(
+        service.detach_artifact(mapping_id, artifact_id, actor_user_id=current_user.id)
+    )
 
 
 @router.post("", response_model=RequirementMappingRead, status_code=status.HTTP_201_CREATED)
@@ -136,17 +125,12 @@ def create_requirement_mapping(
     require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
-    try:
-        return service.create(
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.create(
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.patch("/{mapping_id}", response_model=RequirementMappingRead)
@@ -174,18 +158,13 @@ def update_requirement_mapping(
         require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
-    try:
-        return service.update(
-            mapping_id,
-            payload,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except ConflictException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return service.update(
+        mapping_id,
+        payload,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.delete(
@@ -202,14 +181,10 @@ def delete_requirement_mapping(
     require_permissions(current_user, {Permission.requirement_mapping_write})
 
     service = RequirementMappingService(db)
-    try:
-        service.delete(
-            mapping_id,
-            actor_user_id=current_user.id,
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
+    service.delete(
+        mapping_id,
+        actor_user_id=current_user.id,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

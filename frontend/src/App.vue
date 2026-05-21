@@ -5,6 +5,7 @@
       <component :is="Component" />
     </Transition>
   </RouterView>
+  <AppToast />
 </template>
 
 <script setup lang="ts">
@@ -12,6 +13,7 @@ import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 
 import { useAppStore } from "@/stores/app";
+import AppToast from "@/components/AppToast.vue";
 
 const appStore = useAppStore();
 

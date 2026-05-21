@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -38,10 +38,7 @@ def get_artifact(
 ) -> ArtifactRead:
     require_permissions(current_user, {Permission.evidence_item_read})
     service = ArtifactService(db)
-    try:
-        return ArtifactRead.model_validate(service.get(artifact_id))
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return ArtifactRead.model_validate(service.get(artifact_id))
 
 
 @router.post("/upload", response_model=ArtifactRead, status_code=status.HTTP_201_CREATED)

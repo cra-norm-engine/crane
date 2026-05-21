@@ -1,4 +1,5 @@
-import { defineStore } from "pinia";
+import { defineStore } from "pinia"
+import { useToast } from "@/composables/useToast"
 
 type ThemeMode = "dark" | "light";
 
@@ -12,6 +13,8 @@ export const useAppStore = defineStore("app", {
   actions: {
     setGlobalError(message: string) {
       this.globalError = message;
+      const { showToast } = useToast()
+      showToast({ type: 'error', message })
     },
     clearGlobalError() {
       this.globalError = "";
