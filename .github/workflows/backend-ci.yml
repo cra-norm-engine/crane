@@ -1,0 +1,85 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, feature/*, fix/*, hotfix/*, release/*]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'requirements.txt'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'requirements.txt'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff mypy
+
+      - name: Lint with ruff
+        run: cd backend && ruff check --select=E,W,F,I .
+
+      - name: Type check with mypy
+        run: cd backend && mypy app --ignore-missing-imports --no-error-summary 2>&1 | head -20 || true
+        continue-on-error: true
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cra_compliance
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run pytest
+        env:
+          BACKEND_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/cra_compliance
+          BACKEND_SECRET_KEY: test-secret-key-for-ci-only
+          BACKEND_ENVIRONMENT: testing
+        run: cd backend && pytest app/tests --tb=short -v
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
