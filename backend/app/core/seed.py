@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 def seed_initial_data(db: Session) -> None:
     try:
         existing_permissions = {permission.key for permission in db.query(Permission).all()}
-    except ProgrammingError:
-        logger.warning("Database tables not yet created. Skipping seed_initial_data. Run migrations first.")
+    except (ProgrammingError, Exception) as e:
+        logger.warning(f"Database not ready for seeding: {e}. Skipping seed_initial_data.")
         return
     for perm in PermissionEnum:
         if perm.value not in existing_permissions:
