@@ -22,4 +22,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . /workspace/backend
 
-CMD sh -c "cd /workspace/backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+WORKDIR /workspace/backend
+RUN chmod +x /workspace/backend
+CMD bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
