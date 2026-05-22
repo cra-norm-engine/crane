@@ -22,4 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . /workspace/backend
 
+# Copy secret .env file if present (Render places it at /etc/secrets/.env)
+RUN if [ -f /etc/secrets/.env ]; then cp /etc/secrets/.env /workspace/backend/.env; fi
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
