@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . /workspace/backend
-RUN chmod +x /workspace/backend/entrypoint.sh
+RUN chmod +x /workspace/backend/entrypoint.sh && echo "Cache bust: $(date)"
 
 WORKDIR /workspace/backend
 ENTRYPOINT ["/bin/bash", "/workspace/backend/entrypoint.sh"]
