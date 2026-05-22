@@ -29,7 +29,8 @@ async def lifespan(_: FastAPI):
 
     db = SessionLocal()
     try:
-        seed_initial_data(db)
+        # seed_initial_data(db)  # Disabled until database migrations are run
+        pass
     finally:
         db.close()
 
