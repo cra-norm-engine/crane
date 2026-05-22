@@ -53,14 +53,16 @@ def test_release_version_must_be_unique_per_product(db_session) -> None:
 
     release_a = ProductRelease(
         product_id=product.id,
-        version="1.0.0",
+        system_version=1,
+        user_version="1.0.0",
         release_status=ReleaseStatus.draft,
         classification_snapshot=ProductClassification.normal,
         conformity_route_snapshot=ConformityRoute.undecided,
     )
     release_b = ProductRelease(
         product_id=product.id,
-        version="1.0.0",
+        system_version=1,
+        user_version="1.0.0",
         release_status=ReleaseStatus.draft,
         classification_snapshot=ProductClassification.normal,
         conformity_route_snapshot=ConformityRoute.undecided,

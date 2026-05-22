@@ -4,7 +4,7 @@ import { handleApiError } from "@/services/error-handler"
 import { useToast } from "@/composables/useToast"
 
 const AUTH_STORAGE_KEY = "cra-compliance-auth"
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://172.18.0.3:8000/api/v1"
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1"
 const requestTimeout = Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS || 15000)
 
 function getStoredAccessToken(): string | null {
