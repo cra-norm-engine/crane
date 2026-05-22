@@ -66,7 +66,7 @@ jobs:
       - name: Run pytest
         env:
           BACKEND_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/cra_compliance
-          BACKEND_SECRET_KEY: test-secret-key-for-ci-only
+          BACKEND_SECRET_KEY: test-secret-key-for-ci-pipeline-32chars!
           BACKEND_ENVIRONMENT: testing
         run: cd backend && pytest app/tests --tb=short -v
 
