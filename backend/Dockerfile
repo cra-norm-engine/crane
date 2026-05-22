@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . /workspace/backend
-RUN chmod +x /workspace/backend/entrypoint.sh && echo "Cache bust: $(date)"
 
 WORKDIR /workspace/backend
-ENTRYPOINT ["/bin/bash", "/workspace/backend/entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
