@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import ProgrammingError
 
 from app.core.annex_i_catalog import sync_annex_i_requirements
 from app.core.permissions import Permission as PermissionEnum
@@ -9,9 +11,15 @@ from app.models.permission import Permission
 from app.models.role_permission import RolePermission
 from app.models.user import Role, User, UserRole
 
+logger = logging.getLogger(__name__)
+
 
 def seed_initial_data(db: Session) -> None:
-    existing_permissions = {permission.key for permission in db.query(Permission).all()}
+    try:
+        existing_permissions = {permission.key for permission in db.query(Permission).all()}
+    except (ProgrammingError, Exception) as e:
+        logger.warning(f"Database not ready for seeding: {e}. Skipping seed_initial_data.")
+        return
     for perm in PermissionEnum:
         if perm.value not in existing_permissions:
             db.add(Permission(key=perm.value, description=perm.value))

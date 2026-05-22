@@ -3,7 +3,6 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from fastapi.exceptions import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -38,7 +37,10 @@ def list_risk_assessments(
     require_permissions(current_user, {Permission.risk_assessment_read})
 
     service = RiskAssessmentService(db)
-    return service.list(product_id=product_id, product_release_id=product_release_id)
+    try:
+        return service.list(product_id=product_id, product_release_id=product_release_id)
+    except ConflictException as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/{assessment_id}", response_model=RiskAssessmentDetailRead)
@@ -50,7 +52,10 @@ def get_risk_assessment(
     require_permissions(current_user, {Permission.risk_assessment_read})
 
     service = RiskAssessmentService(db)
-    return service.get(assessment_id)
+    try:
+        return service.get(assessment_id)
+    except NotFoundException as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.post("", response_model=RiskAssessmentRead, status_code=status.HTTP_201_CREATED)
