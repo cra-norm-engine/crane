@@ -21,9 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . /workspace/backend
-
-COPY entrypoint.sh /workspace/backend/entrypoint.sh
 RUN chmod +x /workspace/backend/entrypoint.sh
 
 WORKDIR /workspace/backend
-ENTRYPOINT ["/workspace/backend/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/workspace/backend/entrypoint.sh"]
