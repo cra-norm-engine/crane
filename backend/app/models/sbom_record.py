@@ -66,3 +66,8 @@ class SbomRecord(UUIDTimestampMixin, Base):
         "ProductRelease",
         back_populates="sbom_records",
     )
+    vulnerability_findings: Mapped[list["SbomVulnerabilityFinding"]] = relationship(  # type: ignore[name-defined]
+        "SbomVulnerabilityFinding",
+        back_populates="sbom_record",
+        cascade="all, delete-orphan",
+    )

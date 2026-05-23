@@ -156,6 +156,15 @@ def _spdx_package_to_dict(pkg: dict[str, Any]) -> dict[str, Any]:
             out[key] = pkg[key]
     if out.get("versionInfo"):
         out["version"] = out.pop("versionInfo")
+    # Extract purl from externalRefs (SPDX 2.2+: referenceCategory PACKAGE-MANAGER, referenceType purl)
+    for ref in pkg.get("externalRefs", []):
+        if (
+            ref.get("referenceCategory") in ("PACKAGE-MANAGER", "PACKAGE_MANAGER")
+            and ref.get("referenceType") == "purl"
+            and ref.get("referenceLocator")
+        ):
+            out["purl"] = ref["referenceLocator"]
+            break
     return out
 
 

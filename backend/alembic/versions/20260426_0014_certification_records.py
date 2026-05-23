@@ -46,6 +46,8 @@ def upgrade() -> None:
         sa.column("id", sa.dialects.postgresql.UUID(as_uuid=True)),
         sa.column("key", sa.String),
         sa.column("description", sa.String),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+        sa.column("updated_at", sa.DateTime(timezone=True)),
     )
     role_permission_table = sa.table(
         "role_permissions",
@@ -62,12 +64,14 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     import uuid as _uuid
+    from datetime import datetime, timezone
 
     new_perms = [
         ("certification_record_read", "Read certification records"),
         ("certification_record_write", "Create and update certification records"),
     ]
     perm_ids: dict[str, _uuid.UUID] = {}
+    now = datetime.now(timezone.utc)
     for key, description in new_perms:
         existing = bind.execute(
             sa.select(permission_table.c.id).where(permission_table.c.key == key)
@@ -75,7 +79,7 @@ def upgrade() -> None:
         if existing is None:
             new_id = _uuid.uuid4()
             bind.execute(
-                permission_table.insert().values(id=new_id, key=key, description=description)
+                permission_table.insert().values(id=new_id, key=key, description=description, created_at=now, updated_at=now)
             )
             perm_ids[key] = new_id
         else:

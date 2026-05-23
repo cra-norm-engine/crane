@@ -130,6 +130,15 @@ class ReleaseGateService:
         if any(item.is_required and item.status not in {ArtifactReviewDecision.accepted, ArtifactReviewDecision.waived} for item in gate.items):
             raise ConflictException("All required gate items must be accepted or waived before gate approval.")
 
+        # CRA Art. 13(2) + Annex I Part I §2(a): block approval if any exploitable vulnerabilities remain.
+        if release.has_known_exploitable_vulnerabilities:
+            raise ConflictException(
+                "Release cannot be approved: it has known exploitable vulnerabilities. "
+                "Resolve all exploitable findings (set VEX status to 'fixed' or 'not_affected') "
+                "before approving the release gate. "
+                f"Blocking issues: {release.kev_notes or 'see vulnerability reports'}"
+            )
+
         gate.status = ReleaseGateWorkflowStatus.approved
         gate.approved_at = datetime.now(UTC)
         gate.approved_by_user_id = actor_user_id

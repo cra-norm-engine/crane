@@ -34,6 +34,9 @@ export interface ProductReleaseRead {
   // CRA Art. 13(8) traceability: ID of the substantial change that required this re-release.
   // Null for planned/routine releases that are not driven by a substantial modification.
   caused_by_change_id: string | null;
+  /** CRA Art. 13(2): true when this release has known exploitable vulnerabilities blocking gate approval. */
+  has_known_exploitable_vulnerabilities: boolean;
+  kev_notes: string | null;
   created_at: string;
   updated_at: string;
 }
