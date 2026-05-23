@@ -500,6 +500,12 @@ export type VulnerabilityLifecycleStatus =
   | "disclosed"
   | "retired";
 
+/** CRA Art. 13(2): VEX (Vulnerability Exploitability eXchange) status for a vulnerability finding. */
+export type VexStatus = "not_affected" | "affected" | "fixed" | "under_investigation";
+
+/** Whether a vulnerability report was filed manually or discovered via SBOM CVE scan. */
+export type VulnerabilitySource = "manual" | "sbom_scan";
+
 export interface VulnerabilityReportRead {
   id: string;
   product_release_id: string;
@@ -520,6 +526,15 @@ export interface VulnerabilityReportRead {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  // Exploitability assessment fields (CRA Art. 13(2))
+  source: VulnerabilitySource;
+  sbom_finding_id: string | null;
+  vex_status: VexStatus | null;
+  is_exploitable: boolean | null;
+  exploitability_rationale: string | null;
+  operational_conditions: string | null;
+  exploitability_assessed_by_id: string | null;
+  exploitability_assessed_at: string | null;
 }
 
 export interface VulnerabilityReportCreate {
@@ -555,6 +570,44 @@ export interface VulnerabilityReportUpdate {
   linked_advisory_id?: string | null;
   assigned_to_user_id?: string | null;
   due_date?: string | null;
+}
+
+/** Payload to record an exploitability assessment for a vulnerability (CRA Art. 13(2)). */
+export interface ExploitabilityAssessmentUpdate {
+  vex_status: VexStatus;
+  exploitability_rationale?: string | null;
+  operational_conditions?: string | null;
+}
+
+// ── Gap 10: SBOM Vulnerability Findings ──────────────────────────────────
+/** A CVE/vulnerability finding linked to a specific SBOM component via OSV scan. */
+export interface SbomVulnerabilityFindingRead {
+  id: string;
+  sbom_record_id: string;
+  component_name: string;
+  component_version: string | null;
+  component_purl: string | null;
+  vuln_id: string;
+  aliases_json: string[];
+  severity: SecurityUpdateSeverity | null;
+  cvss_score: number | null;
+  cvss_vector: string | null;
+  summary: string | null;
+  published_at: string | null;
+  fixed_in_versions_json: string[];
+  linked_report_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Result returned by the SBOM vulnerability scan endpoint. */
+export interface SbomScanResult {
+  findings_created: number;
+  reports_created: number;
+  /** Number of SBOM components that had a recognised ecosystem PURL and were queried. */
+  components_scanned: number;
+  /** False when the OSV API was unreachable — findings may be incomplete. */
+  osv_reachable: boolean;
 }
 
 // ── Gap 10: SBOM Record ────────────────────────────────────────────────────

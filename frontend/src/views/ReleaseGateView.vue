@@ -98,6 +98,24 @@
         </div>
       </section>
 
+      <!-- CRA Art. 13(2) — Known Exploitable Vulnerabilities blocking banner -->
+      <div
+        v-if="releaseDetail.release.has_known_exploitable_vulnerabilities"
+        class="kev-banner"
+        role="alert"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <div class="kev-banner-body">
+          <strong>Known exploitable vulnerabilities detected</strong>
+          <p>This release contains known exploitable vulnerabilities (CRA Art. 13(2)). Gate approval is blocked until all exploitable findings are resolved in the Vulnerability Reports section.</p>
+          <p v-if="releaseDetail.release.kev_notes" class="kev-notes">{{ releaseDetail.release.kev_notes }}</p>
+        </div>
+      </div>
+
       <!-- ── Workspace ── -->
       <div class="workspace-grid">
 
@@ -1158,7 +1176,7 @@ async function loadSbomDiff(): Promise<void> {
 
   revisionHistoryLoading.value = true;
   try {
-    const sbomRecords = await sbomRecordService.list(releaseDetail.value.release.id);
+    const sbomRecords = await sbomRecordService.list({ productReleaseId: releaseDetail.value.release.id });
     const latestSbom = sbomRecords[0];
     if (latestSbom?.analysis_findings) {
       sbomDiffData.value = extractDiffData(latestSbom.analysis_findings);
@@ -2921,4 +2939,21 @@ onMounted(() => {
 :root[data-theme="light"] .btn-copy:hover { background: rgba(28,107,39,0.06); }
 :root[data-theme="light"] .modal-box { background: #ffffff; }
 :root[data-theme="light"] .modal-backdrop { background: rgba(20,33,15,0.5); }
+
+/* ── KEV warning banner (CRA Art. 13(2)) ── */
+.kev-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--color-danger-bg, #fff1f2);
+  border: 1px solid var(--color-danger-border, #fca5a5);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-danger-text, #991b1b);
+  margin-bottom: 1rem;
+}
+.kev-banner svg { flex-shrink: 0; margin-top: 2px; }
+.kev-banner-body strong { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+.kev-banner-body p { margin: 0; font-size: var(--text-sm); }
+.kev-notes { margin-top: 0.25rem !important; font-style: italic; }
 </style>

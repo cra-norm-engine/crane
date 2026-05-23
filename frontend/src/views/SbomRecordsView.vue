@@ -471,6 +471,88 @@
             </div>
           </div>
 
+          <!-- Tab: Vulnerabilities (CRA Art. 13(2) — OSV CVE scan) -->
+          <div v-else-if="activeDetailTab === 'vulnerabilities'" class="tab-panel">
+            <!-- Header: description + scan button -->
+            <div class="vuln-scan-header">
+              <p class="tab-description muted">
+                OSV database scan — identifies known CVEs in SBOM components (CRA Art. 13(2)).
+              </p>
+              <button class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities">
+                {{ isScanningVulns ? "Scanning…" : "Scan for vulnerabilities" }}
+              </button>
+            </div>
+
+            <div v-if="vulnScanError" class="feedback feedback-error" style="margin-bottom:0.75rem">{{ vulnScanError }}</div>
+
+            <!-- Empty state -->
+            <div v-if="!vulnFindings.length" class="empty-panel">
+              No findings yet. Run a scan to check components against known CVEs.
+            </div>
+
+            <template v-else>
+              <!-- Severity summary strip -->
+              <div class="vuln-severity-summary">
+                <span v-if="vulnCountBySeverity.critical" class="sev-chip sev-chip-critical">{{ vulnCountBySeverity.critical }} Critical</span>
+                <span v-if="vulnCountBySeverity.high"     class="sev-chip sev-chip-high"    >{{ vulnCountBySeverity.high }} High</span>
+                <span v-if="vulnCountBySeverity.medium"   class="sev-chip sev-chip-medium"  >{{ vulnCountBySeverity.medium }} Medium</span>
+                <span v-if="vulnCountBySeverity.low"      class="sev-chip sev-chip-low"     >{{ vulnCountBySeverity.low }} Low</span>
+                <span v-if="vulnCountBySeverity.unknown"  class="sev-chip sev-chip-unknown" >{{ vulnCountBySeverity.unknown }} Unknown</span>
+                <span class="sev-total muted">{{ vulnFindings.length }} finding{{ vulnFindings.length !== 1 ? "s" : "" }} total</span>
+              </div>
+
+              <!-- Findings cards -->
+              <div class="vuln-list">
+                <div
+                  v-for="f in vulnFindings"
+                  :key="f.id"
+                  class="vuln-card"
+                  :class="`vuln-card-${(f.severity || 'unknown').toLowerCase()}`"
+                >
+                  <!-- Row 1: CVE ID + aliases + severity badge + CVSS score -->
+                  <div class="vuln-card-top">
+                    <div class="vuln-id-group">
+                      <code class="vuln-id">{{ f.vuln_id }}</code>
+                      <span v-if="f.aliases_json.length" class="vuln-aliases muted" :title="f.aliases_json.join(', ')">
+                        +{{ f.aliases_json.length }} alias{{ f.aliases_json.length !== 1 ? "es" : "" }}
+                      </span>
+                    </div>
+                    <div class="vuln-badge-group">
+                      <span class="severity-badge" :class="f.severity ? `severity-${f.severity.toLowerCase()}` : 'severity-unknown'">
+                        {{ f.severity ?? "UNKNOWN" }}
+                      </span>
+                      <span v-if="f.cvss_score !== null" class="cvss-score">CVSS&nbsp;{{ f.cvss_score.toFixed(1) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Row 2: Component name + version -->
+                  <div class="vuln-component-row">
+                    <svg class="vuln-pkg-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                      <path d="M8 1V15M2 4.5L8 8L14 4.5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="vuln-component-name">{{ f.component_name }}</span>
+                    <span v-if="f.component_version" class="vuln-component-version">@{{ f.component_version }}</span>
+                  </div>
+
+                  <!-- Row 3: Summary text -->
+                  <p v-if="f.summary" class="vuln-summary-text">{{ f.summary }}</p>
+
+                  <!-- Row 4: Footer — fixed-in · published · report badge -->
+                  <div class="vuln-card-footer">
+                    <span v-if="f.fixed_in_versions_json.length" class="vuln-fixed">
+                      Fixed in: <code>{{ f.fixed_in_versions_json.slice(0, 3).join(", ") }}{{ f.fixed_in_versions_json.length > 3 ? "…" : "" }}</code>
+                    </span>
+                    <span v-else class="vuln-no-fix">No fix available</span>
+                    <span class="vuln-footer-spacer" />
+                    <span v-if="f.published_at" class="vuln-published muted">Published {{ formatDate(f.published_at) }}</span>
+                    <span v-if="f.linked_report_id" class="vuln-linked-badge">Report linked ✓</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
         </div><!-- end tab-scroll-area -->
       </div><!-- end sbom-analysis-pane -->
     </div><!-- end sbom-detail-layout -->
@@ -504,6 +586,7 @@ import type {
   SbomFormat,
   SbomRecordCreate,
   SbomRecordRead,
+  SbomVulnerabilityFindingRead,
 } from "@/types/product";
 
 const isLoadingProducts = ref(false);
@@ -514,6 +597,7 @@ const isUploading = ref(false);
 const isDeleting = ref(false);
 const isReanalyzing = ref(false);
 const isImporting = ref(false);
+const isScanningVulns = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showCreateModal = ref(false);
@@ -521,6 +605,8 @@ const showUploadModal = ref(false);
 const showDetailModal = ref(false);
 const detailItem = ref<SbomRecordRead | null>(null);
 const activeDetailTab = ref("overview");
+const vulnFindings = ref<SbomVulnerabilityFindingRead[]>([]);
+const vulnScanError = ref("");
 
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseSummaryRead[]>([]);
@@ -537,6 +623,7 @@ const detailTabs = [
   { id: "compliance", label: "CRA" },
   { id: "quality", label: "Quality" },
   { id: "diff", label: "Differential analysis" },
+  { id: "vulnerabilities", label: "Vulnerabilities" },
 ];
 
 const createForm = reactive({
@@ -871,6 +958,54 @@ async function deleteRecord(): Promise<void> {
     isDeleting.value = false;
   }
 }
+
+async function loadVulnFindings(sbomId: string): Promise<void> {
+  try {
+    vulnFindings.value = await sbomRecordService.listVulnerabilityFindings(sbomId);
+  } catch {
+    vulnFindings.value = [];
+  }
+}
+
+async function scanVulnerabilities(): Promise<void> {
+  if (!detailItem.value) return;
+  isScanningVulns.value = true;
+  vulnScanError.value = "";
+  errorMessage.value = "";
+  try {
+    const result = await sbomRecordService.scanVulnerabilities(detailItem.value.id);
+    await loadVulnFindings(detailItem.value.id);
+
+    if (!result.osv_reachable) {
+      vulnScanError.value = "OSV vulnerability database unreachable — check backend internet connectivity. No findings were recorded.";
+    } else if (result.components_scanned === 0) {
+      vulnScanError.value = "No components with a recognised ecosystem PURL found. Upload a CycloneDX or SPDX SBOM with package URLs to enable scanning.";
+    } else {
+      successMessage.value = `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ${result.findings_created} new CVE finding${result.findings_created !== 1 ? "s" : ""}, ${result.reports_created} vulnerability report${result.reports_created !== 1 ? "s" : ""} created.`;
+    }
+  } catch {
+    vulnScanError.value = "Scan request failed. Check that the backend is running and try again.";
+  } finally {
+    isScanningVulns.value = false;
+  }
+}
+
+// Severity breakdown for the summary strip
+const vulnCountBySeverity = computed(() => {
+  const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
+  for (const f of vulnFindings.value) {
+    const key = (f.severity ?? "unknown").toLowerCase();
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+});
+
+// Load vulnerability findings when the tab becomes active
+watch(activeDetailTab, (tab) => {
+  if (tab === "vulnerabilities" && detailItem.value) {
+    loadVulnFindings(detailItem.value.id);
+  }
+});
 
 onMounted(async () => {
   await loadProducts();
@@ -1421,4 +1556,195 @@ input:focus, select:focus, textarea:focus {
 .row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; opacity: 0; transition: opacity 0.12s; }
 .table-row-clickable:hover .row-arrow,
 .table-row-clickable:focus-visible .row-arrow { opacity: 1; }
+
+/* ── Vulnerabilities tab ── */
+.vuln-scan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+.tab-description { margin: 0; font-size: var(--text-sm); }
+.btn-sm { padding: 0.35rem 0.8rem; font-size: var(--text-sm); }
+
+/* Severity summary strip */
+.vuln-severity-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.sev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+
+.sev-chip-critical { background: #fff1f2; color: #991b1b; border-color: #fca5a5; }
+.sev-chip-high     { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+.sev-chip-medium   { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.sev-chip-low      { background: var(--color-info-bg); color: var(--color-info-text); border-color: var(--color-info-border); }
+.sev-chip-unknown  { background: var(--color-surface-soft); color: var(--color-text-muted); border-color: var(--color-border); }
+.sev-total         { font-size: var(--text-xs); margin-left: 0.25rem; }
+
+/* Findings card list */
+.vuln-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.vuln-card {
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Left-border accent per severity */
+.vuln-card-critical { border-left-color: #ef4444; }
+.vuln-card-high     { border-left-color: #f97316; }
+.vuln-card-medium   { border-left-color: #f59e0b; }
+.vuln-card-low      { border-left-color: var(--color-info-text, #3b82f6); }
+.vuln-card-unknown  { border-left-color: var(--color-border); }
+
+/* Top row: ID group + badge group */
+.vuln-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vuln-id-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vuln-id {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+}
+
+.vuln-aliases {
+  font-size: var(--text-xs);
+  cursor: default;
+}
+
+.vuln-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* Severity fill badges */
+.severity-badge {
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.severity-critical { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.severity-high     { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+.severity-medium   { background: #fef9c3; color: #92400e; border-color: #fde047; }
+.severity-low      { background: var(--color-info-bg); color: var(--color-info-text); border-color: var(--color-info-border); }
+.severity-unknown  { background: var(--color-surface-soft); color: var(--color-text-muted); border-color: var(--color-border); }
+
+.cvss-score {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.4rem;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+/* Component row */
+.vuln-component-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-sm);
+}
+
+.vuln-pkg-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.vuln-component-name { font-weight: 600; }
+.vuln-component-version { color: var(--color-text-muted); font-family: monospace; font-size: var(--text-xs); }
+
+/* Summary line */
+.vuln-summary-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Card footer */
+.vuln-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--color-divider);
+  font-size: var(--text-xs);
+  margin-top: 0.1rem;
+}
+
+.vuln-fixed code { font-family: monospace; font-size: var(--text-xs); }
+.vuln-no-fix { color: var(--color-text-muted); font-style: italic; }
+.vuln-footer-spacer { flex: 1; }
+.vuln-published { }
+.vuln-linked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+  font-weight: 600;
+  font-size: var(--text-xs);
+}
 </style>

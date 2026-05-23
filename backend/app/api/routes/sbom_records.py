@@ -10,7 +10,10 @@ from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
 from app.schemas.sbom_record import SbomRecordCreate, SbomRecordRead, SbomRecordUpdate
+from app.schemas.sbom_vulnerability_finding import SbomScanResult, SbomVulnerabilityFindingRead
 from app.services.sbom_record_service import SbomRecordService
+from app.services.sbom_vulnerability_scanner import SbomVulnerabilityScanner
+from app.repositories.sbom_vulnerability_finding_repository import SbomVulnerabilityFindingRepository
 
 router = APIRouter()
 
@@ -93,6 +96,34 @@ def reanalyze_sbom_record(
 ) -> SbomRecordRead:
     """Re-run sbom-tools analysis on an existing record's stored content."""
     return SbomRecordService(db).reanalyze(sbom_id, actor=current_user)
+
+
+@router.post("/{sbom_id}/scan-vulnerabilities", response_model=SbomScanResult)
+def scan_sbom_vulnerabilities(
+    sbom_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
+) -> SbomScanResult:
+    """
+    Scan an SBOM's components against the OSV vulnerability database.
+
+    Creates SbomVulnerabilityFinding records for each CVE match and
+    auto-creates a VulnerabilityReport for each finding so it enters the
+    exploitability assessment workflow (CRA Art. 13(2)).
+    """
+    result = SbomVulnerabilityScanner(db).scan(sbom_id, actor=current_user)
+    return SbomScanResult(**result)
+
+
+@router.get("/{sbom_id}/vulnerability-findings", response_model=list[SbomVulnerabilityFindingRead])
+def list_sbom_vulnerability_findings(
+    sbom_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
+) -> list[SbomVulnerabilityFindingRead]:
+    """List all CVE findings discovered during vulnerability scans of this SBOM."""
+    findings = SbomVulnerabilityFindingRepository(db).list_by_sbom(sbom_id)
+    return [SbomVulnerabilityFindingRead.model_validate(f) for f in findings]
 
 
 @router.delete("/{sbom_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

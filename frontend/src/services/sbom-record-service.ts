@@ -1,10 +1,19 @@
 import { apiClient } from "@/services/api";
-import type { SbomRecordCreate, SbomRecordRead, SbomRecordUpdate } from "@/types/product";
+import type {
+  SbomRecordCreate,
+  SbomRecordRead,
+  SbomRecordUpdate,
+  SbomScanResult,
+  SbomVulnerabilityFindingRead,
+} from "@/types/product";
 
 export const sbomRecordService = {
-  async list(productReleaseId?: string): Promise<SbomRecordRead[]> {
+  async list(opts?: { productReleaseId?: string; productId?: string }): Promise<SbomRecordRead[]> {
+    const params: Record<string, string> = {};
+    if (opts?.productReleaseId) params.product_release_id = opts.productReleaseId;
+    else if (opts?.productId) params.product_id = opts.productId;
     const { data } = await apiClient.get<SbomRecordRead[]>("/sbom-records/", {
-      params: productReleaseId ? { product_release_id: productReleaseId } : undefined,
+      params: Object.keys(params).length ? params : undefined,
     });
     return data;
   },
@@ -26,5 +35,24 @@ export const sbomRecordService = {
 
   async remove(sbomId: string): Promise<void> {
     await apiClient.delete(`/sbom-records/${sbomId}`);
+  },
+
+  /** Trigger an OSV vulnerability scan for the SBOM's components (CRA Art. 13(2)).
+   *  Extended timeout: the scan performs secondary CVE lookups which can take 30–90 s. */
+  async scanVulnerabilities(sbomId: string): Promise<SbomScanResult> {
+    const { data } = await apiClient.post<SbomScanResult>(
+      `/sbom-records/${sbomId}/scan-vulnerabilities`,
+      null,
+      { timeout: 180_000 },  // 3 minutes — CVE enrichment is sequential per OSV API
+    );
+    return data;
+  },
+
+  /** List all CVE findings discovered during vulnerability scans of this SBOM. */
+  async listVulnerabilityFindings(sbomId: string): Promise<SbomVulnerabilityFindingRead[]> {
+    const { data } = await apiClient.get<SbomVulnerabilityFindingRead[]>(
+      `/sbom-records/${sbomId}/vulnerability-findings`,
+    );
+    return data;
   },
 };

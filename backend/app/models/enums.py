@@ -323,6 +323,23 @@ class MarketActionStatus(StrEnum):
     closed = "closed"
 
 
+class VexStatus(StrEnum):
+    """
+    Vulnerability Exploitability eXchange (VEX) status values.
+    Indicates whether a vulnerability is exploitable in a specific product context.
+    """
+    under_investigation = "under_investigation"
+    affected = "affected"          # Exploitable under product's operational conditions
+    not_affected = "not_affected"  # Present but not exploitable (e.g., unused code path)
+    fixed = "fixed"                # Was exploitable; remediated in this or a newer release
+
+
+class VulnerabilitySource(StrEnum):
+    """Origin of a vulnerability report."""
+    manual = "manual"       # Created by a user manually
+    sbom_scan = "sbom_scan" # Auto-created from an SBOM component scan via OSV API
+
+
 class EntityType(StrEnum):
     user = "user"
     role = "role"
@@ -349,3 +366,4 @@ class EntityType(StrEnum):
     sbom_record = "sbom_record"
     market_action = "market_action"
     comment = "comment"
+    sbom_vulnerability_finding = "sbom_vulnerability_finding"
