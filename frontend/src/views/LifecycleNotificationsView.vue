@@ -713,5 +713,5 @@ onMounted(() => {
 :root[data-theme="light"] .text-success  { color: #15803d; }
 :root[data-theme="light"] .text-warning  { color: #78350f; }
 :root[data-theme="light"] .text-danger   { color: #be123c; }
-:root[data-theme="light"] .btn-primary   { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95)); }
 </style>

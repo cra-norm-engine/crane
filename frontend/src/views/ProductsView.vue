@@ -158,6 +158,28 @@
           <textarea v-model.trim="form.intended_use" class="textarea" rows="3" required />
         </label>
 
+        <!-- Parent product picker — opens a search popup to select from existing products -->
+        <div class="field field-span-2">
+          <span class="field-label">Parent product
+            <span class="field-label-hint">(optional — set if this is a variant or sub-product of an existing product)</span>
+          </span>
+          <div class="parent-picker">
+            <button type="button" class="parent-picker-trigger input" @click="showParentPicker = true">
+              <span v-if="form.parent_product_id && selectedParentProduct">
+                {{ selectedParentProduct.product_code }} — {{ selectedParentProduct.name }}
+              </span>
+              <span v-else class="muted">None — top-level product</span>
+            </button>
+            <button
+              v-if="form.parent_product_id"
+              type="button"
+              class="parent-picker-clear"
+              @click="form.parent_product_id = null"
+              title="Clear parent"
+            >✕</button>
+          </div>
+        </div>
+
         <label class="field">
           <span class="field-label">Classification</span>
           <select v-model="form.current_classification" class="select">
@@ -290,6 +312,44 @@
         </table>
       </div>
     </div>
+
+    <!-- Parent product picker modal -->
+    <Teleport to="body">
+      <div v-if="showParentPicker" class="picker-backdrop" @click.self="showParentPicker = false">
+        <div class="picker-modal card" role="dialog" aria-modal="true" aria-label="Select parent product">
+          <div class="picker-header">
+            <h3 class="picker-title">Select parent product</h3>
+            <button type="button" class="picker-close" @click="showParentPicker = false">✕</button>
+          </div>
+          <input
+            v-model="parentPickerSearch"
+            class="input picker-search"
+            type="search"
+            placeholder="Search by code, name or manufacturer…"
+            autofocus
+          />
+          <div class="picker-list">
+            <p v-if="filteredParentProducts.length === 0" class="muted picker-empty">
+              No products match your search.
+            </p>
+            <button
+              v-for="product in filteredParentProducts"
+              :key="product.id"
+              type="button"
+              class="picker-item"
+              :class="{ 'picker-item-selected': form.parent_product_id === product.id }"
+              @click="selectParent(product.id)"
+            >
+              <div class="picker-item-row">
+                <span class="picker-item-code">{{ product.product_code }}</span>
+                <span class="picker-item-name">{{ product.name }}</span>
+              </div>
+              <div class="picker-item-mfr muted">{{ product.manufacturer_name }}</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -317,6 +377,8 @@ const isSubmitting = ref(false);
 const errorMessage = ref("");
 const formError = ref("");
 const showCreateForm = ref(false);
+const showParentPicker = ref(false);
+const parentPickerSearch = ref("");
 
 const filters = reactive({
   search: "",
@@ -338,6 +400,31 @@ const form = reactive<ProductCreate>({
   current_classification: "normal",
   scope_status: "undecided",
 });
+
+/** The product object currently selected as parent (used to display its name in the trigger button). */
+const selectedParentProduct = computed(() =>
+  form.parent_product_id
+    ? products.value.find((p) => p.id === form.parent_product_id) ?? null
+    : null,
+);
+
+/** Products shown inside the picker popup, filtered by the picker's own search input. */
+const filteredParentProducts = computed(() => {
+  const q = parentPickerSearch.value.trim().toLowerCase();
+  if (!q) return products.value;
+  return products.value.filter(
+    (p) =>
+      p.product_code.toLowerCase().includes(q) ||
+      p.name.toLowerCase().includes(q) ||
+      p.manufacturer_name.toLowerCase().includes(q),
+  );
+});
+
+function selectParent(productId: string): void {
+  form.parent_product_id = productId;
+  showParentPicker.value = false;
+  parentPickerSearch.value = "";
+}
 
 const filteredProducts = computed(() => {
   const query = filters.search.trim().toLowerCase();
@@ -870,6 +957,50 @@ onMounted(() => {
     grid-column: span 1;
   }
 }
+
+/* Parent product picker trigger row */
+.parent-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.parent-picker-trigger {
+  flex: 1;
+  text-align: left;
+  cursor: pointer;
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  color: inherit;
+  font: inherit;
+}
+
+.parent-picker-clear {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: 0.5rem;
+  color: var(--color-text-muted, #94a3b8);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.parent-picker-clear:hover {
+  color: #fda4af;
+}
+
+/* Picker modal backdrop — rendered via Teleport outside the scoped component,
+   so these styles must live in the unscoped block below. */
+.field-label-hint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #94a3b8);
+  font-weight: 400;
+  margin-left: 0.35rem;
+}
 </style>
 
 <style>
@@ -880,4 +1011,155 @@ onMounted(() => {
 :root[data-theme="light"] .badge-warning { background: rgba(184,155,18,0.1);  color: #78350f; }
 :root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);   color: #be123c; }
 :root[data-theme="light"] .table-row:hover { background: rgba(28, 107, 39, 0.04); }
+
+/* --- Parent picker modal (Teleport → body) --- */
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.picker-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: var(--color-surface, #0f172a);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: 1rem;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.picker-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.picker-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.picker-close:hover {
+  color: inherit;
+}
+
+.picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: 0.85rem;
+  color: inherit;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+}
+
+.picker-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.picker-empty {
+  padding: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+
+.picker-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.picker-item-selected {
+  border-color: var(--color-accent, rgba(175, 214, 46, 0.6));
+  background: rgba(175, 214, 46, 0.06);
+}
+
+/* Top row: code badge + name side by side, name truncates */
+.picker-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.picker-item-code {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--color-text-muted, #94a3b8);
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+}
+
+.picker-item-name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Second row: manufacturer, full width, truncates naturally */
+.picker-item-mfr {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Light mode overrides for picker */
+:root[data-theme="light"] .picker-modal {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .picker-search {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .picker-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="light"] .picker-item-selected {
+  background: rgba(28, 107, 39, 0.06);
+  border-color: rgba(28, 107, 39, 0.5);
+}
 </style>

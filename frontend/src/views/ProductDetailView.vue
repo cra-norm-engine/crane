@@ -809,6 +809,31 @@
             <input v-model="releaseForm.placed_on_market_date" type="date" />
           </label>
 
+          <!-- CRA Art. 28 — EU Declaration of Conformity metadata -->
+          <label class="field">
+            <span class="field-label">
+              EU DoC draw-up date
+              <span class="field-label-hint">(Art. 28 — must be on or before placement date)</span>
+            </span>
+            <input v-model="releaseForm.eu_doc_date" type="date" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">
+              EU DoC reference number
+              <span class="field-label-hint">(optional — Annex V unique identifier)</span>
+            </span>
+            <input v-model.trim="releaseForm.eu_doc_number" type="text" placeholder="e.g. DOC-2027-001" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">
+              Notified body
+              <span class="field-label-hint">(optional — required for third-party conformity route only)</span>
+            </span>
+            <input v-model.trim="releaseForm.eu_doc_notified_body" type="text" placeholder="e.g. TÜV SÜD — NB 0123" />
+          </label>
+
           <!-- Gap 2 — Non-substantial update lineage (CRA guidance §15) -->
           <label class="field">
             <span class="field-label">
@@ -828,14 +853,29 @@
             </select>
           </label>
 
-          <!-- Gap 5 — Article 13(10) consolidated support designation -->
-          <label class="check-field-inline modal-field-span-2">
-            <input v-model="releaseForm.is_consolidated_support_version" type="checkbox" />
-            <span>
-              <strong>Art. 13(10) consolidated support display_version</strong>
-              <small class="muted"> — this release provides security updates for all prior versions</small>
+
+          <!-- Art. 13(7) — link the substantiality analysis for this release (required for v2+) -->
+          <div class="field modal-field-span-2">
+            <span class="field-label">
+              Substantiality analysis
+              <span class="field-label-hint">(required for v2+ releases — select the assessed change that documents whether this is a substantial modification)</span>
             </span>
-          </label>
+            <select v-model="releaseForm.substantiality_analysis_id">
+              <option value="">Not linked</option>
+              <option
+                v-for="c in assessedChanges"
+                :key="c.id"
+                :value="c.assessment_id"
+              >
+                {{ c.title }} · {{ formatDate(c.change_date) }}
+                <template v-if="c.is_substantial"> — Substantial</template>
+                <template v-else-if="c.is_substantial === false"> — Not substantial</template>
+              </option>
+            </select>
+            <p v-if="assessedChanges.length === 0" class="field-hint muted">
+              No assessed changes found for this product. Assess a change first.
+            </p>
+          </div>
 
           <!-- CRA Art. 13(8) traceability — link to the substantial change that triggered this release -->
           <div class="field modal-field-span-2">
@@ -1058,6 +1098,8 @@ const recipientDropdownRef         = ref<HTMLElement | null>(null);
 const isRecipientDropdownOpen      = ref(false);
 const auditEvents                  = ref<AuditEventRead[]>([]);
 const substantialChanges           = ref<ChangeSummary[]>([]);
+// All assessed changes (any outcome) — used to populate the substantiality analysis picker
+const assessedChanges              = ref<ChangeSummary[]>([]);
 const scopeResult                  = ref<ProductScopeEvaluationRead | null>(null);
 
 /* ── Loading / saving flags ─────────────────────────── */
@@ -1142,10 +1184,16 @@ const releaseForm = reactive({
   placed_on_market_date:          "" as string,
   // Gap 2 — parent release for non-substantial update lineage; empty = none
   parent_release_id:              "" as string,
-  // Gap 5 — Art. 13(10) consolidated support display_version flag
+  // Art. 13(7) — substantiality analysis assessment ID; required for v2+ releases
+  substantiality_analysis_id:     "" as string,
+  // Art. 13(10) consolidated support version flag
   is_consolidated_support_version: false as boolean,
   // CRA Art. 13(8) — link to the substantial change that triggered this release; empty = none
   caused_by_change_id:            "" as string,
+  // CRA Art. 28 + Annex V — EU Declaration of Conformity metadata
+  eu_doc_date:                    "" as string,
+  eu_doc_number:                  "" as string,
+  eu_doc_notified_body:           "" as string,
 });
 
 /* ── Computed ───────────────────────────────────────── */
@@ -1265,6 +1313,7 @@ function cancelEditing(): void {
  */
 function openReleaseModal(): void {
   void loadSubstantialChanges();
+  void loadAssessedChanges();
   showReleaseModal.value = true;
 }
 
@@ -1278,8 +1327,13 @@ function resetReleaseForm(): void {
   // Gap 3 / 2 / 5 — clear CRA placement fields
   releaseForm.placed_on_market_date          = "";
   releaseForm.parent_release_id              = "";
+  releaseForm.substantiality_analysis_id     = "";
   releaseForm.is_consolidated_support_version = false;
   releaseForm.caused_by_change_id            = "";
+  // CRA Art. 28 — clear EU DoC fields
+  releaseForm.eu_doc_date                    = "";
+  releaseForm.eu_doc_number                  = "";
+  releaseForm.eu_doc_notified_body           = "";
 }
 
 /* ── Recipient dropdown helpers ─────────────────────── */
@@ -1445,6 +1499,17 @@ async function loadSubstantialChanges(): Promise<void> {
   } catch {
     // Non-fatal — user can still create the release without a causal link
     substantialChanges.value = [];
+  }
+}
+
+async function loadAssessedChanges(): Promise<void> {
+  try {
+    // Load all assessed changes (regardless of outcome) so any assessment can be
+    // linked as the substantiality analysis for this release (Art. 13(7)).
+    const all = await changeService.list({ product_id: product.value?.id });
+    assessedChanges.value = all.filter((c) => c.assessment_id !== null);
+  } catch {
+    assessedChanges.value = [];
   }
 }
 
@@ -1632,10 +1697,16 @@ async function createRelease(): Promise<void> {
       release_notes:         releaseForm.release_notes.trim() || null,
       // Gap 2 — base release for non-substantial update lineage
       parent_release_id:     releaseForm.parent_release_id || null,
-      // Gap 5 — Art. 13(10) consolidated support display_version flag
+      // Art. 13(7) — substantiality analysis assessment link (required for v2+)
+      substantiality_analysis_id: releaseForm.substantiality_analysis_id || null,
+      // Art. 13(10) consolidated support version flag
       is_consolidated_support_version: releaseForm.is_consolidated_support_version,
       // Pass causal change ID only when selected; empty string means no link
       caused_by_change_id:   releaseForm.caused_by_change_id || null,
+      // CRA Art. 28 — EU DoC metadata; optional at creation time
+      eu_doc_date:           releaseForm.eu_doc_date || null,
+      eu_doc_number:         releaseForm.eu_doc_number.trim() || null,
+      eu_doc_notified_body:  releaseForm.eu_doc_notified_body.trim() || null,
     };
 
     const createdRelease = await productReleaseService.create(payload);
@@ -2314,6 +2385,67 @@ onBeforeUnmount(() => {
   background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
 }
 
+/* Question-mark tooltip */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.info-tip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-text-muted, #94a3b8);
+  background: none;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.info-tip-trigger:hover,
+.info-tip-trigger:focus {
+  border-color: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.info-tip-popover {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22rem;
+  max-width: 90vw;
+  background: var(--color-surface, #0f172a);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.25));
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--color-text, #e9eefc);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  pointer-events: none;
+  white-space: normal;
+  font-weight: 400;
+}
+
+.info-tip-trigger:hover + .info-tip-popover,
+.info-tip-trigger:focus + .info-tip-popover {
+  display: block;
+}
+
 .field {
   display: grid;
   gap: 0.45rem;
@@ -2342,28 +2474,48 @@ textarea {
 
 /* ── Buttons ───────────────────────────────────────── */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   border: 1px solid transparent;
   border-radius: 0.85rem;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1.1rem;
   font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.12s, transform 0.12s, box-shadow 0.12s;
+  white-space: nowrap;
 }
 
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
 .btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #6ea8fe);
-  color: white;
+  background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(28, 107, 39, 0.22);
+}
+
+.btn-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(28, 107, 39, 0.3);
 }
 
 .btn-secondary {
   background: transparent;
-  border-color: var(--color-border, rgba(148, 163, 184, 0.25));
+  border-color: var(--color-border);
   color: inherit;
 }
 
-.btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+.btn-secondary:not(:disabled):hover { background: var(--color-surface-elevated); }
+
+.btn-danger-outline {
+  background: transparent;
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
 }
+
+.btn-danger-outline:not(:disabled):hover { background: var(--color-danger-bg); }
 
 /* ── Wizard evaluation result panel ───────────────── */
 .result-panel {
@@ -2570,5 +2722,11 @@ textarea {
 :root[data-theme="light"] .support-preview {
   background: rgba(28, 107, 39, 0.04);
   border-color: rgba(28, 107, 39, 0.12);
+}
+
+:root[data-theme="light"] .info-tip-popover {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 </style>

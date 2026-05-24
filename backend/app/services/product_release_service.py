@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
-from app.core.exceptions import ConflictException
+from app.core.exceptions import ConflictException, ValidationException
 from app.models.enums import AuditStatus, ComplianceActionStatus, ComplianceActionType, EntityType, ReleaseStatus
 from app.models.product import ProductRelease
 from app.repositories.change_repository import ChangeRepository
@@ -33,8 +33,21 @@ class ProductReleaseService:
         release = self.repository.get_or_404(release_id)
         return ProductReleaseRead.model_validate(release)
 
+    def _validate_eu_doc_date(
+        self,
+        eu_doc_date: object,
+        placed_on_market_date: object,
+    ) -> None:
+        """Art. 28: EU DoC must be drawn up on or before placement on the market."""
+        if eu_doc_date is not None and placed_on_market_date is not None:
+            if eu_doc_date > placed_on_market_date:
+                raise ValidationException(
+                    "EU Declaration of Conformity date must be on or before the placement on market date (Article 28 CRA)"
+                )
+
     def create_release(self, payload: ProductReleaseCreate, actor: object) -> ProductReleaseRead:
         self.product_repository.get_or_404(payload.product_id)
+        self._validate_eu_doc_date(payload.eu_doc_date, payload.placed_on_market_date)
 
         # Auto-generate system_version: find the maximum system_version for this product and increment
         max_system_version = self.db.scalar(
@@ -95,6 +108,11 @@ class ProductReleaseService:
         # system_version is immutable and cannot be updated from the client
         if "system_version" in updates:
             raise ConflictException("system_version cannot be updated; it is auto-generated and immutable")
+
+        # Resolve effective values: prefer incoming payload, fall back to current DB values
+        effective_eu_doc_date = updates.get("eu_doc_date", release.eu_doc_date)
+        effective_placed_on_market_date = updates.get("placed_on_market_date", release.placed_on_market_date)
+        self._validate_eu_doc_date(effective_eu_doc_date, effective_placed_on_market_date)
 
         for field_name, value in updates.items():
             setattr(release, field_name, value)

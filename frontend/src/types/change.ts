@@ -80,14 +80,15 @@ export interface ComplianceActionUpdate {
 
 /**
  * Payload for submitting a substantial modification assessment.
- * The four boolean fields correspond to CRA evaluation questions.
+ * Five criteria per Art. 3(30) and Commission guidance §103.
  * If ANY is true → is_substantial = true automatically.
  */
 export interface AssessmentCreate {
-  alters_intended_use: boolean;
-  increases_cybersecurity_risk: boolean;
-  changes_hazard_nature: boolean;
-  expands_attack_surface: boolean;
+  alters_intended_use: boolean;       // Art. 3(30)(b): changes intended purpose
+  introduces_new_threat_vectors: boolean;   // §103 criterion 1
+  enables_new_attack_scenarios: boolean;    // §103 criterion 2
+  changes_attack_likelihood: boolean;       // §103 criterion 3
+  changes_attack_impact: boolean;           // §103 criterion 4
   reasoning: string;             // min 10 chars, required justification
   decision_date: string;         // ISO date string
 }
@@ -103,9 +104,10 @@ export interface AssessmentRead {
   change_id: string;
   assessor_user_id: string | null;
   alters_intended_use: boolean;
-  increases_cybersecurity_risk: boolean;
-  changes_hazard_nature: boolean;
-  expands_attack_surface: boolean;
+  introduces_new_threat_vectors: boolean;
+  enables_new_attack_scenarios: boolean;
+  changes_attack_likelihood: boolean;
+  changes_attack_impact: boolean;
   is_substantial: boolean;
   reasoning: string;
   decision_date: string;         // ISO date string
@@ -180,6 +182,8 @@ export interface ChangeSummary {
   change_date: string;           // ISO date string
   status: ChangeStatus;
   is_substantial: boolean | null;
+  /** Assessment ID — present when the change has been assessed; used to link substantiality_analysis_id on a release */
+  assessment_id: string | null;
   /** Resolved product name — avoids a secondary lookup in the list view */
   product_name: string | null;
   /** Resolved release version string — avoids a secondary lookup in the list view */

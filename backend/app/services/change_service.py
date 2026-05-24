@@ -278,13 +278,14 @@ class ChangeService:
         if self.repo.get_assessment(change_id) is not None:
             raise AppException("This change has already been assessed.", status_code=409)
 
-        # Derive substantiality from the four criteria.
-        # CRA Art. 3(4): Security-type changes are never substantial by definition
+        # Derive substantiality from the five Art. 3(30) / §103 criteria.
+        # CRA Art. 3(4): Security-type changes are never substantial by definition.
         criteria_positive = (
             payload.alters_intended_use
-            or payload.increases_cybersecurity_risk
-            or payload.changes_hazard_nature
-            or payload.expands_attack_surface
+            or payload.introduces_new_threat_vectors
+            or payload.enables_new_attack_scenarios
+            or payload.changes_attack_likelihood
+            or payload.changes_attack_impact
         )
         is_substantial = criteria_positive and change.change_type != ChangeType.security
 
@@ -293,9 +294,10 @@ class ChangeService:
             change_id=change_id,
             assessor_user_id=getattr(actor, "id", None),
             alters_intended_use=payload.alters_intended_use,
-            increases_cybersecurity_risk=payload.increases_cybersecurity_risk,
-            changes_hazard_nature=payload.changes_hazard_nature,
-            expands_attack_surface=payload.expands_attack_surface,
+            introduces_new_threat_vectors=payload.introduces_new_threat_vectors,
+            enables_new_attack_scenarios=payload.enables_new_attack_scenarios,
+            changes_attack_likelihood=payload.changes_attack_likelihood,
+            changes_attack_impact=payload.changes_attack_impact,
             is_substantial=is_substantial,
             reasoning=payload.reasoning,
             decision_date=payload.decision_date,
@@ -454,9 +456,10 @@ class ChangeService:
                 change_id=change.assessment.change_id,
                 assessor_user_id=change.assessment.assessor_user_id,
                 alters_intended_use=change.assessment.alters_intended_use,
-                increases_cybersecurity_risk=change.assessment.increases_cybersecurity_risk,
-                changes_hazard_nature=change.assessment.changes_hazard_nature,
-                expands_attack_surface=change.assessment.expands_attack_surface,
+                introduces_new_threat_vectors=change.assessment.introduces_new_threat_vectors,
+                enables_new_attack_scenarios=change.assessment.enables_new_attack_scenarios,
+                changes_attack_likelihood=change.assessment.changes_attack_likelihood,
+                changes_attack_impact=change.assessment.changes_attack_impact,
                 is_substantial=change.assessment.is_substantial,
                 reasoning=change.assessment.reasoning,
                 decision_date=change.assessment.decision_date,
@@ -495,6 +498,7 @@ class ChangeService:
         is_substantial = (
             change.assessment.is_substantial if change.assessment else None
         )
+        assessment_id = change.assessment.id if change.assessment else None
 
         # Resolve human-readable identifiers from the eagerly-loaded relations.
         # product_version is loaded by _base_query; its .product is also loaded.
@@ -514,6 +518,7 @@ class ChangeService:
             change_date=change.change_date,
             status=change.status,
             is_substantial=is_substantial,
+            assessment_id=assessment_id,
             product_name=product_name,
             release_version=release_version,
         )

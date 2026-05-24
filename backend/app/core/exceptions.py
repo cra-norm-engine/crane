@@ -34,6 +34,11 @@ class ForbiddenException(AppException):
         super().__init__(message, status.HTTP_403_FORBIDDEN, code="FORBIDDEN")
 
 
+class ValidationException(AppException):
+    def __init__(self, message: str = "Validation error") -> None:
+        super().__init__(message, status.HTTP_422_UNPROCESSABLE_ENTITY, code="VALIDATION_ERROR")
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppException)
     async def app_exception_handler(_: Request, exc: AppException) -> JSONResponse:

@@ -613,6 +613,28 @@ class ReleaseGateService:
                     status=ArtifactReviewDecision.pending_review,
                 )
             )
+
+        # Art. 13(7) + Art. 3(30): v2+ releases (those with a parent_release_id) must
+        # include a substantiality analysis documenting whether the change constitutes
+        # a substantial modification. The first release of a product is a new placement
+        # and has no prior version to compare against, so this item is skipped for v1.
+        if release.parent_release_id is not None:
+            self.db.add(
+                ReleaseGateItem(
+                    release_gate_id=gate.id,
+                    code=ReleaseGateItemCode.substantial_modification_analysis,
+                    title="Substantiality Analysis",
+                    description=(
+                        "Document whether this release constitutes a substantial modification "
+                        "under CRA Art. 3(30). Link the formal assessment to this release via "
+                        "the 'Substantiality analysis' field on the release record. "
+                        "Required for all releases that follow a prior version (Art. 13(7))."
+                    ),
+                    sort_order=len(DEFAULT_GATE_ITEMS),
+                    status=ArtifactReviewDecision.pending_review,
+                )
+            )
+
         self.db.flush()
         self.db.refresh(gate)
         return gate

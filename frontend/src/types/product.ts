@@ -70,6 +70,9 @@ export interface ProductReleaseSummaryRead {
   /** Gap 2 — for non-substantial updates: ID of the release whose placement date this version inherits. */
   parent_release_id: string | null;
 
+  /** Art. 13(7) + Art. 3(30): ID of the SubstantialModificationAssessment documenting the substantiality determination for this release. Required for v2+. */
+  substantiality_analysis_id: string | null;
+
   /** Gap 5 — Art. 13(10): this release provides consolidated security coverage for all prior versions. */
   is_consolidated_support_version: boolean;
 
@@ -77,6 +80,13 @@ export interface ProductReleaseSummaryRead {
   has_known_exploitable_vulnerabilities: boolean;
   /** Gap 1 — Free-text description of any known exploitable vulnerabilities. */
   kev_notes: string | null;
+
+  /** CRA Art. 28 — Date the EU Declaration of Conformity was drawn up. Must be ≤ placed_on_market_date. */
+  eu_doc_date: string | null;
+  /** CRA Art. 28 + Annex V — Manufacturer's unique reference number for this DoC. */
+  eu_doc_number: string | null;
+  /** CRA Art. 28 + Annex V — Notified body name/ref; only applicable for third-party conformity route. */
+  eu_doc_notified_body: string | null;
 
   created_at: string;
   updated_at: string;
@@ -95,10 +105,18 @@ export interface ProductReleaseCreate {
   release_notes?: string | null;
   /** Gap 2 — ID of the base release this non-substantial update derives placement date from. */
   parent_release_id?: string | null;
+  /** Art. 13(7): ID of the SubstantialModificationAssessment for this release. Required for v2+. */
+  substantiality_analysis_id?: string | null;
   /** Gap 5 — mark this release as the Art. 13(10) consolidated support version. */
   is_consolidated_support_version?: boolean;
   /** Optional CRA traceability link to a substantial change that triggered this release. */
   caused_by_change_id?: string | null;
+  /** CRA Art. 28 — Date the EU DoC was drawn up. Must be on or before placed_on_market_date. */
+  eu_doc_date?: string | null;
+  /** CRA Art. 28 + Annex V — Unique reference number for this DoC. */
+  eu_doc_number?: string | null;
+  /** CRA Art. 28 + Annex V — Notified body name/ref for third-party conformity route. */
+  eu_doc_notified_body?: string | null;
 }
 
 export interface RemoteProcessingElementSummaryRead {

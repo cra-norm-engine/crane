@@ -61,18 +61,22 @@ class AssessmentCreate(BaseModel):
     """
     Input schema for submitting a substantial modification assessment.
 
-    The four boolean criteria (alters_intended_use, etc.) correspond directly
-    to the CRA evaluation questions. If ANY is True the system sets
-    is_substantial = True automatically.
+    The five criteria align with Art. 3(30) and Commission guidance §103.
+    If ANY is True the system sets is_substantial = True automatically.
 
-    Note: for 'security'-type changes, all four criteria should remain False
+    Note: for 'security'-type changes, all criteria should remain False
     per CRA Article 3(4), but the form can still be submitted for audit purposes.
     """
-    # The four CRA assessment criteria
+    # Art. 3(30)(b): alters intended purpose or use
     alters_intended_use: bool = False
-    increases_cybersecurity_risk: bool = False
-    changes_hazard_nature: bool = False
-    expands_attack_surface: bool = False
+    # §103 criterion 1: introduces new threat vectors
+    introduces_new_threat_vectors: bool = False
+    # §103 criterion 2: enables new attack scenarios
+    enables_new_attack_scenarios: bool = False
+    # §103 criterion 3: changes likelihood of existing attack scenarios
+    changes_attack_likelihood: bool = False
+    # §103 criterion 4: changes impact of existing attack scenarios
+    changes_attack_impact: bool = False
 
     # Free-text justification for the decision (optional)
     reasoning: str = Field(default="", min_length=0)
@@ -93,11 +97,12 @@ class AssessmentRead(TimestampedRead):
     change_id: UUID
     assessor_user_id: UUID | None
 
-    # The four criteria
+    # The five Art. 3(30) / §103 criteria
     alters_intended_use: bool
-    increases_cybersecurity_risk: bool
-    changes_hazard_nature: bool
-    expands_attack_surface: bool
+    introduces_new_threat_vectors: bool
+    enables_new_attack_scenarios: bool
+    changes_attack_likelihood: bool
+    changes_attack_impact: bool
 
     # Derived outcome
     is_substantial: bool
@@ -186,6 +191,10 @@ class ChangeSummary(TimestampedRead):
     # Shortcut flag so the list view can highlight substantial changes
     # without having to join the assessment table client-side
     is_substantial: bool | None  # None when not yet assessed
+
+    # Assessment ID exposed so release forms can link substantiality_analysis_id
+    # without fetching the full ChangeRead payload
+    assessment_id: UUID | None  # None when not yet assessed
 
     # Human-readable identifiers resolved from the linked product release
     product_name: str | None  # None only if the linked release is orphaned

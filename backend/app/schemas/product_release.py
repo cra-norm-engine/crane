@@ -32,6 +32,11 @@ class ProductReleaseBase(BaseModel):
     # True when this release absorbs security update obligations for all older versions.
     is_consolidated_support_version: bool = False
 
+    # Art. 13(7) + Art. 3(30): FK to the SubstantialModificationAssessment that
+    # documents the substantiality determination for this release. Required for
+    # v2+ releases (those with a parent_release_id) before gate approval.
+    substantiality_analysis_id: UUID | None = None
+
     # Optional CRA traceability link: set when this release is a direct consequence
     # of a substantial modification assessment (CRA Art. 13(8) re-release obligation).
     caused_by_change_id: UUID | None = None
@@ -43,6 +48,12 @@ class ProductReleaseBase(BaseModel):
 
     # User-defined version name (optional: "Spring 2026", "RC-1", etc.)
     user_version: str | None = Field(default=None, max_length=100)
+
+    # CRA Art. 28 + Annex V — EU Declaration of Conformity metadata.
+    # eu_doc_date must be on or before placed_on_market_date (enforced in service layer).
+    eu_doc_date: date | None = None
+    eu_doc_number: str | None = Field(default=None, max_length=100)
+    eu_doc_notified_body: str | None = Field(default=None, max_length=255)
 
 
 class ProductReleaseCreate(ProductReleaseBase):
@@ -63,12 +74,20 @@ class ProductReleaseUpdate(BaseModel):
     # Gap 5 — can be toggled after release if the manufacturer designates this
     # version as the Article 13(10) consolidated support version
     is_consolidated_support_version: bool | None = None
+    # Art. 13(7): link the substantiality analysis assessment to this release;
+    # can be set or corrected after creation
+    substantiality_analysis_id: UUID | None = None
     # Allow updating the causal change link even after creation (e.g. if
     # the association was missed at release time and needs to be corrected)
     caused_by_change_id: UUID | None = None
     # Gap 1 — KEV status can be updated as vulnerabilities are found/fixed
     has_known_exploitable_vulnerabilities: bool | None = None
     kev_notes: str | None = None
+
+    # CRA Art. 28 — EU DoC fields can be updated after creation (e.g. number assigned later)
+    eu_doc_date: date | None = None
+    eu_doc_number: str | None = Field(default=None, max_length=100)
+    eu_doc_notified_body: str | None = Field(default=None, max_length=255)
 
 
 class ProductReleaseRead(ProductReleaseBase):
