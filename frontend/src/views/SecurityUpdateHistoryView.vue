@@ -1494,7 +1494,7 @@ select {
 <style>
 :root[data-theme="light"] .feedback-error  { color: #be123c; }
 :root[data-theme="light"] .feedback-success { color: #15803d; }
-:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95)); }
 :root[data-theme="light"] .table-row:hover { background: rgba(28, 107, 39, 0.04); }
 :root[data-theme="light"] .severity-critical { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
 :root[data-theme="light"] .severity-high     { background: rgba(249, 115, 22, 0.12); color: #ea580c; }

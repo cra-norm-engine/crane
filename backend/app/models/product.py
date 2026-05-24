@@ -163,6 +163,16 @@ class ProductRelease(UUIDTimestampMixin, Base):
         Boolean, nullable=False, default=False
     )
 
+    # Art. 13(7) + Art. 3(30): link to the SubstantialModificationAssessment that
+    # documents the substantiality determination for this release (required for v2+).
+    # NULL for the first release of a product; must be set before gate approval for
+    # all subsequent releases (parent_release_id is set).
+    substantiality_analysis_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("substantial_modification_assessments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Optional link to the substantial change that triggered this re-release.
     # NULL for planned/routine releases; set when the release is a direct
     # consequence of a CRA substantial modification (Art. 13(8)).
@@ -181,6 +191,15 @@ class ProductRelease(UUIDTimestampMixin, Base):
     # Free-text notes describing any known exploitable vulnerabilities if the flag is set.
     kev_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # CRA Art. 28 — EU Declaration of Conformity metadata.
+    # eu_doc_date: date the DoC was drawn up; must be <= placed_on_market_date (Art. 28).
+    # eu_doc_number: manufacturer's unique reference number for this DoC (Annex V).
+    # eu_doc_notified_body: notified body name/ref; required only for third-party
+    # conformity route (ConformityRoute.third_party_assessment).
+    eu_doc_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    eu_doc_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    eu_doc_notified_body: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     product: Mapped[Product] = relationship(back_populates="releases")
 
     # Self-referential relationship: the base release this version derives from
@@ -195,6 +214,12 @@ class ProductRelease(UUIDTimestampMixin, Base):
         "ProductRelease",
         foreign_keys="[ProductRelease.parent_release_id]",
         back_populates="parent_release",
+    )
+
+    # The formal substantiality determination for this release (Art. 13(7)).
+    substantiality_analysis: Mapped["SubstantialModificationAssessment | None"] = relationship(
+        "SubstantialModificationAssessment",
+        foreign_keys="[ProductRelease.substantiality_analysis_id]",
     )
 
     # Relationship to the substantial change that caused this release (if any).

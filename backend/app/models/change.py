@@ -153,20 +153,22 @@ class SubstantialModificationAssessment(UUIDTimestampMixin, Base):
         nullable=True,
     )
 
-    # --- Four CRA assessment criteria (all must be answered) ---
+    # --- Five CRA Art. 3(30) + Commission guidance §103 assessment criteria ---
 
-    # Does this change alter the product's intended use or purpose?
+    # Art. 3(30)(b): Does this change alter the product's intended purpose or use?
     alters_intended_use: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Does this change increase cybersecurity risk compared to the original baseline?
-    increases_cybersecurity_risk: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # §103 criterion 1: Does this change introduce new threat vectors not previously present?
+    introduces_new_threat_vectors: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Does this change introduce a new category or nature of hazard?
-    changes_hazard_nature: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # §103 criterion 2: Does this change enable new attack scenarios that were not possible before?
+    enables_new_attack_scenarios: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Does this change introduce features outside the original product scope
-    # (e.g. new network interfaces, new processing of sensitive data)?
-    expands_attack_surface: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # §103 criterion 3: Does this change increase the likelihood of previously identified attack scenarios?
+    changes_attack_likelihood: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # §103 criterion 4: Does this change increase the impact of previously identified attack scenarios?
+    changes_attack_impact: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # --- Outcome ---
 

@@ -1901,7 +1901,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 :root[data-theme="light"] .feedback-error { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #be123c; }
 :root[data-theme="light"] .cve-chip       { background: rgba(71,85,105,0.1); color: #475569; }
 :root[data-theme="light"] .cve-chip-highlight { background: rgba(184,155,18,0.15); color: #78350f; }
-:root[data-theme="light"] .btn-primary    { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95)); }
 :root[data-theme="light"] .ma-form-panel { background: rgba(241, 245, 249, 0.6); }
 :root[data-theme="light"] .required      { color: #be123c; }
 :root[data-theme="light"] .ma-btn-delete { color: #be123c; border-color: rgba(190,18,60,0.3); }

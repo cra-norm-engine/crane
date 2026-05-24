@@ -164,23 +164,27 @@
             </span>
           </div>
 
-          <!-- Four CRA criteria -->
+          <!-- Five CRA substantiality criteria -->
           <ul class="criteria-list">
             <li class="criteria-item" :class="change.assessment.alters_intended_use ? 'criteria-true' : 'criteria-false'">
               <span class="criteria-icon">{{ change.assessment.alters_intended_use ? "✓" : "✗" }}</span>
               Alters intended use
             </li>
-            <li class="criteria-item" :class="change.assessment.increases_cybersecurity_risk ? 'criteria-true' : 'criteria-false'">
-              <span class="criteria-icon">{{ change.assessment.increases_cybersecurity_risk ? "✓" : "✗" }}</span>
-              Increases cybersecurity risk
+            <li class="criteria-item" :class="change.assessment.introduces_new_threat_vectors ? 'criteria-true' : 'criteria-false'">
+              <span class="criteria-icon">{{ change.assessment.introduces_new_threat_vectors ? "✓" : "✗" }}</span>
+              Introduces new threat vectors
             </li>
-            <li class="criteria-item" :class="change.assessment.changes_hazard_nature ? 'criteria-true' : 'criteria-false'">
-              <span class="criteria-icon">{{ change.assessment.changes_hazard_nature ? "✓" : "✗" }}</span>
-              Changes hazard nature
+            <li class="criteria-item" :class="change.assessment.enables_new_attack_scenarios ? 'criteria-true' : 'criteria-false'">
+              <span class="criteria-icon">{{ change.assessment.enables_new_attack_scenarios ? "✓" : "✗" }}</span>
+              Enables new attack scenarios
             </li>
-            <li class="criteria-item" :class="change.assessment.expands_attack_surface ? 'criteria-true' : 'criteria-false'">
-              <span class="criteria-icon">{{ change.assessment.expands_attack_surface ? "✓" : "✗" }}</span>
-              Expands attack surface
+            <li class="criteria-item" :class="change.assessment.changes_attack_likelihood ? 'criteria-true' : 'criteria-false'">
+              <span class="criteria-icon">{{ change.assessment.changes_attack_likelihood ? "✓" : "✗" }}</span>
+              Changes attack likelihood
+            </li>
+            <li class="criteria-item" :class="change.assessment.changes_attack_impact ? 'criteria-true' : 'criteria-false'">
+              <span class="criteria-icon">{{ change.assessment.changes_attack_impact ? "✓" : "✗" }}</span>
+              Changes attack impact
             </li>
           </ul>
 
@@ -438,9 +442,10 @@ const showEditModal   = ref(false);
 /** Assessment form, pre-filled with defaults. */
 const assessForm = reactive<AssessmentCreate>({
   alters_intended_use: false,
-  increases_cybersecurity_risk: false,
-  changes_hazard_nature: false,
-  expands_attack_surface: false,
+  introduces_new_threat_vectors: false,
+  enables_new_attack_scenarios: false,
+  changes_attack_likelihood: false,
+  changes_attack_impact: false,
   reasoning: "",
   decision_date: new Date().toISOString().slice(0, 10),
 });
@@ -499,6 +504,12 @@ const completedActionCount = computed(
     change.value?.assessment?.compliance_actions.filter(
       (a) => a.action_status === "completed"
     ).length ?? 0
+);
+
+// Close is only allowed once every compliance action is marked complete.
+// For assessed (non-substantial) changes there are no actions, so it is always allowed.
+const allActionsComplete = computed(
+  () => totalActionCount.value === 0 || completedActionCount.value === totalActionCount.value
 );
 
 // ---------------------------------------------------------------------------
@@ -567,6 +578,10 @@ async function doClaim(): Promise<void> {
 }
 
 async function doClose(): Promise<void> {
+  if (!allActionsComplete.value) {
+    errorMessage.value = `Please complete all compliance actions before closing this change (${completedActionCount.value} of ${totalActionCount.value} complete).`;
+    return;
+  }
   await runAction(() => changeService.close(change.value!.id), "Change closed.");
 }
 
@@ -934,6 +949,13 @@ dd { margin: 0; word-break: break-all; }
 
 .criteria-icon { font-size: 0.85rem; font-weight: 700; }
 
+.criteria-ref {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.55;
+}
+
 .reasoning-block {
   display: flex;
   flex-direction: column;
@@ -1104,7 +1126,7 @@ dd { margin: 0; word-break: break-all; }
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #6ea8fe);
+  background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
   color: white;
 }
 
@@ -1121,6 +1143,11 @@ dd { margin: 0; word-break: break-all; }
   padding: 0.4rem 0.6rem;
   font-size: 0.8rem;
   line-height: 1;
+}
+
+.close-blocked-hint {
+  font-size: 0.8rem;
+  align-self: center;
 }
 
 .btn-close {
@@ -1248,7 +1275,7 @@ input, textarea, select {
 <style>
 :root[data-theme="light"] .feedback-error   { color: #be123c; }
 :root[data-theme="light"] .feedback-success { color: #15803d; }
-:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95)); }
 :root[data-theme="light"] .verdict-substantial { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
 :root[data-theme="light"] .verdict-not { background: rgba(22, 163, 74, 0.1); color: #16a34a; }
 :root[data-theme="light"] .action-completed { border-color: rgba(22, 163, 74, 0.25); }

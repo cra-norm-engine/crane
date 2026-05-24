@@ -162,23 +162,27 @@
       </div>
 
       <div class="criteria-panel">
-        <p class="panel-label">CRA Article 3(3)(c) Criteria</p>
+        <p class="panel-label">CRA Substantiality Criteria</p>
         <div class="criteria-grid">
           <div class="criterion" :class="{ 'criterion--met': derivedCriteria.alters_intended_use }">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span>Alters intended use</span>
           </div>
-          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.increases_cybersecurity_risk }">
+          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.introduces_new_threat_vectors }">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Increases cybersecurity risk</span>
+            <span>New threat vectors</span>
           </div>
-          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.changes_hazard_nature }">
+          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.enables_new_attack_scenarios }">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Changes hazard nature</span>
+            <span>New attack scenarios</span>
           </div>
-          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.expands_attack_surface }">
+          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.changes_attack_likelihood }">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Expands attack surface</span>
+            <span>Changed attack likelihood</span>
+          </div>
+          <div class="criterion" :class="{ 'criterion--met': derivedCriteria.changes_attack_impact }">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Changed attack impact</span>
           </div>
         </div>
       </div>
@@ -240,9 +244,10 @@ interface TemplateResponse {
 
 interface CriteriaMapping {
   alters_intended_use: boolean;
-  increases_cybersecurity_risk: boolean;
-  changes_hazard_nature: boolean;
-  expands_attack_surface: boolean;
+  introduces_new_threat_vectors: boolean;
+  enables_new_attack_scenarios: boolean;
+  changes_attack_likelihood: boolean;
+  changes_attack_impact: boolean;
 }
 
 const props = defineProps<{
@@ -272,19 +277,17 @@ const progressPercent = computed(() => {
 const currentQuestion = computed(() => currentQuestions.value[currentQuestionIndex.value]);
 
 const derivedCriteria = computed<CriteriaMapping>(() => {
+  const trueKeys = new Set(
+    currentQuestions.value
+      .filter(q => answers.value[q.id] === true)
+      .map(q => q.cra_criteria_key),
+  );
   return {
-    alters_intended_use: currentQuestions.value
-      .filter(q => answers.value[q.id] === true)
-      .some(q => q.cra_criteria_key === 'alters_intended_use'),
-    increases_cybersecurity_risk: currentQuestions.value
-      .filter(q => answers.value[q.id] === true)
-      .some(q => q.cra_criteria_key === 'increases_cybersecurity_risk'),
-    changes_hazard_nature: currentQuestions.value
-      .filter(q => answers.value[q.id] === true)
-      .some(q => q.cra_criteria_key === 'changes_hazard_nature'),
-    expands_attack_surface: currentQuestions.value
-      .filter(q => answers.value[q.id] === true)
-      .some(q => q.cra_criteria_key === 'expands_attack_surface'),
+    alters_intended_use: trueKeys.has('alters_intended_use'),
+    introduces_new_threat_vectors: trueKeys.has('introduces_new_threat_vectors'),
+    enables_new_attack_scenarios: trueKeys.has('enables_new_attack_scenarios'),
+    changes_attack_likelihood: trueKeys.has('changes_attack_likelihood'),
+    changes_attack_impact: trueKeys.has('changes_attack_impact'),
   };
 });
 
@@ -385,10 +388,11 @@ async function submitAssessment() {
     const payload = {
       methodology: selectedMethodology.value,
       template_answers: answers.value,
-      alters_intended_use: derivedCriteria.value.alters_intended_use || false,
-      increases_cybersecurity_risk: derivedCriteria.value.increases_cybersecurity_risk || false,
-      changes_hazard_nature: derivedCriteria.value.changes_hazard_nature || false,
-      expands_attack_surface: derivedCriteria.value.expands_attack_surface || false,
+      alters_intended_use: derivedCriteria.value.alters_intended_use,
+      introduces_new_threat_vectors: derivedCriteria.value.introduces_new_threat_vectors,
+      enables_new_attack_scenarios: derivedCriteria.value.enables_new_attack_scenarios,
+      changes_attack_likelihood: derivedCriteria.value.changes_attack_likelihood,
+      changes_attack_impact: derivedCriteria.value.changes_attack_impact,
       reasoning: reasoning.value || null,
       decision_date: new Date().toISOString().split('T')[0],
     };
@@ -554,7 +558,7 @@ function formatLabel(value: string): string {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #8b5cf6, #6ea8fe);
+  background: linear-gradient(90deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
   transition: width 0.3s ease;
 }
 
@@ -762,6 +766,13 @@ function formatLabel(value: string): string {
   opacity: 1;
 }
 
+.criterion-ref {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.6;
+  margin-left: 0.3rem;
+}
+
 /* Substantiality result */
 .substantiality-result {
   display: flex;
@@ -865,7 +876,7 @@ textarea:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6ea8fe, #8b5cf6);
+  background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
   color: #fff;
 }
 

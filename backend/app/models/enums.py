@@ -121,6 +121,9 @@ class ReleaseGateItemCode(StrEnum):
     test_report = "test_report"
     declaration_of_conformity = "declaration_of_conformity"
     annex_mapping = "annex_mapping"
+    # Art. 13(7) + Art. 3(30): required for v2+ releases — documents whether the
+    # change constitutes a substantial modification under CRA Art. 3(30).
+    substantial_modification_analysis = "substantial_modification_analysis"
 
 
 class VulnerabilityStatus(StrEnum):
