@@ -471,14 +471,32 @@
             </div>
           </div>
 
-          <!-- Tab: Vulnerabilities (CRA Art. 13(2) — OSV CVE scan) -->
+          <!-- Tab: Vulnerabilities (CRA Art. 13(2) — multi-scanner CVE analysis) -->
           <div v-else-if="activeDetailTab === 'vulnerabilities'" class="tab-panel">
-            <!-- Header: description + scan button -->
+            <!-- Header: description + scanner legend + scan button -->
             <div class="vuln-scan-header">
-              <p class="tab-description muted">
-                OSV database scan — identifies known CVEs in SBOM components (CRA Art. 13(2)).
-              </p>
-              <button class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities">
+              <div>
+                <p class="tab-description muted" style="margin-bottom:0.4rem">
+                  Multi-scanner CVE analysis — OSV · Trivy · NVD — CRA Art. 13(2)
+                </p>
+                <!-- Scanner legend: shows which databases are queried -->
+                <div class="scanner-legend">
+                  <span class="scanner-legend-item">
+                    <span class="source-badge source-badge-osv">OSV</span>
+                    <span class="scanner-legend-label">Open Source Vulnerabilities (PyPI, npm, Go…)</span>
+                  </span>
+                  <span class="scanner-legend-item">
+                    <span class="source-badge source-badge-trivy">TRIVY</span>
+                    <span class="scanner-legend-label">Aqua Trivy (NVD, GHSA, Ubuntu, Debian, Alpine…)</span>
+                  </span>
+                  <span class="scanner-legend-item">
+                    <span class="source-badge source-badge-nvd">NVD</span>
+                    <span class="scanner-legend-label">NIST NVD — CVSS enrichment</span>
+                  </span>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities"
+                title="Runs OSV + Trivy (if installed) and enriches via NVD">
                 {{ isScanningVulns ? "Scanning…" : "Scan for vulnerabilities" }}
               </button>
             </div>
@@ -507,9 +525,15 @@
                   v-for="f in vulnFindings"
                   :key="f.id"
                   class="vuln-card"
-                  :class="`vuln-card-${(f.severity || 'unknown').toLowerCase()}`"
+                  :class="[`vuln-card-${(f.severity || 'unknown').toLowerCase()}`, { 'vuln-card-expanded': expandedFindingId === f.id }]"
+                  role="button"
+                  tabindex="0"
+                  :aria-expanded="expandedFindingId === f.id"
+                  @click="toggleFinding(f.id)"
+                  @keydown.enter.prevent="toggleFinding(f.id)"
+                  @keydown.space.prevent="toggleFinding(f.id)"
                 >
-                  <!-- Row 1: CVE ID + aliases + severity badge + CVSS score -->
+                  <!-- Row 1: CVE ID + aliases + severity badge + CVSS score + chevron -->
                   <div class="vuln-card-top">
                     <div class="vuln-id-group">
                       <code class="vuln-id">{{ f.vuln_id }}</code>
@@ -518,10 +542,28 @@
                       </span>
                     </div>
                     <div class="vuln-badge-group">
+                      <!-- Source attribution badges — which scanner(s) found this CVE -->
+                      <span
+                        v-for="src in (f.sources_json ?? ['osv'])"
+                        :key="src"
+                        class="source-badge"
+                        :class="`source-badge-${src}`"
+                        :title="`Detected by ${src.toUpperCase()}`"
+                      >{{ src.toUpperCase() }}</span>
                       <span class="severity-badge" :class="f.severity ? `severity-${f.severity.toLowerCase()}` : 'severity-unknown'">
                         {{ f.severity ?? "UNKNOWN" }}
                       </span>
                       <span v-if="f.cvss_score !== null" class="cvss-score">CVSS&nbsp;{{ f.cvss_score.toFixed(1) }}</span>
+                      <!-- Expand/collapse chevron -->
+                      <svg
+                        class="vuln-chevron"
+                        :class="{ 'vuln-chevron-open': expandedFindingId === f.id }"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     </div>
                   </div>
 
@@ -535,18 +577,86 @@
                     <span v-if="f.component_version" class="vuln-component-version">@{{ f.component_version }}</span>
                   </div>
 
-                  <!-- Row 3: Summary text -->
-                  <p v-if="f.summary" class="vuln-summary-text">{{ f.summary }}</p>
+                  <!-- Row 3: Summary text (collapsed: 2-line clamp) -->
+                  <p v-if="f.summary" class="vuln-summary-text" :class="{ 'vuln-summary-full': expandedFindingId === f.id }">{{ f.summary }}</p>
 
                   <!-- Row 4: Footer — fixed-in · published · report badge -->
                   <div class="vuln-card-footer">
                     <span v-if="f.fixed_in_versions_json.length" class="vuln-fixed">
-                      Fixed in: <code>{{ f.fixed_in_versions_json.slice(0, 3).join(", ") }}{{ f.fixed_in_versions_json.length > 3 ? "…" : "" }}</code>
+                      Fixed in: <code>{{ f.fixed_in_versions_json.slice(0, 3).join(", ") }}{{ !expandedFindingId && f.fixed_in_versions_json.length > 3 ? "…" : "" }}</code>
                     </span>
                     <span v-else class="vuln-no-fix">No fix available</span>
                     <span class="vuln-footer-spacer" />
                     <span v-if="f.published_at" class="vuln-published muted">Published {{ formatDate(f.published_at) }}</span>
                     <span v-if="f.linked_report_id" class="vuln-linked-badge">Report linked ✓</span>
+                  </div>
+
+                  <!-- ── Expanded detail section ── -->
+                  <div v-if="expandedFindingId === f.id" class="vuln-detail-body" @click.stop>
+
+                    <!-- Aliases -->
+                    <div v-if="f.aliases_json.length" class="vuln-detail-row">
+                      <span class="vuln-detail-label">Also known as</span>
+                      <div class="vuln-aliases-list">
+                        <code v-for="alias in f.aliases_json" :key="alias" class="vuln-alias-chip">{{ alias }}</code>
+                      </div>
+                    </div>
+
+                    <!-- CVSS -->
+                    <div v-if="f.cvss_score !== null || f.cvss_vector" class="vuln-detail-row">
+                      <span class="vuln-detail-label">CVSS</span>
+                      <div class="vuln-detail-value">
+                        <span v-if="f.cvss_score !== null" class="vuln-cvss-score-large">{{ f.cvss_score.toFixed(1) }}</span>
+                        <code v-if="f.cvss_vector" class="vuln-cvss-vector">{{ f.cvss_vector }}</code>
+                      </div>
+                    </div>
+
+                    <!-- Component purl -->
+                    <div v-if="f.component_purl" class="vuln-detail-row">
+                      <span class="vuln-detail-label">Package URL</span>
+                      <code class="vuln-purl">{{ f.component_purl }}</code>
+                    </div>
+
+                    <!-- Fix info -->
+                    <div class="vuln-detail-row">
+                      <span class="vuln-detail-label">Fix available</span>
+                      <div v-if="f.fixed_in_versions_json.length" class="vuln-aliases-list">
+                        <code v-for="v in f.fixed_in_versions_json" :key="v" class="vuln-alias-chip vuln-fix-chip">{{ v }}</code>
+                      </div>
+                      <span v-else class="vuln-no-fix">No fix available</span>
+                    </div>
+
+                    <!-- Dates -->
+                    <div v-if="f.published_at" class="vuln-detail-row">
+                      <span class="vuln-detail-label">Published</span>
+                      <span class="vuln-detail-value">{{ formatDate(f.published_at) }}</span>
+                    </div>
+
+                    <!-- External links -->
+                    <div class="vuln-detail-actions">
+                      <a
+                        v-if="f.vuln_id.startsWith('CVE-') || f.vuln_id.startsWith('UBUNTU-CVE-')"
+                        :href="nvdUrl(f.vuln_id)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn btn-secondary btn-xs"
+                        @click.stop
+                      >
+                        View on NVD ↗
+                      </a>
+                      <a
+                        :href="osvUrl(f.vuln_id)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn btn-secondary btn-xs"
+                        @click.stop
+                      >
+                        View on OSV ↗
+                      </a>
+                      <span v-if="f.linked_report_id" class="vuln-linked-badge">
+                        Vulnerability report linked ✓
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -607,6 +717,7 @@ const detailItem = ref<SbomRecordRead | null>(null);
 const activeDetailTab = ref("overview");
 const vulnFindings = ref<SbomVulnerabilityFindingRead[]>([]);
 const vulnScanError = ref("");
+const expandedFindingId = ref<string | null>(null);
 
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseSummaryRead[]>([]);
@@ -981,7 +1092,21 @@ async function scanVulnerabilities(): Promise<void> {
     } else if (result.components_scanned === 0) {
       vulnScanError.value = "No components with a recognised ecosystem PURL found. Upload a CycloneDX or SPDX SBOM with package URLs to enable scanning.";
     } else {
-      successMessage.value = `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ${result.findings_created} new CVE finding${result.findings_created !== 1 ? "s" : ""}, ${result.reports_created} vulnerability report${result.reports_created !== 1 ? "s" : ""} created.`;
+      // Build a human-readable per-scanner breakdown
+      const ps = result.per_scanner ?? {};
+      const scannerParts: string[] = [];
+      if ((ps.osv ?? 0) > 0)   scannerParts.push(`OSV: ${ps.osv}`);
+      if ((ps.trivy ?? 0) > 0) scannerParts.push(`Trivy: ${ps.trivy}`);
+      if ((ps.both ?? 0) > 0)  scannerParts.push(`Both: ${ps.both}`);
+      const scannerDetail = scannerParts.length ? ` (${scannerParts.join(" · ")})` : "";
+      const nvdDetail = (result.nvd_enrichments ?? 0) > 0 ? ` · NVD enriched ${result.nvd_enrichments}` : "";
+      const trivyNote = result.trivy_available === false ? " · Trivy not installed" : "";
+
+      successMessage.value =
+        `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ` +
+        `${result.findings_created} new finding${result.findings_created !== 1 ? "s" : ""}, ` +
+        `${result.reports_created} report${result.reports_created !== 1 ? "s" : ""} created.` +
+        scannerDetail + nvdDetail + trivyNote;
     }
   } catch {
     vulnScanError.value = "Scan request failed. Check that the backend is running and try again.";
@@ -1000,9 +1125,25 @@ const vulnCountBySeverity = computed(() => {
   return counts;
 });
 
+function toggleFinding(id: string): void {
+  expandedFindingId.value = expandedFindingId.value === id ? null : id;
+}
+
+function nvdUrl(vulnId: string): string {
+  // Extract canonical CVE ID from Ubuntu advisory IDs like "UBUNTU-CVE-2022-1234"
+  const cveMatch = vulnId.match(/CVE-\d{4}-\d+/);
+  const cveId = cveMatch ? cveMatch[0] : vulnId;
+  return `https://nvd.nist.gov/vuln/detail/${cveId}`;
+}
+
+function osvUrl(vulnId: string): string {
+  return `https://osv.dev/vulnerability/${vulnId}`;
+}
+
 // Load vulnerability findings when the tab becomes active
 watch(activeDetailTab, (tab) => {
   if (tab === "vulnerabilities" && detailItem.value) {
+    expandedFindingId.value = null;
     loadVulnFindings(detailItem.value.id);
   }
 });
@@ -1746,5 +1887,169 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--color-success-border);
   font-weight: 600;
   font-size: var(--text-xs);
+}
+
+/* ── Scanner source badges ── */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  line-height: 1.4;
+}
+/* OSV — blue */
+.source-badge-osv    { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+/* Trivy — purple */
+.source-badge-trivy  { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+/* NVD — green */
+.source-badge-nvd    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+
+/* ── Scanner legend (shown in header below description) ── */
+.scanner-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+}
+.scanner-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.scanner-legend-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Clickable vuln cards ── */
+.vuln-card {
+  cursor: pointer;
+  transition: box-shadow 0.13s, border-color 0.13s, background 0.13s;
+}
+.vuln-card:hover {
+  background: var(--color-surface-elevated, var(--color-surface-soft));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.vuln-card:focus-visible {
+  outline: 2px solid rgba(175, 214, 46, 0.7);
+  outline-offset: 1px;
+}
+.vuln-card-expanded {
+  box-shadow: 0 3px 12px rgba(0,0,0,0.09);
+}
+
+/* Expand/collapse chevron */
+.vuln-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+.vuln-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Summary clamp removed when expanded */
+.vuln-summary-full {
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* ── Expanded detail body ── */
+.vuln-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-divider);
+  margin-top: 0.2rem;
+  cursor: default; /* inner clicks don't trigger card toggle */
+}
+
+.vuln-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vuln-detail-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vuln-detail-value {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: var(--text-sm);
+}
+.vuln-detail-sep { color: var(--color-text-muted); opacity: 0.5; }
+
+.vuln-aliases-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.vuln-alias-chip {
+  font-family: monospace;
+  font-size: var(--text-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+}
+.vuln-fix-chip {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border-color: var(--color-success-border);
+}
+
+.vuln-cvss-score-large {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+
+.vuln-cvss-vector {
+  font-size: var(--text-xs);
+  font-family: monospace;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  word-break: break-all;
+}
+
+.vuln-purl {
+  font-size: var(--text-xs);
+  font-family: monospace;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.4rem;
+  word-break: break-all;
+}
+
+.vuln-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.1rem;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.65rem;
+  font-size: var(--text-xs);
+  text-decoration: none;
 }
 </style>
