@@ -37,13 +37,13 @@ export const sbomRecordService = {
     await apiClient.delete(`/sbom-records/${sbomId}`);
   },
 
-  /** Trigger an OSV vulnerability scan for the SBOM's components (CRA Art. 13(2)).
-   *  Extended timeout: the scan performs secondary CVE lookups which can take 30–90 s. */
+  /** Trigger a multi-scanner vulnerability scan (OSV + Trivy + NVD) for this SBOM (CRA Art. 13(2)).
+   *  Extended timeout: Trivy downloads its DB on first cold run; NVD enrichment adds latency. */
   async scanVulnerabilities(sbomId: string): Promise<SbomScanResult> {
     const { data } = await apiClient.post<SbomScanResult>(
       `/sbom-records/${sbomId}/scan-vulnerabilities`,
       null,
-      { timeout: 180_000 },  // 3 minutes — CVE enrichment is sequential per OSV API
+      { timeout: 300_000 },  // 5 minutes — Trivy + NVD enrichment can take 2–3 min cold
     );
     return data;
   },

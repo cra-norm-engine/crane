@@ -596,6 +596,8 @@ export interface SbomVulnerabilityFindingRead {
   published_at: string | null;
   fixed_in_versions_json: string[];
   linked_report_id: string | null;
+  /** Scanner(s) that detected this finding: ["osv"], ["trivy"], or ["osv","trivy"]. */
+  sources_json: string[];
   created_at: string;
   updated_at: string;
 }
@@ -608,6 +610,12 @@ export interface SbomScanResult {
   components_scanned: number;
   /** False when the OSV API was unreachable — findings may be incomplete. */
   osv_reachable: boolean;
+  /** Whether the Trivy CLI was installed and ran during this scan. */
+  trivy_available: boolean;
+  /** Number of findings that received CVSS data from NVD (were missing it from OSV/Trivy). */
+  nvd_enrichments: number;
+  /** Per-scanner finding counts: {osv, trivy, both}. */
+  per_scanner: Record<string, number>;
 }
 
 // ── Gap 10: SBOM Record ────────────────────────────────────────────────────
