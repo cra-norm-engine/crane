@@ -8,20 +8,9 @@
         <p class="muted">Select a product, review every CRA Annex I requirement, and trace each one to risk items, rationale, and supporting artifacts.</p>
       </div>
       <div class="page-actions">
-        <button class="button secondary" type="button" :disabled="loading" @click="resetFilters">
-          Reset filters
-        </button>
         <button class="button secondary" type="button" @click="showFilterModal = true">
           Filter matrix
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-        </button>
-        <button
-          class="button"
-          type="button"
-          :disabled="loading || !selectedProductId"
-          @click="loadMatrix"
-        >
-          {{ loading ? "Refreshing..." : "Refresh matrix" }}
         </button>
       </div>
     </header>
@@ -39,7 +28,6 @@
       <div class="section-heading">
         <div>
           <h2>Product scope</h2>
-          <p class="muted">Search by name or product code, then load one matrix at a time.</p>
         </div>
       </div>
 
@@ -65,16 +53,13 @@
         </label>
 
         <label class="field field-full">
-          <span>
-            Filter by release
-            <span class="field-hint">— show only evidence linked to a specific release's risk assessments</span>
-          </span>
+          <span>Select release <span class="field-hint">— requirement mappings are per release</span></span>
           <select
             v-model="selectedReleaseId"
             class="select"
             :disabled="!selectedProductId || productReleases.length === 0"
           >
-            <option value="">Product baseline (all releases)</option>
+            <option value="">Choose a release</option>
             <option v-for="rel in productReleases" :key="rel.id" :value="rel.id">
               v{{ rel.display_version }} · {{ formatLabel(rel.release_status) }}
             </option>
@@ -84,44 +69,35 @@
     </article>
 
     <!-- ── Matrix list ─────────────────────────────────────── -->
-    <section v-if="selectedProduct" class="card matrix-card">
+    <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card">
       <div class="section-heading">
         <div>
           <h2>{{ selectedProduct.name }}</h2>
           <p class="muted">
+            v{{ selectedRelease?.display_version }} ·
             {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
             {{ stats.verified }} verified · {{ stats.needsDecision }} need decision
           </p>
         </div>
+        <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
+          {{ formatLabel(selectedRelease?.release_status) }}
+        </span>
       </div>
 
-      <!-- Release coverage banner -->
-      <div v-if="releaseCoverage" class="release-banner">
-        <div class="release-banner-left">
-          <span class="release-label">
-            Release scope: <strong>v{{ selectedRelease?.display_version }}</strong>
-            <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
-              {{ formatLabel(selectedRelease?.release_status) }}
-            </span>
-          </span>
-          <span class="release-note">
-            Coverage is derived from trace records linked to risk items in this release's assessments.
+      <!-- Coverage bar -->
+      <div class="release-coverage-bar">
+        <div class="coverage-numbers">
+          <strong>{{ stats.verified }}</strong> / {{ filteredRows.length }} requirements verified
+          <span class="coverage-pct" :class="coveragePct >= 80 ? 'pct-good' : coveragePct >= 40 ? 'pct-partial' : 'pct-low'">
+            {{ coveragePct }}%
           </span>
         </div>
-        <div class="release-coverage-bar">
-          <div class="coverage-numbers">
-            <strong>{{ releaseCoverage.covered }}</strong> / {{ releaseCoverage.total }} requirements have release evidence
-            <span class="coverage-pct" :class="releaseCoverage.pct >= 80 ? 'pct-good' : releaseCoverage.pct >= 40 ? 'pct-partial' : 'pct-low'">
-              {{ releaseCoverage.pct }}%
-            </span>
-          </div>
-          <div class="progress-track">
-            <div
-              class="progress-fill"
-              :class="releaseCoverage.pct >= 80 ? 'fill-good' : releaseCoverage.pct >= 40 ? 'fill-partial' : 'fill-low'"
-              :style="{ width: `${releaseCoverage.pct}%` }"
-            />
-          </div>
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            :class="coveragePct >= 80 ? 'fill-good' : coveragePct >= 40 ? 'fill-partial' : 'fill-low'"
+            :style="{ width: `${coveragePct}%` }"
+          />
         </div>
       </div>
 
@@ -169,13 +145,7 @@
               </span>
               <span class="mini-stat">{{ row.risk_items.length }} risks</span>
               <span class="mini-stat">{{ row.artifacts.length }} artifacts</span>
-              <span
-                v-if="selectedReleaseId"
-                class="mini-stat release-trace-count"
-                :class="getReleaseTraces(row).length > 0 ? 'has-release-evidence' : 'no-release-evidence'"
-              >
-                {{ getReleaseTraces(row).length }} release traces
-              </span>
+              <span class="mini-stat">{{ row.trace_records.length }} traces</span>
 
               <!-- Expand-description toggle (does not open modal) -->
               <span
@@ -222,8 +192,7 @@
     <section v-else class="card state-block">
       <h2>Select a product to start</h2>
       <p class="muted">
-        The matrix is product-scoped so each product can be assessed against every Annex I
-        requirement in one place.
+        Select a product and release to assess every CRA Annex I requirement for that specific version.
       </p>
     </section>
 
@@ -430,23 +399,17 @@
             risk-based trace records and justification notes.
           </div>
 
-          <div v-if="getReleaseTraces(selectedRow).length === 0" class="state-block compact">
-            <h4>{{ selectedReleaseId ? "No release-specific evidence yet" : "No trace record yet" }}</h4>
+          <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
+            <h4>No trace record yet</h4>
             <p class="muted">
-              <template v-if="selectedReleaseId">
-                No trace records are linked to risk items from this release's assessments.
-                Create a risk assessment for this release, add risk items, then link trace records to them.
-              </template>
-              <template v-else>
-                Create a trace record to show fulfillment or justify why this requirement is not
-                applicable for the selected product.
-              </template>
+              Create a trace record to show fulfillment or justify why this requirement is not
+              applicable for the selected release.
             </p>
           </div>
 
           <div v-else class="trace-list">
             <article
-              v-for="trace in getReleaseTraces(selectedRow)"
+              v-for="trace in selectedRow.trace_records"
               :key="trace.id"
               class="trace-card"
               :class="{ selected: selectedTraceId === trace.id }"
@@ -674,8 +637,6 @@ const selectedTraceId = ref("");
 
 /* ── Release-level data ───────────────────────────── */
 const productReleases = ref<ProductReleaseRead[]>([]);
-/* Maps each risk item ID → the release ID of the assessment it belongs to. */
-const riskItemReleaseMap = ref(new Map<string, string>());
 
 /* ── Modal visibility ─────────────────────────────── */
 const showFilterModal = ref(false);
@@ -808,40 +769,11 @@ const selectedRelease = computed(
   () => productReleases.value.find((r: ProductReleaseRead) => r.id === selectedReleaseId.value) ?? null,
 );
 
-/**
- * IDs of risk items that belong to the selected release's risk assessments.
- * Empty set when no release is selected (= product-baseline view).
- */
-const selectedReleaseRiskItemIds = computed((): Set<string> => {
-  if (!selectedReleaseId.value) return new Set();
-  const result = new Set<string>();
-  for (const [itemId, releaseId] of riskItemReleaseMap.value.entries()) {
-    if (releaseId === selectedReleaseId.value) result.add(itemId);
-  }
-  return result;
-});
-
-/**
- * For a given matrix row, returns the trace records that are scoped to the
- * currently selected release (linked via a risk item in that release's assessment).
- * Returns all trace records when no release is selected.
- */
-function getReleaseTraces(row: ProductRequirementMatrixRowRead): RequirementMappingMatrixRead[] {
-  if (!selectedReleaseId.value) return row.trace_records;
-  const ids = selectedReleaseRiskItemIds.value;
-  return row.trace_records.filter(
-    (t: RequirementMappingMatrixRead) => t.risk_item_id !== null && ids.has(t.risk_item_id),
-  );
-}
-
-/** Coverage stats for the currently selected release across all visible rows. */
-const releaseCoverage = computed(() => {
-  if (!selectedReleaseId.value) return null;
+/** Percentage of visible requirements that are verified for the current release. */
+const coveragePct = computed(() => {
   const total = filteredRows.value.length;
-  const covered = filteredRows.value.filter(
-    (row: ProductRequirementMatrixRowRead) => getReleaseTraces(row).length > 0,
-  ).length;
-  return { covered, total, pct: total > 0 ? Math.round((covered / total) * 100) : 0 };
+  if (total === 0) return 0;
+  return Math.round((stats.value.verified / total) * 100);
 });
 
 /* ── Helpers ──────────────────────────────────────── */
@@ -962,35 +894,29 @@ async function loadProducts(): Promise<void> {
 }
 
 async function loadProductContext(productId: string): Promise<void> {
-  const [rows, assessments, artifacts, releases] = await Promise.all([
-    requirementMappingService.productMatrix(productId),
-    riskAssessmentService.list({ product_id: productId }),
+  const [artifacts, releases] = await Promise.all([
     artifactService.list({ product_id: productId }),
     productReleaseService.list(productId),
   ]);
-
-  matrixRows.value = rows;
   productArtifacts.value = artifacts;
   productReleases.value = releases;
+}
+
+async function loadReleaseMatrix(releaseId: string): Promise<void> {
+  const [rows, assessments] = await Promise.all([
+    requirementMappingService.releaseMatrix(releaseId),
+    riskAssessmentService.list({ product_id: selectedProductId.value }),
+  ]);
+
+  matrixRows.value = rows;
 
   const riskLists = await Promise.all(
     assessments.map((assessment: RiskAssessmentRead) => riskItemService.listByAssessment(assessment.id)),
   );
   productRiskItems.value = riskLists.flat();
 
-  /* Build risk-item → release mapping for release-scoped coverage filtering. */
-  const newMap = new Map<string, string>();
-  assessments.forEach((assessment: RiskAssessmentRead, idx: number) => {
-    if (assessment.product_release_id) {
-      for (const item of riskLists[idx]) {
-        newMap.set(item.id, assessment.product_release_id);
-      }
-    }
-  });
-  riskItemReleaseMap.value = newMap;
-
   const activeRow =
-    rows.find((row) => row.annex_requirement.id === selectedRequirementId.value) ?? rows[0] ?? null;
+    rows.find((row: ProductRequirementMatrixRowRead) => row.annex_requirement.id === selectedRequirementId.value) ?? rows[0] ?? null;
   if (activeRow) {
     selectRow(activeRow);
   } else {
@@ -1000,10 +926,9 @@ async function loadProductContext(productId: string): Promise<void> {
 }
 
 async function loadMatrix(): Promise<void> {
-  if (!selectedProductId.value) {
+  if (!selectedProductId.value || !selectedReleaseId.value) {
     matrixRows.value = [];
     productRiskItems.value = [];
-    productArtifacts.value = [];
     selectedRequirementId.value = "";
     resetEditor();
     return;
@@ -1014,7 +939,7 @@ async function loadMatrix(): Promise<void> {
   successMessage.value = "";
 
   try {
-    await loadProductContext(selectedProductId.value);
+    await loadReleaseMatrix(selectedReleaseId.value);
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load Annex I matrix.";
   } finally {
@@ -1056,6 +981,7 @@ async function saveTrace(): Promise<void> {
       successMessage.value = "Trace record updated.";
     } else {
       const payload: RequirementMappingCreate = {
+        product_release_id: selectedReleaseId.value,
         annex_requirement_id: selectedRow.value.annex_requirement.id,
         risk_item_id: traceForm.risk_item_id || null,
         engineering_requirement_ref: traceForm.engineering_requirement_ref || null,
@@ -1132,7 +1058,7 @@ async function downloadArtifact(artifact: ArtifactListRead): Promise<void> {
 }
 
 async function saveApplicabilityDecision(): Promise<void> {
-  if (!selectedRow.value || !selectedProductId.value) return;
+  if (!selectedRow.value || !selectedReleaseId.value) return;
 
   busy.value = true;
   errorMessage.value = "";
@@ -1142,8 +1068,8 @@ async function saveApplicabilityDecision(): Promise<void> {
       applicability_decision: applicabilityForm.applicability_decision,
       rationale: applicabilityForm.rationale.trim() || null,
     };
-    await requirementMappingService.updateProductRequirementDecision(
-      selectedProductId.value,
+    await requirementMappingService.updateReleaseRequirementDecision(
+      selectedReleaseId.value,
       selectedRow.value.annex_requirement.id,
       payload,
     );
@@ -1158,11 +1084,16 @@ async function saveApplicabilityDecision(): Promise<void> {
 
 /* ── Watchers ─────────────────────────────────────── */
 
-watch(selectedProductId, async () => {
+watch(selectedProductId, async (productId) => {
   selectedReleaseId.value = "";
   productReleases.value = [];
-  riskItemReleaseMap.value = new Map();
+  matrixRows.value = [];
+  productRiskItems.value = [];
   resetEditor();
+  if (productId) await loadProductContext(productId);
+});
+
+watch(selectedReleaseId, async () => {
   await loadMatrix();
 });
 
@@ -1837,4 +1768,22 @@ onMounted(async () => {
 :root[data-theme="light"] .status-implemented { background: rgba(37,99,235,0.08);   border-color: rgba(37,99,235,0.22); }
 :root[data-theme="light"] .status-verified    { background: rgba(21,128,61,0.08);   border-color: rgba(21,128,61,0.24); }
 :root[data-theme="light"] .status-not_applicable { background: rgba(180,83,9,0.08); border-color: rgba(180,83,9,0.22); }
+
+/* ── Card border visibility in light mode ── */
+[data-theme="light"] .annex-page .card {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  border-color: transparent;
+}
+[data-theme="light"] .annex-page .trace-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.13);
+  border-color: transparent;
+}
+[data-theme="light"] .annex-page .artifact-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.13);
+  border-color: transparent;
+}
+[data-theme="light"] .annex-page .editor-card {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  border-color: transparent;
+}
 </style>

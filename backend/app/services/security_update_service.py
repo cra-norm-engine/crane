@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,8 @@ from app.models.security_update import SecurityUpdate
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.security_update_repository import SecurityUpdateRepository
 from app.schemas.security_update import SecurityUpdateCreate, SecurityUpdateRead, SecurityUpdateUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityUpdateService:
@@ -63,6 +66,18 @@ class SecurityUpdateService:
         except IntegrityError as exc:
             self.db.rollback()
             raise ConflictException("Unable to create security update due to constraint conflict") from exc
+
+        # Auto-generate lifecycle notifications for support period recipients.
+        try:
+            from app.services.lifecycle_notification_service import LifecycleNotificationService
+            LifecycleNotificationService(self.db).create_security_update_notifications(
+                security_update.id, actor=actor
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create security update lifecycle notifications for update %s",
+                security_update.id,
+            )
 
         return SecurityUpdateRead.model_validate(security_update)
 

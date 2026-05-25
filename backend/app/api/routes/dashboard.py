@@ -14,12 +14,16 @@ from app.api.deps import get_current_user, get_db
 from app.models.audit_log_event import AuditLogEvent
 from app.models.change import Change, SubstantialModificationAssessment
 from app.models.enums import (
+    ArtifactReviewDecision,
     ChangeStatus,
     LifecycleNotificationStatus,
     RiskAssessmentStatus,
+    RiskItemStatus,
     SecurityUpdateSeverity,
     VulnerabilityLifecycleStatus,
 )
+from app.models.release_gate import ReleaseGate, ReleaseGateItem
+from app.models.risk_item import RiskItem
 from app.models.lifecycle_notification import LifecycleNotification
 from app.models.product import Product, ProductRelease  # both defined in product.py
 from app.models.risk_assessment import RiskAssessment
@@ -158,9 +162,11 @@ def get_dashboard(
 
     # ──────────────────────────────────────────────────────────────────────────
     # TASK SUMMARY (current user only)
-    # Aggregate open tasks assigned to current_user across two entity types:
+    # Matches the My Tasks page: aggregates open items across four entity types:
     #   • VulnerabilityReport  (assigned_to_user_id, status not terminal)
     #   • Change               (assigned_to_user_id, status != 'closed')
+    #   • ReleaseGateItem      (assigned_to_user_id, status != 'accepted')
+    #   • RiskItem             (owner_user_id, status not terminal)
     # ──────────────────────────────────────────────────────────────────────────
     task_due_dates: list[date | None] = []
 
@@ -185,6 +191,29 @@ def get_dashboard(
         )
     ).scalars().all()
     task_due_dates.extend(change_task_rows)
+
+    # Release gate items assigned to this user (not yet accepted).
+    gate_task_rows = db.execute(
+        select(ReleaseGateItem.due_date).where(
+            and_(
+                ReleaseGateItem.assigned_to_user_id == current_user.id,
+                ReleaseGateItem.status != ArtifactReviewDecision.accepted,
+            )
+        )
+    ).scalars().all()
+    task_due_dates.extend(gate_task_rows)
+
+    # Risk items owned by this user (not mitigated, accepted, or closed).
+    risk_terminal = (RiskItemStatus.mitigated, RiskItemStatus.accepted, RiskItemStatus.closed)
+    risk_task_rows = db.execute(
+        select(RiskItem.due_date).where(
+            and_(
+                RiskItem.owner_user_id == current_user.id,
+                RiskItem.status.notin_(list(risk_terminal)),
+            )
+        )
+    ).scalars().all()
+    task_due_dates.extend(risk_task_rows)
 
     task_total_open = len(task_due_dates)
     task_overdue = 0

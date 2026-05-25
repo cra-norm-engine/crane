@@ -12,8 +12,6 @@ from app.models.requirement_mapping import (
     RequirementMapping,
     RequirementMappingArtifactLink,
 )
-from app.models.risk_assessment import RiskAssessment
-from app.models.risk_item import RiskItem
 from app.repositories.base import BaseRepository
 
 
@@ -60,6 +58,16 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def list_by_release(self, release_id: UUID) -> list[RequirementMapping]:
+        """Return all trace records for a specific release."""
+        stmt = (
+            select(RequirementMapping)
+            .where(RequirementMapping.product_release_id == release_id)
+            .options(*self._matrix_options())
+            .order_by(RequirementMapping.created_at.desc())
+        )
+        return list(self.db.scalars(stmt).unique().all())
+
     def list_for_matrix(self) -> list[RequirementMapping]:
         stmt = (
             select(RequirementMapping)
@@ -67,17 +75,6 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
             .order_by(RequirementMapping.created_at.desc())
         )
         return list(self.db.scalars(stmt).all())
-
-    def list_by_product(self, product_id: UUID) -> list[RequirementMapping]:
-        stmt = (
-            select(RequirementMapping)
-            .join(RiskItem, RequirementMapping.risk_item_id == RiskItem.id, isouter=True)
-            .join(RiskAssessment, RiskItem.risk_assessment_id == RiskAssessment.id, isouter=True)
-            .where(RiskAssessment.product_id == product_id)
-            .options(*self._matrix_options())
-            .order_by(RequirementMapping.created_at.desc())
-        )
-        return list(self.db.scalars(stmt).unique().all())
 
     def get_with_relations(self, mapping_id: UUID) -> RequirementMapping | None:
         stmt = (
@@ -93,6 +90,30 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
             raise NotFoundException("Requirement mapping not found")
         return mapping
 
-    def list_product_decisions(self, product_id: UUID) -> list[ProductRequirementDecision]:
-        stmt = select(ProductRequirementDecision).where(ProductRequirementDecision.product_id == product_id)
+    def list_release_decisions(self, release_id: UUID) -> list[ProductRequirementDecision]:
+        """Return all applicability decisions for a specific release."""
+        stmt = select(ProductRequirementDecision).where(
+            ProductRequirementDecision.product_release_id == release_id
+        )
         return list(self.db.scalars(stmt).all())
+
+    def copy_decisions_from_release(
+        self,
+        source_release_id: UUID,
+        target_release_id: UUID,
+    ) -> list[ProductRequirementDecision]:
+        """Copy applicability decisions from a parent release to a new release."""
+        source_decisions = self.list_release_decisions(source_release_id)
+        copied: list[ProductRequirementDecision] = []
+        for decision in source_decisions:
+            new_decision = ProductRequirementDecision(
+                product_release_id=target_release_id,
+                annex_requirement_id=decision.annex_requirement_id,
+                applicability_decision=decision.applicability_decision,
+                rationale=decision.rationale,
+            )
+            self.db.add(new_decision)
+            copied.append(new_decision)
+        if copied:
+            self.db.flush()
+        return copied

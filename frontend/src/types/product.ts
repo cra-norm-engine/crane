@@ -224,7 +224,7 @@ export type SecurityUpdateSeverity =
   | "low"
   | "informational";
 
-export type LifecycleNotificationType = "end_of_support_upcoming";
+export type LifecycleNotificationType = "end_of_support_upcoming" | "security_update_available";
 
 export type LifecycleNotificationStatus = "pending" | "sent" | "dismissed";
 
@@ -688,7 +688,8 @@ export interface SbomRecordUpdate {
 
 export interface LifecycleNotificationRead {
   id: string;
-  support_period_record_id: string;
+  support_period_record_id: string | null;
+  security_update_id: string | null;
   recipient_user_id: string | null;
   notification_type: LifecycleNotificationType;
   status: LifecycleNotificationStatus;

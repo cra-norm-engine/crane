@@ -58,6 +58,17 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           {{ busyAction === "download" ? "Downloading…" : "Technical Documentation" }}
         </button>
+        <!-- Compliance report PDF — available for any non-draft release -->
+        <button
+          v-if="releaseDetail && releaseDetail.release.release_status !== 'draft'"
+          class="btn-secondary"
+          type="button"
+          @click="downloadReport"
+          :disabled="busy"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          {{ busyAction === "report" ? "Generating…" : "Compliance Report (PDF)" }}
+        </button>
       </div>
     </header>
 
@@ -1078,6 +1089,22 @@ async function downloadBundle(): Promise<void> {
   }
 }
 
+async function downloadReport(): Promise<void> {
+  if (!releaseDetail.value) return;
+  busy.value = true;
+  busyAction.value = "report";
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    await releaseGateService.downloadReport(releaseDetail.value.release.id);
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to generate compliance report.";
+  } finally {
+    busy.value = false;
+    busyAction.value = "";
+  }
+}
+
 function copyHash(hash: string): void {
   navigator.clipboard.writeText(hash).catch(() => {
     // Clipboard API not available — silently ignore.
@@ -1292,20 +1319,21 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6ea8fe, #8b5cf6);
+  background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95));
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(110, 168, 254, 0.25);
+  box-shadow: 0 2px 8px rgba(28, 107, 39, 0.25);
 }
 
 .btn-secondary {
-  background: rgba(110, 168, 254, 0.12);
-  color: #93c5fd;
-  border-color: rgba(110, 168, 254, 0.3);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
 }
 
 .btn-secondary:hover {
-  background: rgba(110, 168, 254, 0.2);
+  background: var(--color-surface-elevated-strong);
+  border-color: var(--color-primary);
 }
 
 .btn-ghost {
@@ -2743,16 +2771,8 @@ onMounted(() => {
   color: #15803d;
 }
 :root[data-theme="light"] .btn-primary {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-}
-:root[data-theme="light"] .btn-secondary {
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
-  border-color: rgba(37, 99, 235, 0.28);
-}
-:root[data-theme="light"] .btn-secondary:hover {
-  background: rgba(37, 99, 235, 0.16);
+  background: linear-gradient(135deg, #7cb825, #1c6b27);
+  box-shadow: 0 2px 8px rgba(28, 107, 39, 0.28);
 }
 :root[data-theme="light"] .btn-ghost {
   color: var(--color-text-muted);
@@ -2956,4 +2976,26 @@ onMounted(() => {
 .kev-banner-body strong { display: block; font-weight: 600; margin-bottom: 0.25rem; }
 .kev-banner-body p { margin: 0; font-size: var(--text-sm); }
 .kev-notes { margin-top: 0.25rem !important; font-style: italic; }
+
+/* ── Card border visibility in light mode ── */
+[data-theme="light"] .release-page .card {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  border-color: transparent;
+}
+[data-theme="light"] .release-page .evidence-card {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.13);
+}
+[data-theme="light"] .release-page .evidence-card.ev-accepted {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1.5px rgba(21,128,61,0.45);
+}
+[data-theme="light"] .release-page .evidence-card.ev-rejected {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1.5px rgba(200,95,95,0.45);
+}
+[data-theme="light"] .release-page .evidence-card.ev-needs_update {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1.5px rgba(183,155,18,0.45);
+}
 </style>

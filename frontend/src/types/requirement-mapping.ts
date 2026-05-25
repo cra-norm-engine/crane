@@ -26,6 +26,7 @@ export type RequirementApplicabilityDecision =
 
 export interface RequirementMappingRead {
   id: string;
+  product_release_id: string;
   risk_item_id: string | null;
   annex_requirement_id: string;
   engineering_requirement_ref: string | null;
@@ -38,6 +39,7 @@ export interface RequirementMappingRead {
 
 export interface RequirementMappingSummaryRead {
   id: string;
+  product_release_id: string;
   risk_item_id: string | null;
   annex_requirement_id: string;
   engineering_requirement_ref: string | null;
@@ -73,6 +75,7 @@ export interface ProductRequirementDecisionUpdate {
 }
 
 export interface RequirementMappingCreate {
+  product_release_id: string;
   risk_item_id?: string | null;
   annex_requirement_id: string;
   engineering_requirement_ref?: string | null;

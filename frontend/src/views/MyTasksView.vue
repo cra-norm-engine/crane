@@ -411,13 +411,13 @@ function formatDate(iso: string | null): string {
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-secondary {
-  background: var(--color-surface-elevated, rgba(255,255,255,0.06));
-  border-color: var(--color-border, rgba(148,163,184,0.2));
-  color: var(--color-text, #e2e8f0);
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 .btn-secondary:not(:disabled):hover {
-  background: var(--color-surface-alt, rgba(255,255,255,0.1));
+  background: var(--color-surface-elevated-strong);
 }
 
 .btn-icon {
@@ -426,7 +426,7 @@ function formatDate(iso: string | null): string {
   flex-shrink: 0;
 }
 
-/* ── Stat row (mirrors ChangesView exactly) ────────────────────────────────── */
+/* ── Stat row ───────────────────────────────────────────────────────────────── */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -441,8 +441,8 @@ function formatDate(iso: string | null): string {
   gap: 0.25rem;
   padding: 1rem;
   border-radius: 1rem;
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  background: var(--color-surface-soft, rgba(15, 23, 42, 0.4));
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   text-align: center;
 }
 
@@ -450,36 +450,38 @@ function formatDate(iso: string | null): string {
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
+  color: var(--color-text);
 }
 
 .stat-label { font-size: 0.8rem; }
 
-.stat-card-warn  .stat-value { color: #fbbf24; }
-.stat-card-alert .stat-value { color: #f87171; }
+/* Semantic colors via CSS variables — correct in both dark and light mode */
+.stat-card-warn  .stat-value { color: var(--color-warning); }
+.stat-card-alert .stat-value { color: var(--color-danger); }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 .empty-panel {
   padding: 3rem 2rem;
   text-align: center;
-  color: var(--color-text-muted, #94a3b8);
+  color: var(--color-text-muted);
 }
 
 .empty-icon {
   font-size: 2.5rem;
   margin-bottom: 0.5rem;
-  color: #4ade80;
+  color: var(--color-success);
 }
 
 .empty-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
   margin: 0 0 0.4rem;
 }
 
 /* ── Feedback ────────────────────────────────────────────────────────────────── */
 .feedback { padding: 1rem 1.1rem; border-radius: 1rem; }
-.feedback-error { color: #fda4af; }
+.feedback-error { color: var(--color-danger-text); }
 
 /* ── Section header ─────────────────────────────────────────────────────────── */
 .section-header {
@@ -501,7 +503,7 @@ function formatDate(iso: string | null): string {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--color-text, #e2e8f0);
+  color: var(--color-text);
 }
 
 /* Coloured dot before section title */
@@ -510,13 +512,13 @@ function formatDate(iso: string | null): string {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--color-text-muted, #94a3b8);
+  background: var(--color-text-muted);
 }
 
-.group-dot--overdue  { background: #f87171; }
-.group-dot--week     { background: #fbbf24; }
-.group-dot--upcoming { background: #60a5fa; }
-.group-dot--none     { background: var(--color-text-muted, #94a3b8); }
+.group-dot--overdue  { background: var(--color-danger); }
+.group-dot--week     { background: var(--color-warning); }
+.group-dot--upcoming { background: var(--color-info); }
+.group-dot--none     { background: var(--color-text-muted); }
 
 /* Count pill next to section title */
 .count-badge {
@@ -524,15 +526,23 @@ function formatDate(iso: string | null): string {
   font-weight: 700;
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
-  background: var(--color-surface-elevated, rgba(255,255,255,0.08));
-  color: var(--color-text-muted, #94a3b8);
-  border: 1px solid var(--color-border, rgba(148,163,184,0.15));
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
 }
 
-.count-badge--overdue { background: rgba(248,113,113,0.15); color: #f87171; border-color: rgba(248,113,113,0.25); }
-.count-badge--week    { background: rgba(251,191,36,0.12);  color: #fbbf24; border-color: rgba(251,191,36,0.25); }
+.count-badge--overdue {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-border);
+}
+.count-badge--week {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-border);
+}
 
-/* ── Table (identical to ChangesView) ──────────────────────────────────────── */
+/* ── Table ──────────────────────────────────────────────────────────────────── */
 .table-wrapper { overflow-x: auto; }
 
 .data-table {
@@ -544,12 +554,12 @@ function formatDate(iso: string | null): string {
 .data-table td {
   padding: 0.85rem 0.75rem;
   text-align: left;
-  border-bottom: 1px solid var(--color-border, rgba(148, 163, 184, 0.15));
+  border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
 
 .data-table th {
-  color: var(--color-text-muted, #94a3b8);
+  color: var(--color-text-muted);
   font-size: 0.82rem;
   font-weight: 600;
   white-space: nowrap;
@@ -563,16 +573,16 @@ function formatDate(iso: string | null): string {
 }
 
 .table-row-clickable:hover {
-  background: var(--color-surface-elevated, rgba(255, 255, 255, 0.04));
+  background: var(--color-surface-elevated);
 }
 
 .table-row-clickable:focus-visible {
-  outline: 2px solid var(--color-primary, #6ea8fe);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
 }
 
 .row-arrow {
-  color: var(--color-text-muted, #94a3b8);
+  color: var(--color-text-muted);
   text-align: right;
   font-size: 1.1rem;
 }
@@ -590,12 +600,12 @@ function formatDate(iso: string | null): string {
 .status-text {
   font-size: 0.82rem;
   text-transform: capitalize;
-  color: var(--color-text-muted, #94a3b8);
+  color: var(--color-text-muted);
 }
 
 /* ── Due date ───────────────────────────────────────────────────────────────── */
 .due-date { font-size: 0.82rem; }
-.due-date--overdue { color: #f87171; font-weight: 600; }
+.due-date--overdue { color: var(--color-danger); font-weight: 600; }
 
 /* ── Entity type badges ─────────────────────────────────────────────────────── */
 .type-badge {
@@ -606,9 +616,27 @@ function formatDate(iso: string | null): string {
   white-space: nowrap;
 }
 
-.type-vulnerability_report { background: rgba(220,38,38,0.15);  color: #fca5a5; }
-.type-change               { background: rgba(37,99,235,0.15);  color: #93c5fd; }
-.type-release_gate_item    { background: rgba(22,163,74,0.15);  color: #86efac; }
-.type-risk_item            { background: rgba(217,119,6,0.15);  color: #fcd34d; }
+/* Dark-mode badge text — light pastels on dark backgrounds */
+.type-vulnerability_report { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.type-change               { background: var(--color-info-bg);    color: var(--color-info-text);    border: 1px solid var(--color-info-border); }
+.type-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
+.type-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); }
+</style>
 
+<!-- Light-mode card/stat-card border overrides — non-scoped to reach the theme root selector -->
+<style>
+[data-theme="light"] .page .card {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  border-color: transparent;
+}
+[data-theme="light"] .page .stat-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.14);
+  border-color: transparent;
+}
+[data-theme="light"] .page .stat-card-alert {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(200,95,95,0.55);
+}
+[data-theme="light"] .page .stat-card-warn {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(183,155,18,0.55);
+}
 </style>

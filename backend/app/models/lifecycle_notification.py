@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -12,18 +12,38 @@ from app.models.enums import LifecycleNotificationStatus, LifecycleNotificationT
 
 class LifecycleNotification(UUIDTimestampMixin, Base):
     __tablename__ = "lifecycle_notifications"
+    # Two partial unique indexes replace the old single unique constraint:
+    # - EOS notifications keyed by support_period_record_id
+    # - Security update notifications keyed by security_update_id
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_lifecycle_notif_eos",
             "support_period_record_id",
             "notification_type",
             "recipient_user_id",
-            name="uq_lifecycle_notifications_record_type_recipient",
+            unique=True,
+            postgresql_where=text("support_period_record_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_lifecycle_notif_security_update",
+            "security_update_id",
+            "notification_type",
+            "recipient_user_id",
+            unique=True,
+            postgresql_where=text("security_update_id IS NOT NULL"),
         ),
     )
 
-    support_period_record_id: Mapped[uuid.UUID] = mapped_column(
+    # Nullable: set for EOS notifications, NULL for security update notifications.
+    support_period_record_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("support_period_records.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    # Nullable: set for security update notifications, NULL for EOS notifications.
+    security_update_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("security_updates.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -48,9 +68,12 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
-    support_period_record: Mapped["SupportPeriodRecord"] = relationship(
+    support_period_record: Mapped["SupportPeriodRecord | None"] = relationship(
         "SupportPeriodRecord",
         back_populates="lifecycle_notifications",
+    )
+    security_update: Mapped["SecurityUpdate | None"] = relationship(
+        "SecurityUpdate",
     )
     recipient_user: Mapped["User | None"] = relationship(
         "User",

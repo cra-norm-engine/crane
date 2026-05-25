@@ -72,6 +72,24 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         )
         return self.db.scalar(statement)
 
+    def get_by_security_update_and_type(
+        self,
+        *,
+        security_update_id: UUID,
+        notification_type: LifecycleNotificationType,
+        recipient_user_id: UUID | None,
+    ) -> LifecycleNotification | None:
+        statement = (
+            select(LifecycleNotification)
+            .options(*self._default_options())
+            .where(
+                LifecycleNotification.security_update_id == security_update_id,
+                LifecycleNotification.notification_type == notification_type,
+                LifecycleNotification.recipient_user_id == recipient_user_id,
+            )
+        )
+        return self.db.scalar(statement)
+
     def list_pending_due(self, now: datetime) -> list[LifecycleNotification]:
         statement = (
             select(LifecycleNotification)

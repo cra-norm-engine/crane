@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CRA Compliance Report — {{ product.name }} {{ release.user_version or ("v" ~ release.system_version) }}</title>
+<style>
+/* =========================================================
+   Page layout
+   ========================================================= */
+@page {
+  size: A4;
+  margin: 20mm 18mm 22mm 18mm;
+
+  @bottom-center {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: 'DejaVu Sans', sans-serif;
+    font-size: 8pt;
+    color: #6b7280;
+  }
+  @bottom-left {
+    content: "{{ tool_name }} — Confidential";
+    font-family: 'DejaVu Sans', sans-serif;
+    font-size: 8pt;
+    color: #6b7280;
+  }
+  @bottom-right {
+    content: "Generated {{ generated_at }}";
+    font-family: 'DejaVu Sans', sans-serif;
+    font-size: 8pt;
+    color: #6b7280;
+  }
+}
+
+@page :first {
+  @bottom-center { content: ""; }
+  @bottom-left   { content: ""; }
+  @bottom-right  { content: ""; }
+}
+
+/* =========================================================
+   Base typography
+   ========================================================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif;
+  font-size: 9pt;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+h1 { font-size: 22pt; font-weight: 700; }
+h2 { font-size: 13pt; font-weight: 700; margin-bottom: 6pt; color: #1f2937; }
+h3 { font-size: 10pt; font-weight: 600; margin-bottom: 4pt; color: #374151; }
+
+p  { margin-bottom: 6pt; }
+
+/* =========================================================
+   Cover page
+   ========================================================= */
+.cover {
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 240mm;
+  padding: 10mm 0;
+}
+
+.cover-header {
+  background: linear-gradient(135deg, #166534 0%, #15803d 60%, #4ade80 100%);
+  color: #ffffff;
+  padding: 16mm 16mm 12mm 16mm;
+  border-radius: 4px;
+  margin-bottom: 10mm;
+}
+
+.cover-label {
+  font-size: 9pt;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 4mm;
+}
+
+.cover h1 { margin-bottom: 3mm; }
+
+.cover-version {
+  font-size: 16pt;
+  font-weight: 300;
+  opacity: 0.9;
+  margin-bottom: 6mm;
+}
+
+.cover-meta {
+  font-size: 9pt;
+  opacity: 0.8;
+}
+
+.cover-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+  margin-top: 8mm;
+}
+
+.cover-detail-block {
+  border: 1px solid #d1fae5;
+  border-radius: 3px;
+  padding: 5mm;
+  background: #f0fdf4;
+}
+
+.cover-detail-block .label {
+  font-size: 7.5pt;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 2pt;
+}
+
+.cover-detail-block .value {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* =========================================================
+   Section layout
+   ========================================================= */
+.section {
+  margin-bottom: 10mm;
+  page-break-inside: avoid;
+}
+
+.section-title {
+  border-bottom: 2px solid #16a34a;
+  padding-bottom: 3pt;
+  margin-bottom: 6pt;
+  page-break-after: avoid;
+}
+
+/* =========================================================
+   Two-column definition table
+   ========================================================= */
+.def-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.def-table td {
+  padding: 3.5pt 6pt;
+  vertical-align: top;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.def-table td:first-child {
+  width: 38%;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* =========================================================
+   Data tables (gate items, risk items, etc.)
+   ========================================================= */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+  margin-top: 4pt;
+}
+
+.data-table th {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  padding: 4pt 6pt;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-table td {
+  padding: 4pt 6pt;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+/* =========================================================
+   Status badges
+   ========================================================= */
+.badge {
+  display: inline-block;
+  padding: 1pt 5pt;
+  border-radius: 3px;
+  font-size: 7.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-red    { background: #fee2e2; color: #991b1b; }
+.badge-yellow { background: #fef3c7; color: #92400e; }
+.badge-gray   { background: #f3f4f6; color: #4b5563; }
+.badge-blue   { background: #dbeafe; color: #1e40af; }
+
+/* =========================================================
+   Criterion checklist
+   ========================================================= */
+.criterion-list { list-style: none; margin: 4pt 0; }
+.criterion-list li {
+  padding: 2.5pt 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 5pt;
+  font-size: 8.5pt;
+}
+
+.criterion-tick { font-size: 10pt; line-height: 1.2; }
+.tick-yes  { color: #dc2626; }
+.tick-no   { color: #16a34a; }
+
+/* =========================================================
+   Summary row (gate overview)
+   ========================================================= */
+.gate-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4mm;
+  margin-bottom: 6mm;
+}
+
+.gate-stat {
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  padding: 4mm;
+  text-align: center;
+}
+
+.gate-stat .num  { font-size: 18pt; font-weight: 700; line-height: 1.1; }
+.gate-stat .lbl  { font-size: 7.5pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.gate-stat.green { border-color: #86efac; background: #f0fdf4; }
+.gate-stat.green .num { color: #15803d; }
+.gate-stat.red   { border-color: #fca5a5; background: #fef2f2; }
+.gate-stat.red   .num { color: #b91c1c; }
+.gate-stat.yellow{ border-color: #fde68a; background: #fffbeb; }
+.gate-stat.yellow .num { color: #b45309; }
+.gate-stat.gray  { border-color: #d1d5db; background: #f9fafb; }
+.gate-stat.gray  .num { color: #4b5563; }
+
+/* =========================================================
+   Info box
+   ========================================================= */
+.info-box {
+  border-left: 3px solid #16a34a;
+  background: #f0fdf4;
+  padding: 4pt 8pt;
+  margin: 4pt 0 8pt 0;
+  font-size: 8.5pt;
+  color: #166534;
+}
+
+.warn-box {
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+  padding: 4pt 8pt;
+  margin: 4pt 0 8pt 0;
+  font-size: 8.5pt;
+  color: #92400e;
+}
+
+.none-note {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 8.5pt;
+  padding: 4pt 0;
+}
+
+/* =========================================================
+   Utility
+   ========================================================= */
+.page-break-before { page-break-before: always; }
+.text-muted { color: #6b7280; }
+.text-bold  { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     COVER PAGE
+     ============================================================ -->
+<div class="cover">
+  <div class="cover-header">
+    <div class="cover-label">CRA Compliance Report</div>
+    <h1>{{ product.name }}</h1>
+    <div class="cover-version">
+      {{ release.user_version or ("Version " ~ release.system_version) }}
+    </div>
+    <div class="cover-meta">
+      {{ product.manufacturer_name or "—" }} &nbsp;·&nbsp;
+      Classification: {{ release.classification_snapshot.value | fmt_status }}
+    </div>
+  </div>
+
+  <div class="cover-details">
+    <div class="cover-detail-block">
+      <div class="label">Product Code</div>
+      <div class="value">{{ product.product_code }}</div>
+    </div>
+    <div class="cover-detail-block">
+      <div class="label">Release Status</div>
+      <div class="value">{{ release.release_status.value | fmt_status }}</div>
+    </div>
+    <div class="cover-detail-block">
+      <div class="label">Placed on Market</div>
+      <div class="value">{{ release.placed_on_market_date | fmt_date }}</div>
+    </div>
+    <div class="cover-detail-block">
+      <div class="label">Conformity Route</div>
+      <div class="value">{{ release.conformity_route_snapshot.value | fmt_status }}</div>
+    </div>
+    <div class="cover-detail-block">
+      <div class="label">EU DoC Number</div>
+      <div class="value">{{ release.eu_doc_number or "—" }}</div>
+    </div>
+    <div class="cover-detail-block">
+      <div class="label">EU DoC Date</div>
+      <div class="value">{{ release.eu_doc_date | fmt_date }}</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     1. PRODUCT SUMMARY
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">1. Product Summary</h2>
+  <table class="def-table">
+    <tbody>
+      <tr><td>Product Name</td><td>{{ product.name }}</td></tr>
+      <tr><td>Product Code</td><td>{{ product.product_code }}</td></tr>
+      <tr><td>Manufacturer</td><td>{{ product.manufacturer_name or "—" }}</td></tr>
+      <tr><td>Product Type</td><td>{{ product.product_type.value | fmt_status if product.product_type else "—" }}</td></tr>
+      <tr><td>Current Classification</td><td>{{ product.current_classification.value | fmt_status }}</td></tr>
+      <tr><td>Intended Use</td><td>{{ product.intended_use or "—" }}</td></tr>
+      <tr><td>Pre-CRA Product</td><td>{{ product.is_pre_cra | fmt_bool }}</td></tr>
+      {% if product.is_pre_cra and product.first_placed_on_market_date %}
+      <tr><td>First Placed on Market</td><td>{{ product.first_placed_on_market_date | fmt_date }}</td></tr>
+      {% endif %}
+      <tr><td>Security Contact</td><td>{{ product.security_contact_email or product.security_contact_url or "—" }}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     2. RELEASE DETAILS
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">2. Release Details</h2>
+  <table class="def-table">
+    <tbody>
+      <tr><td>System Version</td><td>v{{ release.system_version }}</td></tr>
+      <tr><td>Display Version</td><td>{{ release.user_version or "—" }}</td></tr>
+      <tr><td>Release Status</td><td>{{ release.release_status.value | fmt_status }}</td></tr>
+      <tr><td>Classification (snapshot)</td><td>{{ release.classification_snapshot.value | fmt_status }}</td></tr>
+      <tr><td>Conformity Route</td><td>{{ release.conformity_route_snapshot.value | fmt_status }}</td></tr>
+      <tr><td>Planned Release Date</td><td>{{ release.planned_release_date | fmt_date }}</td></tr>
+      <tr><td>Actual Release Date</td><td>{{ release.actual_release_date | fmt_date }}</td></tr>
+      <tr><td>Placed on Market Date</td><td>{{ release.placed_on_market_date | fmt_date }}</td></tr>
+      <tr><td>Known Exploitable Vulns</td><td>{{ release.has_known_exploitable_vulnerabilities | fmt_bool }}</td></tr>
+      {% if release.kev_notes %}
+      <tr><td>KEV Notes</td><td>{{ release.kev_notes }}</td></tr>
+      {% endif %}
+      {% if release.release_notes %}
+      <tr><td>Release Notes</td><td style="white-space: pre-wrap;">{{ release.release_notes }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     3. EU DECLARATION OF CONFORMITY
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">3. EU Declaration of Conformity (Art. 28)</h2>
+  {% if release.eu_doc_date or release.eu_doc_number %}
+  <div class="info-box">
+    DoC metadata recorded. The full EU DoC document is attached as a gate evidence artifact.
+  </div>
+  <table class="def-table">
+    <tbody>
+      <tr><td>DoC Reference Number</td><td>{{ release.eu_doc_number or "—" }}</td></tr>
+      <tr><td>Draw-up Date</td><td>{{ release.eu_doc_date | fmt_date }}</td></tr>
+      <tr><td>Conformity Route</td><td>{{ release.conformity_route_snapshot.value | fmt_status }}</td></tr>
+      {% if release.eu_doc_notified_body %}
+      <tr><td>Notified Body</td><td>{{ release.eu_doc_notified_body }}</td></tr>
+      {% endif %}
+      <tr><td>Placed on Market Date</td><td>{{ release.placed_on_market_date | fmt_date }}</td></tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">EU DoC metadata not yet recorded for this release.</p>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     4. RELEASE GATE
+     ============================================================ -->
+<div class="section page-break-before">
+  <h2 class="section-title">4. Release Gate</h2>
+
+  {% if gate %}
+  <table class="def-table" style="margin-bottom: 6mm;">
+    <tbody>
+      <tr><td>Gate Status</td><td>{{ gate.status.value | fmt_status }}</td></tr>
+      <tr><td>Submitted At</td><td>{{ gate.submitted_at | fmt_date }}</td></tr>
+      <tr><td>Approved At</td><td>{{ gate.approved_at | fmt_date }}</td></tr>
+      {% if gate.approved_by_user %}
+      <tr><td>Approved By</td><td>{{ gate.approved_by_user.full_name or gate.approved_by_user.email }}</td></tr>
+      {% endif %}
+      {% if gate.bundle_sha256 %}
+      <tr><td>Bundle SHA-256</td><td style="font-family: monospace; font-size: 7.5pt;">{{ gate.bundle_sha256 }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <!-- Gate item overview stats -->
+  <div class="gate-overview">
+    <div class="gate-stat green">
+      <div class="num">{{ gate_summary.accepted }}</div>
+      <div class="lbl">Accepted</div>
+    </div>
+    <div class="gate-stat red">
+      <div class="num">{{ gate_summary.rejected }}</div>
+      <div class="lbl">Rejected</div>
+    </div>
+    <div class="gate-stat yellow">
+      <div class="num">{{ gate_summary.pending }}</div>
+      <div class="lbl">Pending</div>
+    </div>
+    <div class="gate-stat gray">
+      <div class="num">{{ gate_summary.waived }}</div>
+      <div class="lbl">Waived</div>
+    </div>
+  </div>
+
+  {% if gate_items %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 35%;">Gate Item</th>
+        <th style="width: 15%;">Status</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in gate_items %}
+      <tr>
+        <td class="text-bold">{{ item.title }}</td>
+        <td>
+          {% set s = item.status.value if item.status else "" %}
+          {% if s == "accepted" %}
+            <span class="badge badge-green">Accepted</span>
+          {% elif s == "rejected" %}
+            <span class="badge badge-red">Rejected</span>
+          {% elif s == "waived" %}
+            <span class="badge badge-gray">Waived</span>
+          {% else %}
+            <span class="badge badge-yellow">Pending</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">{{ item.description or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">No gate items recorded.</p>
+  {% endif %}
+
+  {% else %}
+  <p class="none-note">No release gate found for this release.</p>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     5. SUBSTANTIAL MODIFICATION ANALYSIS (Art. 3(30))
+     ============================================================ -->
+<div class="section page-break-before">
+  <h2 class="section-title">5. Substantial Modification Analysis (Art. 3(30))</h2>
+
+  {% if substantiality_analysis %}
+  {% set a = substantiality_analysis %}
+  <table class="def-table" style="margin-bottom: 5mm;">
+    <tbody>
+      <tr><td>Decision Date</td><td>{{ a.decision_date | fmt_date }}</td></tr>
+      <tr><td>Methodology</td><td>{{ a.methodology.value | fmt_status if a.methodology else "Manual assessment" }}</td></tr>
+      <tr>
+        <td>Outcome</td>
+        <td>
+          {% if a.is_substantial %}
+            <span class="badge badge-red">Substantial Modification</span>
+          {% else %}
+            <span class="badge badge-green">Not Substantial</span>
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Criteria Assessment</h3>
+  <ul class="criterion-list">
+    <li>
+      <span class="criterion-tick {% if a.alters_intended_use %}tick-yes{% else %}tick-no{% endif %}">
+        {% if a.alters_intended_use %}✗{% else %}✓{% endif %}
+      </span>
+      Alters intended use or purpose (Art. 3(30)(b))
+    </li>
+    <li>
+      <span class="criterion-tick {% if a.introduces_new_threat_vectors %}tick-yes{% else %}tick-no{% endif %}">
+        {% if a.introduces_new_threat_vectors %}✗{% else %}✓{% endif %}
+      </span>
+      Introduces new threat vectors
+    </li>
+    <li>
+      <span class="criterion-tick {% if a.enables_new_attack_scenarios %}tick-yes{% else %}tick-no{% endif %}">
+        {% if a.enables_new_attack_scenarios %}✗{% else %}✓{% endif %}
+      </span>
+      Enables new attack scenarios
+    </li>
+    <li>
+      <span class="criterion-tick {% if a.changes_attack_likelihood %}tick-yes{% else %}tick-no{% endif %}">
+        {% if a.changes_attack_likelihood %}✗{% else %}✓{% endif %}
+      </span>
+      Changes likelihood of existing attack scenarios
+    </li>
+    <li>
+      <span class="criterion-tick {% if a.changes_attack_impact %}tick-yes{% else %}tick-no{% endif %}">
+        {% if a.changes_attack_impact %}✗{% else %}✓{% endif %}
+      </span>
+      Changes impact of existing attack scenarios
+    </li>
+  </ul>
+
+  {% if a.reasoning %}
+  <h3 style="margin-top: 5mm;">Assessor Reasoning</h3>
+  <p style="white-space: pre-wrap;">{{ a.reasoning }}</p>
+  {% endif %}
+
+  {% else %}
+  <p class="none-note">No formal substantiality analysis linked to this release.</p>
+  {% if release.parent_release_id %}
+  <div class="warn-box">
+    This is a subsequent release (v{{ release.system_version }}). A substantiality analysis
+    is required under CRA Art. 13(7) before placement on the market.
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <!-- Changes logged against this release -->
+  {% if changes %}
+  <h3 style="margin-top: 6mm;">Logged Changes ({{ changes | length }})</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 40%;">Title</th>
+        <th style="width: 12%;">Type</th>
+        <th style="width: 13%;">Date</th>
+        <th style="width: 15%;">Status</th>
+        <th>Substantial?</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in changes %}
+      <tr>
+        <td>{{ c.title }}</td>
+        <td>{{ c.change_type.value | fmt_status }}</td>
+        <td>{{ c.change_date | fmt_date }}</td>
+        <td>{{ c.status.value | fmt_status }}</td>
+        <td>
+          {% if c.assessment %}
+            {% if c.assessment.is_substantial %}
+              <span class="badge badge-red">Yes</span>
+            {% else %}
+              <span class="badge badge-green">No</span>
+            {% endif %}
+          {% else %}
+            <span class="badge badge-gray">Not assessed</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     6. RISK ASSESSMENT
+     ============================================================ -->
+<div class="section page-break-before">
+  <h2 class="section-title">6. Risk Assessment</h2>
+
+  {% if risk_assessments %}
+  {% for ra in risk_assessments %}
+  <div style="margin-bottom: 8mm; {% if not loop.first %}page-break-before: always;{% endif %}">
+    <h3>{{ ra.title }} (v{{ ra.system_version }}{% if ra.user_version %} — {{ ra.user_version }}{% endif %})</h3>
+    <table class="def-table" style="margin-bottom: 4mm;">
+      <tbody>
+        <tr><td>Status</td><td>{{ ra.status.value | fmt_status }}</td></tr>
+        <tr><td>Methodology</td><td>{{ ra.methodology or "—" }}</td></tr>
+        <tr><td>Approved At</td><td>{{ ra.approved_at | fmt_date }}</td></tr>
+        {% if ra.summary %}
+        <tr><td>Summary</td><td>{{ ra.summary }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    {% if ra.risk_items %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 25%;">Threat</th>
+          <th style="width: 20%;">Asset Affected</th>
+          <th>Likelihood</th>
+          <th>Impact</th>
+          <th>Risk Level</th>
+          <th>Residual Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in ra.risk_items %}
+        <tr>
+          <td>{{ item.title }}</td>
+          <td>{{ item.asset_affected }}</td>
+          <td>{{ item.likelihood.value | fmt_status }}</td>
+          <td>{{ item.impact.value | fmt_status }}</td>
+          <td>
+            {% set rl = item.risk_level.value %}
+            {% if rl in ("high", "critical") %}
+              <span class="badge badge-red">{{ rl | title }}</span>
+            {% elif rl == "medium" %}
+              <span class="badge badge-yellow">{{ rl | title }}</span>
+            {% else %}
+              <span class="badge badge-green">{{ rl | title }}</span>
+            {% endif %}
+          </td>
+          <td>{{ item.residual_risk_level.value | fmt_status if item.residual_risk_level else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="none-note">No risk items recorded for this assessment.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="none-note">No risk assessments linked to this release.</p>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     7. SOFTWARE BILL OF MATERIALS (SBOM)
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">7. Software Bill of Materials (Annex I Part II §1)</h2>
+
+  {% if sbom_records %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Format</th>
+        <th>Spec Version</th>
+        <th>Components</th>
+        <th>Tool</th>
+        <th>File</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sbom_records %}
+      <tr>
+        <td><span class="badge badge-blue">{{ s.format.value | upper }}</span></td>
+        <td>{{ s.spec_version or "—" }}</td>
+        <td>{{ s.component_count if s.component_count is not none else "—" }}</td>
+        <td>{{ s.tool_name or "—" }}{% if s.tool_version %} {{ s.tool_version }}{% endif %}</td>
+        <td class="text-muted" style="font-size: 7.5pt;">{{ s.file_name or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">No SBOM records linked to this release.</p>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     8. SECURITY UPDATES & VULNERABILITY HANDLING
+     ============================================================ -->
+<div class="section page-break-before">
+  <h2 class="section-title">8. Security Updates &amp; Vulnerability Handling</h2>
+
+  <!-- Vulnerability report summary -->
+  <table class="def-table" style="margin-bottom: 5mm;">
+    <tbody>
+      <tr><td>Known Exploitable Vulns</td><td>{{ release.has_known_exploitable_vulnerabilities | fmt_bool }}</td></tr>
+      <tr><td>Open Vulnerability Reports</td><td>{{ open_vuln_count }}</td></tr>
+      <tr><td>Total Security Updates</td><td>{{ security_updates | length }}</td></tr>
+      {% if max_cvss is not none %}
+      <tr><td>Highest CVSS Score</td><td>{{ "%.1f" | format(max_cvss) }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  {% if security_updates %}
+  <h3>Security Updates</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 35%;">Title</th>
+        <th>Severity</th>
+        <th>CVSS</th>
+        <th>CVEs</th>
+        <th>Free of Charge</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in security_updates %}
+      <tr>
+        <td>{{ u.title }}</td>
+        <td>
+          {% if u.severity %}
+            {% set sv = u.severity.value %}
+            {% if sv in ("critical",) %}
+              <span class="badge badge-red">{{ sv | title }}</span>
+            {% elif sv == "high" %}
+              <span class="badge badge-red">High</span>
+            {% elif sv == "medium" %}
+              <span class="badge badge-yellow">Medium</span>
+            {% else %}
+              <span class="badge badge-gray">{{ sv | title }}</span>
+            {% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ "%.1f" | format(u.cvss_score) if u.cvss_score is not none else "—" }}</td>
+        <td style="font-size: 7.5pt;">
+          {% if u.cves_addressed_json %}
+            {{ u.cves_addressed_json | join(", ") if u.cves_addressed_json is iterable and u.cves_addressed_json is not string else u.cves_addressed_json }}
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ u.is_free_of_charge | fmt_bool }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">No security updates recorded for this release.</p>
+  {% endif %}
+
+  {% if vuln_reports %}
+  <h3 style="margin-top: 6mm;">Vulnerability Reports ({{ vuln_reports | length }})</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 40%;">Title</th>
+        <th>Status</th>
+        <th>Reported</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vuln_reports %}
+      <tr>
+        <td>{{ v.title if v.title else "Untitled" }}</td>
+        <td>{{ v.status.value | fmt_status if v.status else "—" }}</td>
+        <td>{{ v.created_at | fmt_date }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     9. SUPPORT PERIOD (Art. 13(8))
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">9. Support Period (Art. 13(8))</h2>
+
+  {% if support_periods %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Start Date</th>
+        <th>End Date</th>
+        <th>Justification</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sp in support_periods %}
+      <tr>
+        <td><span class="badge badge-blue">{{ sp.support_type.value | fmt_status }}</span></td>
+        <td>{{ sp.support_start_date | fmt_date }}</td>
+        <td>{{ sp.support_end_date | fmt_date }}</td>
+        <td>{{ sp.justification_text[:120] }}{% if sp.justification_text | length > 120 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">No support period records found.</p>
+  {% endif %}
+</div>
+
+
+<!-- ============================================================
+     10. CERTIFICATION RECORDS
+     ============================================================ -->
+<div class="section">
+  <h2 class="section-title">10. Certification Records</h2>
+
+  {% if cert_records %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Scheme</th>
+        <th>Body</th>
+        <th>Certificate No.</th>
+        <th>Status</th>
+        <th>Valid Until</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cr in cert_records %}
+      <tr>
+        <td>{{ cr.certification_scheme.value | fmt_status }}</td>
+        <td>{{ cr.certification_body_name }}</td>
+        <td>{{ cr.certificate_number or "—" }}</td>
+        <td>
+          {% set cs = cr.status.value %}
+          {% if cs == "active" %}
+            <span class="badge badge-green">Active</span>
+          {% elif cs == "expired" %}
+            <span class="badge badge-red">Expired</span>
+          {% else %}
+            <span class="badge badge-gray">{{ cs | title }}</span>
+          {% endif %}
+        </td>
+        <td>{{ cr.valid_until_date | fmt_date }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="none-note">No certification records found for this product.</p>
+  {% endif %}
+</div>
+
+</body>
+</html>

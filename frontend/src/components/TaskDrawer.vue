@@ -395,10 +395,10 @@ function formatDate(iso: string): string {
   white-space: nowrap;
 }
 
-.type-vulnerability_report { background: rgba(220,38,38,0.15);  color: #fca5a5; }
-.type-change               { background: rgba(37,99,235,0.15);  color: #93c5fd; }
-.type-release_gate_item    { background: rgba(22,163,74,0.15);  color: #86efac; }
-.type-risk_item            { background: rgba(217,119,6,0.15);  color: #fcd34d; }
+.type-vulnerability_report { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.type-change               { background: var(--color-info-bg);    color: var(--color-info-text);    border: 1px solid var(--color-info-border); }
+.type-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
+.type-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); }
 
 .severity-badge {
   font-size: 0.7rem;
@@ -407,22 +407,23 @@ function formatDate(iso: string): string {
   border-radius: 4px;
   text-transform: capitalize;
 }
-.severity-critical { background: rgba(220,38,38,0.2);  color: #fca5a5; }
-.severity-high     { background: rgba(217,119,6,0.2);  color: #fcd34d; }
-.severity-medium   { background: rgba(202,138,4,0.15); color: #fde68a; }
-.severity-low      { background: rgba(22,163,74,0.15); color: #86efac; }
+.severity-critical { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.severity-high     { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); }
+.severity-medium   { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid var(--color-warning-border); opacity: 0.85; }
+.severity-low      { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
 
 .overdue-pill {
   font-size: 0.7rem;
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  background: rgba(248,113,113,0.2);
-  color: #f87171;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
 }
 
 /* ── Colours ─────────────────────────────────────────────────────────────────── */
-.text-danger { color: #f87171; font-weight: 600; }
+.text-danger { color: var(--color-danger); font-weight: 600; }
 
 /* ── Slide-in transition ─────────────────────────────────────────────────────── */
 .drawer-enter-active,

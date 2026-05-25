@@ -13,6 +13,7 @@ from app.models.product import ProductRelease
 from app.repositories.change_repository import ChangeRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.product_repository import ProductRepository
+from app.repositories.requirement_mapping_repository import RequirementMappingRepository
 from app.schemas.product_release import ProductReleaseCreate, ProductReleaseRead, ProductReleaseUpdate
 
 
@@ -24,6 +25,7 @@ class ProductReleaseService:
         # Used to look up and close the re_release_product compliance action
         # when a new release is linked to a substantial change
         self.change_repository = ChangeRepository(db)
+        self.requirement_mapping_repository = RequirementMappingRepository(db)
 
     def list_releases(self, *, product_id: UUID | None = None) -> list[ProductReleaseRead]:
         releases = self.repository.list_all(product_id=product_id)
@@ -83,6 +85,14 @@ class ProductReleaseService:
                     "caused_by_change_id": str(payload.caused_by_change_id) if payload.caused_by_change_id else None,
                 },
             )
+
+            # If the new release has a parent, copy applicability decisions forward
+            # so the engineer reviews changes rather than starting from scratch.
+            if release.parent_release_id:
+                self.requirement_mapping_repository.copy_decisions_from_release(
+                    source_release_id=release.parent_release_id,
+                    target_release_id=release.id,
+                )
 
             # If this release is linked to a substantial change, automatically
             # mark the re_release_product compliance action as completed.

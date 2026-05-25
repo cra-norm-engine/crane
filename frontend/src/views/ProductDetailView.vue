@@ -1801,6 +1801,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
+  align-items: stretch;  /* equal-height stat cards */
 }
 
 .stat-card {
@@ -1915,7 +1916,7 @@ onBeforeUnmount(() => {
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid var(--color-border);
   min-width: 0;
 }
 
@@ -1960,16 +1961,16 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   padding: 0.7rem 0.9rem;
   border-radius: var(--radius-md, 0.75rem);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
   text-decoration: none;
   color: inherit;
   transition: background var(--t-fast, 120ms), border-color var(--t-fast, 120ms);
 }
 
 .release-row:hover {
-  background: rgba(110, 168, 254, 0.07);
-  border-color: rgba(110, 168, 254, 0.22);
+  background: var(--color-surface-elevated-strong);
+  border-color: var(--color-primary);
 }
 
 /* Left cluster: display_version text + CRA micro-tags */
@@ -1998,14 +1999,16 @@ onBeforeUnmount(() => {
 
 /* Gap 2 — non-substantial update lineage — blue tint */
 .release-tag-blue {
-  background: rgba(59, 130, 246, 0.14);
-  color: #bfdbfe;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border: 1px solid var(--color-info-border);
 }
 
 /* Gap 5 — Art. 13(10) consolidated tag — amber tint */
 .release-tag-amber {
-  background: rgba(251, 191, 36, 0.14);
-  color: #fde68a;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
 }
 
 /* Secondary meta columns — muted, right-aligned on narrow rows */
@@ -2159,9 +2162,9 @@ onBeforeUnmount(() => {
   gap: 0.45rem;
   padding: 0.5rem 0.8rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(233, 238, 252, 0.75);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
   font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
@@ -2169,9 +2172,9 @@ onBeforeUnmount(() => {
 }
 
 .toggle-section-btn:hover {
-  background: rgba(110, 168, 254, 0.1);
-  border-color: rgba(110, 168, 254, 0.28);
-  color: #e9eefc;
+  background: var(--color-surface-elevated-strong);
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 /* ── Tables (remote processing / child products) ───── */
@@ -2239,8 +2242,8 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   padding: 0.7rem 0.9rem;
   border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
 }
 
 .wizard-last-result-badges {
@@ -2502,12 +2505,15 @@ textarea {
 }
 
 .btn-secondary {
-  background: transparent;
-  border-color: var(--color-border);
-  color: inherit;
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
-.btn-secondary:not(:disabled):hover { background: var(--color-surface-elevated); }
+.btn-secondary:not(:disabled):hover {
+  background: var(--color-surface-elevated-strong);
+  border-color: var(--color-primary);
+}
 
 .btn-danger-outline {
   background: transparent;
@@ -2548,7 +2554,7 @@ textarea {
 }
 
 .form-error {
-  color: #fda4af;
+  color: var(--color-danger-text);
   margin: 0;
 }
 
@@ -2563,23 +2569,27 @@ textarea {
 }
 
 .badge-neutral {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
+  background: var(--color-surface-elevated-strong);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
 }
 
 .badge-success {
-  background: rgba(52, 211, 153, 0.15);
-  color: #86efac;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
 }
 
 .badge-warning {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fde68a;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
 }
 
 .badge-danger {
-  background: rgba(251, 113, 133, 0.15);
-  color: #fda4af;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
 }
 
 /* ── Responsive breakpoints ────────────────────────── */
@@ -2728,5 +2738,25 @@ textarea {
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Card border visibility — replace faint border with shadow ring */
+[data-theme="light"] .page .card {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.14);
+  border-color: transparent;
+}
+/* Stat cards in the stats bar */
+[data-theme="light"] .page .stat-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.13);
+  border-color: transparent;
+}
+/* Release rows */
+[data-theme="light"] .page .release-row {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.12);
+}
+[data-theme="light"] .page .release-row:hover {
+  border-color: transparent;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(79,156,19,0.5);
 }
 </style>
