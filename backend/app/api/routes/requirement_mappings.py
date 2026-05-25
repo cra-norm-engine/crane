@@ -17,7 +17,6 @@ from app.schemas.requirement_mapping import (
     RequirementMappingMatrixRead,
     RequirementMappingUpdate,
 )
-from app.schemas.annex_matrix import ProductRequirementDecisionUpdate, ProductRequirementMatrixRowRead
 from app.services.requirement_mapping_service import RequirementMappingService
 
 router = APIRouter()
@@ -31,6 +30,7 @@ def _client_ip(request: Request) -> str | None:
 def list_requirement_mappings(
     risk_item_id: UUID | None = Query(default=None),
     annex_requirement_id: UUID | None = Query(default=None),
+    release_id: UUID | None = Query(default=None),
     matrix: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -41,38 +41,10 @@ def list_requirement_mappings(
     return service.list(
         risk_item_id=risk_item_id,
         annex_requirement_id=annex_requirement_id,
+        release_id=release_id,
         matrix=matrix,
     )
 
-
-@router.get("/product-matrix", response_model=list[ProductRequirementMatrixRowRead])
-def list_product_requirement_matrix(
-    product_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> list[ProductRequirementMatrixRowRead]:
-    require_permissions(current_user, {Permission.requirement_mapping_read})
-
-    service = RequirementMappingService(db)
-    return service.product_matrix(product_id)
-
-
-@router.patch("/product-matrix/{annex_requirement_id}/decision")
-def update_product_requirement_decision(
-    annex_requirement_id: UUID,
-    product_id: UUID,
-    payload: ProductRequirementDecisionUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    require_permissions(current_user, {Permission.requirement_mapping_write})
-    service = RequirementMappingService(db)
-    return service.update_product_requirement_decision(
-        product_id,
-        annex_requirement_id,
-        payload,
-        actor_user_id=current_user.id,
-    )
 
 
 @router.get("/{mapping_id}", response_model=RequirementMappingRead)

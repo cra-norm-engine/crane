@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 
@@ -7,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
-from app.core.exceptions import ConflictException
+from app.core.exceptions import ConflictException, NotFoundException
 from app.models.enums import (
     AuditActionType,
     AuditStatus,
@@ -19,6 +20,8 @@ from app.models.lifecycle_notification import LifecycleNotification
 from app.repositories.lifecycle_notification_repository import LifecycleNotificationRepository
 from app.repositories.support_period_record_repository import SupportPeriodRecordRepository
 from app.schemas.lifecycle_notification import LifecycleNotificationRead
+
+logger = logging.getLogger(__name__)
 
 
 class LifecycleNotificationService:
@@ -32,10 +35,12 @@ class LifecycleNotificationService:
         *,
         status: LifecycleNotificationStatus | None = None,
         support_period_record_id: UUID | None = None,
+        notification_type: LifecycleNotificationType | None = None,
     ) -> list[LifecycleNotificationRead]:
         notifications = self.repository.list_all(
             status=status,
             support_period_record_id=support_period_record_id,
+            notification_type=notification_type,
         )
         return [LifecycleNotificationRead.model_validate(item) for item in notifications]
 
@@ -79,6 +84,7 @@ class LifecycleNotificationService:
                 product_name = getattr(record.product, "name", "this product")
                 notification = LifecycleNotification(
                     support_period_record_id=record.id,
+                    security_update_id=None,
                     recipient_user_id=recipient.user_id,
                     notification_type=LifecycleNotificationType.end_of_support_upcoming,
                     status=LifecycleNotificationStatus.pending,
@@ -120,6 +126,95 @@ class LifecycleNotificationService:
 
         return [LifecycleNotificationRead.model_validate(item) for item in created_notifications]
 
+    def create_security_update_notifications(
+        self,
+        security_update_id: UUID,
+        actor: object | None = None,
+    ) -> list[LifecycleNotificationRead]:
+        """
+        Create pending notifications for each recipient on the product's active support
+        period when a new security update is published (CRA Annex I Part II §8).
+        """
+        from app.models.security_update import SecurityUpdate
+        from app.models.support_period_record import SupportPeriodRecord
+
+        su = self.db.get(SecurityUpdate, security_update_id)
+        if su is None:
+            raise NotFoundException(f"SecurityUpdate {security_update_id} not found")
+
+        release = su.product_release
+        product = release.product
+
+        # Use the product's active support period to resolve recipients.
+        active_record = (
+            self.db.query(SupportPeriodRecord)
+            .filter_by(product_id=product.id, is_active=True)
+            .first()
+        )
+        if active_record is None or not active_record.notification_recipients:
+            logger.debug(
+                "No active support period recipients for product %s — skipping security update notifications",
+                product.id,
+            )
+            return []
+
+        severity_label = su.severity.value.upper() if su.severity else "UNRATED"
+        cves = (
+            ", ".join(str(c) for c in su.cves_addressed_json)
+            if su.cves_addressed_json
+            else "No CVEs listed"
+        )
+        created: list[LifecycleNotification] = []
+
+        for recipient in active_record.notification_recipients:
+            existing = self.repository.get_by_security_update_and_type(
+                security_update_id=su.id,
+                notification_type=LifecycleNotificationType.security_update_available,
+                recipient_user_id=recipient.user_id,
+            )
+            if existing is not None:
+                continue
+
+            notif = LifecycleNotification(
+                support_period_record_id=None,
+                security_update_id=su.id,
+                recipient_user_id=recipient.user_id,
+                notification_type=LifecycleNotificationType.security_update_available,
+                status=LifecycleNotificationStatus.pending,
+                scheduled_for=datetime.now(UTC),
+                title=f"Security update available — {product.name} v{release.system_version}",
+                message=(
+                    f"A {severity_label} security update '{su.title}' is available for "
+                    f"{product.name} v{release.system_version}. CVEs: {cves}."
+                ),
+            )
+            self.db.add(notif)
+            created.append(notif)
+
+        if created:
+            self.db.flush()
+            for notif in created:
+                create_audit_event(
+                    self.db,
+                    actor_user_id=getattr(actor, "id", None) if actor is not None else None,
+                    action_type=AuditActionType.notify,
+                    entity_type=EntityType.lifecycle_notification,
+                    entity_id=notif.id,
+                    status=AuditStatus.success,
+                    details_json={
+                        "security_update_id": str(su.id),
+                        "product_id": str(product.id),
+                        "product_release_id": str(release.id),
+                        "recipient_user_id": str(recipient.user_id),
+                        "notification_type": notif.notification_type.value,
+                    },
+                )
+            self.db.commit()
+            for notif in created:
+                self.db.refresh(notif)
+
+        return [LifecycleNotificationRead.model_validate(n) for n in created]
+
     def mark_notification_sent(
         self,
         notification_id: UUID,
@@ -131,9 +226,13 @@ class LifecycleNotificationService:
         notification.status = LifecycleNotificationStatus.sent
         notification.sent_at = sent_at or datetime.now(UTC)
 
-        support_period_record = self.support_period_repository.get_or_404(notification.support_period_record_id)
-        if support_period_record.eos_notification_sent_at is None:
-            support_period_record.eos_notification_sent_at = notification.sent_at
+        # Only update eos_notification_sent_at for EOS-type notifications.
+        if notification.support_period_record_id is not None:
+            support_period_record = self.support_period_repository.get_or_404(
+                notification.support_period_record_id
+            )
+            if support_period_record.eos_notification_sent_at is None:
+                support_period_record.eos_notification_sent_at = notification.sent_at
 
         self.db.flush()
         create_audit_event(

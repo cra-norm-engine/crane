@@ -16,6 +16,11 @@ from app.models.enums import (
 class RequirementMapping(UUIDTimestampMixin, Base):
     __tablename__ = "requirement_mappings"
 
+    product_release_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_releases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     risk_item_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("risk_items.id", ondelete="SET NULL"),
         nullable=True,
@@ -43,6 +48,7 @@ class RequirementMapping(UUIDTimestampMixin, Base):
     )
     evidence_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    product_release: Mapped["ProductRelease"] = relationship("ProductRelease")
     risk_item: Mapped["RiskItem | None"] = relationship(
         "RiskItem",
         back_populates="requirement_mappings",
@@ -97,14 +103,14 @@ class ProductRequirementDecision(UUIDTimestampMixin, Base):
     __tablename__ = "product_requirement_decisions"
     __table_args__ = (
         UniqueConstraint(
-            "product_id",
+            "product_release_id",
             "annex_requirement_id",
-            name="uq_product_requirement_decisions_product_requirement",
+            name="uq_product_requirement_decisions_release_requirement",
         ),
     )
 
-    product_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("products.id", ondelete="CASCADE"),
+    product_release_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_releases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -120,5 +126,5 @@ class ProductRequirementDecision(UUIDTimestampMixin, Base):
     )
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    product: Mapped["Product"] = relationship("Product")
+    product_release: Mapped["ProductRelease"] = relationship("ProductRelease")
     annex_requirement: Mapped["AnnexRequirement"] = relationship("AnnexRequirement")

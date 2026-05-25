@@ -9,8 +9,11 @@ from app.api.deps import require_permissions_dependency
 from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
+from app.schemas.annex_matrix import ProductRequirementDecisionUpdate, ProductRequirementMatrixRowRead
 from app.schemas.product_release import ProductReleaseCreate, ProductReleaseRead, ProductReleaseUpdate
 from app.services.product_release_service import ProductReleaseService
+from app.services.release_report_service import ReleaseReportService
+from app.services.requirement_mapping_service import RequirementMappingService
 
 router = APIRouter()
 
@@ -60,3 +63,52 @@ def delete_product_release(
 ) -> Response:
     ProductReleaseService(db).delete_release(release_id, actor=current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{release_id}/requirement-matrix", response_model=list[ProductRequirementMatrixRowRead])
+def get_release_requirement_matrix(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
+) -> list[ProductRequirementMatrixRowRead]:
+    return RequirementMappingService(db).release_matrix(release_id)
+
+
+@router.patch("/{release_id}/requirement-matrix/{annex_requirement_id}/decision")
+def update_release_requirement_decision(
+    release_id: UUID,
+    annex_requirement_id: UUID,
+    payload: ProductRequirementDecisionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+):
+    return RequirementMappingService(db).update_release_requirement_decision(
+        release_id,
+        annex_requirement_id,
+        payload,
+        actor_user_id=current_user.id,
+    )
+
+
+@router.get("/{release_id}/report", response_class=Response)
+def download_release_report(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
+) -> Response:
+    """
+    Generate and return a PDF compliance report for the given release.
+
+    The report includes: product summary, release metadata, EU DoC fields,
+    release gate status, substantial modification analysis, risk assessments,
+    SBOM records, security updates, vulnerability reports, support periods,
+    and certification records.
+    """
+    service = ReleaseReportService(db)
+    pdf_bytes = service.generate_pdf(release_id)
+    filename = service.generate_filename(release_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -8,6 +8,7 @@ export const lifecycleNotificationService = {
   async list(params?: {
     status?: "pending" | "sent" | "dismissed";
     support_period_record_id?: string;
+    notification_type?: "end_of_support_upcoming" | "security_update_available";
   }): Promise<LifecycleNotificationRead[]> {
     const { data } = await apiClient.get<LifecycleNotificationRead[]>(
       "/lifecycle-notifications/",
@@ -23,7 +24,7 @@ export const lifecycleNotificationService = {
     return data;
   },
 
-  async scheduleEosCheck(): Promise<LifecycleNotificationRead[]> {
+  async scheduleEosCheck(_params?: { threshold_days?: number }): Promise<LifecycleNotificationRead[]> {
     const { data } = await apiClient.post<LifecycleNotificationRead[]>(
       "/lifecycle-notifications/schedule-eos-check",
     );

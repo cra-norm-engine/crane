@@ -16,7 +16,10 @@ class LifecycleNotificationRecipientRead(ORMBaseModel):
 
 
 class LifecycleNotificationBase(BaseModel):
-    support_period_record_id: UUID
+    # Nullable: set for EOS alerts, None for security update alerts.
+    support_period_record_id: UUID | None = None
+    # Nullable: set for security update alerts, None for EOS alerts.
+    security_update_id: UUID | None = None
     recipient_user_id: UUID | None = None
     notification_type: LifecycleNotificationType
     status: LifecycleNotificationStatus

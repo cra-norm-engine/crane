@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_permissions_dependency
 from app.core.database import get_db
 from app.core.permissions import Permission
-from app.models.enums import LifecycleNotificationStatus
+from app.models.enums import LifecycleNotificationStatus, LifecycleNotificationType
 from app.models.user import User
 from app.schemas.lifecycle_notification import (
     LifecycleNotificationDismissRequest,
@@ -25,12 +25,14 @@ router = APIRouter()
 def list_lifecycle_notifications(
     status: LifecycleNotificationStatus | None = Query(default=None),
     support_period_record_id: UUID | None = Query(default=None),
+    notification_type: LifecycleNotificationType | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.lifecycle_notification_read)),
 ) -> list[LifecycleNotificationRead]:
     return LifecycleNotificationService(db).list_notifications(
         status=status,
         support_period_record_id=support_period_record_id,
+        notification_type=notification_type,
     )
 
 

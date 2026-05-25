@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -27,6 +28,8 @@ from app.repositories.risk_item_repository import RiskItemRepository
 from app.schemas.annex_matrix import ProductRequirementDecisionUpdate, ProductRequirementMatrixRowRead
 from app.schemas.requirement_mapping import RequirementMappingCreate, RequirementMappingUpdate
 
+logger = logging.getLogger(__name__)
+
 
 class RequirementMappingService:
     def __init__(self, db: Session) -> None:
@@ -44,10 +47,13 @@ class RequirementMappingService:
         *,
         risk_item_id: UUID | None = None,
         annex_requirement_id: UUID | None = None,
+        release_id: UUID | None = None,
         matrix: bool = False,
     ) -> list[RequirementMapping]:
         sync_annex_i_requirements(self.db)
         self.db.flush()
+        if release_id is not None:
+            return list(self.requirement_mapping_repository.list_by_release(release_id))
         if matrix:
             return list(self.requirement_mapping_repository.list_for_matrix())
         if risk_item_id is not None:
@@ -56,14 +62,16 @@ class RequirementMappingService:
             return list(self.requirement_mapping_repository.list_by_annex_requirement(annex_requirement_id))
         return list(self.requirement_mapping_repository.list_for_matrix())
 
-    def product_matrix(self, product_id: UUID) -> list[ProductRequirementMatrixRowRead]:
+    def release_matrix(self, release_id: UUID) -> list[ProductRequirementMatrixRowRead]:
+        """Build the full requirement matrix for a specific product release."""
         sync_annex_i_requirements(self.db)
         self.db.flush()
 
         artifact_traceability_available = self._artifact_links_available()
         requirements = list(self.annex_requirement_repository.list_active())
-        mappings = self.requirement_mapping_repository.list_by_product(product_id)
-        decisions = self.requirement_mapping_repository.list_product_decisions(product_id)
+        mappings = self.requirement_mapping_repository.list_by_release(release_id)
+        decisions = self.requirement_mapping_repository.list_release_decisions(release_id)
+
         mappings_by_requirement: dict[UUID, list[RequirementMapping]] = {}
         decisions_by_requirement = {
             decision.annex_requirement_id: decision for decision in decisions
@@ -115,9 +123,9 @@ class RequirementMappingService:
             )
         return rows
 
-    def update_product_requirement_decision(
+    def update_release_requirement_decision(
         self,
-        product_id: UUID,
+        release_id: UUID,
         annex_requirement_id: UUID,
         payload: ProductRequirementDecisionUpdate,
         *,
@@ -130,14 +138,14 @@ class RequirementMappingService:
         existing = next(
             (
                 decision
-                for decision in self.requirement_mapping_repository.list_product_decisions(product_id)
+                for decision in self.requirement_mapping_repository.list_release_decisions(release_id)
                 if decision.annex_requirement_id == annex_requirement_id
             ),
             None,
         )
         if existing is None:
             existing = ProductRequirementDecision(
-                product_id=product_id,
+                product_release_id=release_id,
                 annex_requirement_id=annex_requirement_id,
             )
             self.db.add(existing)
@@ -153,8 +161,8 @@ class RequirementMappingService:
             entity_id=annex_requirement_id,
             status=AuditStatus.success,
             details_json={
-                "action": "update_product_requirement_decision",
-                "product_id": str(product_id),
+                "action": "update_release_requirement_decision",
+                "release_id": str(release_id),
                 "annex_requirement_id": str(annex_requirement_id),
                 "applicability_decision": payload.applicability_decision.value,
                 "rationale": payload.rationale,
@@ -163,6 +171,35 @@ class RequirementMappingService:
         self.db.commit()
         self.db.refresh(existing)
         return existing
+
+    def copy_decisions_from_parent(
+        self,
+        new_release_id: UUID,
+        parent_release_id: UUID,
+        *,
+        actor_user_id: UUID | None,
+    ) -> int:
+        """Copy applicability decisions from a parent release to a newly created release."""
+        copied = self.requirement_mapping_repository.copy_decisions_from_release(
+            source_release_id=parent_release_id,
+            target_release_id=new_release_id,
+        )
+        if copied:
+            self._write_audit_log(
+                actor_user_id=actor_user_id,
+                action_type=AuditActionType.create,
+                entity_type=EntityType.requirement_mapping,
+                entity_id=new_release_id,
+                status=AuditStatus.success,
+                details_json={
+                    "action": "copy_decisions_from_parent",
+                    "new_release_id": str(new_release_id),
+                    "parent_release_id": str(parent_release_id),
+                    "decisions_copied": len(copied),
+                },
+            )
+            self.db.commit()
+        return len(copied)
 
     def get(self, mapping_id: UUID) -> RequirementMapping:
         mapping = self.requirement_mapping_repository.get_with_relations(mapping_id)
@@ -188,6 +225,7 @@ class RequirementMappingService:
                 raise ValueError("Risk item not found.")
 
         mapping = RequirementMapping(
+            product_release_id=payload.product_release_id,
             risk_item_id=payload.risk_item_id,
             annex_requirement_id=payload.annex_requirement_id,
             engineering_requirement_ref=payload.engineering_requirement_ref,
@@ -371,6 +409,7 @@ class RequirementMappingService:
     def _snapshot(self, mapping: RequirementMapping) -> dict[str, Any]:
         return {
             "id": str(mapping.id),
+            "product_release_id": str(mapping.product_release_id),
             "risk_item_id": str(mapping.risk_item_id) if mapping.risk_item_id else None,
             "annex_requirement_id": str(mapping.annex_requirement_id),
             "engineering_requirement_ref": mapping.engineering_requirement_ref,

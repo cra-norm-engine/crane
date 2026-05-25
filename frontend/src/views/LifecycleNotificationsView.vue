@@ -19,14 +19,7 @@
       <div class="section-header">
         <div>
           <h2 class="section-title">Analysis filters</h2>
-          <p class="muted">
-            Filter EOS results by threshold, classification, EOS state, and search.
-          </p>
         </div>
-
-        <button class="btn btn-secondary" type="button" @click="resetFilters">
-          Reset filters
-        </button>
       </div>
 
       <div class="filters-grid">
@@ -186,6 +179,88 @@
         </table>
       </div>
     </section>
+
+    <!-- Security update alerts -->
+    <section class="card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Security update alerts</h2>
+          <p class="muted">
+            Alerts generated automatically when a security update is published for a product
+            with an active support period (CRA Annex I Part II §8).
+          </p>
+        </div>
+      </div>
+
+      <div v-if="isLoadingSecurityAlerts" class="empty-panel">
+        Loading security update alerts…
+      </div>
+
+      <div v-else-if="securityAlerts.length === 0" class="empty-panel">
+        No security update alerts. Alerts appear automatically when a security update is
+        published for a product with an active support period.
+      </div>
+
+      <div v-else class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Alert</th>
+              <th>Details</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="alert in securityAlerts" :key="alert.id">
+              <td>
+                <span class="badge" :class="alertStatusClass(alert.status)">
+                  {{ formatAlertStatus(alert.status) }}
+                </span>
+              </td>
+
+              <td>
+                <div class="product-cell">
+                  <strong>{{ alert.title }}</strong>
+                  <p class="muted small-text">
+                    {{ alert.recipient_user ? alert.recipient_user.full_name : "All recipients" }}
+                  </p>
+                </div>
+              </td>
+
+              <td class="message-cell">{{ alert.message }}</td>
+
+              <td>{{ formatDate(alert.created_at) }}</td>
+
+              <td>
+                <div class="row-actions">
+                  <button
+                    v-if="alert.status === 'pending'"
+                    class="btn btn-secondary action-btn"
+                    type="button"
+                    :disabled="isActioning"
+                    @click="markAlertSent(alert.id)"
+                  >
+                    Mark sent
+                  </button>
+                  <button
+                    v-if="alert.status !== 'dismissed'"
+                    class="btn btn-secondary action-btn"
+                    type="button"
+                    :disabled="isActioning"
+                    @click="dismissAlert(alert.id)"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </section>
 </template>
 
@@ -197,6 +272,8 @@ import { productService } from "@/services/product-service";
 import { supportPeriodService } from "@/services/support-period-service";
 
 import type {
+  LifecycleNotificationRead,
+  LifecycleNotificationStatus,
   ProductClassification,
   ProductSummaryRead,
   SupportPeriodRecordRead,
@@ -219,6 +296,11 @@ const isLoading = ref(false);
 const isRunningScheduler = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+
+// Security update alerts
+const securityAlerts = ref<LifecycleNotificationRead[]>([]);
+const isLoadingSecurityAlerts = ref(false);
+const isActioning = ref(false);
 
 const filters = reactive({
   search: "",
@@ -420,14 +502,6 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function resetFilters(): void {
-  filters.search = "";
-  filters.thresholdPreset = "";
-  filters.customThresholdDays = 120;
-  filters.classification = "";
-  filters.eosStatus = "";
-  filters.sortBy = "days_left_asc";
-}
 
 async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<void> {
   const entries = await Promise.all(
@@ -482,8 +556,68 @@ async function runScheduler(): Promise<void> {
   }
 }
 
+function alertStatusClass(status: LifecycleNotificationStatus): string {
+  switch (status) {
+    case "sent":
+      return "badge-success";
+    case "dismissed":
+      return "badge-neutral";
+    default:
+      return "badge-warning";
+  }
+}
+
+function formatAlertStatus(status: LifecycleNotificationStatus): string {
+  switch (status) {
+    case "sent":
+      return "Sent";
+    case "dismissed":
+      return "Dismissed";
+    default:
+      return "Pending";
+  }
+}
+
+async function loadSecurityUpdateAlerts(): Promise<void> {
+  isLoadingSecurityAlerts.value = true;
+  try {
+    securityAlerts.value = await lifecycleNotificationService.list({
+      notification_type: "security_update_available",
+    });
+  } catch {
+    // Non-fatal — EOS section still works independently.
+  } finally {
+    isLoadingSecurityAlerts.value = false;
+  }
+}
+
+async function markAlertSent(notificationId: string): Promise<void> {
+  isActioning.value = true;
+  try {
+    await lifecycleNotificationService.markSent(notificationId);
+    await loadSecurityUpdateAlerts();
+  } catch {
+    // Silently ignore — the alert list will not change.
+  } finally {
+    isActioning.value = false;
+  }
+}
+
+async function dismissAlert(notificationId: string): Promise<void> {
+  isActioning.value = true;
+  try {
+    await lifecycleNotificationService.dismiss(notificationId);
+    await loadSecurityUpdateAlerts();
+  } catch {
+    // Silently ignore — the alert list will not change.
+  } finally {
+    isActioning.value = false;
+  }
+}
+
 onMounted(() => {
   void loadPageData();
+  void loadSecurityUpdateAlerts();
 });
 </script>
 
@@ -605,6 +739,30 @@ onMounted(() => {
 .product-cell {
   display: grid;
   gap: 0.25rem;
+}
+
+.message-cell {
+  max-width: 28rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #94a3b8);
+  line-height: 1.4;
+}
+
+.small-text {
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
 }
 
 .badge {

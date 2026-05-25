@@ -23,7 +23,7 @@
 
     <!-- ── Skeleton loading ────────────────────────────────────────────────── -->
     <div v-if="loading && !data" class="skeleton-grid">
-      <div class="skeleton-card" v-for="n in 5" :key="n"></div>
+      <div class="skeleton-card" v-for="n in 4" :key="n"></div>
     </div>
 
     <template v-if="data">
@@ -31,33 +31,13 @@
       <!-- ── KPI strip ──────────────────────────────────────────────────────── -->
       <div class="kpi-strip">
 
-        <!-- Compliance score -->
-        <div class="kpi-card kpi-score" @click="$router.push({ name: 'risk-assessments' })">
-          <div class="kpi-ring-wrap">
-            <!-- SVG donut ring -->
-            <svg class="kpi-ring" viewBox="0 0 48 48" aria-hidden="true">
-              <circle cx="24" cy="24" r="20" class="ring-track"/>
-              <circle
-                cx="24" cy="24" r="20"
-                class="ring-fill"
-                :stroke="scoreColor"
-                :stroke-dasharray="`${scoreArc} 125.66`"
-                stroke-linecap="round"
-                transform="rotate(-90 24 24)"
-              />
-            </svg>
-            <span class="kpi-ring-label" :style="{ color: scoreColor }">{{ data.compliance_score }}<span class="kpi-ring-unit">%</span></span>
-          </div>
-          <div class="kpi-card-text">
-            <span class="kpi-label">Compliance Score</span>
-            <span class="kpi-sub muted">Based on scope, vulns &amp; risk</span>
-          </div>
-        </div>
-
         <!-- Products -->
         <div class="kpi-card" @click="$router.push({ name: 'products' })">
-          <div class="kpi-num">{{ data.product_summary.total }}</div>
+          <div class="kpi-icon kpi-icon-neutral">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path d="M2 4.5A2.5 2.5 0 0 1 4.5 2h11A2.5 2.5 0 0 1 18 4.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 2 15.5v-11zM4.5 3.5A1 1 0 0 0 3.5 4.5v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1h-11z"/><path d="M6 7h8v1.5H6V7zm0 3h8v1.5H6V10zm0 3h5v1.5H6V13z"/></svg>
+          </div>
           <div class="kpi-card-text">
+            <span class="kpi-num-sm">{{ data.product_summary.total }}</span>
             <span class="kpi-label">Products</span>
             <span class="kpi-sub muted">{{ data.product_summary.in_scope }} in scope · {{ data.product_summary.released }} released</span>
           </div>
@@ -69,10 +49,11 @@
           :class="{ 'kpi-danger': data.vulnerability_summary.critical > 0 }"
           @click="$router.push({ name: 'vulnerability-handling' })"
         >
-          <div class="kpi-num" :class="{ 'num-danger': data.vulnerability_summary.critical > 0 }">
-            {{ data.vulnerability_summary.total_open }}
+          <div class="kpi-icon" :class="data.vulnerability_summary.critical > 0 ? 'kpi-icon-danger' : 'kpi-icon-neutral'">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd"/></svg>
           </div>
           <div class="kpi-card-text">
+            <span class="kpi-num-sm" :class="{ 'num-danger': data.vulnerability_summary.critical > 0 }">{{ data.vulnerability_summary.total_open }}</span>
             <span class="kpi-label">Open Vulnerabilities</span>
             <span class="kpi-sub" :class="data.vulnerability_summary.critical > 0 ? 'sub-danger' : 'muted'">
               <template v-if="data.vulnerability_summary.critical > 0">{{ data.vulnerability_summary.critical }} critical</template>
@@ -87,10 +68,11 @@
           :class="{ 'kpi-warn': data.risk_summary.draft > 0 && data.risk_summary.approved === 0 }"
           @click="$router.push({ name: 'risk-assessments' })"
         >
-          <div class="kpi-num" :class="{ 'num-warn': data.risk_summary.draft > 0 && data.risk_summary.approved === 0 }">
-            {{ data.risk_summary.total }}
+          <div class="kpi-icon" :class="(data.risk_summary.draft > 0 && data.risk_summary.approved === 0) ? 'kpi-icon-warn' : 'kpi-icon-neutral'">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10 1a9 9 0 1 0 0 18A9 9 0 0 0 10 1zm-1 5a1 1 0 1 1 2 0v4a1 1 0 1 1-2 0V6zm1 8a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 10 14z" clip-rule="evenodd"/></svg>
           </div>
           <div class="kpi-card-text">
+            <span class="kpi-num-sm" :class="{ 'num-warn': data.risk_summary.draft > 0 && data.risk_summary.approved === 0 }">{{ data.risk_summary.total }}</span>
             <span class="kpi-label">Risk Assessments</span>
             <span class="kpi-sub" :class="data.risk_summary.approved > 0 ? 'muted' : 'sub-warn'">
               <template v-if="data.risk_summary.approved > 0">{{ data.risk_summary.approved }} approved</template>
@@ -106,10 +88,11 @@
           :class="{ 'kpi-danger': data.task_summary.overdue > 0 }"
           @click="$router.push({ name: 'my-tasks' })"
         >
-          <div class="kpi-num" :class="{ 'num-danger': data.task_summary.overdue > 0 }">
-            {{ data.task_summary.total_open }}
+          <div class="kpi-icon" :class="data.task_summary.overdue > 0 ? 'kpi-icon-danger' : 'kpi-icon-neutral'">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clip-rule="evenodd"/></svg>
           </div>
           <div class="kpi-card-text">
+            <span class="kpi-num-sm" :class="{ 'num-danger': data.task_summary.overdue > 0 }">{{ data.task_summary.total_open }}</span>
             <span class="kpi-label">My Tasks</span>
             <span class="kpi-sub" :class="data.task_summary.overdue > 0 ? 'sub-danger' : 'muted'">
               <template v-if="data.task_summary.overdue > 0">{{ data.task_summary.overdue }} overdue</template>
@@ -161,7 +144,6 @@
               <h2 class="hub-card-title">Risk Assessments</h2>
               <button class="link-btn" @click="$router.push({ name: 'risk-assessments' })">View all →</button>
             </div>
-            <p class="hub-card-sub muted">CRA-mandated cybersecurity risk assessments across your product portfolio, tracked by approval status.</p>
             <div class="bar-chart">
               <div v-for="row in riskRows" :key="row.label" class="bar-row">
                 <span class="bar-label">{{ row.label }}</span>
@@ -183,29 +165,35 @@
               <h2 class="hub-card-title">Substantial Changes</h2>
               <button class="link-btn" @click="$router.push({ name: 'changes' })">View all →</button>
             </div>
-            <div class="change-stats">
-              <div class="change-stat">
-                <span class="change-stat-num">{{ data.change_summary.total_open }}</span>
-                <span class="change-stat-label muted">Open</span>
+            <div class="change-grid">
+              <div class="change-cell">
+                <span class="change-cell-num">{{ data.change_summary.total_open }}</span>
+                <span class="change-cell-label">Open</span>
+                <span class="change-cell-hint muted">Under assessment</span>
               </div>
-              <div class="change-stat change-stat-warn" v-if="data.change_summary.action_required > 0">
-                <span class="change-stat-num num-warn">{{ data.change_summary.action_required }}</span>
-                <span class="change-stat-label muted">Action required</span>
+              <div class="change-cell" :class="{ 'change-cell-warn': data.change_summary.action_required > 0 }">
+                <span class="change-cell-num" :class="{ 'num-warn': data.change_summary.action_required > 0 }">{{ data.change_summary.action_required }}</span>
+                <span class="change-cell-label">Action Required</span>
+                <span class="change-cell-hint muted">Compliance tasks pending</span>
               </div>
-              <div class="change-stat">
-                <span class="change-stat-num">{{ data.change_summary.substantial_open }}</span>
-                <span class="change-stat-label muted">Substantial</span>
+              <div class="change-cell" :class="{ 'change-cell-danger': data.change_summary.substantial_open > 0 }">
+                <span class="change-cell-num" :class="{ 'num-danger': data.change_summary.substantial_open > 0 }">{{ data.change_summary.substantial_open }}</span>
+                <span class="change-cell-label">Substantial</span>
+                <span class="change-cell-hint muted">Require re-assessment</span>
               </div>
+            </div>
+            <div v-if="data.change_summary.action_required > 0" class="hub-alert hub-alert-warn">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/></svg>
+              {{ data.change_summary.action_required }} change{{ data.change_summary.action_required > 1 ? 's' : '' }} awaiting compliance action
             </div>
           </div>
 
           <!-- Lifecycle alerts -->
           <div class="hub-card" :class="{ 'hub-card-alert': data.lifecycle_summary.expired > 0 }">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Lifecycle &amp; Support Alerts</h2>
+              <h2 class="hub-card-title">Lifecycle &amp; Support Period Alerts</h2>
               <button class="link-btn" @click="$router.push({ name: 'support-hub' })">View all →</button>
             </div>
-            <p class="hub-card-sub muted">CRA Art. 13(8) — Mandatory support period tracking. Products must have committed end-of-support dates.</p>
 
             <div class="lc-grid">
               <!-- Expired -->
@@ -233,12 +221,12 @@
                 <span class="lc-hint muted">Plan ahead</span>
               </div>
 
-              <!-- Healthy -->
+              <!-- On Track -->
               <div class="lc-cell">
                 <span class="lc-num lc-num-ok">
                   {{ data.lifecycle_summary.total_active - data.lifecycle_summary.expired - data.lifecycle_summary.expiring_180d }}
                 </span>
-                <span class="lc-label">Healthy</span>
+                <span class="lc-label">On Track</span>
                 <span class="lc-hint muted">Over 180 days</span>
               </div>
             </div>
@@ -248,7 +236,7 @@
               class="hub-alert hub-alert-danger"
             >
               <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/></svg>
-              {{ data.lifecycle_summary.expired }} product{{ data.lifecycle_summary.expired > 1 ? 's' : '' }} past end-of-support — update or withdraw from market
+              {{ data.lifecycle_summary.expired }} product{{ data.lifecycle_summary.expired > 1 ? 's' : '' }} — Support period expired — security update obligations have ended;
             </div>
             <div
               v-else-if="data.lifecycle_summary.pending_alerts > 0"
@@ -356,29 +344,15 @@ const todayLabel = new Date().toLocaleDateString(undefined, {
   weekday: "long", year: "numeric", month: "long", day: "numeric",
 });
 
-// ── Compliance score ──────────────────────────────────────────────────────────
-const scoreArc = computed(() => {
-  const pct = (data.value?.compliance_score ?? 0) / 100;
-  return (pct * 2 * Math.PI * 20).toFixed(2);
-});
-
-const scoreColor = computed(() => {
-  const s = data.value?.compliance_score ?? 0;
-  // Use saturated mid-range colours readable on both dark and light backgrounds.
-  if (s >= 75) return "#16a34a";
-  if (s >= 50) return "#ca8a04";
-  return "#dc2626";
-});
-
 // ── Bar charts ────────────────────────────────────────────────────────────────
 const vulnRows = computed(() => {
   const v = data.value?.vulnerability_summary;
   if (!v) return [];
   return [
-    { label: "Critical", value: v.critical, color: "rgba(239,68,68,0.85)"   },
-    { label: "High",     value: v.high,     color: "rgba(234,88,12,0.85)"   },
-    { label: "Medium",   value: v.medium,   color: "rgba(234,179,8,0.85)"   },
-    { label: "Low",      value: v.low,      color: "rgba(34,197,94,0.75)"   },
+    { label: "Critical", value: v.critical, color: "var(--color-danger)"   },
+    { label: "High",     value: v.high,     color: "var(--color-bar-high)" },
+    { label: "Medium",   value: v.medium,   color: "var(--color-warning)"  },
+    { label: "Low",      value: v.low,      color: "var(--color-success)"  },
   ];
 });
 
@@ -386,10 +360,10 @@ const riskRows = computed(() => {
   const r = data.value?.risk_summary;
   if (!r) return [];
   return [
-    { label: "Draft",     value: r.draft,     color: "rgba(148,163,184,0.6)"  },
-    { label: "In review", value: r.in_review, color: "rgba(99,102,241,0.8)"   },
-    { label: "Approved",  value: r.approved,  color: "rgba(34,197,94,0.8)"    },
-    { label: "Archived",  value: r.archived,  color: "rgba(100,116,139,0.5)"  },
+    { label: "Draft",     value: r.draft,     color: "var(--color-slate-text)"  },
+    { label: "In review", value: r.in_review, color: "var(--color-info)"        },
+    { label: "Approved",  value: r.approved,  color: "var(--color-success)"     },
+    { label: "Archived",  value: r.archived,  color: "var(--color-text-muted)"  },
   ];
 });
 
@@ -497,7 +471,7 @@ function timeAgo(iso: string): string {
 /* ── Skeleton ─────────────────────────────────────────────────────────────── */
 .skeleton-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
 
@@ -520,17 +494,21 @@ function timeAgo(iso: string): string {
 }
 
 /* ── KPI strip ────────────────────────────────────────────────────────────── */
+/* One local token for "high severity" orange — not in global palette */
+.ops-hub-page { --color-bar-high: #f97316; }
+
 .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
+  align-items: stretch;   /* equal-height KPI cards */
 }
 
 .kpi-card {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 1rem 1.1rem;
+  gap: 0.9rem;
+  padding: 1rem 1.15rem;
   border-radius: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -539,19 +517,33 @@ function timeAgo(iso: string): string {
 }
 .kpi-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-surface-soft);
+  box-shadow: 0 0 0 2px var(--color-surface-soft);
 }
+
 
 .kpi-card.kpi-danger { border-color: var(--color-danger-border); }
 .kpi-card.kpi-warn   { border-color: var(--color-warning-border); }
 
-.kpi-num {
-  font-size: 2rem;
+/* Icon badge */
+.kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.kpi-icon-neutral { background: var(--color-surface-elevated); color: var(--color-primary); }
+.kpi-icon-danger  { background: var(--color-danger-bg);        color: var(--color-danger);  }
+.kpi-icon-warn    { background: var(--color-warning-bg);       color: var(--color-warning); }
+
+.kpi-num-sm {
+  font-size: 1.65rem;
   font-weight: 800;
   line-height: 1;
   color: var(--color-text);
   letter-spacing: -0.03em;
-  flex-shrink: 0;
 }
 .num-danger { color: var(--color-danger); }
 .num-warn   { color: var(--color-warning); }
@@ -559,68 +551,27 @@ function timeAgo(iso: string): string {
 .kpi-card-text {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1rem;
   min-width: 0;
 }
 
 .kpi-label {
-  font-size: 0.8rem;
+  font-size: 0.79rem;
   font-weight: 700;
   color: var(--color-text);
   white-space: nowrap;
 }
 
-.kpi-sub { font-size: 0.75rem; }
+.kpi-sub { font-size: 0.73rem; }
 .sub-danger { color: var(--color-danger); }
 .sub-warn   { color: var(--color-warning); }
-
-/* ── Score donut ──────────────────────────────────────────────────────────── */
-.kpi-score { cursor: pointer; }
-
-.kpi-ring-wrap {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-}
-
-.kpi-ring { width: 52px; height: 52px; }
-
-.ring-track {
-  fill: none;
-  stroke: var(--color-border);
-  stroke-width: 5;
-}
-
-.ring-fill {
-  fill: none;
-  stroke-width: 5;
-  transition: stroke-dasharray 0.6s ease;
-}
-
-.kpi-ring-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.kpi-ring-unit {
-  font-size: 0.55rem;
-  font-weight: 700;
-  margin-top: 1px;
-}
 
 /* ── Main grid ────────────────────────────────────────────────────────────── */
 .hub-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;  /* both columns same height */
 }
 
 .hub-left,
@@ -628,6 +579,11 @@ function timeAgo(iso: string): string {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+/* Activity card expands to fill remaining right-column height */
+.hub-card-activity {
+  flex: 1;
 }
 
 /* ── Hub cards ────────────────────────────────────────────────────────────── */
@@ -640,6 +596,7 @@ function timeAgo(iso: string): string {
   flex-direction: column;
   gap: 1rem;
 }
+
 
 .hub-card-header {
   display: flex;
@@ -746,20 +703,45 @@ function timeAgo(iso: string): string {
   color: var(--color-info-text);
 }
 
-/* ── Change stats ─────────────────────────────────────────────────────────── */
-.change-stats { display: flex; gap: 1.5rem; }
-
-.change-stat { display: flex; flex-direction: column; gap: 0.15rem; }
-
-.change-stat-num {
-  font-size: 1.8rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-text);
-  line-height: 1;
+/* ── Substantial changes grid ─────────────────────────────────────────────── */
+.change-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
 }
 
-.change-stat-label { font-size: 0.75rem; font-weight: 600; }
+.change-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 8px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.change-cell.change-cell-warn   { border-color: var(--color-warning-border); background: var(--color-warning-bg); }
+.change-cell.change-cell-danger { border-color: var(--color-danger-border);  background: var(--color-danger-bg);  }
+
+
+.change-cell-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+.change-cell-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.change-cell-hint { font-size: 0.67rem; }
 
 /* ── Upcoming releases ────────────────────────────────────────────────────── */
 .release-list {
@@ -821,7 +803,7 @@ function timeAgo(iso: string): string {
 .release-status { font-size: 0.72rem; text-transform: capitalize; }
 
 /* ── Activity feed ────────────────────────────────────────────────────────── */
-.hub-card-activity { overflow: hidden; }
+.hub-card-activity { overflow: hidden; min-height: 0; }
 
 .activity-list {
   list-style: none;
@@ -848,7 +830,7 @@ function timeAgo(iso: string): string {
   margin-top: 0.35rem;
 }
 .dot-red    { background: var(--color-danger); }
-.dot-amber  { background: #ea580c; }
+.dot-amber  { background: var(--color-bar-high); }
 .dot-blue   { background: var(--color-info); }
 .dot-green  { background: var(--color-success); }
 .dot-purple { background: var(--color-purple); }
@@ -888,6 +870,7 @@ function timeAgo(iso: string): string {
 .lc-cell.lc-danger { border-color: var(--color-danger-border); background: var(--color-danger-bg); }
 .lc-cell.lc-warn   { border-color: var(--color-warning-border); background: var(--color-warning-bg); }
 
+
 .lc-num {
   font-size: 1.6rem;
   font-weight: 800;
@@ -901,13 +884,80 @@ function timeAgo(iso: string): string {
 
 .lc-hint { font-size: 0.68rem; }
 
+/* ── hub-alert-warn ───────────────────────────────────────────────────────── */
+.hub-alert-warn {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .hub-grid  { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {
   .kpi-strip { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<!-- Light-mode card border overrides — must be non-scoped to reach the theme root selector -->
+<style>
+[data-theme="light"] .ops-hub-page .hub-card {
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+}
+[data-theme="light"] .ops-hub-page .hub-card.hub-card-alert {
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(200,95,95,0.55);
+}
+[data-theme="light"] .ops-hub-page .kpi-card {
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+}
+[data-theme="light"] .ops-hub-page .kpi-card:hover {
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 0 0 2px rgba(79,156,19,0.4);
+}
+[data-theme="light"] .ops-hub-page .kpi-card.kpi-danger {
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(200,95,95,0.55);
+}
+[data-theme="light"] .ops-hub-page .kpi-card.kpi-warn {
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(183,155,18,0.55);
+}
+[data-theme="light"] .ops-hub-page .release-item {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.14);
+}
+[data-theme="light"] .ops-hub-page .release-item:hover {
+  border-color: transparent;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1.5px rgba(79,156,19,0.5);
+}
+[data-theme="light"] .ops-hub-page .change-cell {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.14);
+}
+[data-theme="light"] .ops-hub-page .change-cell.change-cell-warn {
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.55);
+}
+[data-theme="light"] .ops-hub-page .change-cell.change-cell-danger {
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.55);
+}
+[data-theme="light"] .ops-hub-page .lc-cell {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.14);
+}
+[data-theme="light"] .ops-hub-page .lc-cell.lc-danger {
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.55);
+}
+[data-theme="light"] .ops-hub-page .lc-cell.lc-warn {
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.55);
 }
 </style>

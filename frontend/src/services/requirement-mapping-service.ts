@@ -13,6 +13,7 @@ export const requirementMappingService = {
   async list(params?: {
     risk_item_id?: string;
     annex_requirement_id?: string;
+    release_id?: string;
     matrix?: boolean;
   }): Promise<RequirementMappingRead[]> {
     const { data } = await apiClient.get<RequirementMappingRead[]>("/requirement-mappings", {
@@ -51,12 +52,10 @@ export const requirementMappingService = {
     await apiClient.delete(`/requirement-mappings/${mappingId}`);
   },
 
-  async productMatrix(productId: string): Promise<ProductRequirementMatrixRowRead[]> {
+  /** Load the full requirement matrix for a specific release. */
+  async releaseMatrix(releaseId: string): Promise<ProductRequirementMatrixRowRead[]> {
     const { data } = await apiClient.get<ProductRequirementMatrixRowRead[]>(
-      "/requirement-mappings/product-matrix",
-      {
-        params: { product_id: productId },
-      },
+      `/product-releases/${releaseId}/requirement-matrix`,
     );
     return data;
   },
@@ -82,15 +81,15 @@ export const requirementMappingService = {
     return data;
   },
 
-  async updateProductRequirementDecision(
-    productId: string,
+  /** Update the applicability decision for a requirement on a specific release. */
+  async updateReleaseRequirementDecision(
+    releaseId: string,
     annexRequirementId: string,
     payload: ProductRequirementDecisionUpdate,
   ): Promise<void> {
     await apiClient.patch(
-      `/requirement-mappings/product-matrix/${annexRequirementId}/decision`,
+      `/product-releases/${releaseId}/requirement-matrix/${annexRequirementId}/decision`,
       payload,
-      { params: { product_id: productId } },
     );
   },
 };

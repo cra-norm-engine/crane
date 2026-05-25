@@ -122,4 +122,21 @@ export const releaseGateService = {
     anchor.click();
     URL.revokeObjectURL(url);
   },
+
+  async downloadReport(productReleaseId: string): Promise<void> {
+    /* Generate and download the PDF compliance report for this release. */
+    const response = await apiClient.get(
+      `/product-releases/${productReleaseId}/report`,
+      { responseType: "blob" },
+    );
+    const contentDisposition: string = response.headers["content-disposition"] ?? "";
+    const match = contentDisposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : "cra-compliance-report.pdf";
+    const url = URL.createObjectURL(response.data as Blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -3,10 +3,6 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Products</h1>
-        <p class="muted">
-          Manage CRA products, search by product code or name, and filter by scope, classification,
-          support period, and latest update date.
-        </p>
       </div>
 
       <div class="page-actions">
@@ -42,7 +38,6 @@
       <div class="section-header">
         <div>
           <h2 class="section-title">Filters</h2>
-          <p class="muted">Narrow the inventory by search, scope, classification, support period, and recency.</p>
         </div>
         <button class="button secondary" type="button" @click="resetFilters">
           Reset filters

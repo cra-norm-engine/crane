@@ -11,6 +11,7 @@ from app.schemas.risk_item import RiskItemSummaryRead
 
 
 class RequirementMappingCreate(BaseModel):
+    product_release_id: UUID
     risk_item_id: UUID | None = None
     annex_requirement_id: UUID
     engineering_requirement_ref: str | None = Field(default=None, max_length=255)
@@ -29,6 +30,7 @@ class RequirementMappingUpdate(BaseModel):
 
 
 class RequirementMappingRead(TimestampedRead):
+    product_release_id: UUID
     risk_item_id: UUID | None
     annex_requirement_id: UUID
     engineering_requirement_ref: str | None
@@ -44,6 +46,7 @@ class RequirementMappingMatrixRead(RequirementMappingRead):
 
 class RequirementMappingSummaryRead(ORMBaseModel):
     id: UUID
+    product_release_id: UUID
     risk_item_id: UUID | None
     annex_requirement_id: UUID
     engineering_requirement_ref: str | None

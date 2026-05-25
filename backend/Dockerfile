@@ -9,7 +9,11 @@ WORKDIR /workspace/backend
 # across separate RUN steps. curl/tar are removed after both binaries are installed.
 # Trivy (Aqua Security) — secondary SBOM vulnerability scanner; aggregates NVD,
 # GHSA, OSV, Ubuntu, Debian, Alpine, RHEL for broader OS-level CVE coverage.
-RUN apt-get update && apt-get install -y --no-install-recommends curl tar && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl tar \
+        # WeasyPrint runtime dependencies (PDF rendering via Pango/Cairo)
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf2.0-0 \
+        shared-mime-info fonts-dejavu-core && \
     \
     # sbom-tools (SBOM quality analysis)
     curl -fsSL https://github.com/sbom-tool/sbom-tools/releases/download/v0.1.20/sbom-tools-linux-x86_64.tar.gz \

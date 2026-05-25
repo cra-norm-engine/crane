@@ -1322,3 +1322,19 @@ onMounted(async () => {
   }
 }
 </style>
+
+<style>
+/* ── Card border visibility in light mode ── */
+[data-theme="light"] .page .panel {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  border-color: transparent;
+}
+[data-theme="light"] .page .overview-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.14);
+  border-color: transparent;
+}
+[data-theme="light"] .page .risk-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.14);
+  border-color: transparent;
+}
+</style>
