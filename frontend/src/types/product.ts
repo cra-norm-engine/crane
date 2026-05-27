@@ -553,6 +553,23 @@ export interface VulnerabilityReportRead {
   operational_conditions: string | null;
   exploitability_assessed_by_id: string | null;
   exploitability_assessed_at: string | null;
+  /** EPSS probability score from api.first.org — denormalized from linked SBOM finding. Null for manual reports. */
+  epss_score: number | null;
+  /** EPSS percentile rank [0.0–1.0] among all scored CVEs. */
+  epss_percentile: number | null;
+  // CRA Art. 14 — ENISA Single Reporting Platform fields
+  /** True when the manufacturer confirms reliable evidence of active exploitation (Art. 3(42)) requiring ENISA notification. */
+  enisa_reporting_required: boolean;
+  enisa_reference_number: string | null;
+  enisa_early_warning_sent_at: string | null;
+  enisa_initial_report_sent_at: string | null;
+  enisa_final_report_sent_at: string | null;
+  /** Computed: discovered_at + 24h. Null when enisa_reporting_required is false or discovered_at unset. */
+  enisa_early_warning_deadline: string | null;
+  /** Computed: discovered_at + 72h. */
+  enisa_initial_report_deadline: string | null;
+  /** Computed: fixed_at + 14 days. Null when no fix date yet ("Pending fix"). */
+  enisa_final_report_deadline: string | null;
 }
 
 export interface VulnerabilityReportCreate {
@@ -588,6 +605,8 @@ export interface VulnerabilityReportUpdate {
   linked_advisory_id?: string | null;
   assigned_to_user_id?: string | null;
   due_date?: string | null;
+  enisa_reporting_required?: boolean;
+  enisa_reference_number?: string | null;
 }
 
 /** Payload to record an exploitability assessment for a vulnerability (CRA Art. 13(2)). */
@@ -595,6 +614,14 @@ export interface ExploitabilityAssessmentUpdate {
   vex_status: VexStatus;
   exploitability_rationale?: string | null;
   operational_conditions?: string | null;
+}
+
+/** Payload for ENISA Art. 14 mark-sent endpoints. */
+export interface EnisaMarkSentRequest {
+  /** ISO datetime — defaults to server-side now() when omitted. */
+  sent_at?: string | null;
+  /** SRP reference number issued by the national CSIRT/ENISA platform. */
+  reference_number?: string | null;
 }
 
 // ── Gap 10: SBOM Vulnerability Findings ──────────────────────────────────
@@ -618,6 +645,12 @@ export interface SbomVulnerabilityFindingRead {
   sources_json: string[];
   created_at: string;
   updated_at: string;
+  /** EPSS probability score [0.0–1.0] that this CVE will be exploited in the wild. Null if not yet fetched. */
+  epss_score: number | null;
+  /** EPSS percentile rank [0.0–1.0] among all scored CVEs. */
+  epss_percentile: number | null;
+  /** ISO timestamp of when the EPSS score was last fetched. */
+  epss_fetched_at: string | null;
 }
 
 /** Result returned by the SBOM vulnerability scan endpoint. */
@@ -632,6 +665,8 @@ export interface SbomScanResult {
   trivy_available: boolean;
   /** Number of findings that received CVSS data from NVD (were missing it from OSV/Trivy). */
   nvd_enrichments: number;
+  /** Number of findings that received EPSS scores from api.first.org. */
+  epss_enrichments: number;
   /** Per-scanner finding counts: {osv, trivy, both}. */
   per_scanner: Record<string, number>;
 }

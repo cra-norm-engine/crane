@@ -509,6 +509,41 @@
             </div>
 
             <template v-else>
+              <!-- Sort + source filter bar -->
+              <div class="vuln-sort-bar">
+                <span class="vuln-sort-label">Source:</span>
+                <button
+                  v-for="src in [{ key: 'all', label: 'All' }, { key: 'osv', label: 'OSV' }, { key: 'trivy', label: 'Trivy' }]"
+                  :key="src.key"
+                  class="sort-btn"
+                  :class="{ 'sort-btn-active': vulnSourceFilter === src.key }"
+                  @click="vulnSourceFilter = src.key as 'all' | 'osv' | 'trivy'"
+                >{{ src.label }}</button>
+
+                <span class="vuln-sort-divider" />
+
+                <span class="vuln-sort-label">Sort:</span>
+                <button
+                  v-for="opt in [
+                    { key: 'epss',     label: 'EPSS' },
+                    { key: 'cvss',     label: 'CVSS' },
+                    { key: 'severity', label: 'Severity' },
+                    { key: 'none',     label: 'Default' },
+                  ]"
+                  :key="opt.key"
+                  class="sort-btn"
+                  :class="{ 'sort-btn-active': vulnSortKey === opt.key }"
+                  @click="toggleVulnSort(opt.key as 'epss' | 'cvss' | 'severity' | 'none')"
+                >
+                  {{ opt.label }}
+                  <span v-if="vulnSortKey === opt.key && opt.key !== 'none'" class="sort-arrow">
+                    {{ vulnSortDir === 'desc' ? '↓' : '↑' }}
+                  </span>
+                </button>
+
+                <span class="vuln-sort-count muted">{{ sortedVulnFindings.length }} of {{ vulnFindings.length }}</span>
+              </div>
+
               <!-- Severity summary strip -->
               <div class="vuln-severity-summary">
                 <span v-if="vulnCountBySeverity.critical" class="sev-chip sev-chip-critical">{{ vulnCountBySeverity.critical }} Critical</span>
@@ -522,7 +557,7 @@
               <!-- Findings cards -->
               <div class="vuln-list">
                 <div
-                  v-for="f in vulnFindings"
+                  v-for="f in sortedVulnFindings"
                   :key="f.id"
                   class="vuln-card"
                   :class="[`vuln-card-${(f.severity || 'unknown').toLowerCase()}`, { 'vuln-card-expanded': expandedFindingId === f.id }]"
@@ -554,6 +589,13 @@
                         {{ f.severity ?? "UNKNOWN" }}
                       </span>
                       <span v-if="f.cvss_score !== null" class="cvss-score">CVSS&nbsp;{{ f.cvss_score.toFixed(1) }}</span>
+                      <!-- EPSS exploit probability badge — colour-coded by risk tier -->
+                      <span
+                        v-if="f.epss_score !== null && f.epss_score !== undefined"
+                        class="epss-badge"
+                        :class="epssClass(f.epss_score)"
+                        :title="`EPSS: ${(f.epss_score * 100).toFixed(2)}% exploit probability (${f.epss_percentile !== null && f.epss_percentile !== undefined ? (f.epss_percentile * 100).toFixed(0) + 'th percentile' : 'percentile n/a'})`"
+                      >EPSS&nbsp;{{ (f.epss_score * 100).toFixed(1) }}%</span>
                       <!-- Expand/collapse chevron -->
                       <svg
                         class="vuln-chevron"
@@ -718,6 +760,9 @@ const activeDetailTab = ref("overview");
 const vulnFindings = ref<SbomVulnerabilityFindingRead[]>([]);
 const vulnScanError = ref("");
 const expandedFindingId = ref<string | null>(null);
+const vulnSortKey = ref<"epss" | "cvss" | "severity" | "none">("none");
+const vulnSortDir = ref<"asc" | "desc">("desc");
+const vulnSourceFilter = ref<"all" | "osv" | "trivy">("all");
 
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseSummaryRead[]>([]);
@@ -1115,6 +1160,46 @@ async function scanVulnerabilities(): Promise<void> {
   }
 }
 
+/* Severity rank for sorting */
+const SEVERITY_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0 };
+
+/* Findings after source filter + sort applied */
+const sortedVulnFindings = computed(() => {
+  let list = vulnFindings.value;
+
+  /* Source filter */
+  if (vulnSourceFilter.value !== "all") {
+    list = list.filter((f) => (f.sources_json ?? ["osv"]).includes(vulnSourceFilter.value));
+  }
+
+  /* Sort */
+  if (vulnSortKey.value === "none") return list;
+  const dir = vulnSortDir.value === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    if (vulnSortKey.value === "epss") {
+      return ((a.epss_score ?? -1) - (b.epss_score ?? -1)) * dir;
+    }
+    if (vulnSortKey.value === "cvss") {
+      return ((a.cvss_score ?? -1) - (b.cvss_score ?? -1)) * dir;
+    }
+    if (vulnSortKey.value === "severity") {
+      const ra = SEVERITY_RANK[a.severity?.toLowerCase() ?? ""] ?? -1;
+      const rb = SEVERITY_RANK[b.severity?.toLowerCase() ?? ""] ?? -1;
+      return (ra - rb) * dir;
+    }
+    return 0;
+  });
+});
+
+function toggleVulnSort(key: typeof vulnSortKey.value): void {
+  if (vulnSortKey.value === key) {
+    vulnSortDir.value = vulnSortDir.value === "asc" ? "desc" : "asc";
+  } else {
+    vulnSortKey.value = key;
+    vulnSortDir.value = "desc";
+  }
+}
+
 // Severity breakdown for the summary strip
 const vulnCountBySeverity = computed(() => {
   const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
@@ -1127,6 +1212,16 @@ const vulnCountBySeverity = computed(() => {
 
 function toggleFinding(id: string): void {
   expandedFindingId.value = expandedFindingId.value === id ? null : id;
+}
+
+/**
+ * Returns a CSS class for the EPSS badge based on exploit probability tiers.
+ * > 10% → high risk (red), 1–10% → medium (amber), < 1% → low (grey).
+ */
+function epssClass(score: number): string {
+  if (score >= 0.10) return "epss-high";
+  if (score >= 0.01) return "epss-medium";
+  return "epss-low";
 }
 
 function nvdUrl(vulnId: string): string {
@@ -1907,6 +2002,83 @@ input:focus, select:focus, textarea:focus {
 .source-badge-trivy  { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
 /* NVD — green */
 .source-badge-nvd    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+
+/* ── EPSS exploit probability badge ── */
+.epss-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  cursor: default;
+}
+/* > 10% — high exploit probability */
+.epss-high   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+/* 1–10% — moderate exploit probability */
+.epss-medium { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+/* < 1% — low exploit probability */
+.epss-low    { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+
+:root[data-theme="light"] .epss-high   { background: #fee2e2; color: #7f1d1d; border-color: #f87171; }
+:root[data-theme="light"] .epss-medium { background: #fef9c3; color: #713f12; border-color: #fde047; }
+:root[data-theme="light"] .epss-low    { background: #f9fafb; color: #374151; border-color: #d1d5db; }
+
+/* ── Vuln sort + source filter bar ── */
+.vuln-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+}
+.vuln-sort-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.1rem;
+}
+.vuln-sort-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--color-border);
+  margin: 0 0.3rem;
+  flex-shrink: 0;
+}
+.vuln-sort-count {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.sort-btn:hover { background: var(--color-surface-elevated); color: inherit; }
+.sort-btn-active {
+  background: rgba(175, 214, 46, 0.12);
+  border-color: rgba(175, 214, 46, 0.5);
+  color: inherit;
+}
+.sort-arrow { font-size: 0.8em; }
 
 /* ── Scanner legend (shown in header below description) ── */
 .scanner-legend {
