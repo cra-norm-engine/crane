@@ -90,8 +90,9 @@ class RiskAssessmentService:
             raise NotFoundException("Owner user not found")
 
         # Auto-generate system_version: find the maximum system_version for this product and increment
+        from sqlalchemy import select
         max_system_version = self.db.scalar(
-            func.max(RiskAssessment.system_version).where(RiskAssessment.product_id == payload.product_id)
+            select(func.max(RiskAssessment.system_version)).where(RiskAssessment.product_id == payload.product_id)
         ) or 0
         next_system_version = max_system_version + 1
 
@@ -377,8 +378,9 @@ class RiskAssessmentService:
             raise NotFoundException("Owner user not found")
 
         # Auto-generate system_version for the duplicate: find max and increment
+        from sqlalchemy import select
         max_system_version = self.db.scalar(
-            func.max(RiskAssessment.system_version).where(RiskAssessment.product_id == source.product_id)
+            select(func.max(RiskAssessment.system_version)).where(RiskAssessment.product_id == source.product_id)
         ) or 0
         next_system_version = max_system_version + 1
 

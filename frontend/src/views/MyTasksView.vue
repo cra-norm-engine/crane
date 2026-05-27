@@ -326,7 +326,10 @@ const dueThisWeekCount = computed(() => dueThisWeekTasks.value.length);
 function navigateToTask(task: TaskItem): void {
   switch (task.entity_type) {
     case "vulnerability_report":
-      router.push({ name: "vulnerability-handling" });
+      router.push({
+        name: "vulnerability-handling",
+        query: { tab: "enisa", report: task.entity_id },
+      });
       break;
     case "change":
       router.push({ name: "change-detail", params: { id: task.entity_id } });
