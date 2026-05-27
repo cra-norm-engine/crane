@@ -12,7 +12,7 @@ WORKDIR /workspace/backend
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl tar \
         # WeasyPrint runtime dependencies (PDF rendering via Pango/Cairo)
-        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf2.0-0 \
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-xlib-2.0-0 \
         shared-mime-info fonts-dejavu-core && \
     \
     # sbom-tools (SBOM quality analysis)
