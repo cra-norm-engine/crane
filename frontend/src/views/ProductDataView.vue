@@ -25,7 +25,7 @@
             </svg>
           </div>
           <div>
-            <h2 class="panel-title">Export product</h2>
+            <h2 class="panel-title section-title">Export product</h2>
             <p class="muted panel-desc">
               Select a product to download all its data as a single JSON file — including releases, risk assessments, CVD policies, advisories, SBOMs, certifications, and more.
             </p>
@@ -55,9 +55,10 @@
           <p v-if="exportError" class="form-error">{{ exportError }}</p>
 
           <!-- Export button -->
-          <button
-            class="btn btn-primary btn-wide"
+          <AppButton
+            variant="primary"
             type="button"
+            style="width:100%"
             :disabled="!exportProductId || isExporting"
             @click="runExport"
           >
@@ -65,14 +66,19 @@
               <path d="M8 1a1 1 0 0 1 1 1v6.586l1.793-1.793a1 1 0 1 1 1.414 1.414l-3.5 3.5a1 1 0 0 1-1.414 0l-3.5-3.5a1 1 0 1 1 1.414-1.414L7 8.586V2a1 1 0 0 1 1-1zM2 14a1 1 0 0 1 1-1h10a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1z"/>
             </svg>
             {{ isExporting ? "Building export…" : "Download JSON" }}
-          </button>
+          </AppButton>
 
           <!-- Schema info -->
           <div class="schema-info">
-            <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.85rem;height:0.85rem;flex-shrink:0">
+            <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.85rem;height:0.85rem;flex-shrink:0;margin-top:0.05rem">
               <path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm.93-9.412-3 .75a.75.75 0 0 0 .36 1.456l1.061-.265-.812 3.25a.75.75 0 0 0 1.454.363l1-4a.75.75 0 0 0-.563-.9l-.5-.124V5.588zm.07-1.838a.75.75 0 0 0 0-1.5.75.75 0 0 0 0 1.5z" clip-rule="evenodd"/>
             </svg>
-            <span>Schema display_version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong> · Includes all product entities except file attachments.</span>
+            <div class="schema-info-body">
+              <span>Schema v<strong>{{ EXPORT_SCHEMA_VERSION }}</strong> · Includes all product entities except file attachments.</span>
+              <button class="schema-dl-link" type="button" @click="downloadSchemaReference">
+                Download schema reference (JSON)
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -88,7 +94,7 @@
             </svg>
           </div>
           <div>
-            <h2 class="panel-title">Import product</h2>
+            <h2 class="panel-title section-title">Import product</h2>
             <p class="muted panel-desc">
               Upload a CRANE export JSON file to create a new product with all its associated data.
               A preview is shown before any data is written.
@@ -205,10 +211,11 @@
               </div>
             </div>
 
-            <button
+            <AppButton
               v-if="!importedProductId"
-              class="btn btn-primary btn-wide"
+              variant="primary"
               type="button"
+              style="width:100%"
               :disabled="isImporting"
               @click="runImport"
             >
@@ -216,30 +223,12 @@
                 <path d="M8 17a1 1 0 0 1-1-1V9.414l-1.793 1.793a1 1 0 0 1-1.414-1.414l3.5-3.5a1 1 0 0 1 1.414 0l3.5 3.5a1 1 0 0 1-1.414 1.414L9 9.414V16a1 1 0 0 1-1 1zM3 3a1 1 0 0 1 1-1h8a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1z"/>
               </svg>
               {{ isImporting ? "Importing…" : "Start import" }}
-            </button>
+            </AppButton>
           </template>
 
         </div>
       </div>
 
-    </div>
-
-    <!-- ── Schema documentation ── -->
-    <div class="card schema-doc">
-      <h2 class="doc-title">Export schema reference</h2>
-      <p class="muted">
-        The JSON file follows schema display_version <strong>{{ EXPORT_SCHEMA_VERSION }}</strong>.
-        Each export is self-contained and includes the following sections:
-      </p>
-      <div class="doc-grid">
-        <div v-for="section in schemaSections" :key="section.key" class="doc-row">
-          <code class="doc-key">{{ section.key }}</code>
-          <div>
-            <div class="doc-label">{{ section.label }}</div>
-            <div class="muted doc-hint">{{ section.hint }}</div>
-          </div>
-        </div>
-      </div>
     </div>
 
   </section>
@@ -249,6 +238,7 @@
 import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 
+import AppButton from "@/components/AppButton.vue";
 import { productService } from "@/services/product-service";
 import {
   buildExportBundle,
@@ -433,6 +423,23 @@ async function loadProducts(): Promise<void> {
 }
 
 onMounted(() => { void loadProducts(); });
+
+/* ─── Schema reference download ──────────────────────── */
+function downloadSchemaReference(): void {
+  const schemaDoc = {
+    schema_version: EXPORT_SCHEMA_VERSION,
+    description: "CRANE export bundle schema reference",
+    note: "Includes all product entities except file attachments.",
+    sections: schemaSections,
+  };
+  const blob = new Blob([JSON.stringify(schemaDoc, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `crane-export-schema-v${EXPORT_SCHEMA_VERSION}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 </script>
 
 <style scoped>
@@ -447,17 +454,23 @@ onMounted(() => { void loadProducts(); });
   flex-wrap: wrap;
 }
 .page-title    { margin: 0; }
-.page-subtitle { margin-top: 0.35rem; }
+.page-subtitle { margin-top: 0.35rem; font-size: var(--text-sm); }
 
+/* Equal-height side-by-side panels */
 .panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 /* ── Panel ───────────────────────────────────────────── */
-.panel { padding: 0; overflow: hidden; }
+.panel {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 .panel-header {
   display: flex;
@@ -480,20 +493,28 @@ onMounted(() => { void loadProducts(); });
 .icon-export { background: rgba(99,102,241,0.15); color: #818cf8; }
 .icon-import { background: rgba(16,185,129,0.15); color: #6ee7b7; }
 
-.panel-title { margin: 0; font-size: 1rem; font-weight: 700; }
-.panel-desc  { margin-top: 0.3rem; font-size: 0.85rem; }
+/* panel-title uses global section-title class; override margin only */
+.panel-title { margin: 0; }
+.panel-desc  { margin-top: 0.3rem; font-size: var(--text-sm); }
 
 .panel-body {
   padding: 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 1rem;
 }
 
 /* ── Form elements ───────────────────────────────────── */
 .field { display: grid; gap: 0.4rem; }
-.field-label { font-size: 0.82rem; color: var(--color-text-muted, #94a3b8); }
-.field-hint  { font-size: 0.78rem; }
+.field-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted, #94a3b8);
+}
+.field-hint  { font-size: var(--text-xs); }
 .required    { color: #f87171; }
 
 .select, .input {
@@ -502,31 +523,14 @@ onMounted(() => { void loadProducts(); });
   border: 1px solid var(--color-border, rgba(148,163,184,0.18));
   border-radius: 0.55rem;
   color: inherit;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   width: 100%;
   box-sizing: border-box;
   outline: none;
 }
 .select:focus, .input:focus { border-color: var(--color-primary, #6366f1); }
 
-/* ── Buttons ─────────────────────────────────────────── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 0.6rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.12s;
-}
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary  { background: var(--color-primary, #6366f1); color: #fff; }
-.btn-wide     { width: 100%; }
-
+/* ── Icon close button ───────────────────────────────── */
 .btn-icon {
   width: 1.8rem; height: 1.8rem;
   display: flex; align-items: center; justify-content: center;
@@ -557,8 +561,8 @@ onMounted(() => { void loadProducts(); });
   border: 1px solid var(--color-border, rgba(148,163,184,0.15));
 }
 .progress-right  { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
-.progress-label  { font-size: 0.85rem; }
-.progress-pct    { font-size: 0.78rem; }
+.progress-label  { font-size: var(--text-sm); }
+.progress-pct    { font-size: var(--text-xs); }
 .progress-bar-wrap { height: 4px; background: var(--color-border, rgba(148,163,184,0.2)); border-radius: 2px; overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--color-primary, #6366f1); border-radius: 2px; transition: width 0.2s; }
 
@@ -567,17 +571,32 @@ onMounted(() => { void loadProducts(); });
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted, #94a3b8);
   padding: 0.65rem 0.85rem;
   background: var(--color-surface-soft, rgba(148,163,184,0.06));
   border-radius: 0.55rem;
 }
+.schema-info-body { display: flex; flex-direction: column; gap: 0.3rem; }
+.schema-dl-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-primary, #818cf8);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.schema-dl-link:hover { opacity: 0.8; }
 
 /* ── Errors / warnings / success ─────────────────────── */
 .form-error {
   color: #fda4af;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   margin: 0;
 }
 
@@ -589,7 +608,7 @@ onMounted(() => { void loadProducts(); });
   background: rgba(251,191,36,0.07);
   border: 1px solid rgba(251,191,36,0.25);
   border-radius: 0.65rem;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: #fbbf24;
   line-height: 1.5;
 }
@@ -602,7 +621,7 @@ onMounted(() => { void loadProducts(); });
   background: rgba(52,211,153,0.1);
   border: 1px solid rgba(52,211,153,0.25);
   border-radius: 0.65rem;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: #86efac;
 }
 
@@ -629,8 +648,8 @@ onMounted(() => { void loadProducts(); });
   opacity: 0.6;
 }
 .drop-icon svg { width: 100%; height: 100%; }
-.drop-label { font-size: 0.9rem; font-weight: 600; }
-.drop-sub   { font-size: 0.82rem; }
+.drop-label { font-size: var(--text-sm); font-weight: 600; }
+.drop-sub   { font-size: var(--text-xs); }
 .hidden-input { display: none; }
 .link { color: var(--color-primary, #818cf8); cursor: pointer; text-decoration: underline; }
 
@@ -655,10 +674,10 @@ onMounted(() => { void loadProducts(); });
   border-radius: 0.5rem;
   background: rgba(99,102,241,0.2); color: #818cf8;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.9rem; font-weight: 700; flex-shrink: 0;
+  font-size: var(--text-sm); font-weight: 700; flex-shrink: 0;
 }
-.preview-name { font-size: 0.95rem; font-weight: 700; }
-.preview-meta { font-size: 0.78rem; margin-top: 0.2rem; }
+.preview-name { font-size: var(--text-base); font-weight: 700; }
+.preview-meta { font-size: var(--text-xs); margin-top: 0.2rem; }
 
 .count-grid {
   display: grid;
@@ -675,30 +694,12 @@ onMounted(() => { void loadProducts(); });
   background: var(--color-surface-soft, rgba(148,163,184,0.05));
   gap: 0.15rem;
 }
-.count-num { font-size: 1.2rem; font-weight: 700; }
-.count-lbl { font-size: 0.7rem; text-align: center; }
-
-/* ── Schema documentation ────────────────────────────── */
-.schema-doc { padding: 1.5rem; display: grid; gap: 1rem; }
-.doc-title  { margin: 0; font-size: 1rem; }
-.doc-grid   { display: grid; gap: 0; }
-.doc-row {
-  display: grid;
-  grid-template-columns: 17rem 1fr;
-  gap: 1rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid var(--color-border, rgba(148,163,184,0.1));
-  align-items: start;
-}
-.doc-row:last-child { border-bottom: none; }
-.doc-key  { font-size: 0.78rem; font-family: monospace; color: #818cf8; white-space: nowrap; }
-.doc-label { font-size: 0.875rem; font-weight: 600; }
-.doc-hint  { font-size: 0.8rem; margin-top: 0.1rem; }
+.count-num { font-size: var(--text-xl); font-weight: 700; }
+.count-lbl { font-size: var(--text-xs); text-align: center; }
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 860px) {
-  .panels   { grid-template-columns: 1fr; }
-  .doc-row  { grid-template-columns: 1fr; gap: 0.25rem; }
+  .panels     { grid-template-columns: 1fr; }
   .count-grid { grid-template-columns: repeat(3, 1fr); }
 }
 </style>
