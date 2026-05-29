@@ -79,6 +79,10 @@
               Pending Actions
             </span>
           </div>
+          <!-- Plain-language posture summary -->
+          <p class="posture-summary" :class="postureScore === 100 ? 'posture-summary--ok' : 'posture-summary--warn'">
+            {{ postureSummary }}
+          </p>
         </div>
 
 
@@ -446,6 +450,27 @@ const daysToDeadline = computed(() => {
   return Math.ceil((deadline.getTime() - today.getTime()) / 86_400_000);
 });
 
+/** Plain-language summary of the current compliance posture */
+const postureSummary = computed(() => {
+  if (!data.value) return "";
+  const issues: string[] = [];
+  if (data.value.vulnerability_summary.critical > 0)
+    issues.push(`${data.value.vulnerability_summary.critical} critical vulnerability${data.value.vulnerability_summary.critical > 1 ? "ies" : ""} open`);
+  if (data.value.risk_summary.approved === 0)
+    issues.push("no approved risk assessments");
+  if (data.value.lifecycle_summary.expired > 0)
+    issues.push(`${data.value.lifecycle_summary.expired} support period${data.value.lifecycle_summary.expired > 1 ? "s" : ""} expired`);
+  if (data.value.change_summary.action_required > 0)
+    issues.push(`${data.value.change_summary.action_required} change${data.value.change_summary.action_required > 1 ? "s" : ""} awaiting compliance action`);
+
+  if (issues.length === 0)
+    return "All four compliance pillars are met. No critical vulnerabilities, risk assessments approved, all support periods active, and no outstanding change actions.";
+  const issueText = issues.length === 1
+    ? issues[0]
+    : issues.slice(0, -1).join(", ") + " and " + issues[issues.length - 1];
+  return `Score reduced by ${issues.length} issue${issues.length > 1 ? "s" : ""}: ${issueText}.`;
+});
+
 /** Ring stroke color driven by posture score */
 const ringColor = computed(() => {
   if (postureScore.value >= 75) return "oklch(0.48 0.092 150)";
@@ -657,6 +682,24 @@ function timeAgo(iso: string): string {
   font-size: 0.8rem;
   line-height: 1.55;
   color: var(--color-text-muted);
+}
+
+.posture-summary {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+}
+.posture-summary--ok {
+  background: var(--color-success-bg, oklch(0.955 0.024 150));
+  color: oklch(0.38 0.092 150);
+  border: 1px solid oklch(0.85 0.05 150);
+}
+.posture-summary--warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text, oklch(0.52 0.12 75));
+  border: 1px solid var(--color-warning-border);
 }
 
 .posture-chips {

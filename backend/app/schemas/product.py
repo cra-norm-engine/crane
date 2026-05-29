@@ -5,7 +5,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.models.enums import ConformityRoute, ProductClassification, ReleaseStatus
+from app.models.enums import (
+    ConformityRoute,
+    ProductClassification,
+    ReleaseStatus,
+    RemoteProcessingClassification,
+    RemoteProcessingElementType,
+)
 
 
 class ProductBase(BaseModel):
@@ -18,6 +24,11 @@ class ProductBase(BaseModel):
     product_type: str = Field(min_length=1, max_length=150)
     current_classification: ProductClassification = ProductClassification.normal
     scope_status: str = "undecided"
+
+    # Gap 2 — true when this product combines physical hardware with software/firmware
+    # (e.g. embedded IoT devices). Enables per-release hardware_version and
+    # software_version fields in the release creation form.
+    is_embedded_product: bool = False
 
     # Gap 4 — Article 69(2): distinguishes products placed on market before CRA
     # full applicability (transition provisions apply to these products).
@@ -48,6 +59,8 @@ class ProductUpdate(BaseModel):
     product_type: str | None = Field(default=None, min_length=1, max_length=150)
     current_classification: ProductClassification | None = None
     scope_status: str | None = None
+    # Gap 2 — allow toggling the embedded product flag after creation
+    is_embedded_product: bool | None = None
     # Allow updating the pre-CRA flag and first placement date independently
     is_pre_cra: bool | None = None
     first_placed_on_market_date: date | None = None
@@ -65,6 +78,8 @@ class ProductSummaryRead(BaseModel):
     product_type: str
     current_classification: ProductClassification
     scope_status: str
+    # Gap 2 — exposed so list views can show the embedded product indicator
+    is_embedded_product: bool
     # Gap 4 — exposed in list views so the product list can flag pre-CRA products
     is_pre_cra: bool
     first_placed_on_market_date: date | None
@@ -90,6 +105,9 @@ class ProductReleaseSummaryRead(BaseModel):
     id: UUID
     system_version: int
     user_version: str | None
+    # Gap 2 — hardware and software version components for embedded products
+    hardware_version: str | None = None
+    software_version: str | None = None
     release_status: ReleaseStatus
     classification_snapshot: ProductClassification
     conformity_route_snapshot: ConformityRoute
@@ -133,6 +151,8 @@ class RemoteProcessingElementSummaryRead(BaseModel):
     provider_name: str | None
     geographic_location: str | None
     criticality: str | None
+    element_type: RemoteProcessingElementType | None = None
+    classification: RemoteProcessingClassification = RemoteProcessingClassification.not_assessed
     created_at: datetime
     updated_at: datetime
 

@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import ConformityRoute, ProductClassification, ReleaseStatus
+from app.schemas.remote_processing_element import RemoteProcessingElementRead
 
 
 class ProductReleaseBase(BaseModel):
@@ -49,6 +50,11 @@ class ProductReleaseBase(BaseModel):
     # User-defined version name (optional: "Spring 2026", "RC-1", etc.)
     user_version: str | None = Field(default=None, max_length=100)
 
+    # Gap 2 — hardware and software version components for embedded products.
+    # Null for pure-software products; only surfaced when is_embedded_product is True.
+    hardware_version: str | None = Field(default=None, max_length=150)
+    software_version: str | None = Field(default=None, max_length=150)
+
     # CRA Art. 28 + Annex V — EU Declaration of Conformity metadata.
     # eu_doc_date must be on or before placed_on_market_date (enforced in service layer).
     eu_doc_date: date | None = None
@@ -57,7 +63,10 @@ class ProductReleaseBase(BaseModel):
 
 
 class ProductReleaseCreate(ProductReleaseBase):
-    pass
+    # Gap 1 — IDs of remote processing elements in scope for this release.
+    # The service strips this field before constructing the ORM object and
+    # uses it to populate the M2M release_remote_processing_elements join table.
+    remote_processing_element_ids: list[UUID] = []
 
 
 class ProductReleaseUpdate(BaseModel):
@@ -96,6 +105,8 @@ class ProductReleaseRead(ProductReleaseBase):
     id: UUID
     system_version: int  # Auto-incremented version number
     product_name: str | None = None  # Populated via the product relationship
+    # Gap 1 — remote processing elements linked to this release via the M2M join table.
+    release_remote_processing_elements: list[RemoteProcessingElementRead] = []
     created_at: datetime
     updated_at: datetime
 

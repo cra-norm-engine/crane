@@ -22,6 +22,8 @@ export interface ProductSummaryRead {
   scope_status: ScopeStatus | string;
   created_at: string;
   updated_at: string;
+  /** Gap 2 — true when this product combines hardware and software/firmware (embedded product). */
+  is_embedded_product: boolean;
   /** Gap 4 — CRA Art. 69(2): true when the product was already on the EU market before CRA applied. */
   is_pre_cra: boolean;
   /** Gap 4 — earliest known EU market placement date for this product line. */
@@ -59,6 +61,10 @@ export interface ProductReleaseSummaryRead {
   system_version: number;
   user_version: string | null;
   display_version: string;
+  /** Gap 2 — hardware version component for embedded products (e.g. "PCB Rev 2.1"). */
+  hardware_version: string | null;
+  /** Gap 2 — software/firmware version component for embedded products (e.g. "fw 2.5.0"). */
+  software_version: string | null;
   release_status: ReleaseStatus;
   classification_snapshot: ProductClassification;
   conformity_route_snapshot: ConformityRoute;
@@ -93,6 +99,10 @@ export interface ProductReleaseSummaryRead {
   updated_at: string;
 }
 
+// ProductReleaseRead is the canonical full release object; defined in release-gate.ts
+// where it is co-located with the rest of the release-gate workflow types.
+export type { ProductReleaseRead } from "@/types/release-gate";
+
 export interface ProductReleaseCreate {
   product_id: string;
   user_version?: string | null;
@@ -118,7 +128,29 @@ export interface ProductReleaseCreate {
   eu_doc_number?: string | null;
   /** CRA Art. 28 + Annex V — Notified body name/ref for third-party conformity route. */
   eu_doc_notified_body?: string | null;
+  /** Gap 2 — hardware revision label for embedded products (e.g. "PCB Rev 2.1"). */
+  hardware_version?: string | null;
+  /** Gap 2 — software/firmware version for embedded products (e.g. "fw 2.5.0"). */
+  software_version?: string | null;
+  /** Gap 1 — IDs of remote processing elements in scope for this release. */
+  remote_processing_element_ids?: string[];
 }
+
+export type RemoteProcessingElementType =
+  | "saas"
+  | "internal_cloud"
+  | "external_api"
+  | "backend_service"
+  | "data_processing"
+  | "firmware_update"
+  | "other";
+
+export type RemoteProcessingClassification =
+  | "not_assessed"
+  | "cra_art_3_2_in_scope"
+  | "third_party_component"
+  | "out_of_scope"
+  | "requires_legal_assessment";
 
 export interface RemoteProcessingElementSummaryRead {
   id: string;
@@ -126,8 +158,65 @@ export interface RemoteProcessingElementSummaryRead {
   provider_name: string | null;
   geographic_location: string | null;
   criticality: string | null;
+  element_type: RemoteProcessingElementType | null;
+  classification: RemoteProcessingClassification;
   created_at: string;
   updated_at: string;
+}
+
+export interface RemoteProcessingElementRead extends RemoteProcessingElementSummaryRead {
+  product_id: string;
+  description: string;
+  data_processed: string | null;
+  /** I1: Designed/developed by or on behalf of the manufacturer for this product. */
+  is_developed_by_manufacturer: boolean | null;
+  /** I3: Necessary for the product to perform its functions. */
+  is_necessary_for_product_function: boolean | null;
+  /** I5: Directly interacts with the product itself. */
+  directly_interacts_with_product: boolean | null;
+  /** I6: Bidirectional data exchange — product sends, RDPS processes and returns. */
+  has_bidirectional_exchange: boolean | null;
+  /** Context: is the third-party provider already covered by NIS2 MSP rules? */
+  provider_is_nis2_msp: boolean | null;
+  classification_rationale: string | null;
+  assessed_at: string | null;
+  assessed_by_user_id: string | null;
+}
+
+export interface RemoteProcessingElementCreate {
+  product_id: string;
+  name: string;
+  description: string;
+  provider_name: string | null;
+  data_processed: string | null;
+  geographic_location: string | null;
+  criticality: string | null;
+  element_type: RemoteProcessingElementType | null;
+}
+
+export interface RemoteProcessingElementUpdate {
+  name?: string;
+  description?: string;
+  provider_name?: string | null;
+  data_processed?: string | null;
+  geographic_location?: string | null;
+  criticality?: string | null;
+  element_type?: RemoteProcessingElementType | null;
+}
+
+export interface RemoteProcessingAssessRequest {
+  /** I1: Designed/developed by or on behalf of the manufacturer for this product. */
+  is_developed_by_manufacturer: boolean | null;
+  /** I3: Necessary for the product to perform its functions. */
+  is_necessary_for_product_function: boolean | null;
+  /** I5: Directly interacts with the product itself (not just with users). */
+  directly_interacts_with_product: boolean | null;
+  /** I6: Bidirectional data exchange (product → RDPS processes → result returned). */
+  has_bidirectional_exchange: boolean | null;
+  /** Context: is the provider covered by NIS2 as a Managed Service Provider? */
+  provider_is_nis2_msp: boolean | null;
+  classification_rationale: string | null;
+  classification_override: RemoteProcessingClassification | null;
 }
 
 export interface ProductRead {
@@ -141,6 +230,8 @@ export interface ProductRead {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** Gap 2 — true when this product combines hardware and software/firmware. */
+  is_embedded_product: boolean;
   /** Gap 4 — Art. 69(2): true for products on the market before CRA full applicability. */
   is_pre_cra: boolean;
   /** Gap 4 — earliest known EU market placement date for this product line. */
@@ -165,6 +256,8 @@ export interface ProductCreate {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** Gap 2 — true when the product combines hardware and firmware/software. */
+  is_embedded_product?: boolean;
   /** Gap 4 — Art. 69(2) flag; defaults to false for new products created after CRA. */
   is_pre_cra?: boolean;
   first_placed_on_market_date?: string | null;
@@ -181,6 +274,8 @@ export interface ProductUpdate {
   product_type?: string;
   current_classification?: ProductClassification;
   scope_status?: ScopeStatus | string;
+  /** Gap 2 — update the embedded product flag when the product's hardware nature is confirmed. */
+  is_embedded_product?: boolean;
   /** Gap 4 — update the pre-CRA flag when a product's status is clarified. */
   is_pre_cra?: boolean;
   first_placed_on_market_date?: string | null;

@@ -3,11 +3,28 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
-from app.models.enums import ConformityRoute, ProductClassification, ReleaseStatus
+from app.models.enums import (
+    ConformityRoute,
+    ProductClassification,
+    ReleaseStatus,
+    RemoteProcessingClassification,
+    RemoteProcessingElementType,
+)
+
+
+# M2M association table — links each release to the remote processing elements
+# that are in scope for that specific release version.
+release_remote_processing_element_table = Table(
+    "release_remote_processing_elements",
+    Base.metadata,
+    Column("release_id", PGUUID(as_uuid=True), ForeignKey("product_releases.id", ondelete="CASCADE"), primary_key=True),
+    Column("rpe_id", PGUUID(as_uuid=True), ForeignKey("remote_processing_elements.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Product(UUIDTimestampMixin, Base):
@@ -32,6 +49,11 @@ class Product(UUIDTimestampMixin, Base):
         default=ProductClassification.normal,
     )
     scope_status: Mapped[str] = mapped_column(String(50), nullable=False, default="undecided", index=True)
+
+    # Gap 2 — flags that this product combines physical hardware with software/firmware.
+    # When True, per-release hardware_version and software_version fields are surfaced
+    # so each HW+SW combination can be individually documented for CRA compliance.
+    is_embedded_product: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     # Gap 4 — Article 69(2): marks products already on the EU market before CRA
     # full applicability. Pre-CRA products have different obligation timelines.
@@ -125,6 +147,12 @@ class ProductRelease(UUIDTimestampMixin, Base):
     # User-defined version name (optional: "Spring 2026", "RC-1", etc.)
     user_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Gap 2 — for embedded (hardware+software) products: the specific hardware
+    # revision and firmware/software version that make up this release.
+    # Both are nullable so they are invisible for pure-software products.
+    hardware_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    software_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
     release_status: Mapped[ReleaseStatus] = mapped_column(nullable=False, default=ReleaseStatus.draft)
 
     planned_release_date: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -201,6 +229,15 @@ class ProductRelease(UUIDTimestampMixin, Base):
     eu_doc_notified_body: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     product: Mapped[Product] = relationship(back_populates="releases")
+
+    # Gap 1 — M2M: remote processing elements in scope for this specific release.
+    # Populated at release creation time to record which RPEs apply to this version.
+    release_remote_processing_elements: Mapped[list["RemoteProcessingElement"]] = relationship(
+        "RemoteProcessingElement",
+        secondary=release_remote_processing_element_table,
+        back_populates="releases",
+        lazy="selectin",
+    )
 
     @property
     def product_name(self) -> str | None:
@@ -308,7 +345,43 @@ class RemoteProcessingElement(UUIDTimestampMixin, Base):
     geographic_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     criticality: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # --- CRA Art. 3(2) evaluation fields ---
+    # Element type helps guide classification (e.g. SaaS vs internal cloud backend).
+    element_type: Mapped[str | None] = mapped_column(
+        SAEnum(RemoteProcessingElementType, name="remoteprocessingelementtype"),
+        nullable=True,
+    )
+    # DIGITALEUROPE I1/I3/I5/I6 inclusion criteria (None = not yet answered).
+    # I1: Designed/developed by or on behalf of the manufacturer for this product.
+    is_developed_by_manufacturer: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # I3: Necessary for the product to perform its functions (absence = cannot function).
+    is_necessary_for_product_function: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # I5: Directly interacts with the product itself.
+    directly_interacts_with_product: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # I6: Bidirectional data exchange (product → RDPS → result back to product).
+    has_bidirectional_exchange: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Context field: is the provider already covered under NIS2 Managed Service Provider rules?
+    provider_is_nis2_msp: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Final classification outcome derived from the decision tree.
+    classification: Mapped[str] = mapped_column(
+        SAEnum(RemoteProcessingClassification, name="remoteprocessingclassification"),
+        nullable=False,
+        default=RemoteProcessingClassification.not_assessed,
+        server_default="not_assessed",
+    )
+    classification_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assessed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assessed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     product: Mapped[Product] = relationship(back_populates="remote_processing_elements")
+    # Back-reference to releases that include this element in their processing scope.
+    releases: Mapped[list["ProductRelease"]] = relationship(
+        "ProductRelease",
+        secondary=release_remote_processing_element_table,
+        back_populates="release_remote_processing_elements",
+    )
 
 
 class ProductScopeEvaluation(UUIDTimestampMixin, Base):

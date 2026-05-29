@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, ValidationException
 from app.models.enums import AuditStatus, ComplianceActionStatus, ComplianceActionType, EntityType, ReleaseStatus
-from app.models.product import ProductRelease
+from app.models.product import ProductRelease, RemoteProcessingElement
 from app.repositories.change_repository import ChangeRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.product_repository import ProductRepository
@@ -58,9 +58,12 @@ class ProductReleaseService:
         ) or 0
         next_system_version = max_system_version + 1
 
+        # Extract M2M ids — not a DB column; must not be passed to the ORM constructor.
+        rpe_ids = payload.remote_processing_element_ids
+
         # Create release with auto-generated system_version
         release = ProductRelease(
-            **payload.model_dump(),
+            **payload.model_dump(exclude={"remote_processing_element_ids"}),
             system_version=next_system_version,
         )
 
@@ -68,6 +71,14 @@ class ProductReleaseService:
             self.repository.add(release)
             # Flush to get the generated release ID before creating audit events
             self.db.flush()
+
+            # Gap 1 — link the remote processing elements selected for this release.
+            # Queries only the RPEs the caller actually listed; silently skips unknown ids.
+            if rpe_ids:
+                rpes = self.db.scalars(
+                    select(RemoteProcessingElement).where(RemoteProcessingElement.id.in_(rpe_ids))
+                ).all()
+                release.release_remote_processing_elements.extend(rpes)
 
             create_audit_event(
                 self.db,

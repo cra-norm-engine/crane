@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
 from app.schemas.remote_processing_element import (
+    RemoteProcessingAssessRequest,
     RemoteProcessingElementCreate,
     RemoteProcessingElementRead,
     RemoteProcessingElementUpdate,
@@ -54,6 +55,17 @@ def update_remote_processing_element(
     current_user: User = Depends(require_permission(Permission.remote_processing_element_write)),
 ) -> RemoteProcessingElementRead:
     return RemoteProcessingElementService(db).update_element(element_id, payload, actor=current_user)
+
+
+@router.post("/{element_id}/assess", response_model=RemoteProcessingElementRead)
+def assess_remote_processing_element(
+    element_id: UUID,
+    payload: RemoteProcessingAssessRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.remote_processing_element_write)),
+) -> RemoteProcessingElementRead:
+    """Run the CRA Art. 3(2) evaluation wizard and persist the classification."""
+    return RemoteProcessingElementService(db).assess_element(element_id, payload, actor=current_user)
 
 
 @router.delete("/{element_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

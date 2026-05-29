@@ -236,6 +236,13 @@
                   <span v-if="release.parent_release_id" class="release-tag release-tag-blue">
                     Non-substantial
                   </span>
+                  <!-- Gap 2 — HW+SW version tags for embedded products -->
+                  <span v-if="release.hardware_version" class="release-tag release-tag-hw">
+                    HW: {{ release.hardware_version }}
+                  </span>
+                  <span v-if="release.software_version" class="release-tag release-tag-sw">
+                    SW: {{ release.software_version }}
+                  </span>
                 </div>
 
                 <!-- Status badge -->
@@ -270,39 +277,57 @@
             </div>
           </section>
 
-          <!-- Remote processing elements — table unchanged -->
+          <!-- Remote processing solutions — full CRUD + CRA Art. 3(2) evaluation -->
           <section class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Remote processing elements</h2>
-                <p class="muted section-sub">{{ product.remote_processing_elements.length }} element(s)</p>
+                <h2 class="section-title">Remote processing solutions</h2>
+                <p class="muted section-sub">{{ rpeList.length }} element(s) — {{ rpeInScopeCount }} CRA Art. 3(2) in scope</p>
               </div>
+              <AppButton
+                variant="primary"
+                size="sm"
+                @click="openRpeAdd"
+              >
+                + Add element
+              </AppButton>
             </div>
 
-            <div v-if="product.remote_processing_elements.length === 0" class="empty-state">
+            <div v-if="rpeList.length === 0" class="empty-state">
               <div class="empty-state-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M5 12a7 7 0 0 1 7-7M5 12a7 7 0 0 0 7 7M19 12a7 7 0 0 0-7-7M19 12a7 7 0 0 1-7 7"/></svg>
               </div>
-              <p class="empty-state-title">No remote processing elements recorded</p>
-              <p class="empty-state-desc">Document any cloud services or remote data processing this product depends on to keep its CRA scope assessment complete.</p>
+              <p class="empty-state-title">No remote processing solutions recorded</p>
+              <p class="empty-state-desc">Document SaaS, cloud backends, or APIs this product depends on and evaluate their CRA Art. 3(2) scope.</p>
             </div>
 
             <div v-else class="table-wrapper">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
+                    <th>Name / Type</th>
                     <th>Provider</th>
-                    <th>Location</th>
-                    <th>Criticality</th>
+                    <th>CRA Classification</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="element in product.remote_processing_elements" :key="element.id">
-                    <td><strong>{{ element.name }}</strong></td>
-                    <td>{{ element.provider_name || "—" }}</td>
-                    <td>{{ element.geographic_location || "—" }}</td>
-                    <td>{{ element.criticality || "—" }}</td>
+                  <tr v-for="el in rpeList" :key="el.id">
+                    <td>
+                      <div><strong>{{ el.name }}</strong></div>
+                      <span v-if="el.element_type" class="badge badge-neutral rpe-type-badge">{{ rpeTypeLabel(el.element_type) }}</span>
+                    </td>
+                    <td>{{ el.provider_name || "—" }}</td>
+                    <td>
+                      <span class="badge" :class="rpeClassBadge(el.classification)">
+                        {{ rpeClassLabel(el.classification) }}
+                      </span>
+                    </td>
+                    <td class="col-actions">
+                      <AppButton variant="secondary" size="sm" @click="openRpeEvaluate(el)">Evaluate</AppButton>
+                      <AppButton variant="secondary" size="sm" @click="openRpeEdit(el)">Edit</AppButton>
+                      <AppButton variant="danger" size="sm" @click="deleteRpe(el.id)">Delete</AppButton>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -796,6 +821,34 @@
             <input v-model="releaseForm.planned_release_date" type="date" />
           </label>
 
+          <!-- Gap 1 — Remote processing elements in scope for this release -->
+          <div class="field modal-field-span-2">
+            <span class="field-label">
+              Remote processing solutions
+              <span class="field-label-hint"> — select all elements that are part of this release (Ctrl/Cmd+click for multiple)</span>
+            </span>
+            <p v-if="releaseRpeError" class="field-hint field-hint-error">{{ releaseRpeError }}</p>
+            <select
+              v-if="rpeList.length > 0"
+              multiple
+              v-model="releaseRpeIds"
+              class="rpe-release-select"
+              size="4"
+            >
+              <option
+                v-for="rpe in rpeList"
+                :key="rpe.id"
+                :value="rpe.id"
+              >
+                {{ rpe.name }}{{ rpe.element_type ? ' (' + rpeTypeLabel(rpe.element_type) + ')' : '' }} — {{ rpeClassLabel(rpe.classification) }}
+              </option>
+            </select>
+            <p v-else class="field-hint muted">
+              No remote processing solutions defined yet — add them in the
+              <strong>Remote Processing Solutions</strong> section on this page first.
+            </p>
+          </div>
+
           <label class="field">
             <span class="field-label">Classification snapshot</span>
             <select v-model="releaseForm.classification_snapshot">
@@ -921,6 +974,25 @@
               No substantial changes found for this product.
             </p>
           </div>
+
+          <!-- Gap 2 — hardware + software version fields for embedded products -->
+          <template v-if="product?.is_embedded_product">
+            <label class="field">
+              <span class="field-label">
+                Hardware version
+                <span class="field-label-hint">(e.g. "PCB Rev 2.1", "Model B")</span>
+              </span>
+              <input v-model.trim="releaseForm.hardware_version" type="text" maxlength="150" placeholder="e.g. HW Rev 3.0" />
+            </label>
+            <label class="field">
+              <span class="field-label">
+                Software / firmware version
+                <span class="field-label-hint">(e.g. "fw 2.5.0", "v3.1.2")</span>
+              </span>
+              <input v-model.trim="releaseForm.software_version" type="text" maxlength="150" placeholder="e.g. fw 2.5.0" />
+            </label>
+          </template>
+
         </form>
 
         <!-- Footer slot — reset + create actions -->
@@ -941,6 +1013,184 @@
           >
             {{ isCreatingRelease ? "Creating…" : "Create release and open workflow" }}
           </button>
+        </template>
+      </AppModal>
+
+      <!-- ════════════════════════════════════════════════════
+           MODAL — Remote processing element Add / Edit
+           ════════════════════════════════════════════════════ -->
+      <AppModal v-model="showRpeModal" :title="rpeEditTarget ? 'Edit element' : 'Add remote processing element'" size="lg">
+        <form id="rpe-form" class="modal-edit-grid" @submit.prevent="saveRpe">
+          <label class="field">
+            <span class="field-label">Name <span class="required">*</span></span>
+            <input v-model.trim="rpeForm.name" type="text" maxlength="255" required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Element type</span>
+            <select v-model="rpeForm.element_type">
+              <option :value="null">— select —</option>
+              <option value="saas">SaaS</option>
+              <option value="internal_cloud">Internal cloud</option>
+              <option value="external_api">External API</option>
+              <option value="backend_service">Backend service</option>
+              <option value="data_processing">Data processing / analytics</option>
+              <option value="firmware_update">Firmware update service</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="field modal-field-span-2">
+            <span class="field-label">Description <span class="required">*</span></span>
+            <textarea v-model.trim="rpeForm.description" rows="3" required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Provider name</span>
+            <input v-model.trim="rpeForm.provider_name" type="text" maxlength="255" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Geographic location</span>
+            <input v-model.trim="rpeForm.geographic_location" type="text" maxlength="255" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Data processed</span>
+            <textarea v-model.trim="rpeForm.data_processed" rows="2" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Criticality</span>
+            <input v-model.trim="rpeForm.criticality" type="text" maxlength="100" placeholder="e.g. high, medium, low" />
+          </label>
+
+        </form>
+
+        <template #footer>
+          <AppButton variant="secondary" @click="showRpeModal = false">Cancel</AppButton>
+          <AppButton variant="primary" type="submit" form="rpe-form" :disabled="isSavingRpe">
+            {{ isSavingRpe ? "Saving…" : (rpeEditTarget ? "Save changes" : "Add element") }}
+          </AppButton>
+        </template>
+      </AppModal>
+
+      <!-- ════════════════════════════════════════════════════
+           MODAL — CRA Art. 3(2) Evaluation Wizard
+           ════════════════════════════════════════════════════ -->
+      <!-- CRA Art. 3(2) RDPS Evaluation wizard — implements DIGITALEUROPE I1/I3/I5/I6 inclusion criteria -->
+      <AppModal v-model="showRpeEvalModal" title="CRA Art. 3(2) RDPS Evaluation" size="lg">
+        <div v-if="rpeEvalTarget" class="rpe-eval-wrap">
+          <p class="rpe-eval-intro">
+            Evaluating <strong>{{ rpeEvalTarget.name }}</strong> against CRA Article 3(2).
+            A Remote Data Processing Solution (RDPS) is in scope only when all four
+            DIGITALEUROPE inclusion criteria (I1, I3, I5, I6) are satisfied.
+          </p>
+
+          <!-- I1: Designed/developed by the manufacturer -->
+          <div class="rpe-question">
+            <p class="rpe-q-text">
+              <span class="rpe-q-num">I1</span>
+              Was this service designed and developed by your organisation (or specifically on your behalf) for this product?
+            </p>
+            <p class="rpe-q-hint">If a third party developed and independently operates this service, they are the CRA manufacturer — track them as a dependency instead.</p>
+            <div class="rpe-q-options">
+              <button type="button" :class="['rpe-opt', evalForm.is_developed_by_manufacturer === true && 'rpe-opt--active']" @click="evalForm.is_developed_by_manufacturer = true">Yes</button>
+              <button type="button" :class="['rpe-opt', evalForm.is_developed_by_manufacturer === false && 'rpe-opt--active']" @click="evalForm.is_developed_by_manufacturer = false">No</button>
+              <button type="button" :class="['rpe-opt', evalForm.is_developed_by_manufacturer === null && 'rpe-opt--active rpe-opt--unsure']" @click="evalForm.is_developed_by_manufacturer = null">Not sure</button>
+            </div>
+          </div>
+
+          <!-- NIS2 context — shown only when I1 = No (helps generate guidance text) -->
+          <div v-if="evalForm.is_developed_by_manufacturer === false" class="rpe-question rpe-question--optional">
+            <p class="rpe-q-text">
+              <span class="rpe-q-num">Context</span>
+              Is this provider regulated under NIS2 as a Managed Service Provider (MSP)?
+            </p>
+            <p class="rpe-q-hint">NIS2-covered MSPs already carry security obligations. This affects what contractual measures you need in place.</p>
+            <div class="rpe-q-options">
+              <button type="button" :class="['rpe-opt', evalForm.provider_is_nis2_msp === true && 'rpe-opt--active']" @click="evalForm.provider_is_nis2_msp = true">Yes</button>
+              <button type="button" :class="['rpe-opt', evalForm.provider_is_nis2_msp === false && 'rpe-opt--active']" @click="evalForm.provider_is_nis2_msp = false">No</button>
+              <button type="button" :class="['rpe-opt', evalForm.provider_is_nis2_msp === null && 'rpe-opt--active rpe-opt--unsure']" @click="evalForm.provider_is_nis2_msp = null">Not sure</button>
+            </div>
+          </div>
+
+          <!-- I3: Necessary for product function — shown when I1 = Yes -->
+          <div v-if="evalForm.is_developed_by_manufacturer === true" class="rpe-question">
+            <p class="rpe-q-text">
+              <span class="rpe-q-num">I3</span>
+              Is this service necessary for the product to perform its functions?
+              (Without it, the product cannot do its intended job.)
+            </p>
+            <p class="rpe-q-hint">Optional/ancillary services such as dashboards, telemetry, or features the product works fine without are out of scope.</p>
+            <div class="rpe-q-options">
+              <button type="button" :class="['rpe-opt', evalForm.is_necessary_for_product_function === true && 'rpe-opt--active']" @click="evalForm.is_necessary_for_product_function = true">Yes</button>
+              <button type="button" :class="['rpe-opt', evalForm.is_necessary_for_product_function === false && 'rpe-opt--active']" @click="evalForm.is_necessary_for_product_function = false">No</button>
+              <button type="button" :class="['rpe-opt', evalForm.is_necessary_for_product_function === null && 'rpe-opt--active rpe-opt--unsure']" @click="evalForm.is_necessary_for_product_function = null">Not sure</button>
+            </div>
+          </div>
+
+          <!-- I5: Directly interacts with the product — shown when I3 = Yes -->
+          <div v-if="showEvalQ3" class="rpe-question">
+            <p class="rpe-q-text">
+              <span class="rpe-q-num">I5</span>
+              Does this service directly interact with the product itself?
+            </p>
+            <p class="rpe-q-hint">Backend infrastructure (auth servers, databases, build systems) that interacts only with other systems — not the product directly — is out of scope.</p>
+            <div class="rpe-q-options">
+              <button type="button" :class="['rpe-opt', evalForm.directly_interacts_with_product === true && 'rpe-opt--active']" @click="evalForm.directly_interacts_with_product = true">Yes</button>
+              <button type="button" :class="['rpe-opt', evalForm.directly_interacts_with_product === false && 'rpe-opt--active']" @click="evalForm.directly_interacts_with_product = false">No</button>
+              <button type="button" :class="['rpe-opt', evalForm.directly_interacts_with_product === null && 'rpe-opt--active rpe-opt--unsure']" @click="evalForm.directly_interacts_with_product = null">Not sure</button>
+            </div>
+          </div>
+
+          <!-- I6: Bidirectional exchange — shown when I5 = Yes -->
+          <div v-if="showEvalQ4" class="rpe-question">
+            <p class="rpe-q-text">
+              <span class="rpe-q-num">I6</span>
+              Is the data exchange bidirectional — the product sends data, the service processes it,
+              and returns a result back to the product?
+            </p>
+            <p class="rpe-q-hint">Pure data sinks (telemetry, logging, crash reports where nothing is returned to the product) are out of CRA scope.</p>
+            <div class="rpe-q-options">
+              <button type="button" :class="['rpe-opt', evalForm.has_bidirectional_exchange === true && 'rpe-opt--active']" @click="evalForm.has_bidirectional_exchange = true">Yes</button>
+              <button type="button" :class="['rpe-opt', evalForm.has_bidirectional_exchange === false && 'rpe-opt--active']" @click="evalForm.has_bidirectional_exchange = false">No</button>
+              <button type="button" :class="['rpe-opt', evalForm.has_bidirectional_exchange === null && 'rpe-opt--active rpe-opt--unsure']" @click="evalForm.has_bidirectional_exchange = null">Not sure</button>
+            </div>
+          </div>
+
+          <!-- Live classification preview — hidden until at least one criteria answered -->
+          <div v-if="evalPreviewClassification !== 'not_assessed'" class="rpe-result" :class="`rpe-result--${evalPreviewClassification}`">
+            <div class="rpe-result-label">
+              <span class="badge" :class="rpeClassBadge(evalPreviewClassification)">{{ rpeClassLabel(evalPreviewClassification) }}</span>
+            </div>
+            <p class="rpe-result-desc">{{ evalPreviewDescription }}</p>
+          </div>
+
+          <!-- Override + rationale -->
+          <div class="rpe-question rpe-question--optional">
+            <label class="field">
+              <span class="field-label">Override classification (optional)</span>
+              <select v-model="evalForm.classification_override">
+                <option :value="null">— use automatic result —</option>
+                <option value="cra_art_3_2_in_scope">CRA Art. 3(2) in scope</option>
+                <option value="third_party_component">Third-party component</option>
+                <option value="out_of_scope">Out of scope</option>
+                <option value="requires_legal_assessment">Requires legal assessment</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Rationale / notes</span>
+              <textarea v-model.trim="evalForm.classification_rationale" rows="3" placeholder="Document the basis for this classification…" />
+            </label>
+          </div>
+        </div>
+
+        <template #footer>
+          <AppButton variant="secondary" @click="showRpeEvalModal = false">Cancel</AppButton>
+          <AppButton variant="primary" :disabled="isSavingRpe" @click="saveRpeAssessment">
+            {{ isSavingRpe ? "Saving…" : "Save assessment" }}
+          </AppButton>
         </template>
       </AppModal>
 
@@ -1088,6 +1338,7 @@ import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { supportPeriodService } from "@/services/support-period-service";
 import { changeService } from "@/services/change-service";
+import { remoteProcessingElementService } from "@/services/remote-processing-element-service";
 import type { ChangeSummary } from "@/types/change";
 import { useAuthStore } from "@/stores/auth";
 import type { AuditEventRead } from "@/types/audit";
@@ -1102,6 +1353,10 @@ import type {
   ProductUpdate,
   SupportPeriodRecordRead,
   SupportType,
+  RemoteProcessingElementRead,
+  RemoteProcessingAssessRequest,
+  RemoteProcessingClassification,
+  RemoteProcessingElementType,
 } from "@/types/product";
 
 /* ── Props & composables ────────────────────────────── */
@@ -1123,6 +1378,251 @@ const substantialChanges           = ref<ChangeSummary[]>([]);
 // All assessed changes (any outcome) — used to populate the substantiality analysis picker
 const assessedChanges              = ref<ChangeSummary[]>([]);
 const scopeResult                  = ref<ProductScopeEvaluationRead | null>(null);
+
+/* ── Remote processing elements ─────────────────────── */
+const rpeList         = ref<RemoteProcessingElementRead[]>([]);
+const showRpeModal    = ref(false);
+const showRpeEvalModal = ref(false);
+const isSavingRpe     = ref(false);
+const rpeEditTarget   = ref<RemoteProcessingElementRead | null>(null);
+const rpeEvalTarget   = ref<RemoteProcessingElementRead | null>(null);
+
+const rpeForm = reactive<{
+  name: string;
+  description: string;
+  provider_name: string;
+  data_processed: string;
+  geographic_location: string;
+  criticality: string;
+  element_type: RemoteProcessingElementType | null;
+}>({
+  name: "", description: "", provider_name: "", data_processed: "",
+  geographic_location: "", criticality: "", element_type: null,
+});
+
+const evalForm = reactive<{
+  is_developed_by_manufacturer: boolean | null;
+  is_necessary_for_product_function: boolean | null;
+  directly_interacts_with_product: boolean | null;
+  has_bidirectional_exchange: boolean | null;
+  provider_is_nis2_msp: boolean | null;
+  classification_rationale: string;
+  classification_override: RemoteProcessingClassification | null;
+}>({
+  is_developed_by_manufacturer: null,
+  is_necessary_for_product_function: null,
+  directly_interacts_with_product: null,
+  has_bidirectional_exchange: null,
+  provider_is_nis2_msp: null,
+  classification_rationale: "",
+  classification_override: null,
+});
+
+const rpeInScopeCount = computed(() =>
+  rpeList.value.filter((e) => e.classification === "cra_art_3_2_in_scope").length,
+);
+
+// I5 question shown when I1=Yes AND I3=Yes
+const showEvalQ3 = computed(
+  () => evalForm.is_developed_by_manufacturer === true && evalForm.is_necessary_for_product_function === true,
+);
+
+// I6 question shown when I5=Yes
+const showEvalQ4 = computed(() => showEvalQ3.value && evalForm.directly_interacts_with_product === true);
+
+// Live auto-classification — mirrors the backend _classify() logic exactly (DIGITALEUROPE I1/I3/I5/I6)
+const evalPreviewClassification = computed((): RemoteProcessingClassification => {
+  if (evalForm.classification_override) return evalForm.classification_override;
+  if (evalForm.is_developed_by_manufacturer === false) return "third_party_component";      // I1 fails
+  if (evalForm.is_developed_by_manufacturer === null) return "not_assessed";
+  if (evalForm.is_necessary_for_product_function === false) return "out_of_scope";           // I3 fails
+  if (evalForm.is_necessary_for_product_function === null) return "not_assessed";
+  if (evalForm.directly_interacts_with_product === false) return "out_of_scope";             // I5 fails
+  if (evalForm.directly_interacts_with_product === null) return "not_assessed";
+  if (evalForm.has_bidirectional_exchange === false) return "out_of_scope";                  // I6 fails
+  if (evalForm.has_bidirectional_exchange === null) return "not_assessed";
+  return "cra_art_3_2_in_scope";                                                             // all criteria met
+});
+
+const evalPreviewDescription = computed((): string => {
+  switch (evalPreviewClassification.value) {
+    case "cra_art_3_2_in_scope":
+      return (
+        "All four DIGITALEUROPE inclusion criteria are met — this is a CRA Art. 3(2) RDPS. " +
+        "Required actions: include in risk assessment (Art. 10); encrypt data flows (Annex I.I.2e); " +
+        "cover in conformity assessment and technical documentation."
+      );
+    case "third_party_component":
+      return (
+        "This service was not developed by your organisation — the third party is the CRA manufacturer. " +
+        "Track them as an external dependency, verify their CRA compliance, and document in your technical documentation." +
+        (evalForm.provider_is_nis2_msp
+          ? " The provider is a NIS2 MSP — they carry security obligations that may satisfy some contractual requirements."
+          : "")
+      );
+    case "out_of_scope":
+      if (!evalForm.classification_override) {
+        if (evalForm.is_necessary_for_product_function === false)
+          return "Criterion I3 not met — the product functions without this service. No CRA obligations. Document as an optional service; NIS2 may apply to the provider.";
+        if (evalForm.directly_interacts_with_product === false)
+          return "Criterion I5 not met — no direct interaction with the product. No CRA obligations. Track as backend infrastructure outside the product's CRA scope.";
+        if (evalForm.has_bidirectional_exchange === false)
+          return "Criterion I6 not met — data only flows in one direction. No CRA obligations. Track as a data sink (telemetry, logging, analytics).";
+      }
+      return "This service is outside CRA scope. NIS2/DORA may apply to the provider if it is a cloud service.";
+    case "requires_legal_assessment":
+      return "The answers indicate an edge case — consult legal counsel and review the DIGITALEUROPE CRA Art. 3(2) guidance before finalising this classification.";
+    default:
+      return "";
+  }
+});
+
+function rpeTypeLabel(type: RemoteProcessingElementType): string {
+  const labels: Record<RemoteProcessingElementType, string> = {
+    saas: "SaaS",
+    internal_cloud: "Internal cloud",
+    external_api: "External API",
+    backend_service: "Backend service",
+    data_processing: "Data processing",
+    firmware_update: "Firmware update",
+    other: "Other",
+  };
+  return labels[type] ?? type;
+}
+
+function rpeClassLabel(cls: RemoteProcessingClassification): string {
+  const labels: Record<RemoteProcessingClassification, string> = {
+    not_assessed:              "⚠ Not assessed",
+    cra_art_3_2_in_scope:      "✓ CRA Art. 3(2) in scope",
+    third_party_component:     "⊕ Third-party",
+    out_of_scope:              "— Out of scope",
+    requires_legal_assessment: "⚖ Legal review",
+  };
+  return labels[cls] ?? cls;
+}
+
+function rpeClassBadge(cls: RemoteProcessingClassification): string {
+  switch (cls) {
+    case "cra_art_3_2_in_scope":      return "badge-success";
+    case "third_party_component":     return "badge-info";
+    case "out_of_scope":              return "badge-neutral";
+    case "requires_legal_assessment": return "badge-warning";
+    default:                          return "badge-amber";
+  }
+}
+
+async function loadRpe(): Promise<void> {
+  if (!props.productId) return;
+  try {
+    rpeList.value = await remoteProcessingElementService.list({ product_id: props.productId });
+  } catch {
+    // Non-fatal — product still loads even if RPE list fails
+  }
+}
+
+function openRpeAdd(): void {
+  rpeEditTarget.value = null;
+  Object.assign(rpeForm, { name: "", description: "", provider_name: "", data_processed: "", geographic_location: "", criticality: "", element_type: null });
+  showRpeModal.value = true;
+}
+
+function openRpeEdit(el: RemoteProcessingElementRead): void {
+  rpeEditTarget.value = el;
+  Object.assign(rpeForm, {
+    name: el.name,
+    description: el.description,
+    provider_name: el.provider_name ?? "",
+    data_processed: el.data_processed ?? "",
+    geographic_location: el.geographic_location ?? "",
+    criticality: el.criticality ?? "",
+    element_type: el.element_type ?? null,
+  });
+  showRpeModal.value = true;
+}
+
+function openRpeEvaluate(el: RemoteProcessingElementRead): void {
+  rpeEvalTarget.value = el;
+  Object.assign(evalForm, {
+    is_developed_by_manufacturer: el.is_developed_by_manufacturer ?? null,
+    is_necessary_for_product_function: el.is_necessary_for_product_function ?? null,
+    directly_interacts_with_product: el.directly_interacts_with_product ?? null,
+    has_bidirectional_exchange: el.has_bidirectional_exchange ?? null,
+    provider_is_nis2_msp: el.provider_is_nis2_msp ?? null,
+    classification_rationale: el.classification_rationale ?? "",
+    classification_override: null,
+  });
+  showRpeEvalModal.value = true;
+}
+
+async function saveRpe(): Promise<void> {
+  isSavingRpe.value = true;
+  try {
+    if (rpeEditTarget.value) {
+      const updated = await remoteProcessingElementService.update(rpeEditTarget.value.id, {
+        name: rpeForm.name,
+        description: rpeForm.description,
+        provider_name: rpeForm.provider_name || null,
+        data_processed: rpeForm.data_processed || null,
+        geographic_location: rpeForm.geographic_location || null,
+        criticality: rpeForm.criticality || null,
+        element_type: rpeForm.element_type,
+      });
+      const idx = rpeList.value.findIndex((e) => e.id === rpeEditTarget.value!.id);
+      if (idx >= 0) rpeList.value[idx] = updated;
+    } else {
+      const created = await remoteProcessingElementService.create({
+        product_id: props.productId,
+        name: rpeForm.name,
+        description: rpeForm.description,
+        provider_name: rpeForm.provider_name || null,
+        data_processed: rpeForm.data_processed || null,
+        geographic_location: rpeForm.geographic_location || null,
+        criticality: rpeForm.criticality || null,
+        element_type: rpeForm.element_type,
+      });
+      rpeList.value.push(created);
+    }
+    showRpeModal.value = false;
+  } catch {
+    // error handled by global toast
+  } finally {
+    isSavingRpe.value = false;
+  }
+}
+
+async function saveRpeAssessment(): Promise<void> {
+  if (!rpeEvalTarget.value) return;
+  isSavingRpe.value = true;
+  try {
+    const payload: RemoteProcessingAssessRequest = {
+      is_developed_by_manufacturer: evalForm.is_developed_by_manufacturer,
+      is_necessary_for_product_function: evalForm.is_necessary_for_product_function,
+      directly_interacts_with_product: evalForm.directly_interacts_with_product,
+      has_bidirectional_exchange: evalForm.has_bidirectional_exchange,
+      provider_is_nis2_msp: evalForm.provider_is_nis2_msp,
+      classification_rationale: evalForm.classification_rationale || null,
+      classification_override: evalForm.classification_override,
+    };
+    const updated = await remoteProcessingElementService.assess(rpeEvalTarget.value.id, payload);
+    const idx = rpeList.value.findIndex((e) => e.id === rpeEvalTarget.value!.id);
+    if (idx >= 0) rpeList.value[idx] = updated;
+    showRpeEvalModal.value = false;
+  } catch {
+    // error handled by global toast
+  } finally {
+    isSavingRpe.value = false;
+  }
+}
+
+async function deleteRpe(id: string): Promise<void> {
+  if (!confirm("Delete this remote processing element?")) return;
+  try {
+    await remoteProcessingElementService.delete(id);
+    rpeList.value = rpeList.value.filter((e) => e.id !== id);
+  } catch {
+    // error handled by global toast
+  }
+}
 
 /* ── Loading / saving flags ─────────────────────────── */
 const isLoading              = ref(false);
@@ -1216,7 +1716,15 @@ const releaseForm = reactive({
   eu_doc_date:                    "" as string,
   eu_doc_number:                  "" as string,
   eu_doc_notified_body:           "" as string,
+  // Gap 2 — hardware and software version components for embedded products
+  hardware_version:               "" as string,
+  software_version:               "" as string,
 });
+
+// Gap 1 — RPEs selected for the new release; populated via the RPE checklist in the release modal
+const releaseRpeIds = ref<string[]>([]);
+// Validation error shown when classified RPEs exist but none are selected
+const releaseRpeError = ref("");
 
 /* ── Computed ───────────────────────────────────────── */
 
@@ -1367,6 +1875,10 @@ function resetReleaseForm(): void {
   releaseForm.eu_doc_date                    = "";
   releaseForm.eu_doc_number                  = "";
   releaseForm.eu_doc_notified_body           = "";
+  releaseForm.hardware_version               = "";
+  releaseForm.software_version               = "";
+  releaseRpeIds.value                        = [];
+  releaseRpeError.value                      = "";
 }
 
 /* ── Recipient dropdown helpers ─────────────────────── */
@@ -1553,7 +2065,7 @@ async function loadProduct(): Promise<void> {
   try {
     product.value = await productService.get(props.productId);
     syncEditForm();
-    await Promise.all([loadSupportPeriod(), loadNotificationRecipients(), loadAuditEvents()]);
+    await Promise.all([loadSupportPeriod(), loadNotificationRecipients(), loadAuditEvents(), loadRpe()]);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
@@ -1712,6 +2224,18 @@ async function createRelease(): Promise<void> {
 
   errorMessage.value   = "";
   successMessage.value = "";
+  releaseRpeError.value = "";
+
+  // Gap 1 — require at least one RPE to be selected when the product has any
+  // classified (non-not_assessed) remote processing elements.
+  const classifiedRpes = rpeList.value.filter(r => r.classification !== "not_assessed");
+  if (classifiedRpes.length > 0 && releaseRpeIds.value.length === 0) {
+    releaseRpeError.value =
+      `This product has ${classifiedRpes.length} classified remote processing element(s). ` +
+      `Select at least one to confirm which are in scope for this release.`;
+    return;
+  }
+
   isCreatingRelease.value = true;
 
   try {
@@ -1740,6 +2264,11 @@ async function createRelease(): Promise<void> {
       eu_doc_date:           releaseForm.eu_doc_date || null,
       eu_doc_number:         releaseForm.eu_doc_number.trim() || null,
       eu_doc_notified_body:  releaseForm.eu_doc_notified_body.trim() || null,
+      // Gap 2 — hardware and software version for embedded products
+      hardware_version:      product.value.is_embedded_product ? (releaseForm.hardware_version.trim() || null) : null,
+      software_version:      product.value.is_embedded_product ? (releaseForm.software_version.trim() || null) : null,
+      // Gap 1 — remote processing elements in scope for this release
+      remote_processing_element_ids: releaseRpeIds.value,
     };
 
     const createdRelease = await productReleaseService.create(payload);
@@ -2022,6 +2551,24 @@ onBeforeUnmount(() => {
   margin: 0.25rem 0 0;
 }
 
+.field-hint-error {
+  color: var(--color-danger, #e53e3e);
+  font-weight: 500;
+}
+
+/* ── Release modal — RPE checklist ── */
+/* Gap 1 — multi-select for remote processing solutions in release form */
+.rpe-release-select {
+  width: 100%;
+  min-height: 90px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px;
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
 /* ── Compact button variant — used in section headers ─ */
 .btn-compact {
   padding: 0.4rem 0.8rem;
@@ -2196,6 +2743,20 @@ onBeforeUnmount(() => {
   background: var(--color-warning-bg);
   color: var(--color-warning-text);
   border: 1px solid var(--color-warning-border);
+}
+
+/* Gap 2 — hardware version tag — slate/neutral tint */
+.release-tag-hw {
+  background: var(--color-bg-subtle, #f1f5f9);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+/* Gap 2 — software version tag — green tint */
+.release-tag-sw {
+  background: var(--color-success-bg, #f0fdf4);
+  color: var(--color-success-text, #166534);
+  border: 1px solid var(--color-success-border, #bbf7d0);
 }
 
 /* Secondary meta columns — muted, right-aligned on narrow rows */
@@ -2809,6 +3370,142 @@ textarea {
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
   border: 1px solid var(--color-danger-border);
+}
+
+/* badge-info and badge-amber for RPE classification */
+.badge-info {
+  background: oklch(0.94 0.03 240);
+  color: oklch(0.38 0.1 240);
+  border: 1px solid oklch(0.82 0.06 240);
+}
+.badge-amber {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+/* ── Remote processing evaluation wizard ───────────── */
+.rpe-eval-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.rpe-eval-intro {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.rpe-question {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rpe-question--optional {
+  background: transparent;
+  border: none;
+  padding: 0;
+  gap: 0.75rem;
+}
+.rpe-q-num {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--color-primary, oklch(0.48 0.15 240));
+  color: #fff;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.rpe-q-text {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  margin: 0;
+  color: var(--color-text);
+}
+.rpe-q-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.rpe-q-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.rpe-opt {
+  padding: 0.3rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.rpe-opt:hover {
+  border-color: var(--color-primary, oklch(0.48 0.15 240));
+}
+.rpe-opt--active {
+  background: var(--color-primary, oklch(0.48 0.15 240));
+  border-color: var(--color-primary, oklch(0.48 0.15 240));
+  color: #fff;
+}
+.rpe-opt--unsure.rpe-opt--active {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+.rpe-result {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+}
+.rpe-result--cra_art_3_2_in_scope {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+}
+.rpe-result--third_party_component {
+  background: oklch(0.94 0.03 240);
+  border-color: oklch(0.82 0.06 240);
+}
+.rpe-result--out_of_scope {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+}
+.rpe-result--requires_legal_assessment {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+.rpe-result-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.rpe-result-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.rpe-type-badge {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+}
+.col-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+.col-actions .btn,
+.col-actions button {
+  margin-right: 0.25rem;
 }
 
 /* ── Responsive breakpoints ────────────────────────── */

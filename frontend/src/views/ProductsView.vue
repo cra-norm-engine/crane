@@ -274,6 +274,15 @@
           </select>
         </label>
 
+        <!-- Gap 2 — embedded product flag: enables per-release HW+SW version fields -->
+        <label class="pi-field pi-field-span2 pi-field-checkbox">
+          <input type="checkbox" v-model="form.is_embedded_product" />
+          <span>
+            <strong>Embedded product (hardware + software/firmware)</strong>
+            <span class="pi-field-hint"> — enables separate hardware and software version fields on each release</span>
+          </span>
+        </label>
+
         <div class="pi-form-actions pi-field-span2">
           <p v-if="formError" class="pi-form-error">{{ formError }}</p>
           <AppButton variant="primary" type="submit" :disabled="isSubmitting">
@@ -493,6 +502,7 @@ const form = reactive<ProductCreate>({
   product_type: "",
   current_classification: "normal",
   scope_status: "undecided",
+  is_embedded_product: false,
 });
 
 /** Returns 2-letter initials for the product name. */
@@ -728,6 +738,7 @@ function resetForm(): void {
   form.product_type = "";
   form.current_classification = "normal";
   form.scope_status = "undecided";
+  form.is_embedded_product = false;
   formError.value = "";
 }
 
@@ -1171,6 +1182,8 @@ onMounted(() => {
 .pi-field-span2 { grid-column: span 2; }
 .pi-field-lbl { font-size: 12.5px; font-weight: 500; color: var(--color-text-muted); }
 .pi-field-hint { font-size: 11.5px; font-weight: 400; margin-left: 4px; }
+.pi-field-checkbox { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; padding: 6px 0; cursor: pointer; }
+.pi-field-checkbox input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; }
 .pi-input, .pi-select, .pi-textarea {
   width: 100%;
   box-sizing: border-box;

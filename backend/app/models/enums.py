@@ -327,6 +327,29 @@ class MarketActionStatus(StrEnum):
     closed = "closed"
 
 
+class RemoteProcessingElementType(StrEnum):
+    """Type of remote processing element — used to guide CRA Art. 3(2) scope determination."""
+    saas            = "saas"
+    internal_cloud  = "internal_cloud"
+    external_api    = "external_api"
+    backend_service = "backend_service"
+    data_processing = "data_processing"
+    firmware_update = "firmware_update"
+    other           = "other"
+
+
+class RemoteProcessingClassification(StrEnum):
+    """
+    CRA Art. 3(2) scope classification for a remote processing element.
+    Determined by the guided evaluation wizard (decision tree).
+    """
+    not_assessed              = "not_assessed"
+    cra_art_3_2_in_scope      = "cra_art_3_2_in_scope"
+    third_party_component     = "third_party_component"
+    out_of_scope              = "out_of_scope"
+    requires_legal_assessment = "requires_legal_assessment"
+
+
 class VexStatus(StrEnum):
     """
     Vulnerability Exploitability eXchange (VEX) status values.
