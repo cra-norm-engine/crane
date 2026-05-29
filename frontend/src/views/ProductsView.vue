@@ -1,183 +1,263 @@
 <template>
-  <section class="page">
-    <div class="page-header">
+  <section class="pi-page">
+
+    <!-- ── Page head ── -->
+    <div class="pi-head">
       <div>
-        <h1 class="page-title">Products</h1>
+        <h1 class="page-title">Product inventory</h1>
+        <p class="pi-sub">Catalogue every product, decide CRA scope, track conformity readiness.</p>
       </div>
-
-      <div class="page-actions">
-        <button class="button secondary" type="button" @click="loadProducts" :disabled="isLoading">
-          {{ isLoading ? "Refreshing..." : "Refresh" }}
-        </button>
-        <button class="button" type="button" @click="toggleCreateForm">
-          {{ showCreateForm ? "Close" : "Add product" }}
-        </button>
+      <div class="pi-head-actions">
+        <AppButton :disabled="isLoading" @click="loadProducts">
+          <svg class="pi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>
+          </svg>
+          {{ isLoading ? 'Refreshing…' : 'Refresh' }}
+        </AppButton>
+        <AppButton variant="primary" @click="toggleCreateForm">
+          <svg class="pi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          {{ showCreateForm ? 'Close' : 'Add product' }}
+        </AppButton>
       </div>
     </div>
 
-    <div class="grid stats-grid">
-      <article class="card stat-card">
-        <span class="stat-label">Total products</span>
-        <strong class="stat-value">{{ products.length }}</strong>
-      </article>
-      <article class="card stat-card">
-        <span class="stat-label">In scope</span>
-        <strong class="stat-value">{{ inScopeCount }}</strong>
-      </article>
-      <article class="card stat-card">
-        <span class="stat-label">Critical</span>
-        <strong class="stat-value">{{ criticalCount }}</strong>
-      </article>
-      <article class="card stat-card">
-        <span class="stat-label">Active support set</span>
-        <strong class="stat-value">{{ productsWithSupportCount }}</strong>
-      </article>
-    </div>
-
-    <div class="card filters-card">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">Filters</h2>
+    <!-- ── KPI strip ── -->
+    <div class="pi-kpi-row">
+      <!-- Total products -->
+      <div class="pi-kpi">
+        <div class="pi-kpi-head">
+          <span>Total products</span>
+          <span class="pi-kpi-ic">
+            <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 7l-8-4-8 4v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/>
+            </svg>
+          </span>
         </div>
-        <button class="button secondary" type="button" @click="resetFilters">
-          Reset filters
-        </button>
+        <div class="pi-kpi-val">{{ products.length }}</div>
+        <div class="pi-kpi-foot">Products in inventory</div>
       </div>
 
-      <div class="filters-grid">
-        <label class="field search-field">
-          <span class="field-label">Search</span>
-          <input
-            v-model.trim="filters.search"
-            class="input"
-            type="search"
-            placeholder="Search by product code, name, manufacturer, or type"
-          />
-        </label>
+      <!-- In scope -->
+      <div class="pi-kpi pi-kpi-ok">
+        <div class="pi-kpi-head">
+          <span>In scope of CRA</span>
+          <span class="pi-kpi-ic">
+            <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </span>
+        </div>
+        <div class="pi-kpi-val">
+          {{ inScopeCount }} <span class="pi-kpi-unit">/ {{ products.length }}</span>
+        </div>
+        <div class="pi-kpi-foot">
+          <span class="pi-pill pi-pill-ok">
+            <span class="pi-pd"></span>
+            {{ products.length > 0 ? Math.round(inScopeCount / products.length * 100) : 0 }}% assessed
+          </span>
+        </div>
+      </div>
 
-        <label class="field">
-          <span class="field-label">Scope status</span>
-          <select v-model="filters.scopeStatus" class="select">
-            <option value="">All</option>
-            <option value="in_scope">In scope</option>
-            <option value="out_of_scope">Out of scope</option>
-            <option value="undecided">Undecided</option>
-          </select>
-        </label>
+      <!-- Critical class -->
+      <div class="pi-kpi" :class="criticalCount > 0 ? 'pi-kpi-danger' : ''">
+        <div class="pi-kpi-head">
+          <span>Critical class</span>
+          <span class="pi-kpi-ic">
+            <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/>
+            </svg>
+          </span>
+        </div>
+        <div class="pi-kpi-val">{{ criticalCount }}</div>
+        <div class="pi-kpi-foot">
+          <span v-if="criticalCount > 0" class="pi-pill pi-pill-err"><span class="pi-pd"></span>Third-party assessment req.</span>
+          <span v-else class="pi-pill pi-pill-ok"><span class="pi-pd"></span>None</span>
+        </div>
+      </div>
 
-        <label class="field">
-          <span class="field-label">Classification</span>
-          <select v-model="filters.classification" class="select">
-            <option value="">All</option>
-            <option value="normal">Normal</option>
-            <option value="important_class_1">Important Class I</option>
-            <option value="important_class_2">Important Class II</option>
-            <option value="critical">Critical</option>
-          </select>
-        </label>
+      <!-- Active support -->
+      <div class="pi-kpi" :class="productsWithSupportCount < products.length ? 'pi-kpi-warn' : 'pi-kpi-ok'">
+        <div class="pi-kpi-head">
+          <span>Active support set</span>
+          <span class="pi-kpi-ic">
+            <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+            </svg>
+          </span>
+        </div>
+        <div class="pi-kpi-val">
+          {{ productsWithSupportCount }} <span class="pi-kpi-unit">/ {{ products.length }}</span>
+        </div>
+        <div class="pi-kpi-foot">
+          <span v-if="productsWithSupportCount < products.length" class="pi-pill pi-pill-warn"><span class="pi-pd"></span>Action needed</span>
+          <span v-else class="pi-pill pi-pill-ok"><span class="pi-pd"></span>All set</span>
+        </div>
+      </div>
+    </div>
 
-        <label class="field">
-          <span class="field-label">Support status</span>
-          <select v-model="filters.supportStatus" class="select">
-            <option value="">All</option>
-            <option value="set">Support set</option>
-            <option value="missing">Not set</option>
-            <option value="active">Active</option>
-            <option value="approaching_eos">Approaching EOS</option>
-            <option value="expired">Expired</option>
-          </select>
-        </label>
+    <!-- ── Filter toolbar ── -->
+    <div class="pi-toolbar">
+      <!-- Search -->
+      <div class="pi-filter-search">
+        <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input v-model.trim="filters.search" placeholder="Search by product code, name, manufacturer…" />
+      </div>
 
-        <label class="field">
-          <span class="field-label">Updated</span>
-          <select v-model="filters.updatedWithin" class="select">
-            <option value="">Any time</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
-        </label>
+      <!-- Scope filter pill -->
+      <div class="pi-fpill-wrap" :class="{ 'pi-fpill-active': filters.scopeStatus }">
+        <span class="pi-fpill-lbl">Scope<span v-if="filters.scopeStatus">: <strong>{{ formatScopeStatus(filters.scopeStatus) }}</strong></span></span>
+        <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+        <select v-model="filters.scopeStatus" class="pi-fpill-select" aria-label="Filter by scope">
+          <option value="">All</option>
+          <option value="in_scope">In scope</option>
+          <option value="out_of_scope">Out of scope</option>
+          <option value="undecided">Undecided</option>
+        </select>
+      </div>
 
-        <label class="field">
-          <span class="field-label">Sort by</span>
-          <select v-model="filters.sortBy" class="select">
+      <!-- Classification filter pill -->
+      <div class="pi-fpill-wrap" :class="{ 'pi-fpill-active': filters.classification }">
+        <span class="pi-fpill-lbl">Classification<span v-if="filters.classification">: <strong>{{ formatClassification(filters.classification) }}</strong></span></span>
+        <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+        <select v-model="filters.classification" class="pi-fpill-select" aria-label="Filter by classification">
+          <option value="">All</option>
+          <option value="normal">Normal</option>
+          <option value="important_class_1">Important Class I</option>
+          <option value="important_class_2">Important Class II</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+
+      <!-- Support filter pill -->
+      <div class="pi-fpill-wrap" :class="{ 'pi-fpill-active': filters.supportStatus }">
+        <span class="pi-fpill-lbl">Support<span v-if="filters.supportStatus">: <strong>{{ formatSupportStatus(filters.supportStatus as 'not_set' | 'active' | 'approaching_eos' | 'expired') }}</strong></span></span>
+        <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+        <select v-model="filters.supportStatus" class="pi-fpill-select" aria-label="Filter by support status">
+          <option value="">All</option>
+          <option value="set">Support set</option>
+          <option value="missing">Not set</option>
+          <option value="active">Active</option>
+          <option value="approaching_eos">Approaching EOS</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+
+      <!-- Updated filter pill -->
+      <div class="pi-fpill-wrap" :class="{ 'pi-fpill-active': filters.updatedWithin }">
+        <span class="pi-fpill-lbl">Updated<span v-if="filters.updatedWithin">: <strong>Last {{ filters.updatedWithin }}d</strong></span></span>
+        <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+        <select v-model="filters.updatedWithin" class="pi-fpill-select" aria-label="Filter by updated date">
+          <option value="">Any time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+
+      <div class="pi-toolbar-div"></div>
+
+      <!-- Reset -->
+      <button
+        v-if="filters.search || filters.scopeStatus || filters.classification || filters.supportStatus || filters.updatedWithin"
+        class="pi-reset-btn"
+        type="button"
+        @click="resetFilters"
+      >Reset</button>
+
+      <!-- Sort -->
+      <div class="pi-sort-group">
+        <span class="pi-sort-lbl">Sort</span>
+        <div class="pi-fpill-wrap">
+          <span class="pi-fpill-lbl"><strong>{{ sortLabel }}</strong></span>
+          <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+          <select v-model="filters.sortBy" class="pi-fpill-select" aria-label="Sort by">
             <option value="updated_desc">Latest updated</option>
             <option value="updated_asc">Oldest updated</option>
             <option value="name_asc">Name A–Z</option>
             <option value="name_desc">Name Z–A</option>
             <option value="code_asc">Code A–Z</option>
             <option value="code_desc">Code Z–A</option>
-            <option value="support_end_asc">Support end date</option>
-            <option value="support_end_desc">Support end date (latest)</option>
+            <option value="support_end_asc">Support end ↑</option>
+            <option value="support_end_desc">Support end ↓</option>
           </select>
-        </label>
+        </div>
       </div>
     </div>
 
-    <div v-if="showCreateForm" class="card form-card">
-      <div class="section-header">
+    <!-- ── Create form panel ── -->
+    <div v-if="showCreateForm" class="pi-panel pi-form-panel">
+      <div class="pi-form-head">
         <div>
-          <h2 class="section-title">Create product</h2>
-          <p class="muted">Add a product to the CRA inventory.</p>
+          <h3 class="pi-form-title">Create product</h3>
+          <p class="pi-muted pi-form-sub">Add a new product to the CRA inventory.</p>
         </div>
       </div>
 
-      <form class="grid form-grid" @submit.prevent="createProduct">
-        <label class="field">
-          <span class="field-label">Product code</span>
-          <input v-model.trim="form.product_code" class="input" required maxlength="100" />
+      <form class="pi-form-grid" @submit.prevent="createProduct">
+        <label class="pi-field">
+          <span class="pi-field-lbl">Product code</span>
+          <input v-model.trim="form.product_code" class="pi-input" required maxlength="100" />
         </label>
 
-        <label class="field">
-          <span class="field-label">Name</span>
-          <input v-model.trim="form.name" class="input" required maxlength="255" />
+        <label class="pi-field">
+          <span class="pi-field-lbl">Name</span>
+          <input v-model.trim="form.name" class="pi-input" required maxlength="255" />
         </label>
 
-        <label class="field field-span-2">
-          <span class="field-label">Description</span>
-          <textarea v-model.trim="form.description" class="textarea" rows="3" />
+        <label class="pi-field pi-field-span2">
+          <span class="pi-field-lbl">Description</span>
+          <textarea v-model.trim="form.description" class="pi-textarea" rows="3" />
         </label>
 
-        <label class="field">
-          <span class="field-label">Manufacturer name</span>
-          <input v-model.trim="form.manufacturer_name" class="input" required maxlength="255" />
+        <label class="pi-field">
+          <span class="pi-field-lbl">Manufacturer name</span>
+          <input v-model.trim="form.manufacturer_name" class="pi-input" required maxlength="255" />
         </label>
 
-        <label class="field">
-          <span class="field-label">Product type</span>
-          <input v-model.trim="form.product_type" class="input" required maxlength="150" />
+        <label class="pi-field">
+          <span class="pi-field-lbl">Product type</span>
+          <input v-model.trim="form.product_type" class="pi-input" required maxlength="150" />
         </label>
 
-        <label class="field field-span-2">
-          <span class="field-label">Intended use</span>
-          <textarea v-model.trim="form.intended_use" class="textarea" rows="3" required />
+        <label class="pi-field pi-field-span2">
+          <span class="pi-field-lbl">Intended use</span>
+          <textarea v-model.trim="form.intended_use" class="pi-textarea" rows="3" required />
         </label>
 
-        <!-- Parent product picker — opens a search popup to select from existing products -->
-        <div class="field field-span-2">
-          <span class="field-label">Parent product
-            <span class="field-label-hint">(optional — set if this is a variant or sub-product of an existing product)</span>
+        <!-- Parent product picker -->
+        <div class="pi-field pi-field-span2">
+          <span class="pi-field-lbl">
+            Parent product
+            <span class="pi-field-hint">(optional — set if this is a variant or sub-product)</span>
           </span>
-          <div class="parent-picker">
-            <button type="button" class="parent-picker-trigger input" @click="showParentPicker = true">
+          <div class="pi-parent-picker">
+            <button type="button" class="pi-input pi-parent-trigger" @click="showParentPicker = true">
               <span v-if="form.parent_product_id && selectedParentProduct">
                 {{ selectedParentProduct.product_code }} — {{ selectedParentProduct.name }}
               </span>
-              <span v-else class="muted">None — top-level product</span>
+              <span v-else class="pi-muted">None — top-level product</span>
             </button>
-            <button
-              v-if="form.parent_product_id"
-              type="button"
-              class="parent-picker-clear"
-              @click="form.parent_product_id = null"
-              title="Clear parent"
-            >✕</button>
+            <button v-if="form.parent_product_id" type="button" class="pi-parent-clear" @click="form.parent_product_id = null" title="Clear parent">✕</button>
           </div>
         </div>
 
-        <label class="field">
-          <span class="field-label">Classification</span>
-          <select v-model="form.current_classification" class="select">
+        <label class="pi-field">
+          <span class="pi-field-lbl">Classification</span>
+          <select v-model="form.current_classification" class="pi-select">
             <option value="normal">Normal</option>
             <option value="important_class_1">Important Class I</option>
             <option value="important_class_2">Important Class II</option>
@@ -185,45 +265,43 @@
           </select>
         </label>
 
-        <label class="field">
-          <span class="field-label">Scope status</span>
-          <select v-model="form.scope_status" class="select">
+        <label class="pi-field">
+          <span class="pi-field-lbl">Scope status</span>
+          <select v-model="form.scope_status" class="pi-select">
             <option value="undecided">Undecided</option>
             <option value="in_scope">In scope</option>
             <option value="out_of_scope">Out of scope</option>
           </select>
         </label>
 
-        <div class="form-actions field-span-2">
-          <p v-if="formError" class="form-error">{{ formError }}</p>
-          <button class="button" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? "Saving..." : "Create product" }}
-          </button>
+        <div class="pi-form-actions pi-field-span2">
+          <p v-if="formError" class="pi-form-error">{{ formError }}</p>
+          <AppButton variant="primary" type="submit" :disabled="isSubmitting">
+            {{ isSubmitting ? 'Saving…' : 'Create product' }}
+          </AppButton>
         </div>
       </form>
     </div>
 
-    <div class="card table-card">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">Inventory</h2>
-          <p class="muted">{{ filteredProducts.length }} result(s)</p>
-        </div>
+    <!-- ── Inventory panel ── -->
+    <div class="pi-panel">
+      <div class="pi-panel-head">
+        <h3 class="pi-panel-title">
+          Inventory
+          <span class="pi-count-pill">{{ filteredProducts.length }} results</span>
+        </h3>
       </div>
 
-      <div v-if="errorMessage" class="feedback feedback-error">
-        {{ errorMessage }}
+      <!-- States -->
+      <div v-if="errorMessage" class="pi-state pi-state-err">{{ errorMessage }}</div>
+      <div v-else-if="isLoading" class="pi-state">Loading products…</div>
+      <div v-else-if="filteredProducts.length === 0" class="pi-state">
+        <strong>No products found</strong><br />
+        <span class="pi-muted">Try different filters or add your first product.</span>
       </div>
 
-      <div v-else-if="isLoading" class="feedback">Loading products…</div>
-
-      <div v-else-if="filteredProducts.length === 0" class="empty-state">
-        <h3>No products found</h3>
-        <p class="muted">Try different filters or create your first product.</p>
-      </div>
-
-      <div v-else class="table-wrapper">
-        <table class="products-table">
+      <div v-else class="pi-table-wrap">
+        <table class="pi-table">
           <thead>
             <tr>
               <th>Product</th>
@@ -232,119 +310,139 @@
               <th>Type</th>
               <th>Classification</th>
               <th>Scope</th>
-              <!-- Gap 4 — CRA Art. 3(20) / Art. 69(2): market placement date and Pre-CRA flag -->
               <th>Placed on market</th>
               <th>Support period</th>
               <th>Updated</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="product in filteredProducts"
               :key="product.id"
-              class="table-row"
+              class="pi-row"
+              :class="{ 'pi-row-flagged': product.current_classification === 'critical' }"
               @click="openProduct(product.id)"
             >
-              <!--
-                Product "preview" cell: shows name, description, and a
-                Pre-CRA indicator so compliance status is visible at a glance
-                without opening the detail page.
-              -->
-              <td class="col-product">
-                <div class="product-cell">
-                  <strong class="text-truncate" :title="product.name">{{ product.name }}</strong>
-                  <span class="muted product-description text-truncate" :title="'description' in product ? product.description || '' : ''">
-                    {{ "description" in product ? product.description || "No description provided" : "Open detail to view more" }}
-                  </span>
-                  <!-- Pre-CRA flag — shown inline so it's always visible in the list -->
-                  <span v-if="product.is_pre_cra" class="badge badge-warning product-precra-badge">
-                    Pre-CRA · Art. 69(2)
-                  </span>
+              <!-- Product cell: initials mark + name + sub -->
+              <td>
+                <div class="pi-prod-cell">
+                  <div
+                    class="pi-prod-mark"
+                    :class="{ 'pi-prod-mark-danger': product.current_classification === 'critical' }"
+                  >{{ productInitials(product.name) }}</div>
+                  <div>
+                    <div class="pi-prod-name">{{ product.name }}</div>
+                    <div class="pi-prod-sub">
+                      {{ product.product_type }}
+                      <span v-if="product.is_pre_cra"> · Pre-CRA</span>
+                    </div>
+                  </div>
                 </div>
               </td>
-              <td class="col-code"><code class="text-truncate" :title="product.product_code">{{ product.product_code }}</code></td>
-              <td class="col-manufacturer"><span class="text-truncate" :title="product.manufacturer_name">{{ product.manufacturer_name }}</span></td>
-              <td class="col-type"><span class="text-truncate" :title="product.product_type">{{ product.product_type }}</span></td>
+              <td><span class="pi-mono">{{ product.product_code }}</span></td>
+              <td class="pi-cell-clip">{{ product.manufacturer_name }}</td>
+              <td class="pi-cell-clip">{{ product.product_type }}</td>
+              <!-- Classification -->
               <td>
-                <span class="badge" :class="classificationClass(product.current_classification)">
-                  {{ formatClassification(product.current_classification) }}
+                <span class="pi-pill" :class="classificationPillClass(product.current_classification)">
+                  <span class="pi-pd"></span>{{ formatClassification(product.current_classification) }}
                 </span>
               </td>
+              <!-- Scope -->
               <td>
-                <span class="badge" :class="scopeClass(product.scope_status)">
-                  {{ formatScopeStatus(product.scope_status) }}
+                <span class="pi-pill" :class="scopePillClass(product.scope_status)">
+                  <span class="pi-pd"></span>{{ formatScopeStatus(product.scope_status) }}
                 </span>
               </td>
-              <!--
-                Market placement column — shows the first_placed_on_market_date
-                from the product record (CRA Art. 3(20)).
-                "—" is shown when the product has not yet been placed.
-              -->
+              <!-- Placed on market -->
+              <td :class="product.first_placed_on_market_date ? '' : 'pi-muted'">
+                {{ formatDate(product.first_placed_on_market_date) }}
+              </td>
+              <!-- Support period -->
               <td>
-                <span :class="product.first_placed_on_market_date ? '' : 'muted'">
-                  {{ formatDate(product.first_placed_on_market_date) }}
-                </span>
+                <template v-if="supportByProductId[product.id]">
+                  <span class="pi-pill" :class="supportPillClass(getSupportStatus(product.id))">
+                    <span class="pi-pd"></span>{{ formatSupportStatus(getSupportStatus(product.id)) }}
+                  </span>
+                  <div class="pi-support-meta">
+                    {{ formatSupportType(supportByProductId[product.id]!.support_type) }}
+                    · ends {{ formatDate(supportByProductId[product.id]!.support_end_date) }}
+                  </div>
+                </template>
+                <template v-else>
+                  <button class="pi-set-link" type="button" @click.stop="openProduct(product.id)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Set period
+                  </button>
+                </template>
               </td>
-              <td class="col-support">
-                <div class="support-cell">
-                  <template v-if="supportByProductId[product.id]">
-                    <span class="badge" :class="supportStatusClass(getSupportStatus(product.id))">
-                      {{ formatSupportStatus(getSupportStatus(product.id)) }}
-                    </span>
-                    <span class="support-meta text-truncate">
-                      {{ formatSupportType(supportByProductId[product.id]!.support_type) }}
-                      · ends {{ formatDate(supportByProductId[product.id]!.support_end_date) }}
-                    </span>
-                  </template>
-                  <template v-else>
-                    <span class="badge badge-neutral">Not set</span>
-                  </template>
-                </div>
+              <!-- Updated -->
+              <td class="pi-muted">{{ formatDate(product.updated_at) }}</td>
+              <!-- Action -->
+              <td class="pi-action-cell">
+                <button class="pi-row-action" type="button" @click.stop="openProduct(product.id)" aria-label="Open product">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+                    <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
+                  </svg>
+                </button>
               </td>
-              <td>{{ formatDate(product.updated_at) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <div class="pi-panel-foot">
+        <span>
+          Showing <strong>{{ filteredProducts.length }}</strong> of <strong>{{ products.length }}</strong> products
+        </span>
+      </div>
     </div>
 
-    <!-- Parent product picker modal -->
+    <!-- ── Parent product picker modal ── -->
     <Teleport to="body">
-      <div v-if="showParentPicker" class="picker-backdrop" @click.self="showParentPicker = false">
-        <div class="picker-modal card" role="dialog" aria-modal="true" aria-label="Select parent product">
-          <div class="picker-header">
-            <h3 class="picker-title">Select parent product</h3>
-            <button type="button" class="picker-close" @click="showParentPicker = false">✕</button>
+      <div v-if="showParentPicker" class="pi-picker-backdrop" @click.self="showParentPicker = false">
+        <div class="pi-picker-modal" role="dialog" aria-modal="true" aria-label="Select parent product">
+          <div class="pi-picker-head">
+            <h3 class="pi-picker-title">Select parent product</h3>
+            <button type="button" class="pi-picker-close" @click="showParentPicker = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+                <path d="M6 6l12 12M6 18L18 6"/>
+              </svg>
+            </button>
           </div>
           <input
             v-model="parentPickerSearch"
-            class="input picker-search"
+            class="pi-input"
             type="search"
             placeholder="Search by code, name or manufacturer…"
             autofocus
           />
-          <div class="picker-list">
-            <p v-if="filteredParentProducts.length === 0" class="muted picker-empty">
+          <div class="pi-picker-list">
+            <p v-if="filteredParentProducts.length === 0" class="pi-muted pi-picker-empty">
               No products match your search.
             </p>
             <button
               v-for="product in filteredParentProducts"
               :key="product.id"
               type="button"
-              class="picker-item"
-              :class="{ 'picker-item-selected': form.parent_product_id === product.id }"
+              class="pi-picker-item"
+              :class="{ 'pi-picker-item-sel': form.parent_product_id === product.id }"
               @click="selectParent(product.id)"
             >
-              <div class="picker-item-row">
-                <span class="picker-item-code">{{ product.product_code }}</span>
-                <span class="picker-item-name">{{ product.name }}</span>
+              <div class="pi-picker-item-row">
+                <span class="pi-picker-code">{{ product.product_code }}</span>
+                <span class="pi-picker-name">{{ product.name }}</span>
               </div>
-              <div class="picker-item-mfr muted">{{ product.manufacturer_name }}</div>
+              <div class="pi-muted pi-picker-mfr">{{ product.manufacturer_name }}</div>
             </button>
           </div>
         </div>
       </div>
     </Teleport>
+
   </section>
 </template>
 
@@ -352,6 +450,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import AppButton from "@/components/AppButton.vue";
 import { productService } from "@/services/product-service";
 import { supportPeriodService } from "@/services/support-period-service";
 import type {
@@ -396,6 +495,13 @@ const form = reactive<ProductCreate>({
   scope_status: "undecided",
 });
 
+/** Returns 2-letter initials for the product name. */
+function productInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 /** The product object currently selected as parent (used to display its name in the trigger button). */
 const selectedParentProduct = computed(() =>
   form.parent_product_id
@@ -413,6 +519,21 @@ const filteredParentProducts = computed(() => {
       p.name.toLowerCase().includes(q) ||
       p.manufacturer_name.toLowerCase().includes(q),
   );
+});
+
+/** Human-readable label for the current sort value (shown in the sort pill). */
+const sortLabel = computed(() => {
+  const map: Record<string, string> = {
+    updated_desc: "Latest updated",
+    updated_asc:  "Oldest updated",
+    name_asc:     "Name A–Z",
+    name_desc:    "Name Z–A",
+    code_asc:     "Code A–Z",
+    code_desc:    "Code Z–A",
+    support_end_asc:  "Support end ↑",
+    support_end_desc: "Support end ↓",
+  };
+  return map[filters.sortBy] ?? "Latest updated";
 });
 
 function selectParent(productId: string): void {
@@ -500,123 +621,88 @@ const productsWithSupportCount = computed(() =>
 
 function supportEndTimestamp(productId: string): number {
   const support = supportByProductId.value[productId];
-  if (!support?.support_end_date) {
-    return Number.MAX_SAFE_INTEGER;
-  }
+  if (!support?.support_end_date) return Number.MAX_SAFE_INTEGER;
   return new Date(support.support_end_date).getTime();
 }
 
 function getSupportStatus(productId: string): "not_set" | "active" | "approaching_eos" | "expired" {
   const support = supportByProductId.value[productId];
-  if (!support) {
-    return "not_set";
-  }
+  if (!support) return "not_set";
 
   const endDate = new Date(`${support.support_end_date}T00:00:00`);
   const now = new Date();
   const sixMonthsFromNow = new Date();
   sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
 
-  if (endDate.getTime() < now.getTime()) {
-    return "expired";
-  }
-
-  if (endDate.getTime() <= sixMonthsFromNow.getTime()) {
-    return "approaching_eos";
-  }
-
+  if (endDate.getTime() < now.getTime()) return "expired";
+  if (endDate.getTime() <= sixMonthsFromNow.getTime()) return "approaching_eos";
   return "active";
 }
 
 function formatSupportStatus(value: "not_set" | "active" | "approaching_eos" | "expired"): string {
   switch (value) {
-    case "active":
-      return "Active";
-    case "approaching_eos":
-      return "Approaching EOS";
-    case "expired":
-      return "Expired";
-    default:
-      return "Not set";
+    case "active":         return "Active";
+    case "approaching_eos": return "Approaching EOS";
+    case "expired":        return "Expired";
+    default:               return "Not set";
   }
 }
 
-function supportStatusClass(value: "not_set" | "active" | "approaching_eos" | "expired"): string {
+function supportPillClass(value: "not_set" | "active" | "approaching_eos" | "expired"): string {
   switch (value) {
-    case "active":
-      return "badge-success";
-    case "approaching_eos":
-      return "badge-warning";
-    case "expired":
-      return "badge-danger";
-    default:
-      return "badge-neutral";
+    case "active":          return "pi-pill-ok";
+    case "approaching_eos": return "pi-pill-warn";
+    case "expired":         return "pi-pill-err";
+    default:                return "pi-pill-flat";
   }
 }
 
 function formatSupportType(value: SupportType): string {
   switch (value) {
-    case "limited":
-      return "Limited";
-    case "extended":
-      return "Extended";
-    case "custom":
-      return "Custom";
-    default:
-      return "Standard";
+    case "limited":  return "Limited";
+    case "extended": return "Extended";
+    case "custom":   return "Custom";
+    default:         return "Standard";
   }
 }
 
-function formatClassification(value: ProductClassification): string {
+function formatClassification(value: ProductClassification | string): string {
   switch (value) {
-    case "important_class_1":
-      return "Important Class I";
-    case "important_class_2":
-      return "Important Class II";
-    case "critical":
-      return "Critical";
-    default:
-      return "Normal";
+    case "important_class_1": return "Important Class I";
+    case "important_class_2": return "Important Class II";
+    case "critical":          return "Critical";
+    default:                  return "Normal";
   }
 }
 
 function formatScopeStatus(value: ScopeStatus | string): string {
   switch (value) {
-    case "in_scope":
-      return "In scope";
-    case "out_of_scope":
-      return "Out of scope";
-    default:
-      return "Undecided";
+    case "in_scope":    return "In scope";
+    case "out_of_scope": return "Out of scope";
+    default:            return "Undecided";
   }
 }
 
-function classificationClass(value: ProductClassification): string {
+function classificationPillClass(value: ProductClassification): string {
   switch (value) {
-    case "critical":
-      return "badge-danger";
+    case "critical":          return "pi-pill-err";
     case "important_class_1":
-    case "important_class_2":
-      return "badge-warning";
-    default:
-      return "badge-neutral";
+    case "important_class_2": return "pi-pill-warn";
+    default:                  return "pi-pill-flat";
   }
 }
 
-function scopeClass(value: ScopeStatus | string): string {
+function scopePillClass(value: ScopeStatus | string): string {
   switch (value) {
-    case "in_scope":
-      return "badge-success";
-    case "out_of_scope":
-      return "badge-danger";
-    default:
-      return "badge-neutral";
+    case "in_scope":     return "pi-pill-ok";
+    case "out_of_scope": return "pi-pill-err";
+    default:             return "pi-pill-flat";
   }
 }
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -647,9 +733,7 @@ function resetForm(): void {
 
 function toggleCreateForm(): void {
   showCreateForm.value = !showCreateForm.value;
-  if (!showCreateForm.value) {
-    resetForm();
-  }
+  if (!showCreateForm.value) resetForm();
 }
 
 async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<void> {
@@ -663,14 +747,12 @@ async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<vo
       }
     }),
   );
-
   supportByProductId.value = Object.fromEntries(entries);
 }
 
 async function loadProducts(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
-
   try {
     const loadedProducts = await productService.list();
     products.value = loadedProducts;
@@ -686,13 +768,11 @@ async function loadProducts(): Promise<void> {
 async function createProduct(): Promise<void> {
   isSubmitting.value = true;
   formError.value = "";
-
   try {
     const payload: ProductCreate = {
       ...form,
       description: form.description?.trim() || null,
     };
-
     await productService.create(payload);
     resetForm();
     showCreateForm.value = false;
@@ -715,300 +795,477 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  display: grid;
-  gap: 1rem;
+/* ─── Page shell ─────────────────────────────────── */
+.pi-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.page-header,
-.section-header,
-.form-actions {
+/* ─── Page head ──────────────────────────────────── */
+.pi-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.pi-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.pi-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Buttons rendered by AppButton component */
+
+/* ─── Icons ──────────────────────────────────────── */
+.pi-ico    { width: 14px; height: 14px; flex-shrink: 0; }
+.pi-ico-sm { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* ─── KPI row ────────────────────────────────────── */
+.pi-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.pi-kpi {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.pi-kpi-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
-
-.page-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.page-title,
-.section-title {
-  margin: 0;
-}
-
-.grid {
+.pi-kpi-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--color-surface-elevated);
   display: grid;
-  gap: 1rem;
+  place-items: center;
+  color: var(--color-text-muted);
 }
+/* Coloured icon backgrounds by KPI variant */
+.pi-kpi-ok .pi-kpi-ic    { background: var(--color-success-bg);  color: var(--color-success); }
+.pi-kpi-danger .pi-kpi-ic { background: var(--color-danger-bg);  color: var(--color-danger); }
+.pi-kpi-warn .pi-kpi-ic  { background: var(--color-warning-bg); color: var(--color-warning); }
 
-.stats-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.stat-card {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.stat-label {
-  color: var(--color-text-muted, #94a3b8);
-  font-size: 0.875rem;
-}
-
-.stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-}
-
-.filters-card,
-.form-card,
-.table-card {
-  display: grid;
-  gap: 1rem;
-}
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 1rem;
-  align-items: end;
-}
-
-.search-field {
-  min-width: 0;
-}
-
-.field {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.field-label {
-  font-size: 0.875rem;
-  color: var(--color-text-muted, #94a3b8);
-}
-
-.form-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.field-span-2 {
-  grid-column: span 2;
-}
-
-.input,
-.select,
-.textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 0.85rem;
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
-  color: inherit;
-  padding: 0.75rem 0.9rem;
-  font: inherit;
-}
-
-.textarea {
-  resize: vertical;
-}
-
-.feedback,
-.empty-state {
-  padding: 1.25rem;
-  border-radius: 1rem;
-  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
-}
-
-.feedback-error,
-.form-error {
-  color: #fda4af;
-}
-
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.products-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;  /* fixed layout lets column widths be enforced */
-}
-
-.products-table th,
-.products-table td {
-  padding: 0.9rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
-  vertical-align: middle;
-  overflow: hidden;
-}
-
-.products-table th {
-  color: var(--color-text-muted, #94a3b8);
-  font-size: 0.85rem;
+.pi-kpi-val {
+  font-size: 26px;
   font-weight: 600;
-  white-space: nowrap;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--color-text);
 }
+.pi-kpi-unit { font-size: 13px; color: var(--color-text-muted); font-weight: 500; margin-left: 4px; }
+.pi-kpi-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); }
 
-/* Column widths — total adds up to 100% */
-.col-product      { width: 22%; }
-.col-code         { width: 9%; }
-.col-manufacturer { width: 13%; }
-.col-type         { width: 12%; }
-/* Classification, Scope columns get auto width */
-.col-support      { width: 14%; }
-/* Placed on market, Updated get natural narrow width */
-
-/* Truncation helper — applied to inline elements inside cells */
-.text-truncate {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.table-row {
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.table-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.product-cell,
-.support-cell {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;   /* allows grid children to shrink below their content size */
-}
-
-.product-description,
-.support-meta {
-  font-size: 0.82rem;
-}
-
-/* Pre-CRA badge sits below the description inside the product preview cell */
-.product-precra-badge {
-  justify-self: start; /* left-align inside the grid cell */
-  font-size: 0.72rem;
-  margin-top: 0.1rem;
-}
-
-.badge {
+/* ─── Status pills ───────────────────────────────── */
+.pi-pill {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
   border-radius: 999px;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
+  font-size: 11px;
   font-weight: 600;
-  width: fit-content;
+  line-height: 1.6;
+  white-space: nowrap;
 }
+.pi-pd { width: 6px; height: 6px; border-radius: 50%; }
 
-.badge-neutral {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
-}
+.pi-pill-ok   { background: var(--color-success-bg); color: var(--color-success-text); }
+.pi-pill-ok .pi-pd { background: var(--color-success); }
+.pi-pill-warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.pi-pill-warn .pi-pd { background: var(--color-warning); }
+.pi-pill-err  { background: var(--color-danger-bg); color: var(--color-danger-text); }
+.pi-pill-err .pi-pd { background: var(--color-danger); }
+.pi-pill-flat { background: var(--color-slate-bg); color: var(--color-slate-text); border: 1px dashed var(--color-slate-border); }
+.pi-pill-flat .pi-pd { background: var(--color-slate-text); }
 
-.badge-success {
-  background: rgba(52, 211, 153, 0.15);
-  color: #86efac;
-}
-
-.badge-warning {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fde68a;
-}
-
-.badge-danger {
-  background: rgba(251, 113, 133, 0.15);
-  color: #fda4af;
-}
-
-.muted {
-  color: var(--color-text-muted, #94a3b8);
-}
-
-@media (max-width: 1400px) {
-  .filters-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  .stats-grid,
-  .form-grid,
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .field-span-2 {
-    grid-column: span 1;
-  }
-}
-
-/* Parent product picker trigger row */
-.parent-picker {
+/* ─── Filter toolbar ─────────────────────────────── */
+.pi-toolbar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  padding: 10px 12px;
   display: flex;
-  gap: 0.5rem;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-
-.parent-picker-trigger {
+.pi-filter-search {
   flex: 1;
-  text-align: left;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 7px 11px;
+  color: var(--color-text-muted);
+}
+.pi-filter-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.pi-filter-search input::placeholder { color: var(--color-text-muted); }
+
+/* Filter pill wrapper */
+.pi-fpill-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   cursor: pointer;
-  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  border-radius: 0.85rem;
-  padding: 0.75rem 0.9rem;
-  color: inherit;
+  position: relative;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s;
+}
+.pi-fpill-wrap:hover { background: var(--color-surface-elevated); }
+.pi-fpill-active {
+  background: var(--color-success-bg) !important;
+  border-color: var(--color-success-border) !important;
+  color: var(--color-success-text);
+}
+.pi-fpill-lbl {
+  font-size: 12.5px;
+  font-weight: 500;
+  pointer-events: none;
+  color: var(--color-text-muted);
+}
+.pi-fpill-active .pi-fpill-lbl { color: var(--color-success-text); }
+.pi-fpill-chev {
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.pi-fpill-active .pi-fpill-chev { color: var(--color-success-text); }
+/* Transparent select overlay — captures clicks for the pill */
+.pi-fpill-select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
   font: inherit;
 }
 
-.parent-picker-clear {
+.pi-toolbar-div { width: 1px; height: 22px; background: var(--color-border); margin: 0 2px; }
+.pi-reset-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font: 500 12.5px/1 inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.pi-reset-btn:hover { color: var(--color-text); text-decoration: underline; }
+
+.pi-sort-group { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.pi-sort-lbl { font-size: 12px; color: var(--color-text-muted); }
+
+/* ─── Shared panel style ──────────────────────────── */
+.pi-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.pi-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+.pi-panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pi-count-pill {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.pi-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  background: var(--color-surface-elevated);
+}
+.pi-panel-foot strong { color: var(--color-text); }
+
+/* ─── State messages ─────────────────────────────── */
+.pi-state {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+.pi-state-err { color: var(--color-danger-text); }
+
+/* ─── Table ──────────────────────────────────────── */
+.pi-table-wrap { overflow-x: auto; }
+.pi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pi-table thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 14px;
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.pi-table tbody td {
+  padding: 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  vertical-align: middle;
+}
+.pi-table tbody tr:last-child td { border-bottom: none; }
+.pi-row { cursor: pointer; transition: background 0.12s; }
+.pi-row:hover td { background: var(--color-surface-elevated); }
+.pi-row-flagged td { background: var(--color-danger-bg); }
+.pi-row-flagged:hover td { background: rgba(255,125,125,0.14); }
+
+/* Product cell */
+.pi-prod-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pi-prod-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+.pi-prod-mark-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-border);
+}
+.pi-prod-name { font-weight: 600; color: var(--color-text); white-space: nowrap; }
+.pi-prod-sub  { font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Misc cells */
+.pi-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; color: var(--color-text); }
+.pi-muted { color: var(--color-text-muted); }
+.pi-cell-clip { max-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pi-support-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 4px; white-space: nowrap; }
+
+/* "Set period" dashed button */
+.pi-set-link {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border-strong);
+  background: transparent;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 500 12px/1 inherit;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.pi-set-link:hover {
+  color: var(--color-success-text);
+  border-color: var(--color-success);
+  border-style: solid;
+  background: var(--color-success-bg);
+}
+
+/* Row action button */
+.pi-action-cell { text-align: right; white-space: nowrap; }
+.pi-row-action {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: background 0.1s, opacity 0.1s;
+}
+.pi-row:hover .pi-row-action { opacity: 1; }
+.pi-row-action:hover { background: var(--color-surface-elevated-strong); color: var(--color-text); }
+
+/* ─── Create form panel ──────────────────────────── */
+.pi-form-panel { padding: 18px; }
+.pi-form-head { margin-bottom: 16px; }
+.pi-form-title { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--color-text); }
+.pi-form-sub { margin: 0; }
+.pi-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.pi-field { display: grid; gap: 5px; }
+.pi-field-span2 { grid-column: span 2; }
+.pi-field-lbl { font-size: 12.5px; font-weight: 500; color: var(--color-text-muted); }
+.pi-field-hint { font-size: 11.5px; font-weight: 400; margin-left: 4px; }
+.pi-input, .pi-select, .pi-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.pi-input:focus, .pi-select:focus, .pi-textarea:focus { border-color: var(--color-primary); }
+.pi-textarea { resize: vertical; }
+.pi-parent-picker { display: flex; gap: 8px; align-items: center; }
+.pi-parent-trigger { flex: 1; text-align: left; cursor: pointer; }
+.pi-parent-clear {
   flex-shrink: 0;
   background: none;
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  border-radius: 0.5rem;
-  color: var(--color-text-muted, #94a3b8);
-  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  padding: 4px 8px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 12px;
   line-height: 1;
 }
+.pi-parent-clear:hover { color: var(--color-danger); }
+.pi-form-actions { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+.pi-form-error { font-size: 12.5px; color: var(--color-danger-text); margin: 0; }
 
-.parent-picker-clear:hover {
-  color: #fda4af;
+/* ─── Parent picker modal ────────────────────────── */
+.pi-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
+.pi-picker-title { margin: 0; font-size: 15px; font-weight: 600; }
+.pi-picker-close {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  padding: 4px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.pi-picker-close:hover { color: var(--color-text); background: var(--color-surface-elevated); }
+.pi-picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 3px; margin-top: 10px; max-height: 300px; }
+.pi-picker-empty { padding: 12px; font-size: 13px; margin: 0; }
+.pi-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 0.1s;
+}
+.pi-picker-item:hover { background: var(--color-surface-elevated); }
+.pi-picker-item-sel { border-color: var(--color-primary); background: var(--color-success-bg); }
+.pi-picker-item-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.pi-picker-code {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.pi-picker-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--color-text); }
+.pi-picker-mfr { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Picker modal backdrop — rendered via Teleport outside the scoped component,
-   so these styles must live in the unscoped block below. */
-.field-label-hint {
-  font-size: 0.78rem;
-  color: var(--color-text-muted, #94a3b8);
-  font-weight: 400;
-  margin-left: 0.35rem;
+@media (max-width: 1200px) {
+  .pi-kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 800px) {
+  .pi-kpi-row { grid-template-columns: 1fr; }
+  .pi-form-grid { grid-template-columns: 1fr; }
+  .pi-field-span2 { grid-column: span 1; }
 }
 </style>
 
 <style>
-:root[data-theme="light"] .feedback-error,
-:root[data-theme="light"] .form-error    { color: #be123c; }
-:root[data-theme="light"] .badge-neutral { background: rgba(71,85,105,0.1);   color: #475569; }
-:root[data-theme="light"] .badge-success { background: rgba(21,128,61,0.1);   color: #15803d; }
-:root[data-theme="light"] .badge-warning { background: rgba(184,155,18,0.1);  color: #78350f; }
-:root[data-theme="light"] .badge-danger  { background: rgba(239,68,68,0.1);   color: #be123c; }
-:root[data-theme="light"] .table-row:hover { background: rgba(28, 107, 39, 0.04); }
-
-/* --- Parent picker modal (Teleport → body) --- */
-.picker-backdrop {
+/* ── Picker modal (Teleport → body, must be unscoped) ── */
+.pi-picker-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -1018,143 +1275,25 @@ onMounted(() => {
   justify-content: center;
   padding: 1rem;
 }
-
-.picker-modal {
+.pi-picker-modal {
   width: 100%;
   max-width: 520px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  background: var(--color-surface, #0f172a);
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  border-radius: 1rem;
-}
-
-.picker-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.picker-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.picker-close {
-  background: none;
-  border: none;
-  color: var(--color-text-muted, #94a3b8);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-}
-
-.picker-close:hover {
-  color: inherit;
-}
-
-.picker-search {
-  width: 100%;
-  box-sizing: border-box;
-  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
-  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
-  border-radius: 0.85rem;
-  color: inherit;
-  padding: 0.65rem 0.9rem;
-  font: inherit;
-}
-
-.picker-list {
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.picker-empty {
-  padding: 0.75rem;
-  font-size: 0.875rem;
-}
-
-.picker-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  text-align: left;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.8rem;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  transition: background 0.12s ease;
-}
-
-.picker-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.picker-item-selected {
-  border-color: var(--color-accent, rgba(175, 214, 46, 0.6));
-  background: rgba(175, 214, 46, 0.06);
-}
-
-/* Top row: code badge + name side by side, name truncates */
-.picker-item-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.picker-item-code {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: rgba(148, 163, 184, 0.12);
-  color: var(--color-text-muted, #94a3b8);
-  border-radius: 0.35rem;
-  padding: 0.1rem 0.4rem;
-}
-
-.picker-item-name {
-  font-size: 0.9rem;
-  white-space: nowrap;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
   overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
-/* Second row: manufacturer, full width, truncates naturally */
-.picker-item-mfr {
-  font-size: 0.78rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Light mode overrides for picker */
-:root[data-theme="light"] .picker-modal {
-  background: #ffffff;
-}
-
-:root[data-theme="light"] .picker-search {
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-:root[data-theme="light"] .picker-item:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-:root[data-theme="light"] .picker-item-selected {
-  background: rgba(28, 107, 39, 0.06);
-  border-color: rgba(28, 107, 39, 0.5);
-}
+/* Light mode overrides */
+:root[data-theme="light"] .pi-row-flagged td { background: rgba(200,95,95,0.07); }
+:root[data-theme="light"] .pi-row-flagged:hover td { background: rgba(200,95,95,0.11); }
+:root[data-theme="light"] .pi-row:hover td { background: rgba(28,107,39,0.04); }
+:root[data-theme="light"] .pi-picker-modal { background: #fff; }
+:root[data-theme="light"] .pi-picker-item:hover { background: rgba(0,0,0,0.04); }
+:root[data-theme="light"] .pi-picker-item-sel { background: rgba(28,107,39,0.06); border-color: rgba(28,107,39,0.5); }
 </style>

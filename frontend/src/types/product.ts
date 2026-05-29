@@ -55,6 +55,7 @@ export type ReleaseStatus =
 
 export interface ProductReleaseSummaryRead {
   id: string;
+  product_name: string | null;
   system_version: number;
   user_version: string | null;
   display_version: string;

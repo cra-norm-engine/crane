@@ -1,70 +1,78 @@
 <template>
-  <!--
-    ProductDetailView — minimalist product workspace.
-
-    Layout:
-      • Page header   — product name + refresh
-      • Stats bar     — 5 key metrics in compact cards
-      • Workspace     — 2-column grid
-          Main column : product info (read-only), releases (slim rows),
-                        remote processing elements, child products
-          Side column : support period summary, scope wizard, audit timeline
-      • Three AppModals rendered via Teleport:
-          – Edit product
-          – Support period (create / update)
-          – New release
-      • Scope wizard modal (bespoke, kept as-is)
-  -->
   <section class="page">
-
-    <!-- ── Page header ─────────────────────────────────── -->
-    <header class="page-header card">
-      <div>
-        <h1 class="page-title">{{ product?.name || "Product Detail" }}</h1>
-        <p class="muted page-subtitle">
-          CRA compliance workspace — scope, releases, and support lifecycle.
-        </p>
-      </div>
-
-      <!-- Refresh is the only top-level action; editing lives inside each card -->
-      <div class="page-actions">
-        <button
-          class="btn btn-secondary"
-          type="button"
-          :disabled="isLoading || isSaving || isSavingSupportPeriod"
-          @click="loadProduct"
-        >
-          {{ isLoading ? "Refreshing…" : "Refresh" }}
-        </button>
-      </div>
-    </header>
 
     <!-- ── Page-level feedback banners ─────────────────── -->
     <div v-if="errorMessage" class="feedback-banner feedback-banner-danger" role="alert">
       {{ errorMessage }}
     </div>
-
     <div v-if="successMessage" class="feedback-banner feedback-banner-success" role="status">
       {{ successMessage }}
     </div>
-
     <div v-if="supportPeriodSuccess" class="feedback-banner feedback-banner-success" role="status">
       {{ supportPeriodSuccess }}
     </div>
 
     <!-- ── Loading state ───────────────────────────────── -->
-    <div v-if="isLoading && !product" class="card loading-card">
+    <div v-if="isLoading && !product" class="pd-loading">
       <span class="spinner spinner-sm" aria-hidden="true" />
       Loading product…
     </div>
 
     <template v-else-if="product">
 
+      <!-- ── Product identity header ───────────────────── -->
+      <header class="pd-head">
+        <!-- Two-letter product initials mark -->
+        <div class="pd-mark" aria-hidden="true">{{ productInitials }}</div>
+
+        <div class="pd-left">
+          <div class="pd-eyebrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 7l-8-4-8 4v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/>
+            </svg>
+            Product workspace
+          </div>
+
+          <div class="pd-title-row">
+            <h1 class="pd-title">{{ product.name }}</h1>
+            <span class="pd-code">{{ product.product_code }}</span>
+          </div>
+
+          <p class="pd-desc">CRA compliance workspace — scope, releases, and support lifecycle for this product.</p>
+
+          <div class="pd-meta">
+            <span class="badge" :class="scopeClass(product.scope_status)">
+              {{ formatScopeStatus(product.scope_status) }}
+            </span>
+            <span class="meta-chip">{{ formatClassification(product.current_classification) }}</span>
+            <span class="meta-chip">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+              {{ product.product_type }}
+            </span>
+            <span class="meta-chip">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/></svg>
+              {{ product.manufacturer_name }}
+            </span>
+          </div>
+        </div>
+
+        <div class="pd-actions">
+          <AppButton
+            variant="secondary"
+            size="sm"
+            :disabled="isLoading || isSaving || isSavingSupportPeriod"
+            @click="loadProduct"
+          >
+            {{ isLoading ? "Refreshing…" : "Refresh" }}
+          </AppButton>
+          <AppButton variant="secondary" size="sm" @click="startEditing">Edit</AppButton>
+          <AppButton variant="primary" size="sm" :disabled="isCreatingRelease" @click="openReleaseModal">
+            New release
+          </AppButton>
+        </div>
+      </header>
+
       <!-- ── Stats bar ───────────────────────────────────── -->
-      <!--
-        Five at-a-glance facts. Wide enough to stay in one row on
-        ≥1280px; collapses to 3 then 2 columns on smaller viewports.
-      -->
       <div class="stats-grid">
         <article class="card stat-card">
           <span class="stat-label">Product code</span>
@@ -212,9 +220,14 @@
                 role="listitem"
                 :to="{ name: 'release-gate', params: { releaseId: release.id } }"
               >
+                <!-- Release icon mark -->
+                <div class="release-mark" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M3 7.5L12 12l9-4.5M12 12v9"/></svg>
+                </div>
+
                 <!-- Version label + CRA lineage micro-tags -->
                 <div class="release-row-left">
-                  <span class="release-display_version">v{{ release.display_version }}</span>
+                  <span class="release-display_version">{{ release.display_version }}</span>
                   <!-- Gap 5 — Art. 13(10) consolidated support designation tag -->
                   <span v-if="release.is_consolidated_support_version" class="release-tag release-tag-amber">
                     Art. 13(10)
@@ -266,9 +279,13 @@
               </div>
             </div>
 
-            <p v-if="product.remote_processing_elements.length === 0" class="muted empty-inline">
-              No remote processing elements recorded.
-            </p>
+            <div v-if="product.remote_processing_elements.length === 0" class="empty-state">
+              <div class="empty-state-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M5 12a7 7 0 0 1 7-7M5 12a7 7 0 0 0 7 7M19 12a7 7 0 0 0-7-7M19 12a7 7 0 0 1-7 7"/></svg>
+              </div>
+              <p class="empty-state-title">No remote processing elements recorded</p>
+              <p class="empty-state-desc">Document any cloud services or remote data processing this product depends on to keep its CRA scope assessment complete.</p>
+            </div>
 
             <div v-else class="table-wrapper">
               <table class="data-table">
@@ -301,9 +318,13 @@
               </div>
             </div>
 
-            <p v-if="product.child_products.length === 0" class="muted empty-inline">
-              No child products linked.
-            </p>
+            <div v-if="product.child_products.length === 0" class="empty-state">
+              <div class="empty-state-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v6M12 9l-6 3M12 9l6 3"/><circle cx="12" cy="3" r="1.6"/><circle cx="6" cy="13" r="1.6"/><circle cx="18" cy="13" r="1.6"/><path d="M6 14v3M18 14v3"/></svg>
+              </div>
+              <p class="empty-state-title">No child products linked</p>
+              <p class="empty-state-desc">Link derivative or bundled products to manage their conformity together with this parent.</p>
+            </div>
 
             <div v-else class="table-wrapper">
               <table class="data-table">
@@ -360,15 +381,16 @@
               </button>
             </div>
 
-            <!-- Summary rows — shown when an active support period is loaded -->
+            <!-- Active window highlight + detail rows -->
             <div v-if="activeSupportPeriod" class="support-summary">
-              <div class="summary-row">
-                <span class="detail-label">Period</span>
-                <span>
-                  {{ formatDate(activeSupportPeriod.support_start_date) }}
-                  →
-                  {{ formatDate(activeSupportPeriod.support_end_date) }}
-                </span>
+              <!-- Green highlighted date range box -->
+              <div class="sp-window">
+                <div class="sp-window-lbl">Active window</div>
+                <div class="sp-dates">
+                  <span>{{ formatDate(activeSupportPeriod.support_start_date) }}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="sp-arrow"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  <span>{{ formatDate(activeSupportPeriod.support_end_date) }}</span>
+                </div>
               </div>
 
               <div class="summary-row">
@@ -381,7 +403,6 @@
                 <span>{{ activeSupportPeriod.notify_before_days }} days before end</span>
               </div>
 
-              <!-- Show recipient count if any are set -->
               <div v-if="activeSupportPeriod.recipient_user_ids.length > 0" class="summary-row">
                 <span class="detail-label">Recipients</span>
                 <span>{{ activeSupportPeriod.recipient_user_ids.length }} user(s)</span>
@@ -389,9 +410,9 @@
             </div>
 
             <!-- Placeholder when no support period exists yet -->
-            <p v-else class="muted empty-inline">
-              No support period recorded yet.
-            </p>
+            <div v-else class="empty-state empty-state-sm">
+              <p class="empty-state-title">No support period recorded yet.</p>
+            </div>
 
             <!-- Inline error from support period operations -->
             <div v-if="supportPeriodError" class="feedback-banner feedback-banner-danger" role="alert">
@@ -1059,6 +1080,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import AppButton from "@/components/AppButton.vue";
 import AppModal from "@/components/AppModal.vue";
 import AuditTimeline from "@/components/AuditTimeline.vue";
 import { auditService } from "@/services/audit-service";
@@ -1197,6 +1219,17 @@ const releaseForm = reactive({
 });
 
 /* ── Computed ───────────────────────────────────────── */
+
+// Two-letter initials from the product name for the identity mark
+const productInitials = computed(() => {
+  if (!product.value?.name) return "PR";
+  return product.value.name
+    .split(" ")
+    .slice(0, 2)
+    .map((w: string) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+});
 
 // Preview the exact date the EOS notification will fire based on current form values
 const notificationSchedulePreview = computed(() => {
@@ -1767,32 +1800,130 @@ onBeforeUnmount(() => {
   gap: 1rem;
 }
 
-/* Page header: product name on the left, actions on the right */
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.page-subtitle {
-  margin-top: 0.35rem;
-}
-
-/* Subtle loading card while the first page load is in flight */
-.loading-card {
+/* Subtle loading row while the first page load is in flight */
+.pd-loading {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  padding: 1.5rem;
+}
+
+/* ── Product identity header (CRANE-style) ─────────── */
+.pd-head {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 0.875rem);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Left green accent stripe */
+.pd-head::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-primary);
+  border-radius: 4px 0 0 4px;
+}
+
+/* Two-letter initials box */
+.pd-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.pd-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.pd-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.pd-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.pd-code {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.pd-desc {
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+  font-size: var(--text-sm);
+  max-width: 64ch;
+}
+
+.pd-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Small metadata chips (non-badge, neutral) */
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.pd-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 /* ── Stats bar ─────────────────────────────────────── */
@@ -1946,17 +2077,73 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
+/* ── Empty state (CRANE-style dashed bordered box) ─── */
+.empty-state {
+  border: 1px dashed var(--color-border-strong, var(--color-border));
+  border-radius: var(--radius-md, 0.75rem);
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--color-surface-elevated);
+}
+
+.empty-state-sm {
+  padding: 1rem 1.25rem;
+}
+
+.empty-state-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+}
+
+.empty-state-title {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+.empty-state-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  max-width: 46ch;
+  margin: 0;
+  opacity: 0.8;
+}
+
+/* ── Release icon mark ─────────────────────────────── */
+.release-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+  display: grid;
+  place-items: center;
+}
+
 /* ── Releases compact list ─────────────────────────── */
 .release-list {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 /* Each release is a full-row link — no nested buttons */
 .release-row {
   display: grid;
-  /* display_version+tags | status | conformity | date | arrow */
-  grid-template-columns: 1fr auto auto auto auto;
+  /* mark | version+tags | status | conformity | date | arrow */
+  grid-template-columns: auto 1fr auto auto auto auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem 0.9rem;
@@ -2034,6 +2221,38 @@ onBeforeUnmount(() => {
 .support-summary {
   display: grid;
   gap: 0.55rem;
+}
+
+/* Green highlighted active date window */
+.sp-window {
+  padding: 0.75rem 1rem;
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-md, 0.75rem);
+  margin-bottom: 0.1rem;
+}
+
+.sp-window-lbl {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-success-text);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.sp-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.sp-arrow {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 .summary-row {

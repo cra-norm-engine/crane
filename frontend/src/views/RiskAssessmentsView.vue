@@ -7,9 +7,9 @@
           Structured cybersecurity risk assessments for products and releases.
         </p>
       </div>
-      <button class="button" type="button" @click="openCreateForm = !openCreateForm">
+      <AppButton variant="primary" type="button" @click="openCreateForm = !openCreateForm">
         {{ openCreateForm ? "Close" : "New Assessment" }}
-      </button>
+      </AppButton>
     </header>
 
     <section class="panel filters-panel">
@@ -39,7 +39,7 @@
 
     <section v-if="openCreateForm" class="panel">
       <div class="panel-header">
-        <h2>Create Risk Assessment</h2>
+        <h2 class="section-title">Create Risk Assessment</h2>
         <span class="count-badge accent-badge">Draft setup</span>
       </div>
 
@@ -94,16 +94,16 @@
         </label>
 
         <div class="form-actions field-full">
-          <button class="button" type="submit" :disabled="creating">
+          <AppButton variant="primary" type="submit" :disabled="creating">
             {{ creating ? "Creating..." : "Create Assessment" }}
-          </button>
+          </AppButton>
         </div>
       </form>
     </section>
 
     <section class="panel">
       <div class="panel-header">
-        <h2>Assessment List</h2>
+        <h2 class="section-title">Assessment List</h2>
         <span class="count-badge">{{ assessments.length }}</span>
       </div>
 
@@ -159,6 +159,7 @@
 import { onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import AppButton from "@/components/AppButton.vue";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
@@ -441,17 +442,19 @@ watch(createReleaseId, (releaseId) => {
 .panel-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
 }
 
-.page-header h1,
-.panel-header h2 {
+/* section-title is the global class; margin: 0 prevents panel layout shift */
+.panel-header .section-title {
   margin: 0;
 }
 
 .page-subtitle {
   margin: 0.35rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .filters-grid,
@@ -468,11 +471,11 @@ watch(createReleaseId, (releaseId) => {
 }
 
 .field-label {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--text-xs);   /* 12px — eyebrow / label tier */
+  font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
 }
 
 .field-full {
@@ -488,12 +491,13 @@ watch(createReleaseId, (releaseId) => {
 .count-badge {
   min-width: 2rem;
   text-align: center;
-  padding: 0.35rem 0.65rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  color: var(--color-text);
-  font-weight: 700;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);   /* 14px — badge tier */
+  font-weight: 600;
 }
 
 .accent-badge {
@@ -508,7 +512,7 @@ watch(createReleaseId, (releaseId) => {
 
 .data-table th,
 .data-table td {
-  padding: 0.9rem 0.75rem;
+  padding: 0.8rem 0.75rem;
   border-top: 1px solid var(--color-divider);
   text-align: left;
   vertical-align: top;
@@ -516,8 +520,15 @@ watch(createReleaseId, (releaseId) => {
 
 .data-table th {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: var(--text-xs);   /* 12px — column header tier */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.data-table td {
+  font-size: var(--text-sm);   /* 14px — body copy tier */
 }
 
 .table-row-link {
@@ -536,15 +547,15 @@ watch(createReleaseId, (releaseId) => {
   background: var(--color-status-bg);
   color: var(--color-status-text);
   border: 1px solid var(--color-status-border);
-  padding: 0.3rem 0.62rem;
-  font-size: 0.85rem;
+  padding: 0.25rem 0.62rem;
+  font-size: var(--text-xs);   /* 12px — badge / pill tier */
   font-weight: 600;
   text-transform: capitalize;
 }
 
 .uuid-cell {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.84rem;
+  font-size: var(--text-xs);   /* 12px — monospace identifiers */
   word-break: break-all;
 }
 

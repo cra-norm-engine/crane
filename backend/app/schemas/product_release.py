@@ -95,6 +95,7 @@ class ProductReleaseRead(ProductReleaseBase):
 
     id: UUID
     system_version: int  # Auto-incremented version number
+    product_name: str | None = None  # Populated via the product relationship
     created_at: datetime
     updated_at: datetime
 

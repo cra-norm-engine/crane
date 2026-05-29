@@ -311,7 +311,7 @@
          ══════════════════════════════════════════ -->
     <div class="sidebar-footer">
 
-      <!-- User identity row -->
+      <!-- User identity chip -->
       <div class="user-row">
         <!-- Avatar initials badge -->
         <div class="user-avatar" aria-hidden="true">{{ userInitials }}</div>
@@ -319,6 +319,10 @@
           <div class="user-name">{{ displayName }}</div>
           <span class="user-role-badge">{{ primaryRoleLabel }}</span>
         </div>
+        <!-- Chevron visual cue -->
+        <svg class="user-chevron" viewBox="0 0 16 16" fill="currentColor" width="13" height="13" aria-hidden="true">
+          <path d="M4 6l4 4 4-4"/>
+        </svg>
       </div>
 
       <!-- Change password — local users only -->
@@ -531,11 +535,11 @@ function logout(): void {
 
 /* Small all-caps label above a group of links */
 .nav-group-label {
-  margin: 0 0 0.2rem;
+  margin: 0 0 0.25rem;
   padding: 0 0.5rem;
-  font-size: 0.68rem;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(220, 233, 214, 0.35);
 }
@@ -692,6 +696,13 @@ function logout(): void {
   white-space: nowrap;
 }
 
+.user-chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
 /* ═══════════════════════════════════════════════
    MOBILE BEHAVIOUR (≤ 960 px)
    ─────────────────────────────────────────────
@@ -734,19 +745,38 @@ function logout(): void {
 -->
 <style>
 :root[data-theme="light"] .nav-group-label {
-  color: rgba(20, 33, 15, 0.42);
+  /* CRANE Dashboard reference: muted forest green for section labels */
+  color: oklch(0.48 0.07 150 / 0.5);
 }
 
 :root[data-theme="light"] .nav-divider {
-  background: rgba(20, 33, 15, 0.1);
+  background: oklch(0.48 0.07 150 / 0.12);
 }
 
 :root[data-theme="light"] .nav-link:hover {
-  background: rgba(28, 107, 39, 0.06);
-  border-color: rgba(28, 107, 39, 0.1);
+  background: oklch(0.48 0.092 150 / 0.07);
+  border-color: oklch(0.48 0.092 150 / 0.14);
+  color: oklch(0.26 0.07 150);
+}
+
+:root[data-theme="light"] .nav-link-active {
+  background: oklch(0.955 0.024 150);
+  border-color: oklch(0.85 0.05 150);
+  color: oklch(0.26 0.07 150);
+  box-shadow: inset 3px 0 0 oklch(0.48 0.092 150);
+}
+
+:root[data-theme="light"] .nav-link-active .nav-icon {
+  color: oklch(0.38 0.092 150);
 }
 
 :root[data-theme="light"] .sidebar-footer {
-  border-top-color: rgba(28, 107, 39, 0.12);
+  border-top-color: oklch(0.48 0.092 150 / 0.14);
+}
+
+:root[data-theme="light"] .user-avatar {
+  background: oklch(0.955 0.024 150);
+  border-color: oklch(0.85 0.05 150);
+  color: oklch(0.38 0.092 150);
 }
 </style>
