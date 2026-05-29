@@ -9,9 +9,9 @@
       </div>
 
       <div class="page-actions">
-        <button class="button" type="button" @click="runScheduler" :disabled="isRunningScheduler">
+        <AppButton variant="primary" type="button" @click="runScheduler" :disabled="isRunningScheduler">
           {{ isRunningScheduler ? "Running..." : "Run EOS check" }}
-        </button>
+        </AppButton>
       </div>
     </header>
 
@@ -236,24 +236,24 @@
 
               <td>
                 <div class="row-actions">
-                  <button
+                  <AppButton
                     v-if="alert.status === 'pending'"
-                    class="btn btn-secondary action-btn"
-                    type="button"
+                    variant="secondary"
+                    size="sm"
                     :disabled="isActioning"
                     @click="markAlertSent(alert.id)"
                   >
                     Mark sent
-                  </button>
-                  <button
+                  </AppButton>
+                  <AppButton
                     v-if="alert.status !== 'dismissed'"
-                    class="btn btn-secondary action-btn"
-                    type="button"
+                    variant="secondary"
+                    size="sm"
                     :disabled="isActioning"
                     @click="dismissAlert(alert.id)"
                   >
                     Dismiss
-                  </button>
+                  </AppButton>
                 </div>
               </td>
             </tr>
@@ -266,6 +266,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import AppButton from "@/components/AppButton.vue";
 
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
 import { productService } from "@/services/product-service";
@@ -674,7 +675,10 @@ onMounted(() => {
 }
 
 .field-label {
-  font-size: 0.875rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted, #94a3b8);
 }
 
@@ -694,7 +698,7 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 1.6rem;
+  font-size: var(--text-2xl);
 }
 
 .feedback,
@@ -731,8 +735,10 @@ onMounted(() => {
 
 .data-table th {
   color: var(--color-text-muted, #94a3b8);
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
@@ -743,13 +749,13 @@ onMounted(() => {
 
 .message-cell {
   max-width: 28rem;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted, #94a3b8);
   line-height: 1.4;
 }
 
 .small-text {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   margin: 0;
 }
 
@@ -760,7 +766,7 @@ onMounted(() => {
 }
 
 .action-btn {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   padding: 0.4rem 0.75rem;
   white-space: nowrap;
 }
@@ -770,7 +776,7 @@ onMounted(() => {
   align-items: center;
   border-radius: 999px;
   padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   width: fit-content;
   text-transform: capitalize;

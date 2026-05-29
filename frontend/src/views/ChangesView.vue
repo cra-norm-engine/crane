@@ -46,9 +46,9 @@
           </select>
         </label>
 
-        <button class="button" type="button" @click="openCreateModal">
+        <AppButton variant="primary" type="button" @click="openCreateModal">
           + New change
-        </button>
+        </AppButton>
       </div>
     </header>
 
@@ -265,10 +265,10 @@
             </label>
 
             <div class="form-actions field-span-2">
-              <button type="button" class="btn btn-secondary" @click="closeCreateModal">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="isCreating">
+              <AppButton variant="secondary" type="button" @click="closeCreateModal">Cancel</AppButton>
+              <AppButton variant="primary" type="submit" :disabled="isCreating">
                 {{ isCreating ? "Creating…" : "Create draft" }}
-              </button>
+              </AppButton>
             </div>
           </form>
         </div>
@@ -280,6 +280,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import AppButton from "@/components/AppButton.vue";
 
 import { changeService } from "@/services/change-service";
 import { productService } from "@/services/product-service";
@@ -542,7 +543,10 @@ function formatLabel(value: string): string {
 
 .field-label {
   color: var(--color-text-muted, #94a3b8);
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* Stat cards */
@@ -566,13 +570,13 @@ function formatLabel(value: string): string {
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: var(--text-3xl);
   font-weight: 700;
   line-height: 1;
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
 .stat-card-warn .stat-value   { color: #fbbf24; }
@@ -624,8 +628,10 @@ function formatLabel(value: string): string {
 
 .data-table th {
   color: var(--color-text-muted, #94a3b8);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
@@ -646,7 +652,7 @@ function formatLabel(value: string): string {
 .row-arrow {
   color: var(--color-text-muted, #94a3b8);
   text-align: right;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   opacity: 0;
   transition: opacity 0.13s;
 }
@@ -660,15 +666,15 @@ function formatLabel(value: string): string {
 
 /* Product/release column in the changes list */
 .product-cell { display: flex; flex-direction: column; gap: 0.1rem; }
-.product-name  { font-size: 0.875rem; font-weight: 500; }
-.release-display_version { font-size: 0.78rem; }
+.product-name  { font-size: var(--text-sm); font-weight: 500; }
+.release-display_version { font-size: var(--text-xs); }
 
 /* Change-type badges */
 .type-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   text-transform: capitalize;
 }
@@ -683,7 +689,7 @@ function formatLabel(value: string): string {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   text-transform: capitalize;
 }
@@ -696,8 +702,8 @@ function formatLabel(value: string): string {
 .status-closed         { background: rgba(100, 116, 139, 0.12); color: #64748b; }
 
 /* Substantiality indicators */
-.substantial-yes { color: #f87171; font-weight: 600; font-size: 0.85rem; }
-.substantial-no  { color: #4ade80; font-size: 0.85rem; }
+.substantial-yes { color: #f87171; font-weight: 600; font-size: var(--text-sm); }
+.substantial-no  { color: #4ade80; font-size: var(--text-sm); }
 
 /* Buttons */
 .btn {
@@ -722,7 +728,7 @@ function formatLabel(value: string): string {
 
 .btn-icon {
   padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   line-height: 1;
 }
 

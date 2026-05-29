@@ -1462,7 +1462,7 @@ input:focus, select:focus, textarea:focus {
   align-self: flex-start;
 }
 
-.score-denom { font-size: 1rem; font-weight: 500; opacity: 0.6; }
+.score-denom { font-size: var(--text-base); font-weight: 500; opacity: 0.6; }
 
 .sidebar-grade-row {
   display: flex;
@@ -1497,7 +1497,7 @@ input:focus, select:focus, textarea:focus {
   display: inline-block;
   padding: 0.18rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1789,7 +1789,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .nowrap { white-space: nowrap; }
-.row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; opacity: 0; transition: opacity 0.12s; }
+.row-arrow { color: var(--color-text-muted); font-size: var(--text-lg); text-align: right; opacity: 0; transition: opacity 0.12s; }
 .table-row-clickable:hover .row-arrow,
 .table-row-clickable:focus-visible .row-arrow { opacity: 1; }
 
@@ -1990,7 +1990,7 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   border: 1px solid transparent;
@@ -2009,7 +2009,7 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
@@ -2186,7 +2186,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .vuln-cvss-score-large {
-  font-size: 1.15rem;
+  font-size: var(--text-lg);
   font-weight: 800;
   font-family: monospace;
 }
