@@ -128,15 +128,17 @@
 }
 
 :root[data-theme="light"] {
-  color: #14210f;
-  --color-bg: #eef4e8;
-  --color-bg-rgb: 238, 244, 232;
-  --color-bg-secondary: #e4eddc;
-  --color-panel: rgba(255, 255, 255, 0.9);
-  --color-surface: rgba(249, 252, 245, 0.94);
-  --color-surface-soft: rgba(28, 107, 39, 0.08);
-  --color-border: rgba(28, 107, 39, 0.14);
-  --color-border-strong: rgba(28, 107, 39, 0.2);
+  color: oklch(0.22 0.012 150);
+  /* Page background matches CRANE Dashboard reference — almost-white with faint green tint */
+  --color-bg:           oklch(0.984 0.003 140);
+  --color-bg-rgb:       251, 253, 250;
+  --color-bg-secondary: oklch(0.972 0.004 140);
+  --color-panel: rgba(255, 255, 255, 0.95);
+  /* Cards and surfaces are pure white in the reference */
+  --color-surface: #ffffff;
+  --color-surface-soft: rgba(28, 107, 39, 0.05);
+  --color-border: oklch(0.915 0.005 140);
+  --color-border-strong: oklch(0.86 0.006 140);
   --color-text: #14210f;
   --color-text-muted: rgba(20, 33, 15, 0.78);
   --color-primary: #4f9c13;
@@ -145,8 +147,9 @@
   --color-success: #3f9a2f;
   --color-warning: #b79b12;
   --color-danger: #c85f5f;
-  --color-surface-elevated: rgba(28, 107, 39, 0.06);
-  --color-surface-elevated-strong: rgba(28, 107, 39, 0.1);
+  /* Elevated surfaces match reference --surface-2 token */
+  --color-surface-elevated: oklch(0.972 0.004 140);
+  --color-surface-elevated-strong: oklch(0.955 0.006 140);
   --color-status-bg: rgba(79, 156, 19, 0.12);
   --color-status-border: rgba(31, 108, 43, 0.18);
   --color-status-text: #1e5723;
@@ -156,10 +159,11 @@
   --color-danger-bg: rgba(200, 95, 95, 0.12);
   --color-danger-border: rgba(200, 95, 95, 0.22);
   --color-danger-text: #8b2f2f;
-  --color-card-start: rgba(255, 255, 255, 0.94);
-  --color-card-end: rgba(247, 251, 242, 0.9);
-  --color-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 249, 239, 0.82));
-  --color-sidebar-bg: linear-gradient(180deg, rgba(248, 251, 244, 0.98), rgba(238, 245, 233, 0.94));
+  --color-card-start: #ffffff;
+  --color-card-end: #ffffff;
+  --color-header-bg: rgba(255, 255, 255, 0.92);
+  /* Sidebar is plain white in the reference */
+  --color-sidebar-bg: #ffffff;
   --color-page-glow-1: rgba(175, 214, 46, 0.16);
   --color-page-glow-2: rgba(28, 107, 39, 0.1);
   --color-button-text: #ffffff;
@@ -192,10 +196,10 @@
   --color-eyebrow-text: rgba(20, 33, 15, 0.55);
   --color-nav-hover-bg: rgba(28, 107, 39, 0.06);
   --color-nav-hover-border: rgba(28, 107, 39, 0.1);
-  --color-inset-surface: rgba(28, 107, 39, 0.04);
-  --color-inset-surface-hover: rgba(28, 107, 39, 0.07);
-  --color-inset-border: rgba(28, 107, 39, 0.12);
-  --color-inset-border-dashed: rgba(28, 107, 39, 0.15);
+  --color-inset-surface: oklch(0.972 0.004 140);
+  --color-inset-surface-hover: oklch(0.955 0.006 140);
+  --color-inset-border: oklch(0.915 0.005 140);
+  --color-inset-border-dashed: oklch(0.895 0.007 140);
   --color-modal-bg: #ffffff;
   --color-modal-border: rgba(28, 107, 39, 0.15);
   --color-modal-header-border: rgba(28, 107, 39, 0.1);
@@ -254,12 +258,18 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  /* Dark mode: decorative radial glows over the gradient */
   background:
     radial-gradient(1200px 640px at 18% 10%, var(--color-page-glow-1), transparent 52%),
     radial-gradient(900px 620px at 82% 14%, var(--color-page-glow-2), transparent 50%),
     linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-secondary) 100%);
   color: var(--color-text);
   transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Light mode: flat background — reference uses plain oklch bg with no radial glows */
+:root[data-theme="light"] body {
+  background: var(--color-bg);
 }
 
 a {

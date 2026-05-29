@@ -8,10 +8,10 @@
         <p class="muted">Select a product, review every CRA Annex I requirement, and trace each one to risk items, rationale, and supporting artifacts.</p>
       </div>
       <div class="page-actions">
-        <button class="button secondary" type="button" @click="showFilterModal = true">
+        <AppButton variant="secondary" type="button" @click="showFilterModal = true">
           Filter matrix
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-        </button>
+        </AppButton>
       </div>
     </header>
 
@@ -27,7 +27,7 @@
     <article class="card selector-card">
       <div class="section-heading">
         <div>
-          <h2>Product scope</h2>
+          <h2 class="section-title">Product scope</h2>
         </div>
       </div>
 
@@ -72,7 +72,7 @@
     <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card">
       <div class="section-heading">
         <div>
-          <h2>{{ selectedProduct.name }}</h2>
+          <h2 class="section-title">{{ selectedProduct.name }}</h2>
           <p class="muted">
             v{{ selectedRelease?.display_version }} ·
             {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
@@ -190,7 +190,7 @@
 
     <!-- ── Empty product selection state ─────────────────── -->
     <section v-else class="card state-block">
-      <h2>Select a product to start</h2>
+      <h2 class="section-title">Select a product to start</h2>
       <p class="muted">
         Select a product and release to assess every CRA Annex I requirement for that specific version.
       </p>
@@ -231,14 +231,14 @@
       </div>
 
       <template #footer>
-        <button
-          class="button secondary"
+        <AppButton
+          variant="secondary"
           type="button"
           @click="resetFilters(); showFilterModal = false"
         >
           Clear all
-        </button>
-        <button class="button" type="button" @click="showFilterModal = false">Apply</button>
+        </AppButton>
+        <AppButton variant="primary" type="button" @click="showFilterModal = false">Apply</AppButton>
       </template>
     </AppModal>
 
@@ -275,7 +275,7 @@
         <section class="detail-section">
           <div class="section-heading tight">
             <div>
-              <h3>Applicability decision</h3>
+              <h3 class="section-title">Applicability decision</h3>
               <p class="muted">Decide explicitly whether this requirement applies to the selected product.</p>
             </div>
           </div>
@@ -300,9 +300,9 @@
             </label>
 
             <div class="editor-actions">
-              <button class="button" type="submit" :disabled="busy">
+              <AppButton variant="primary" type="submit" :disabled="busy">
                 {{ busy ? "Saving..." : "Save decision" }}
-              </button>
+              </AppButton>
             </div>
           </form>
         </section>
@@ -310,7 +310,7 @@
         <!-- Linked risks -->
         <section class="detail-section">
           <div class="section-heading tight">
-            <h3>Linked risks</h3>
+            <h3 class="section-title">Linked risks</h3>
           </div>
           <div v-if="selectedRow.risk_items.length === 0" class="state-block compact">
             <p class="muted">No risk items linked yet.</p>
@@ -326,7 +326,7 @@
         <!-- Linked artifacts -->
         <section class="detail-section">
           <div class="section-heading tight">
-            <h3>Linked artifacts</h3>
+            <h3 class="section-title">Linked artifacts</h3>
           </div>
           <div v-if="selectedRow.artifacts.length === 0" class="state-block compact">
             <p class="muted">No artifacts linked yet.</p>
@@ -342,14 +342,14 @@
                 <span class="muted">{{ formatLabel(artifact.artifact_type) }}</span>
               </div>
               <div class="artifact-actions-inline">
-                <button
+                <AppButton
                   v-if="artifact.latest_revision?.storage_path"
-                  class="button secondary small-button"
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   @click="downloadArtifact(artifact)"
                 >
                   Download
-                </button>
+                </AppButton>
                 <a
                   v-else-if="artifact.latest_revision?.external_url"
                   class="button secondary small-button link-button"
@@ -368,7 +368,7 @@
         <section class="trace-section">
           <div class="section-heading tight">
             <div>
-              <h3>
+              <h3 class="section-title">
                 Trace records
                 <span v-if="selectedReleaseId" class="release-scope-tag">
                   — v{{ selectedRelease?.display_version }} only
@@ -384,9 +384,9 @@
                 </template>
               </p>
             </div>
-            <button class="button secondary" type="button" @click="startCreateTrace">
+            <AppButton variant="secondary" type="button" @click="startCreateTrace">
               New trace record
-            </button>
+            </AppButton>
           </div>
 
           <div
@@ -440,14 +440,14 @@
                     <small>{{ formatLabel(artifact.artifact_type) }}</small>
                   </div>
                   <div class="artifact-actions-inline">
-                    <button
+                    <AppButton
                       v-if="artifact.latest_revision?.storage_path"
-                      class="button secondary small-button"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       @click="downloadArtifact(artifact)"
                     >
                       Download
-                    </button>
+                    </AppButton>
                     <a
                       v-else-if="artifact.latest_revision?.external_url"
                       class="button secondary small-button link-button"
@@ -462,22 +462,20 @@
               </div>
 
               <div class="trace-actions">
-                <button
-                  class="button secondary"
-                  type="button"
+                <AppButton
+                  variant="secondary"
                   :disabled="busy"
                   @click="editTrace(trace)"
                 >
                   Edit
-                </button>
-                <button
-                  class="button danger"
-                  type="button"
+                </AppButton>
+                <AppButton
+                  variant="danger"
                   :disabled="busy"
                   @click="removeTrace(trace.id)"
                 >
                   Delete
-                </button>
+                </AppButton>
               </div>
             </article>
           </div>
@@ -487,7 +485,7 @@
         <section class="editor-card">
           <div class="section-heading tight">
             <div>
-              <h3>{{ editingExisting ? "Edit trace record" : "Create trace record" }}</h3>
+              <h3 class="section-title">{{ editingExisting ? "Edit trace record" : "Create trace record" }}</h3>
               <p class="muted">
                 Use notes to record implementation rationale or not-applicable justification.
               </p>
@@ -576,12 +574,12 @@
             </div>
 
             <div class="editor-actions">
-              <button class="button" type="submit" :disabled="busy || !selectedRow">
+              <AppButton variant="primary" type="submit" :disabled="busy || !selectedRow">
                 {{ busy ? "Saving..." : editingExisting ? "Save changes" : "Create trace record" }}
-              </button>
-              <button class="button secondary" type="button" :disabled="busy" @click="resetEditor">
+              </AppButton>
+              <AppButton variant="secondary" type="button" :disabled="busy" @click="resetEditor">
                 Clear editor
-              </button>
+              </AppButton>
             </div>
           </form>
         </section>
@@ -596,6 +594,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
+import AppButton from "@/components/AppButton.vue";
 import { artifactService } from "@/services/artifact-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
@@ -1163,16 +1162,12 @@ onMounted(async () => {
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.release-status-pill {
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
 }
 
 .release-note {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
 }
 
 .release-coverage-bar {
@@ -1183,7 +1178,7 @@ onMounted(async () => {
 }
 
 .coverage-numbers {
-  font-size: 0.83rem;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1192,7 +1187,7 @@ onMounted(async () => {
 .coverage-pct {
   margin-left: auto;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .pct-good    { color: #34d399; }
@@ -1235,7 +1230,7 @@ onMounted(async () => {
 
 /* ── Release scope tag in modal ───────────────────── */
 .release-scope-tag {
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: #9cc0ff;
 }
@@ -1258,7 +1253,7 @@ onMounted(async () => {
 
 /* ── Field hint text ──────────────────────────────── */
 .field-hint {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-weight: 400;
 }
@@ -1273,7 +1268,7 @@ onMounted(async () => {
   border-radius: 999px;
   background: var(--color-primary);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   padding: 0 0.3rem;
   margin-left: 0.35rem;
@@ -1339,12 +1334,12 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 
 .requirement-code {
   color: #9cc0ff;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -1396,7 +1391,7 @@ onMounted(async () => {
 .row-description-panel p {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 
@@ -1475,7 +1470,10 @@ onMounted(async () => {
 }
 
 .field span {
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted);
 }
 
@@ -1489,7 +1487,7 @@ onMounted(async () => {
   border-radius: 999px;
   border: 1px solid rgba(233, 238, 252, 0.1);
   padding: 0.32rem 0.65rem;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -1587,7 +1585,7 @@ onMounted(async () => {
 .artifact-option-copy span,
 .artifact-selection-note {
   color: var(--color-text-muted);
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
 }
 
 .artifact-info {
@@ -1671,7 +1669,7 @@ onMounted(async () => {
 .small-button {
   padding: 0.4rem 0.7rem;
   border-radius: 9px;
-  font-size: 0.83rem;
+  font-size: var(--text-xs);
 }
 
 .link-button {

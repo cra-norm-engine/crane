@@ -202,6 +202,11 @@ class ProductRelease(UUIDTimestampMixin, Base):
 
     product: Mapped[Product] = relationship(back_populates="releases")
 
+    @property
+    def product_name(self) -> str | None:
+        """Convenience accessor used by ProductReleaseRead schema serialization."""
+        return self.product.name if self.product else None
+
     # Self-referential relationship: the base release this version derives from
     # (for non-substantial updates). Navigates the placement date lineage chain.
     parent_release: Mapped["ProductRelease | None"] = relationship(

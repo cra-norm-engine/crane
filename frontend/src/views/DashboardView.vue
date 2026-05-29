@@ -1,19 +1,23 @@
 <template>
   <section class="page ops-hub-page">
 
-    <!-- ── Page header ────────────────────────────────────────────────────── -->
-    <div class="page-header">
-      <div class="page-header-info">
-        <h1 class="page-title">Cyber Resilience Act Norm Engine (CRANE)</h1>
-        <p class="muted">{{ todayLabel }}</p>
+    <!-- ── Deadline banner (top of page) ────────────────────────────────── -->
+    <div class="deadline-banner" :class="daysToDeadline < 365 ? 'deadline-urgent' : 'deadline-ok'">
+      <div class="deadline-eyebrow">CRA Enforcement Deadline</div>
+      <div class="deadline-banner-center">
+        <span class="deadline-count" :class="daysToDeadline < 365 ? 'text-amber' : 'text-green'">
+          {{ daysToDeadline.toLocaleString() }}
+        </span>
+        <span class="deadline-unit">days remaining</span>
       </div>
-      <button class="btn-refresh" :class="{ spinning: loading }" @click="load" :disabled="loading" aria-label="Refresh">
-        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-          <path fill-rule="evenodd" d="M4 10a6 6 0 0 1 10.472-4H12a1 1 0 1 0 0 2h4a1 1 0 0 0 1-1V3a1 1 0 1 0-2 0v1.869A8 8 0 1 0 18 10a1 1 0 1 0-2 0 6 6 0 0 1-6 6 6 6 0 0 1-6-6z" clip-rule="evenodd"/>
+      <div class="deadline-date-row">
+        <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true">
+          <path d="M4 1a1 1 0 0 1 1 1v.5h6V2a1 1 0 1 1 2 0v.5h.5A1.5 1.5 0 0 1 15 4v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 13V4a1.5 1.5 0 0 1 1.5-1.5H3V2a1 1 0 0 1 1-1zm8.5 3.5h-9A.5.5 0 0 0 3 5v7.5A.5.5 0 0 0 3.5 13h9a.5.5 0 0 0 .5-.5V5a.5.5 0 0 0-.5-.5z"/>
         </svg>
-        Refresh
-      </button>
+        11 December 2027
+      </div>
     </div>
+
 
     <!-- ── Error ───────────────────────────────────────────────────────────── -->
     <div v-if="error" class="hub-error">
@@ -27,6 +31,58 @@
     </div>
 
     <template v-if="data">
+
+      <!-- ── Posture hero ──────────────────────────────────────────────────── -->
+      <div class="posture-hero">
+
+        <!-- Ring gauge -->
+        <div class="posture-ring-wrap">
+          <svg class="posture-ring" viewBox="0 0 112 112" aria-label="Compliance readiness ring">
+            <circle cx="56" cy="56" r="45" fill="none" stroke="var(--ring-track)" stroke-width="8"/>
+            <circle
+              cx="56" cy="56" r="45" fill="none"
+              :stroke="ringColor"
+              stroke-width="8"
+              stroke-linecap="round"
+              stroke-dasharray="282.74"
+              :stroke-dashoffset="ringOffset"
+              transform="rotate(-90 56 56)"
+            />
+          </svg>
+          <div class="ring-center">
+            <div class="ring-pct" :style="{ color: ringColor }">{{ postureScore }}%</div>
+            <div class="ring-sub">Ready</div>
+          </div>
+        </div>
+
+        <!-- Copy + status chips -->
+        <div class="posture-copy">
+          <h2 class="posture-title">Compliance Readiness</h2>
+          <p class="posture-desc">
+            Based on open vulnerabilities, approved risk assessments, active support periods, and outstanding compliance actions.
+          </p>
+          <div class="posture-chips">
+            <span class="posture-chip" :class="data.vulnerability_summary.critical === 0 ? 'pchip-ok' : 'pchip-danger'">
+              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.vulnerability_summary.critical === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M2 2l8 8M10 2 2 10"/></svg>
+              Vulnerabilities
+            </span>
+            <span class="posture-chip" :class="data.risk_summary.approved > 0 ? 'pchip-ok' : 'pchip-warn'">
+              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.risk_summary.approved > 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M6 2v5M6 9v1"/></svg>
+              Risk Assessments
+            </span>
+            <span class="posture-chip" :class="data.lifecycle_summary.expired === 0 ? 'pchip-ok' : 'pchip-danger'">
+              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.lifecycle_summary.expired === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M2 2l8 8M10 2 2 10"/></svg>
+              Lifecycle
+            </span>
+            <span class="posture-chip" :class="data.change_summary.action_required === 0 ? 'pchip-ok' : 'pchip-warn'">
+              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.change_summary.action_required === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M6 2v5M6 9v1"/></svg>
+              Pending Actions
+            </span>
+          </div>
+        </div>
+
+
+      </div>
 
       <!-- ── KPI strip ──────────────────────────────────────────────────────── -->
       <div class="kpi-strip">
@@ -112,7 +168,7 @@
           <!-- Vulnerability pipeline -->
           <div class="hub-card">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Vulnerability Pipeline</h2>
+              <h3 class="hub-card-title">Vulnerability Pipeline</h3>
               <button class="link-btn" @click="$router.push({ name: 'vulnerability-handling' })">View all →</button>
             </div>
             <div class="bar-chart">
@@ -141,7 +197,7 @@
           <!-- Risk assessments -->
           <div class="hub-card">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Risk Assessments</h2>
+              <h3 class="hub-card-title">Risk Assessments</h3>
               <button class="link-btn" @click="$router.push({ name: 'risk-assessments' })">View all →</button>
             </div>
             <div class="bar-chart">
@@ -162,7 +218,7 @@
           <!-- Substantial changes -->
           <div class="hub-card">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Substantial Changes</h2>
+              <h3 class="hub-card-title">Substantial Changes</h3>
               <button class="link-btn" @click="$router.push({ name: 'changes' })">View all →</button>
             </div>
             <div class="change-grid">
@@ -191,7 +247,7 @@
           <!-- Lifecycle alerts -->
           <div class="hub-card" :class="{ 'hub-card-alert': data.lifecycle_summary.expired > 0 }">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Lifecycle &amp; Support Period Alerts</h2>
+              <h3 class="hub-card-title">Lifecycle &amp; Support Period Alerts</h3>
               <button class="link-btn" @click="$router.push({ name: 'support-hub' })">View all →</button>
             </div>
 
@@ -255,7 +311,7 @@
           <!-- Upcoming releases -->
           <div class="hub-card">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Upcoming Releases</h2>
+              <h3 class="hub-card-title">Upcoming Releases</h3>
             </div>
             <ul class="release-list" v-if="data.upcoming_releases.length">
               <li
@@ -288,7 +344,7 @@
           <!-- Recent activity -->
           <div class="hub-card hub-card-activity">
             <div class="hub-card-header">
-              <h2 class="hub-card-title">Recent Activity</h2>
+              <h3 class="hub-card-title">Recent Activity</h3>
             </div>
             <ul class="activity-list" v-if="data.recent_activity.length">
               <li
@@ -317,8 +373,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { dashboardService } from "@/services/dashboard-service";
+import { useAuthStore } from "@/stores/auth";
 import type { DashboardRead } from "@/types/dashboard";
+
+// ── Router + auth ─────────────────────────────────────────────────────────────
+const router    = useRouter();
+const authStore = useAuthStore();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const data    = ref<DashboardRead | null>(null);
@@ -338,11 +400,6 @@ async function load(): Promise<void> {
   }
 }
 onMounted(load);
-
-// ── Today label ───────────────────────────────────────────────────────────────
-const todayLabel = new Date().toLocaleDateString(undefined, {
-  weekday: "long", year: "numeric", month: "long", day: "numeric",
-});
 
 // ── Bar charts ────────────────────────────────────────────────────────────────
 const vulnRows = computed(() => {
@@ -369,6 +426,35 @@ const riskRows = computed(() => {
 
 const vulnMax = computed(() => Math.max(...vulnRows.value.map((r: { value: number }) => r.value), 1));
 const riskMax = computed(() => Math.max(...riskRows.value.map((r: { value: number }) => r.value), 1));
+
+// ── Posture ring ──────────────────────────────────────────────────────────────
+/** 0-100 compliance readiness score across 4 key pillars (25 pts each) */
+const postureScore = computed(() => {
+  if (!data.value) return 0;
+  let pts = 0;
+  if (data.value.vulnerability_summary.critical === 0) pts += 25;
+  if (data.value.risk_summary.approved > 0)           pts += 25;
+  if (data.value.lifecycle_summary.expired === 0)     pts += 25;
+  if (data.value.change_summary.action_required === 0) pts += 25;
+  return pts;
+});
+
+/** Calendar days between today and the CRA enforcement deadline (11 Dec 2027) */
+const daysToDeadline = computed(() => {
+  const deadline = new Date("2027-12-11");
+  const today    = new Date();
+  return Math.ceil((deadline.getTime() - today.getTime()) / 86_400_000);
+});
+
+/** Ring stroke color driven by posture score */
+const ringColor = computed(() => {
+  if (postureScore.value >= 75) return "oklch(0.48 0.092 150)";
+  if (postureScore.value >= 50) return "oklch(0.74 0.135 75)";
+  return "oklch(0.58 0.175 25)";
+});
+
+/** SVG stroke-dashoffset for the posture ring (circumference = 2π × 45 ≈ 282.74) */
+const ringOffset = computed(() => 282.74 * (1 - postureScore.value / 100));
 
 function barWidth(val: number, max: number): number {
   return Math.round((val / max) * 100);
@@ -411,47 +497,49 @@ function timeAgo(iso: string): string {
 </script>
 
 <style scoped>
+/* ── Font import ───────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 .ops-hub-page {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  font-family: 'Inter', var(--font-sans, system-ui), sans-serif;
+
+  /* Light-mode local tokens matching CRANE Dashboard reference */
+  --ring-track: var(--color-inset-border, #e8edea);
 }
 
-/* ── Header ───────────────────────────────────────────────────────────────── */
-.page-header {
+/* ── Topbar ───────────────────────────────────────────────────────────────── */
+/* ── Deadline banner (top of page) ───────────────────────────────────────── */
+.deadline-banner {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.page-title {
-  margin: 0 0 0.15rem;
-  font-size: 1.55rem;
-  font-weight: 800;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.btn-refresh {
-  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  transition: opacity 0.15s;
-  flex-shrink: 0;
+  justify-content: space-between;
+  padding: 0.7rem 1.25rem;
+  border-radius: 10px;
+  border-left: 3px solid;
 }
-.btn-refresh:hover:not(:disabled) { opacity: 0.8; }
-.btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-refresh.spinning svg { animation: spin 0.8s linear infinite; }
+.deadline-banner.deadline-ok {
+  background: var(--color-surface);
+  border-left-color: var(--color-success);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+.deadline-banner.deadline-urgent {
+  background: var(--color-surface);
+  border-left-color: var(--color-warning);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+.deadline-banner-center {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -492,6 +580,156 @@ function timeAgo(iso: string): string {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── Posture hero ─────────────────────────────────────────────────────────── */
+.posture-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 1.5rem 1.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+/* Ring gauge wrapper */
+.posture-ring-wrap {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+}
+
+.posture-ring {
+  width: 112px;
+  height: 112px;
+  display: block;
+}
+
+.posture-ring circle {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.4s ease;
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.ring-pct {
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.03em;
+  transition: color 0.4s ease;
+}
+
+.ring-sub {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+/* Copy section */
+.posture-copy {
+  min-width: 0;
+}
+
+.posture-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.posture-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.posture-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.posture-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.pchip-ok {
+  background: var(--color-success-bg, oklch(0.955 0.024 150));
+  color: oklch(0.38 0.092 150);
+  border: 1px solid oklch(0.85 0.05 150);
+}
+.pchip-warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text, oklch(0.52 0.12 75));
+  border: 1px solid var(--color-warning-border);
+}
+.pchip-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+/* Deadline countdown card */
+.deadline-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.deadline-count {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.03em;
+}
+
+.deadline-unit {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.deadline-date-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.deadline-date-row svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.text-green { color: var(--color-success); }
+.text-amber { color: var(--color-warning); }
 
 /* ── KPI strip ────────────────────────────────────────────────────────────── */
 /* One local token for "high severity" orange — not in global palette */
@@ -597,20 +835,24 @@ function timeAgo(iso: string): string {
   gap: 1rem;
 }
 
-
 .hub-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  /* Extend the header edge-to-edge to get a full-width border-bottom separator */
+  margin: -1.2rem -1.3rem 0;
+  padding: 0.9rem 1.3rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .hub-card-title {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--color-text);
   letter-spacing: -0.01em;
+  font-family: 'Inter', var(--font-sans, system-ui), sans-serif;
 }
 
 .hub-card-sub {
@@ -898,66 +1140,87 @@ function timeAgo(iso: string): string {
 }
 
 @media (max-width: 680px) {
-  .kpi-strip { grid-template-columns: 1fr 1fr; }
+  .kpi-strip           { grid-template-columns: 1fr 1fr; }
+  .posture-hero        { grid-template-columns: 1fr; }
+  .posture-ring-wrap   { margin: 0 auto; }
+  .deadline-banner     { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+  .deadline-banner-center { flex-direction: row; gap: 0.4rem; align-items: baseline; }
 }
 </style>
 
-<!-- Light-mode card border overrides — must be non-scoped to reach the theme root selector -->
+<!-- Light-mode overrides — must be non-scoped to reach the [data-theme] root selector -->
 <style>
+/* Light mode page background uses the CRANE Dashboard reference token */
+[data-theme="light"] .ops-hub-page {
+  --ring-track: oklch(0.92 0.015 150);
+}
+
+/* Hub cards: drop explicit border in light mode; use shadow instead */
 [data-theme="light"] .ops-hub-page .hub-card {
   border-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.11);
+}
+[data-theme="light"] .ops-hub-page .hub-card-header {
+  border-bottom-color: oklch(0.91 0.012 150);
 }
 [data-theme="light"] .ops-hub-page .hub-card.hub-card-alert {
   border-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(200,95,95,0.55);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1.5px rgba(200,95,95,0.45);
 }
+
+/* Posture hero shadow in light mode */
+[data-theme="light"] .ops-hub-page .posture-hero {
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.11);
+  background: #ffffff;
+}
+/* KPI cards */
 [data-theme="light"] .ops-hub-page .kpi-card {
   border-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.16);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.12);
 }
 [data-theme="light"] .ops-hub-page .kpi-card:hover {
-  border-color: transparent;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 0 0 2px rgba(79,156,19,0.4);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.11), 0 0 0 2px oklch(0.48 0.092 150 / 0.35);
 }
 [data-theme="light"] .ops-hub-page .kpi-card.kpi-danger {
-  border-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(200,95,95,0.55);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(200,95,95,0.45);
 }
 [data-theme="light"] .ops-hub-page .kpi-card.kpi-warn {
-  border-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(183,155,18,0.55);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(183,155,18,0.45);
 }
+
+/* Release items, change cells, lifecycle cells */
 [data-theme="light"] .ops-hub-page .release-item {
   border-color: transparent;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.14);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.11);
 }
 [data-theme="light"] .ops-hub-page .release-item:hover {
-  border-color: transparent;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1.5px rgba(79,156,19,0.5);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.09), 0 0 0 1.5px oklch(0.48 0.092 150 / 0.4);
 }
 [data-theme="light"] .ops-hub-page .change-cell {
   border-color: transparent;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.14);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.11);
 }
 [data-theme="light"] .ops-hub-page .change-cell.change-cell-warn {
-  border-color: transparent;
-  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.55);
+  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.45);
 }
 [data-theme="light"] .ops-hub-page .change-cell.change-cell-danger {
-  border-color: transparent;
-  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.55);
+  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.45);
 }
 [data-theme="light"] .ops-hub-page .lc-cell {
   border-color: transparent;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.14);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.11);
 }
 [data-theme="light"] .ops-hub-page .lc-cell.lc-danger {
-  border-color: transparent;
-  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.55);
+  box-shadow: 0 0 0 1.5px rgba(200,95,95,0.45);
 }
 [data-theme="light"] .ops-hub-page .lc-cell.lc-warn {
-  border-color: transparent;
-  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.55);
+  box-shadow: 0 0 0 1.5px rgba(183,155,18,0.45);
+}
+
+/* Active state color in kpi-icon uses oklch green */
+[data-theme="light"] .ops-hub-page .kpi-icon-neutral {
+  background: oklch(0.955 0.024 150);
+  color: oklch(0.38 0.092 150);
 }
 </style>
