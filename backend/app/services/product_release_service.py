@@ -54,7 +54,7 @@ class ProductReleaseService:
         # Auto-generate system_version: find the maximum system_version for this product and increment
         from sqlalchemy import select
         max_system_version = self.db.scalar(
-            select(func.max(ProductRelease.system_version)).where(ProductRelease.product_id == payload.product_id)
+    select(func.max(ProductRelease.system_version)).where(ProductRelease.product_id == payload.product_id)
         ) or 0
         next_system_version = max_system_version + 1
 
