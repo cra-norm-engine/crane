@@ -38,3 +38,4 @@ backend/uploads/*
 
 # Docker
 *.log
+.env.render
