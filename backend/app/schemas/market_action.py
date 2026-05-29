@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import MarketActionStatus, MarketActionType
 
@@ -37,7 +37,14 @@ class ProductReleaseSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     product_id: UUID
-    version: str
+    system_version: int
+    user_version: str | None = None
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def display_version(self) -> str:
+        """Human-readable version label: user_version if set, otherwise 'v{system_version}'."""
+        return self.user_version or f"v{self.system_version}"
 
 
 class MarketActionRead(BaseModel):

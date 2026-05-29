@@ -8,524 +8,585 @@
       <div>
         <h1 class="page-title">Support Hub</h1>
         <p class="muted page-subtitle">
-          CRA-oriented tools for customer support and lifecycle management — product
-          support lookups, EOS watchlist, notification queue, and CVE lookup.
+          Customer support and lifecycle tooling — track support periods, manage Art. 13(7)
+          disclosures, and look up CVEs across the product fleet.
         </p>
       </div>
-
+      <div class="page-actions">
+        <AppButton variant="secondary" :disabled="isLoading" @click="loadAll">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>
+          </svg>
+          Refresh
+        </AppButton>
+        <AppButton variant="primary" @click="downloadEosList">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/>
+          </svg>
+          Export watch list
+        </AppButton>
+      </div>
     </header>
 
     <!-- ══════════════════════════════════════════
          LOADING / ERROR FEEDBACK
          ══════════════════════════════════════════ -->
-    <div v-if="isLoading && products.length === 0" class="card empty-panel">
+    <div v-if="isLoading && products.length === 0" class="empty-panel muted">
       Loading Support Hub data…
     </div>
-
-    <div v-if="loadError" class="card feedback feedback-error" role="alert">
+    <div v-if="loadError" class="feedback feedback-error" role="alert">
       {{ loadError }}
     </div>
 
     <template v-if="!isLoading || products.length > 0">
 
       <!-- ══════════════════════════════════════════
-           SUMMARY STAT CARDS
+           KPI STRIP
            ══════════════════════════════════════════ -->
-      <section class="stats-grid" aria-label="Summary statistics">
+      <section class="kpi-strip" aria-label="Summary statistics">
 
-        <article class="card stat-card">
-          <p class="muted stat-label">Products tracked</p>
-          <strong class="stat-value">{{ products.length }}</strong>
+        <article class="kpi-card">
+          <div class="kpi-top">
+            <span class="kpi-label">Products tracked</span>
+            <span class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 7l-8-4-8 4v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V7z"/>
+              </svg>
+            </span>
+          </div>
+          <strong class="kpi-value">{{ products.length }}</strong>
+          <p class="kpi-sub muted">Across the inventory</p>
         </article>
 
-        <article class="card stat-card">
-          <p class="muted stat-label">Active support periods</p>
-          <strong class="stat-value">{{ activeSupportPeriods.length }}</strong>
+        <article class="kpi-card">
+          <div class="kpi-top">
+            <span class="kpi-label">Active support periods</span>
+            <span class="kpi-icon kpi-icon--green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+              </svg>
+            </span>
+          </div>
+          <strong class="kpi-value">{{ activeSupportPeriods.length }}</strong>
+          <p class="kpi-sub">
+            <span v-if="expiredCount > 0" class="badge badge-danger">{{ expiredCount }} expired</span>
+            <span v-else class="muted">None expired</span>
+          </p>
         </article>
 
-        <article class="card stat-card">
-          <!-- Products with active support period and ≤ 90 days remaining -->
-          <p class="muted stat-label">Approaching EOS (≤ 90 days)</p>
-          <strong class="stat-value" :class="approachingEosCount > 0 ? 'text-warning' : ''">
+        <article class="kpi-card">
+          <div class="kpi-top">
+            <span class="kpi-label">Approaching EOS</span>
+            <span class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>
+              </svg>
+            </span>
+          </div>
+          <strong class="kpi-value" :class="approachingEosCount > 0 ? 'kpi-value--warn' : 'kpi-value--muted'">
             {{ approachingEosCount }}
           </strong>
+          <p class="kpi-sub muted">Within 90 days</p>
         </article>
 
-        <article class="card stat-card">
-          <p class="muted stat-label">Pending notifications</p>
-          <strong class="stat-value" :class="pendingNotifications.length > 0 ? 'text-warning' : ''">
+        <article class="kpi-card">
+          <div class="kpi-top">
+            <span class="kpi-label">Pending notifications</span>
+            <span class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>
+              </svg>
+            </span>
+          </div>
+          <strong class="kpi-value" :class="pendingNotifications.length > 0 ? 'kpi-value--warn' : 'kpi-value--muted'">
             {{ pendingNotifications.length }}
           </strong>
+          <p class="kpi-sub">
+            <span v-if="pendingNotifications.length === 0" class="badge badge-success">All dispatched</span>
+            <span v-else class="muted">Awaiting dispatch</span>
+          </p>
         </article>
 
-        <article class="card stat-card">
-          <p class="muted stat-label">Active market actions</p>
-          <strong class="stat-value" :class="activeMarketActionsCount > 0 ? 'text-danger' : ''">
+        <article class="kpi-card">
+          <div class="kpi-top">
+            <span class="kpi-label">Active market actions</span>
+            <span class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              </svg>
+            </span>
+          </div>
+          <strong class="kpi-value" :class="activeMarketActionsCount > 0 ? 'kpi-value--danger' : 'kpi-value--muted'">
             {{ activeMarketActionsCount }}
           </strong>
+          <p class="kpi-sub muted">No recalls or withdrawals</p>
         </article>
 
       </section>
 
       <!-- ══════════════════════════════════════════
-           PANEL 1 — PRODUCT SUPPORT LOOKUP
-           Agent types a product name or code to instantly
-           see its CRA Art. 13(7) support status and recent
-           security updates.
+           TWO-COLUMN GRID — main content + right rail
            ══════════════════════════════════════════ -->
-      <section class="card panel">
+      <div class="hub-grid">
 
-        <div class="panel-header">
-          <div>
-            <h2 class="section-title">Product support lookup</h2>
-            <p class="muted">
-              Search for a product to view support status, Art. 13(7) disclosure text, and recent security patches.
-            </p>
-          </div>
-        </div>
+        <!-- ── MAIN COLUMN ── -->
+        <div class="hub-main">
 
-        <!-- Search input -->
-        <div class="lookup-search-row">
-          <label class="field field-grow">
-            <span class="field-label">Search product</span>
-            <input
-              v-model.trim="lookupQuery"
-              type="search"
-              class="input"
-              placeholder="Product name or code…"
-              autocomplete="off"
-              @focus="showDropdown = true"
-              @blur="onLookupBlur"
-            />
-          </label>
+          <!-- ════════════════════════════════════
+               PANEL 1 — EOS WATCH LIST (hero)
+               ════════════════════════════════════ -->
+          <section class="card panel">
 
-          <!-- Clear selection -->
-          <button
-            v-if="selectedProductId"
-            class="btn btn-secondary"
-            type="button"
-            style="align-self: flex-end;"
-            @click="clearLookup"
-          >
-            Clear
-          </button>
-        </div>
-
-        <!-- Autocomplete dropdown -->
-        <ul
-          v-if="showDropdown && lookupQuery && lookupDropdownItems.length > 0"
-          class="lookup-dropdown"
-          role="listbox"
-        >
-          <li
-            v-for="product in lookupDropdownItems"
-            :key="product.id"
-            class="lookup-option"
-            role="option"
-            @mousedown.prevent="selectProduct(product.id)"
-          >
-            <span class="lookup-option-name">{{ product.name }}</span>
-            <code class="lookup-option-code muted">{{ product.product_code }}</code>
-          </li>
-        </ul>
-
-        <div v-if="showDropdown && lookupQuery && lookupDropdownItems.length === 0" class="lookup-no-results muted">
-          No products matched "{{ lookupQuery }}".
-        </div>
-
-        <!-- ── Selected product result card ── -->
-        <div v-if="selectedProduct" class="lookup-result">
-
-          <!-- Product identity + classification -->
-          <div class="result-identity">
-            <div>
-              <h3 class="result-product-name">{{ selectedProduct.name }}</h3>
-              <p class="muted result-product-meta">
-                {{ selectedProduct.manufacturer_name }} · <code>{{ selectedProduct.product_code }}</code>
-              </p>
-            </div>
-            <span class="badge" :class="classificationBadge(selectedProduct.current_classification)">
-              {{ formatClassification(selectedProduct.current_classification) }}
-            </span>
-          </div>
-
-          <!-- Support status -->
-          <div v-if="selectedSupport" class="result-section">
-            <h4 class="result-section-title">Support period (CRA Art. 13(7))</h4>
-
-            <div class="support-meta-row">
-              <span class="badge" :class="supportStatusBadge(selectedEosStatus)">
-                {{ formatEosStatus(selectedEosStatus) }}
-              </span>
-              <span class="muted">
-                {{ formatDate(selectedSupport.support_start_date) }} –
-                {{ formatDate(selectedSupport.support_end_date) }}
-              </span>
-              <span :class="daysLeftClass(selectedDaysLeft)">
-                {{ formatDaysLeft(selectedDaysLeft) }}
-              </span>
-              <span class="badge badge-neutral">
-                {{ formatSupportType(selectedSupport.support_type) }}
-              </span>
-            </div>
-
-            <!-- Art. 13(7) disclosure text — ready for copy-paste into customer communications -->
-            <div v-if="selectedSupport.user_facing_summary" class="disclosure-block">
-              <div class="disclosure-header">
-                <span class="field-label">User-facing disclosure text (Art. 13(7))</span>
-                <button class="btn-copy" type="button" @click="copyText(selectedSupport.user_facing_summary!)">
-                  {{ copySuccessId === 'user' ? 'Copied!' : 'Copy' }}
-                </button>
+            <div class="panel-header">
+              <div>
+                <h2 class="section-title">EOS watch list</h2>
+                <p class="muted">
+                  Products with a defined support period, ordered by urgency.
+                </p>
               </div>
-              <p class="disclosure-text">{{ selectedSupport.user_facing_summary }}</p>
-            </div>
-
-            <div v-if="selectedSupport.packaging_summary" class="disclosure-block">
-              <div class="disclosure-header">
-                <span class="field-label">Packaging summary</span>
-                <button class="btn-copy" type="button" @click="copyText(selectedSupport.packaging_summary!, 'pkg')">
-                  {{ copySuccessId === 'pkg' ? 'Copied!' : 'Copy' }}
-                </button>
+              <div class="eos-filter-row">
+                <label class="field-inline">
+                  <span class="field-label-xs">Show</span>
+                  <select v-model="eosThreshold" class="select-sm">
+                    <option value="">All with support</option>
+                    <option value="expired">Expired only</option>
+                    <option value="30">≤ 30 days</option>
+                    <option value="60">≤ 60 days</option>
+                    <option value="90">≤ 90 days</option>
+                    <option value="180">≤ 180 days</option>
+                  </select>
+                </label>
               </div>
-              <p class="disclosure-text">{{ selectedSupport.packaging_summary }}</p>
             </div>
 
-            <p v-if="!selectedSupport.user_facing_summary && !selectedSupport.packaging_summary" class="muted">
-              No disclosure text has been generated yet. Generate it from the product's support period record.
-            </p>
-          </div>
-
-          <div v-else class="result-section">
-            <p class="muted">No active support period record found for this product.</p>
-          </div>
-
-          <!-- Recent security updates for this product -->
-          <div class="result-section">
-            <h4 class="result-section-title">Recent security updates</h4>
-
-            <div v-if="selectedSecurityUpdates.length === 0" class="muted">
-              No security update records found for this product.
+            <div v-if="filteredEosRows.length === 0" class="empty-panel muted">
+              No products match the selected threshold.
             </div>
 
             <div v-else class="table-wrapper">
-              <table class="data-table">
+              <table class="data-table eos-table">
                 <thead>
                   <tr>
-                    <th>Title</th>
-                    <th>Severity</th>
-                    <th>CVEs addressed</th>
-                    <th>Affected versions</th>
-                    <th>Released</th>
+                    <th>Product</th>
+                    <th>Classification</th>
+                    <th>Support end</th>
+                    <th>Time remaining</th>
+                    <th>Status</th>
+                    <th>Type</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="upd in selectedSecurityUpdates.slice(0, 8)" :key="upd.id">
-                    <td>{{ upd.title }}</td>
+                  <tr
+                    v-for="row in filteredEosRows"
+                    :key="row.product.id"
+                    :class="row.daysLeft < 0 ? 'eos-row--expired' : ''"
+                  >
                     <td>
-                      <span class="badge" :class="severityBadge(upd.severity)">
-                        {{ formatSeverity(upd.severity) }}
+                      <div class="eos-product-cell">
+                        <div class="eos-mark">{{ productInitials(row.product) }}</div>
+                        <div>
+                          <div class="eos-product-name">{{ row.product.name }}</div>
+                          <code class="eos-product-code muted">{{ row.product.product_code }}</code>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <span class="badge" :class="classificationBadge(row.product.current_classification)">
+                        {{ formatClassification(row.product.current_classification) }}
                       </span>
                     </td>
+
                     <td>
-                      <span
-                        v-for="cve in normaliseCves(upd.cves_addressed_json)"
-                        :key="cve"
-                        class="cve-chip"
-                      >{{ cve }}</span>
-                      <span v-if="normaliseCves(upd.cves_addressed_json).length === 0" class="muted">—</span>
+                      <div class="eos-date-main">{{ formatDate(row.support.support_end_date) }}</div>
+                      <div class="eos-date-rel muted">{{ formatRelativeDate(row.support.support_end_date) }}</div>
                     </td>
-                    <td class="muted">{{ normaliseVersions(upd.affected_versions_json).join(', ') || '—' }}</td>
-                    <td class="muted">{{ upd.released_at ? formatDate(upd.released_at) : '—' }}</td>
+
+                    <td>
+                      <div :class="eosDaysClass(row.daysLeft)">
+                        <div class="eos-days-label">
+                          {{ formatDaysLeft(row.daysLeft) }}
+                        </div>
+                        <div class="eos-bar">
+                          <span
+                            class="eos-bar-fill"
+                            :style="{ width: eosBarWidth(row.daysLeft) }"
+                          />
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <span class="badge" :class="supportStatusBadge(row.eosStatus)">
+                        {{ formatEosStatus(row.eosStatus) }}
+                      </span>
+                    </td>
+
+                    <td class="muted">{{ formatSupportType(row.support.support_type) }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </div>
 
-        </div><!-- /lookup-result -->
+            <!-- Panel footer -->
+            <div v-if="expiredCount > 0" class="eos-footer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="eos-footer-icon">
+                <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+              <span>
+                <strong>{{ expiredCount }} product{{ expiredCount > 1 ? 's' : '' }}</strong>
+                {{ expiredCount > 1 ? 'need' : 'needs' }} a support-period decision —
+                {{ firstExpiredProduct }} lapsed {{ formatDaysOverdue(eosRows.find(r => r.daysLeft < 0)?.daysLeft ?? 0) }}.
+              </span>
+            </div>
 
-        <!-- Empty state when no product selected yet -->
-        <div v-else-if="!lookupQuery" class="empty-panel muted">
-          Start typing a product name or code above to look up its CRA support status.
-        </div>
+          </section>
 
-      </section>
+          <!-- ════════════════════════════════════
+               PANEL 2 — PRODUCT SUPPORT LOOKUP
+               ════════════════════════════════════ -->
+          <section class="card panel">
 
-      <!-- ══════════════════════════════════════════
-           PANEL 2 — EOS WATCH LIST
-           Lifecycle management team monitors products
-           approaching or past end-of-support. Helps
-           ensure Art. 13(7) communications are issued
-           on time.
-           ══════════════════════════════════════════ -->
-      <section class="card panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="section-title">Product support lookup</h2>
+                <p class="muted">
+                  Find support status, Art. 13(7) disclosure text, and recent security patches.
+                </p>
+              </div>
+            </div>
 
-        <div class="panel-header">
-          <div>
-            <h2 class="section-title">EOS watch list</h2>
-            <p class="muted">
-              Products with active support periods ordered by days remaining. Filter by urgency threshold.
-            </p>
-          </div>
+            <!-- Search input -->
+            <div class="lookup-search-row">
+              <label class="field field-grow">
+                <span class="field-label">Search product</span>
+                <input
+                  v-model.trim="lookupQuery"
+                  type="search"
+                  class="input"
+                  placeholder="Product name or code…"
+                  autocomplete="off"
+                  @focus="showDropdown = true"
+                  @blur="onLookupBlur"
+                />
+              </label>
+              <AppButton
+                v-if="selectedProductId"
+                variant="secondary"
+                size="sm"
+                style="align-self: flex-end;"
+                @click="clearLookup"
+              >
+                Clear
+              </AppButton>
+            </div>
 
-          <!-- Threshold quick-filter -->
-          <div class="eos-filter-row">
+            <!-- Autocomplete dropdown -->
+            <ul
+              v-if="showDropdown && lookupQuery && lookupDropdownItems.length > 0"
+              class="lookup-dropdown"
+              role="listbox"
+            >
+              <li
+                v-for="product in lookupDropdownItems"
+                :key="product.id"
+                class="lookup-option"
+                role="option"
+                @mousedown.prevent="selectProduct(product.id)"
+              >
+                <span class="lookup-option-name">{{ product.name }}</span>
+                <code class="lookup-option-code muted">{{ product.product_code }}</code>
+              </li>
+            </ul>
+
+            <div v-if="showDropdown && lookupQuery && lookupDropdownItems.length === 0" class="lookup-no-results muted">
+              No products matched "{{ lookupQuery }}".
+            </div>
+
+            <!-- ── Selected product result ── -->
+            <div v-if="selectedProduct" class="lookup-result">
+
+              <div class="result-identity">
+                <div>
+                  <h3 class="result-product-name">{{ selectedProduct.name }}</h3>
+                  <p class="muted result-product-meta">
+                    {{ selectedProduct.manufacturer_name }} · <code>{{ selectedProduct.product_code }}</code>
+                  </p>
+                </div>
+                <span class="badge" :class="classificationBadge(selectedProduct.current_classification)">
+                  {{ formatClassification(selectedProduct.current_classification) }}
+                </span>
+              </div>
+
+              <div v-if="selectedSupport" class="result-section">
+                <h4 class="result-section-title">Support period (CRA Art. 13(7))</h4>
+
+                <div class="support-meta-row">
+                  <span class="badge" :class="supportStatusBadge(selectedEosStatus)">
+                    {{ formatEosStatus(selectedEosStatus) }}
+                  </span>
+                  <span class="muted">
+                    {{ formatDate(selectedSupport.support_start_date) }} –
+                    {{ formatDate(selectedSupport.support_end_date) }}
+                  </span>
+                  <span :class="daysLeftClass(selectedDaysLeft)">
+                    {{ formatDaysLeft(selectedDaysLeft) }}
+                  </span>
+                  <span class="badge badge-neutral">
+                    {{ formatSupportType(selectedSupport.support_type) }}
+                  </span>
+                </div>
+
+                <div v-if="selectedSupport.user_facing_summary" class="disclosure-block">
+                  <div class="disclosure-header">
+                    <span class="field-label">User-facing disclosure text (Art. 13(7))</span>
+                    <button class="btn-copy" type="button" @click="copyText(selectedSupport.user_facing_summary!)">
+                      {{ copySuccessId === 'user' ? 'Copied!' : 'Copy' }}
+                    </button>
+                  </div>
+                  <p class="disclosure-text">{{ selectedSupport.user_facing_summary }}</p>
+                </div>
+
+                <div v-if="selectedSupport.packaging_summary" class="disclosure-block">
+                  <div class="disclosure-header">
+                    <span class="field-label">Packaging summary</span>
+                    <button class="btn-copy" type="button" @click="copyText(selectedSupport.packaging_summary!, 'pkg')">
+                      {{ copySuccessId === 'pkg' ? 'Copied!' : 'Copy' }}
+                    </button>
+                  </div>
+                  <p class="disclosure-text">{{ selectedSupport.packaging_summary }}</p>
+                </div>
+
+                <p v-if="!selectedSupport.user_facing_summary && !selectedSupport.packaging_summary" class="muted">
+                  No disclosure text generated yet. Generate it from the product's support period record.
+                </p>
+              </div>
+
+              <div v-else class="result-section">
+                <p class="muted">No active support period record found for this product.</p>
+              </div>
+
+              <div class="result-section">
+                <h4 class="result-section-title">Recent security updates</h4>
+                <div v-if="selectedSecurityUpdates.length === 0" class="muted">
+                  No security update records found for this product.
+                </div>
+                <div v-else class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Severity</th>
+                        <th>CVEs addressed</th>
+                        <th>Affected versions</th>
+                        <th>Released</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="upd in selectedSecurityUpdates.slice(0, 8)" :key="upd.id">
+                        <td>{{ upd.title }}</td>
+                        <td>
+                          <span class="badge" :class="severityBadge(upd.severity)">
+                            {{ formatSeverity(upd.severity) }}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="cve-chips">
+                            <span
+                              v-for="cve in normaliseCves(upd.cves_addressed_json)"
+                              :key="cve"
+                              class="cve-chip"
+                            >{{ cve }}</span>
+                            <span v-if="normaliseCves(upd.cves_addressed_json).length === 0" class="muted">—</span>
+                          </div>
+                        </td>
+                        <td class="muted">{{ normaliseVersions(upd.affected_versions_json).join(', ') || '—' }}</td>
+                        <td class="muted">{{ upd.released_at ? formatDate(upd.released_at) : '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div><!-- /lookup-result -->
+
+            <div v-else-if="!lookupQuery" class="empty-panel muted">
+              Start typing a product name or code above to look up its CRA support status.
+            </div>
+
+          </section>
+
+        </div><!-- /hub-main -->
+
+        <!-- ── RIGHT RAIL ── -->
+        <div class="hub-rail">
+
+          <!-- ════════════════════════════════════
+               PANEL 3 — CVE LOOKUP
+               ════════════════════════════════════ -->
+          <section class="card panel">
+
+            <div class="panel-header">
+              <div>
+                <h2 class="section-title">CVE lookup</h2>
+                <p class="muted">
+                  Match a CVE to security-update records.
+                </p>
+              </div>
+            </div>
+
             <label class="field">
-              <span class="field-label">Show</span>
-              <select v-model="eosThreshold" class="select">
-                <option value="">All with support</option>
-                <option value="30">≤ 30 days</option>
-                <option value="60">≤ 60 days</option>
-                <option value="90">≤ 90 days</option>
-                <option value="180">≤ 180 days</option>
-                <option value="expired">Expired only</option>
-              </select>
+              <span class="field-label">CVE identifier</span>
+              <input
+                v-model.trim="cveQuery"
+                type="search"
+                class="input input-mono"
+                placeholder="CVE-YYYY-NNNNN"
+                autocomplete="off"
+              />
             </label>
-          </div>
-        </div>
 
-        <div v-if="filteredEosRows.length === 0" class="empty-panel muted">
-          No products match the selected threshold.
-        </div>
+            <!-- Quick chips -->
+            <div class="cve-chips-row">
+              <span class="field-label-xs">Try</span>
+              <button class="chip" type="button" @click="cveQuery = 'CVE-2024-12345'">CVE-2024-12345</button>
+              <button class="chip" type="button" @click="cveQuery = 'CVE-2025-0042'">CVE-2025-0042</button>
+            </div>
 
-        <div v-else class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Classification</th>
-                <th>Support end</th>
-                <th>Days left</th>
-                <th>Status</th>
-                <th>Support type</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in filteredEosRows" :key="row.product.id">
-                <td>
-                  <div class="product-cell">
-                    <strong>{{ row.product.name }}</strong>
-                    <code class="muted">{{ row.product.product_code }}</code>
-                  </div>
-                </td>
+            <template v-if="cveQuery">
+              <div v-if="cveResults.length === 0" class="empty-panel muted">
+                No records found for <strong>{{ cveQuery }}</strong>.
+              </div>
+              <div v-else>
+                <p class="muted" style="margin-bottom: 0.6rem; font-size: var(--text-sm);">
+                  {{ cveResults.length }} record(s) for <strong>{{ cveQuery }}</strong>
+                </p>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Update</th>
+                        <th>Severity</th>
+                        <th>Released</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="upd in cveResults" :key="upd.id">
+                        <td>
+                          <span v-if="productByReleaseId(upd.product_release_id)" class="product-cell">
+                            <strong>{{ productByReleaseId(upd.product_release_id)!.name }}</strong>
+                            <code class="muted">{{ productByReleaseId(upd.product_release_id)!.product_code }}</code>
+                          </span>
+                          <code v-else class="muted">{{ upd.product_release_id.slice(0, 8) }}…</code>
+                        </td>
+                        <td><strong>{{ upd.title }}</strong></td>
+                        <td>
+                          <span class="badge" :class="severityBadge(upd.severity)">
+                            {{ formatSeverity(upd.severity) }}
+                          </span>
+                        </td>
+                        <td class="muted">{{ upd.released_at ? formatDate(upd.released_at) : '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
 
-                <td>
-                  <span class="badge" :class="classificationBadge(row.product.current_classification)">
-                    {{ formatClassification(row.product.current_classification) }}
-                  </span>
-                </td>
+            <div v-else class="empty-panel muted">
+              Enter a CVE identifier to search across all security update records.
+            </div>
 
-                <td class="muted">{{ formatDate(row.support.support_end_date) }}</td>
+          </section>
 
-                <td>
-                  <span :class="daysLeftClass(row.daysLeft)">
-                    {{ formatDaysLeft(row.daysLeft) }}
-                  </span>
-                </td>
+          <!-- ════════════════════════════════════
+               PANEL 4 — NOTIFICATION QUEUE
+               ════════════════════════════════════ -->
+          <section class="card panel">
 
-                <td>
-                  <span class="badge" :class="supportStatusBadge(row.eosStatus)">
-                    {{ formatEosStatus(row.eosStatus) }}
-                  </span>
-                </td>
+            <div class="panel-header">
+              <div>
+                <h2 class="section-title">
+                  Notification queue
+                </h2>
+                <p class="muted">Lifecycle communications awaiting dispatch.</p>
+              </div>
+              <span class="badge badge-neutral">{{ pendingNotifications.length }}</span>
+            </div>
 
-                <td class="muted">{{ formatSupportType(row.support.support_type) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+            <div v-if="notifActionError" class="feedback feedback-error" role="alert">
+              {{ notifActionError }}
+            </div>
 
-      </section>
+            <!-- All-clear state -->
+            <div v-if="pendingNotifications.length === 0" class="all-clear">
+              <div class="all-clear-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+              </div>
+              <div>
+                <div class="all-clear-title">Queue is clear</div>
+                <div class="muted all-clear-desc">
+                  All lifecycle notifications have been dispatched. New EOS or security update events will appear here.
+                </div>
+              </div>
+            </div>
 
-      <!-- ══════════════════════════════════════════
-           PANEL 3 — NOTIFICATION QUEUE
-           All pending lifecycle notifications across
-           all products. Agents mark them as sent once
-           communications have been dispatched.
-           ══════════════════════════════════════════ -->
-      <section class="card panel">
-
-        <div class="panel-header">
-          <div>
-            <h2 class="section-title">Notification queue</h2>
-            <p class="muted">
-              Pending lifecycle notifications awaiting dispatch. Mark sent once the communication has been issued.
-            </p>
-          </div>
-        </div>
-
-        <div v-if="notifActionError" class="feedback feedback-error" role="alert">
-          {{ notifActionError }}
-        </div>
-
-        <div v-if="pendingNotifications.length === 0" class="empty-panel muted">
-          No pending notifications — all lifecycle communications are up to date.
-        </div>
-
-        <div v-else class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Notification</th>
-                <th>Recipient</th>
-                <th>Scheduled for</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="notif in pendingNotifications" :key="notif.id">
-                <!-- Resolve product name via support period record → product map -->
-                <td>
-                  <span v-if="notifProduct(notif)" class="product-cell">
-                    <strong>{{ notifProduct(notif)!.name }}</strong>
-                    <code class="muted">{{ notifProduct(notif)!.product_code }}</code>
-                  </span>
-                  <span v-else class="muted">—</span>
-                </td>
-
-                <td>
-                  <div class="notif-cell">
-                    <strong>{{ notif.title }}</strong>
-                    <p class="muted notif-message">{{ notif.message }}</p>
-                  </div>
-                </td>
-
-                <td class="muted">
-                  {{ notif.recipient_user?.full_name ?? '—' }}
-                  <br v-if="notif.recipient_user?.email" />
-                  <small v-if="notif.recipient_user?.email" class="muted">{{ notif.recipient_user.email }}</small>
-                </td>
-
-                <td class="muted">{{ formatDate(notif.scheduled_for) }}</td>
-
-                <td>
-                  <div class="action-row">
-                    <button
-                      class="btn btn-primary btn-sm"
-                      type="button"
-                      :disabled="!!actionLoading[notif.id]"
-                      @click="markSent(notif.id)"
-                    >
-                      {{ actionLoading[notif.id] === 'sent' ? 'Saving…' : 'Mark sent' }}
-                    </button>
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      type="button"
-                      :disabled="!!actionLoading[notif.id]"
-                      @click="dismiss(notif.id)"
-                    >
-                      {{ actionLoading[notif.id] === 'dismiss' ? 'Saving…' : 'Dismiss' }}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-      </section>
-
-      <!-- ══════════════════════════════════════════
-           PANEL 4 — CVE LOOKUP
-           Customer support agents search by CVE ID to
-           instantly see which security updates address
-           it and which product versions are covered.
-           ══════════════════════════════════════════ -->
-      <section class="card panel">
-
-        <div class="panel-header">
-          <div>
-            <h2 class="section-title">CVE lookup</h2>
-            <p class="muted">
-              Enter a CVE identifier (e.g. <code>CVE-2024-12345</code>) to find the matching security update records.
-            </p>
-          </div>
-        </div>
-
-        <label class="field field-grow">
-          <span class="field-label">CVE identifier</span>
-          <input
-            v-model.trim="cveQuery"
-            type="search"
-            class="input"
-            placeholder="CVE-YYYY-NNNNN"
-            autocomplete="off"
-            style="max-width: 28rem;"
-          />
-        </label>
-
-        <!-- CVE search results -->
-        <template v-if="cveQuery">
-          <div v-if="cveResults.length === 0" class="empty-panel muted">
-            No security update records found for <strong>{{ cveQuery }}</strong>.
-            This may mean no patch has been published yet, or the CVE ID was entered incorrectly.
-          </div>
-
-          <div v-else class="table-wrapper">
-            <p class="muted" style="margin-bottom: 0.75rem;">
-              {{ cveResults.length }} record(s) found for <strong>{{ cveQuery }}</strong>.
-            </p>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Security update</th>
-                  <th>Severity</th>
-                  <th>All CVEs addressed</th>
-                  <th>Affected versions</th>
-                  <th>Released</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="upd in cveResults" :key="upd.id">
-                  <td>
-                    <span v-if="productByReleaseId(upd.product_release_id)" class="product-cell">
-                      <strong>{{ productByReleaseId(upd.product_release_id)!.name }}</strong>
-                      <code class="muted">{{ productByReleaseId(upd.product_release_id)!.product_code }}</code>
+            <!-- Notifications list -->
+            <div v-else class="notif-list">
+              <div
+                v-for="notif in pendingNotifications"
+                :key="notif.id"
+                class="notif-item"
+              >
+                <div class="notif-body">
+                  <div class="notif-product">
+                    <span v-if="notifProduct(notif)">
+                      <strong>{{ notifProduct(notif)!.name }}</strong>
+                      <code class="muted">{{ notifProduct(notif)!.product_code }}</code>
                     </span>
-                    <code v-else class="muted">{{ upd.product_release_id.slice(0, 8) }}…</code>
-                  </td>
+                    <span v-else class="muted">—</span>
+                  </div>
+                  <strong class="notif-title">{{ notif.title }}</strong>
+                  <p class="muted notif-message">{{ notif.message }}</p>
+                  <div class="notif-meta muted">
+                    {{ notif.recipient_user?.full_name ?? '—' }}
+                    <span v-if="notif.recipient_user?.email"> · {{ notif.recipient_user.email }}</span>
+                    · {{ formatDate(notif.scheduled_for) }}
+                  </div>
+                </div>
+                <div class="notif-actions">
+                  <AppButton
+                    variant="primary"
+                    size="sm"
+                    :disabled="!!actionLoading[notif.id]"
+                    @click="markSent(notif.id)"
+                  >
+                    {{ actionLoading[notif.id] === 'sent' ? 'Saving…' : 'Mark sent' }}
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    :disabled="!!actionLoading[notif.id]"
+                    @click="dismiss(notif.id)"
+                  >
+                    {{ actionLoading[notif.id] === 'dismiss' ? 'Saving…' : 'Dismiss' }}
+                  </AppButton>
+                </div>
+              </div>
+            </div>
 
-                  <td>
-                    <strong>{{ upd.title }}</strong>
-                  </td>
+          </section>
 
-                  <td>
-                    <span class="badge" :class="severityBadge(upd.severity)">
-                      {{ formatSeverity(upd.severity) }}
-                    </span>
-                  </td>
+        </div><!-- /hub-rail -->
 
-                  <td>
-                    <div class="cve-chips">
-                      <span
-                        v-for="cve in normaliseCves(upd.cves_addressed_json)"
-                        :key="cve"
-                        class="cve-chip"
-                        :class="cve.toUpperCase() === cveQuery.toUpperCase() ? 'cve-chip-highlight' : ''"
-                      >{{ cve }}</span>
-                    </div>
-                  </td>
-
-                  <td class="muted">{{ normaliseVersions(upd.affected_versions_json).join(', ') || '—' }}</td>
-                  <td class="muted">{{ upd.released_at ? formatDate(upd.released_at) : '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </template>
-
-        <div v-else class="empty-panel muted">
-          Enter a CVE identifier above to search across all security update records.
-        </div>
-
-      </section>
+      </div><!-- /hub-grid -->
 
       <!-- ══════════════════════════════════════════
            PANEL 5 — PRODUCT RECALLS & WITHDRAWALS
-           CRA Art. 35 workflow for initiating and tracking
-           recalls (FR39) and market withdrawals (FR38).
+           Full-width below the grid
            ══════════════════════════════════════════ -->
       <section class="card panel">
 
@@ -536,27 +597,27 @@
               CRA Art. 35 workflow — initiate, track, and close recalls and withdrawals of non-compliant products.
             </p>
           </div>
-          <div class="action-row">
-            <button
-              class="btn btn-secondary btn-sm"
-              type="button"
+          <div class="page-actions">
+            <AppButton
+              variant="secondary"
+              size="sm"
               :disabled="showMarketActionForm"
               @click="openMarketActionForm('recall')"
             >
               Initiate recall
-            </button>
-            <button
-              class="btn btn-secondary btn-sm"
-              type="button"
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              size="sm"
               :disabled="showMarketActionForm"
               @click="openMarketActionForm('withdrawal')"
             >
               Initiate withdrawal
-            </button>
+            </AppButton>
           </div>
         </div>
 
-        <!-- ── Inline create / edit form ── -->
+        <!-- Inline create / edit form -->
         <div v-if="showMarketActionForm" class="ma-form-panel">
           <h3 class="ma-form-title">
             {{ editingMarketAction ? 'Edit market action' : (marketActionFormType === 'recall' ? 'Initiate recall' : 'Initiate withdrawal') }}
@@ -610,21 +671,19 @@
           </div>
 
           <div class="form-actions">
-            <button class="btn btn-primary btn-sm" type="button" :disabled="maFormSaving" @click="saveMarketAction">
+            <AppButton variant="primary" size="sm" :disabled="maFormSaving" @click="saveMarketAction">
               {{ maFormSaving ? 'Saving…' : (editingMarketAction ? 'Save changes' : 'Create draft') }}
-            </button>
-            <button class="btn btn-secondary btn-sm" type="button" :disabled="maFormSaving" @click="cancelMarketActionForm">
+            </AppButton>
+            <AppButton variant="secondary" size="sm" :disabled="maFormSaving" @click="cancelMarketActionForm">
               Cancel
-            </button>
+            </AppButton>
           </div>
         </div>
 
-        <!-- ── Error banner for list-level errors ── -->
         <div v-if="maListError" class="feedback feedback-error" role="alert">
           {{ maListError }}
         </div>
 
-        <!-- ── Market actions table ── -->
         <div v-if="marketActions.length === 0 && !showMarketActionForm" class="empty-panel muted">
           No market actions recorded yet. Use the buttons above to initiate a recall or withdrawal under CRA Art. 35.
         </div>
@@ -672,70 +731,59 @@
 
                 <td>
                   <div class="action-row">
-                    <!-- Edit — only while not closed -->
-                    <button
+                    <AppButton
                       v-if="ma.status !== 'closed'"
-                      class="btn btn-secondary btn-sm"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       :disabled="!!maActionLoading[ma.id] || showMarketActionForm"
                       @click="editMarketAction(ma)"
                     >
                       Edit
-                    </button>
-
-                    <!-- Activate — only draft -->
-                    <button
+                    </AppButton>
+                    <AppButton
                       v-if="ma.status === 'draft'"
-                      class="btn btn-secondary btn-sm"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       :disabled="!!maActionLoading[ma.id]"
                       @click="activateMarketAction(ma.id)"
                     >
                       {{ maActionLoading[ma.id] === 'activate' ? 'Activating…' : 'Activate' }}
-                    </button>
-
-                    <!-- Generate notice — only when user_notice_text is set -->
-                    <button
+                    </AppButton>
+                    <AppButton
                       v-if="ma.user_notice_text"
-                      class="btn btn-secondary btn-sm"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       @click="copyNoticeText(ma)"
                     >
                       {{ maCopySuccessId === ma.id ? 'Copied!' : 'Copy notice' }}
-                    </button>
-
-                    <!-- Mark authority notified — only active -->
-                    <button
+                    </AppButton>
+                    <AppButton
                       v-if="ma.status === 'active'"
-                      class="btn btn-secondary btn-sm"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       :disabled="!!maActionLoading[ma.id]"
                       @click="notifyAuthority(ma.id)"
                     >
                       {{ maActionLoading[ma.id] === 'notify' ? 'Saving…' : 'Mark notified' }}
-                    </button>
-
-                    <!-- Close — authority_notified or active -->
-                    <button
+                    </AppButton>
+                    <AppButton
                       v-if="ma.status === 'active' || ma.status === 'authority_notified'"
-                      class="btn btn-secondary btn-sm"
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       :disabled="!!maActionLoading[ma.id]"
                       @click="closeMarketAction(ma.id)"
                     >
                       {{ maActionLoading[ma.id] === 'close' ? 'Closing…' : 'Close' }}
-                    </button>
-
-                    <!-- Delete — only draft -->
-                    <button
+                    </AppButton>
+                    <AppButton
                       v-if="ma.status === 'draft'"
-                      class="btn btn-secondary btn-sm ma-btn-delete"
-                      type="button"
+                      variant="danger"
+                      size="sm"
                       :disabled="!!maActionLoading[ma.id]"
                       @click="deleteMarketAction(ma.id)"
                     >
                       {{ maActionLoading[ma.id] === 'delete' ? 'Deleting…' : 'Delete' }}
-                    </button>
+                    </AppButton>
                   </div>
                 </td>
               </tr>
@@ -753,6 +801,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import AppButton from "@/components/AppButton.vue";
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
 import { marketActionService } from "@/services/market-action-service";
 import { productReleaseService } from "@/services/product-release-service";
@@ -990,10 +1039,42 @@ const filteredEosRows = computed<EosRow[]>(() => {
   }
 });
 
-/** Count of products with ≤ 90 days of support remaining (used in stat card) */
+/** Count of products with ≤ 90 days of support remaining (used in KPI card) */
 const approachingEosCount = computed<number>(
   () => eosRows.value.filter((r) => r.daysLeft >= 0 && r.daysLeft <= 90).length,
 );
+
+/** Count of expired support periods (used in KPI card) */
+const expiredCount = computed<number>(
+  () => eosRows.value.filter((r) => r.daysLeft < 0).length,
+);
+
+/** Name of the first expired product for the EOS footer message */
+const firstExpiredProduct = computed<string | null>(
+  () => eosRows.value.find((r) => r.daysLeft < 0)?.product.name ?? null,
+);
+
+/** CSV export of the current (filtered) EOS watch list */
+function downloadEosList(): void {
+  const headers = ["Product", "Code", "Classification", "Support End", "Days Left", "Status", "Support Type"];
+  const rows = filteredEosRows.value.map((r) => [
+    r.product.name,
+    r.product.product_code,
+    formatClassification(r.product.current_classification),
+    r.support.support_end_date,
+    r.daysLeft.toString(),
+    formatEosStatus(r.eosStatus),
+    formatSupportType(r.support.support_type),
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "eos-watch-list.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /* ─────────────────────────────────────────────────
    PANEL 3 — NOTIFICATION QUEUE
@@ -1008,6 +1089,7 @@ const notifActionError = ref<string | null>(null);
  * notification.support_period_record_id → support period → product_id → product
  */
 function notifProduct(notif: LifecycleNotificationRead): ProductSummaryRead | null {
+  if (!notif.support_period_record_id) return null;
   const support = supportByRecordId.value[notif.support_period_record_id];
   if (!support) return null;
   return productById.value[support.product_id] ?? null;
@@ -1145,7 +1227,6 @@ async function saveMarketAction(): Promise<void> {
     const nullify = (v: string) => v.trim() || null;
 
     if (editingMarketAction.value) {
-      /* Update existing draft */
       const updated = await marketActionService.update(editingMarketAction.value.id, {
         reason:                     maForm.value.reason.trim(),
         affected_scope:             nullify(maForm.value.affected_scope),
@@ -1157,7 +1238,6 @@ async function saveMarketAction(): Promise<void> {
       const idx = marketActions.value.findIndex((m) => m.id === updated.id);
       if (idx !== -1) marketActions.value[idx] = updated;
     } else {
-      /* Create new market action */
       const created = await marketActionService.create({
         product_release_id:         maForm.value.product_release_id,
         action_type:                marketActionFormType.value,
@@ -1187,7 +1267,6 @@ async function activateMarketAction(actionId: string): Promise<void> {
     const updated = await marketActionService.update(actionId, { status: "active" });
     const idx = marketActions.value.findIndex((m) => m.id === actionId);
     if (idx !== -1) marketActions.value[idx] = updated;
-    /* Also refresh releases so the recalled/withdrawn status appears elsewhere */
     allReleases.value = await productReleaseService.list();
   } catch (err) {
     maListError.value = err instanceof Error ? err.message : "Failed to activate market action.";
@@ -1283,6 +1362,43 @@ function deriveEosStatus(daysLeft: number): EosStatus {
   if (daysLeft < 0) return "expired";
   if (daysLeft <= 180) return "approaching_eos";
   return "active";
+}
+
+/** Two-letter monogram from product name for the EOS table avatar. */
+function productInitials(product: ProductSummaryRead): string {
+  return product.name.slice(0, 2).toUpperCase();
+}
+
+/** Progress bar width for the EOS days-remaining bar (0–100%). */
+function eosBarWidth(daysLeft: number): string {
+  if (daysLeft < 0) return "100%";
+  return `${Math.min(100, Math.round((daysLeft / 730) * 100))}%`;
+}
+
+/** CSS class for the EOS days indicator block. */
+function eosDaysClass(daysLeft: number): string {
+  if (daysLeft < 0) return "eos-days eos-days--over";
+  if (daysLeft <= 90) return "eos-days eos-days--warn";
+  return "eos-days eos-days--ok";
+}
+
+/** Human-readable relative date for the EOS table (e.g. "29 days ago", "in ~22 months"). */
+function formatRelativeDate(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00`);
+  const now = new Date();
+  const diffDays = Math.ceil((now.getTime() - date.getTime()) / 86_400_000);
+  if (diffDays < 0) {
+    const months = Math.round(Math.abs(diffDays) / 30);
+    return `in ~${months} month${months !== 1 ? "s" : ""}`;
+  }
+  if (diffDays === 0) return "today";
+  return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+}
+
+/** EOS footer message: how many days overdue (absolute value). */
+function formatDaysOverdue(daysLeft: number): string {
+  const abs = Math.abs(daysLeft);
+  return `${abs} day${abs !== 1 ? "s" : ""} ago`;
 }
 
 /** Normalise cves_addressed_json to a flat string array regardless of backend shape */
@@ -1396,12 +1512,15 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .page-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
-.page-title {
-  margin: 0;
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .page-subtitle {
@@ -1409,26 +1528,96 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 }
 
 /* ═══════════════════════════════════════════════
-   STAT CARDS
+   KPI STRIP
    ═══════════════════════════════════════════════ */
-.stats-grid {
+.kpi-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.stat-card {
+.kpi-card {
+  background: var(--color-surface, #0f172a);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: var(--radius-md, 0.85rem);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-label {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 500;
+  color: var(--color-text-muted, #94a3b8);
+  line-height: 1.3;
+}
+
+.kpi-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(148, 163, 184, 0.1);
   display: grid;
-  gap: 0.35rem;
+  place-items: center;
+  color: var(--color-text-muted, #94a3b8);
+  flex-shrink: 0;
 }
 
-.stat-label {
-  margin: 0;
-  font-size: var(--text-sm);
+.kpi-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.75;
 }
 
-.stat-value {
+.kpi-icon--green {
+  background: rgba(52, 211, 153, 0.12);
+  color: #86efac;
+}
+
+.kpi-value {
   font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-value--muted { color: var(--color-text-muted, #94a3b8); }
+.kpi-value--warn  { color: #fde68a; }
+.kpi-value--danger { color: #fda4af; }
+
+.kpi-sub {
+  margin: 0;
+  font-size: var(--text-xs, 0.75rem);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.4rem;
+}
+
+/* ═══════════════════════════════════════════════
+   TWO-COLUMN GRID
+   ═══════════════════════════════════════════════ */
+.hub-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.hub-main,
+.hub-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1449,11 +1638,162 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .section-title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
 }
 
 /* ═══════════════════════════════════════════════
-   PANEL 1 — PRODUCT LOOKUP
+   EOS WATCH LIST — enhanced table
+   ═══════════════════════════════════════════════ */
+.eos-filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-label-xs {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--color-text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.select-sm {
+  height: 30px;
+  padding: 0 26px 0 9px;
+  border-radius: 0.55rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+  color: inherit;
+  font: 500 var(--text-sm, 0.875rem) / 1 inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.75'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 14px;
+}
+
+/* EOS product avatar */
+.eos-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.eos-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 700;
+  color: var(--color-text-muted, #94a3b8);
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+
+.eos-product-name {
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  color: inherit;
+}
+
+.eos-product-code {
+  display: block;
+  font-size: var(--text-xs, 0.75rem);
+  margin-top: 1px;
+}
+
+.eos-date-main {
+  font-weight: 500;
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.eos-date-rel {
+  font-size: var(--text-xs, 0.75rem);
+  margin-top: 1px;
+}
+
+/* Days remaining block with progress bar */
+.eos-days {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 110px;
+}
+
+.eos-days-label {
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.eos-days--over .eos-days-label { color: #fda4af; }
+.eos-days--warn .eos-days-label { color: #fde68a; }
+.eos-days--ok   .eos-days-label { color: #86efac; }
+
+.eos-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  overflow: hidden;
+}
+
+.eos-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.eos-days--over .eos-bar-fill { background: #fda4af; }
+.eos-days--warn .eos-bar-fill { background: #fde68a; }
+.eos-days--ok   .eos-bar-fill { background: #86efac; }
+
+/* Expired row left-border accent */
+.eos-table tbody tr.eos-row--expired td:first-child {
+  box-shadow: inset 3px 0 0 rgba(253, 164, 175, 0.6);
+}
+
+/* EOS panel footer */
+.eos-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
+  background: rgba(148, 163, 184, 0.04);
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--color-text-muted, #94a3b8);
+  border-radius: 0 0 var(--radius-md, 0.85rem) var(--radius-md, 0.85rem);
+  margin: 0 -1rem -1rem;
+}
+
+.eos-footer strong {
+  color: inherit;
+}
+
+.eos-footer-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  stroke-width: 1.75;
+}
+
+/* ═══════════════════════════════════════════════
+   PRODUCT LOOKUP
    ═══════════════════════════════════════════════ */
 .lookup-search-row {
   display: flex;
@@ -1499,19 +1839,18 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .lookup-option-name {
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-size: var(--text-sm, 0.875rem);
 }
 
 .lookup-option-code {
-  font-size: 0.75rem;
+  font-size: var(--text-xs, 0.75rem);
 }
 
 .lookup-no-results {
   padding: 0.6rem 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-sm, 0.875rem);
 }
 
-/* Selected product result card */
 .lookup-result {
   display: grid;
   gap: 1.25rem;
@@ -1531,12 +1870,12 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .result-product-name {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--text-lg, 1.125rem);
 }
 
 .result-product-meta {
   margin: 0.2rem 0 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-sm, 0.875rem);
 }
 
 .result-section {
@@ -1546,7 +1885,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .result-section-title {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1560,7 +1899,6 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
   flex-wrap: wrap;
 }
 
-/* Disclosure text blocks for Art. 13(7) copy-paste */
 .disclosure-block {
   display: grid;
   gap: 0.5rem;
@@ -1575,7 +1913,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .disclosure-text {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-sm, 0.875rem);
   line-height: 1.6;
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--color-border, rgba(148, 163, 184, 0.15));
@@ -1584,10 +1922,9 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
   white-space: pre-wrap;
 }
 
-/* Inline copy button */
 .btn-copy {
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs, 0.75rem);
   padding: 0.25rem 0.6rem;
   border-radius: 0.5rem;
   border: 1px solid var(--color-border, rgba(148, 163, 184, 0.25));
@@ -1602,62 +1939,122 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
   background: rgba(173, 214, 84, 0.1);
 }
 
-/* CVE chips in the security updates table */
-.cve-chips {
+/* ═══════════════════════════════════════════════
+   CVE LOOKUP — chip suggestions
+   ═══════════════════════════════════════════════ */
+.cve-chips-row {
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
   flex-wrap: wrap;
-  gap: 0.3rem;
 }
 
-.cve-chip {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-family: var(--font-mono, monospace);
-  padding: 0.15rem 0.45rem;
-  border-radius: 0.4rem;
-  background: rgba(148, 163, 184, 0.12);
+.chip {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 500;
   color: var(--color-text-muted, #94a3b8);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  transition: background var(--t-fast);
 }
 
-.cve-chip-highlight {
-  background: rgba(251, 191, 36, 0.18);
-  color: #fde68a;
-  font-weight: 700;
+.chip:hover {
+  background: rgba(148, 163, 184, 0.15);
+  color: inherit;
 }
 
 /* ═══════════════════════════════════════════════
-   PANEL 2 — EOS WATCH LIST
+   NOTIFICATION QUEUE — all-clear + compact list
    ═══════════════════════════════════════════════ */
-.eos-filter-row {
+.all-clear {
   display: flex;
-  gap: 0.75rem;
-  align-items: flex-end;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.25rem 0;
 }
 
-/* ═══════════════════════════════════════════════
-   PANEL 3 — NOTIFICATION QUEUE
-   ═══════════════════════════════════════════════ */
-.notif-cell {
+.all-clear-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.12);
+  color: #86efac;
   display: grid;
-  gap: 0.2rem;
-  max-width: 26rem;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.all-clear-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.all-clear-title {
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  margin-bottom: 0.2rem;
+}
+
+.all-clear-desc {
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.5;
+}
+
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notif-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
+  border-radius: 0.7rem;
+  background: var(--color-surface-soft, rgba(15, 23, 42, 0.3));
+}
+
+.notif-body {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.notif-product {
+  font-size: var(--text-xs, 0.75rem);
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.notif-title {
+  font-size: var(--text-sm, 0.875rem);
 }
 
 .notif-message {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs, 0.75rem);
   margin: 0;
   line-height: 1.4;
-  /* Clamp long messages to 2 lines for table readability */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.action-row {
+.notif-meta {
+  font-size: var(--text-xs, 0.75rem);
+  margin-top: 0.1rem;
+}
+
+.notif-actions {
   display: flex;
   gap: 0.4rem;
-  flex-wrap: nowrap;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1674,22 +2071,38 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .data-table th,
 .data-table td {
-  padding: 0.8rem 0.75rem;
+  padding: 0.7rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .data-table th {
   color: var(--color-text-muted, #94a3b8);
-  font-size: 0.82rem;
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(148, 163, 184, 0.04);
 }
 
 .product-cell {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.15rem;
+}
+
+.action-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1699,10 +2112,11 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
   width: fit-content;
+  white-space: nowrap;
 }
 
 .badge-neutral {
@@ -1734,8 +2148,32 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 .fw-600       { font-weight: 600; }
 
 /* ═══════════════════════════════════════════════
-   FORM CONTROLS (self-contained so this view has
-   no dependency on global .input / .select)
+   CVE chips in security updates table
+   ═══════════════════════════════════════════════ */
+.cve-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.cve-chip {
+  display: inline-block;
+  font-size: var(--text-xs, 0.75rem);
+  font-family: var(--font-mono, monospace);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.4rem;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.cve-chip-highlight {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fde68a;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════
+   FORM CONTROLS
    ═══════════════════════════════════════════════ */
 .field {
   display: grid;
@@ -1743,7 +2181,10 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 }
 
 .field-label {
-  font-size: 0.875rem;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted, #94a3b8);
 }
 
@@ -1751,44 +2192,19 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 .select {
   width: 100%;
   box-sizing: border-box;
-  min-height: 2.7rem;
-  border-radius: 0.85rem;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
   background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
   color: inherit;
-  padding: 0.75rem 0.9rem;
+  padding: 0.65rem 0.9rem;
   font: inherit;
+  font-size: var(--text-sm, 0.875rem);
 }
 
-.btn {
-  border: 1px solid transparent;
-  border-radius: 0.85rem;
-  padding: 0.65rem 1rem;
-  font: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.btn-sm {
-  padding: 0.4rem 0.7rem;
-  font-size: var(--text-sm);
-  border-radius: 0.6rem;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #6ea8fe);
-  color: white;
-}
-
-.btn-secondary {
-  background: transparent;
-  border-color: var(--color-border, rgba(148, 163, 184, 0.25));
-  color: inherit;
-}
-
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.input-mono {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-sm, 0.875rem);
 }
 
 /* ═══════════════════════════════════════════════
@@ -1796,9 +2212,9 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
    ═══════════════════════════════════════════════ */
 .feedback,
 .empty-panel {
-  padding: 1rem 1.1rem;
+  padding: 0.85rem 1rem;
   border-radius: var(--radius-md, 0.85rem);
-  font-size: var(--text-sm);
+  font-size: var(--text-sm, 0.875rem);
 }
 
 .empty-panel {
@@ -1812,7 +2228,7 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 }
 
 /* ═══════════════════════════════════════════════
-   PANEL 5 — MARKET ACTIONS FORM
+   MARKET ACTIONS FORM
    ═══════════════════════════════════════════════ */
 .ma-form-panel {
   display: grid;
@@ -1825,7 +2241,8 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 .ma-form-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
 }
 
 .form-grid {
@@ -1845,38 +2262,33 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
   gap: 0.5rem;
 }
 
-/* Required field asterisk */
 .required {
   color: #fda4af;
-}
-
-/* Delete button subtle danger tint */
-.ma-btn-delete {
-  color: #fda4af;
-  border-color: rgba(251, 113, 133, 0.3);
-}
-
-.ma-btn-delete:hover:not(:disabled) {
-  background: rgba(251, 113, 133, 0.08);
 }
 
 /* ═══════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS
    ═══════════════════════════════════════════════ */
 @media (max-width: 1400px) {
-  .stats-grid {
+  .kpi-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
+@media (max-width: 1100px) {
+  .hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
-  .stats-grid {
+  .kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 700px) {
-  .stats-grid {
+  .kpi-strip {
     grid-template-columns: 1fr;
   }
 
@@ -1888,21 +2300,33 @@ function severityBadge(severity: SecurityUpdateSeverity | null): string {
 
 <!-- Light-theme overrides (non-scoped so :root selector works) -->
 <style>
-:root[data-theme="light"] .lookup-dropdown                { background: #ffffff; }
-:root[data-theme="light"] .disclosure-text                { background: rgba(241, 245, 249, 0.8); }
-:root[data-theme="light"] .lookup-result                  { background: rgba(241, 245, 249, 0.6); }
-:root[data-theme="light"] .badge-neutral  { background: rgba(71,85,105,0.1);   color: #475569; }
-:root[data-theme="light"] .badge-success  { background: rgba(21,128,61,0.1);   color: #15803d; }
-:root[data-theme="light"] .badge-warning  { background: rgba(184,155,18,0.1);  color: #78350f; }
-:root[data-theme="light"] .badge-danger   { background: rgba(239,68,68,0.1);   color: #be123c; }
+:root[data-theme="light"] .kpi-card              { background: #ffffff; }
+:root[data-theme="light"] .lookup-dropdown       { background: #ffffff; }
+:root[data-theme="light"] .disclosure-text       { background: rgba(241, 245, 249, 0.8); }
+:root[data-theme="light"] .lookup-result         { background: rgba(241, 245, 249, 0.6); }
+:root[data-theme="light"] .notif-item            { background: rgba(241, 245, 249, 0.5); }
+:root[data-theme="light"] .ma-form-panel         { background: rgba(241, 245, 249, 0.6); }
+:root[data-theme="light"] .eos-mark              { background: rgba(71, 85, 105, 0.08); border-color: rgba(71, 85, 105, 0.15); }
+:root[data-theme="light"] .select-sm             { background: #ffffff; }
+:root[data-theme="light"] .badge-neutral  { background: rgba(71, 85, 105, 0.1);  color: #475569; }
+:root[data-theme="light"] .badge-success  { background: rgba(21, 128, 61, 0.1);  color: #15803d; }
+:root[data-theme="light"] .badge-warning  { background: rgba(184, 155, 18, 0.1); color: #78350f; }
+:root[data-theme="light"] .badge-danger   { background: rgba(239, 68, 68, 0.1);  color: #be123c; }
 :root[data-theme="light"] .text-success   { color: #15803d; }
 :root[data-theme="light"] .text-warning   { color: #78350f; }
 :root[data-theme="light"] .text-danger    { color: #be123c; }
-:root[data-theme="light"] .feedback-error { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #be123c; }
-:root[data-theme="light"] .cve-chip       { background: rgba(71,85,105,0.1); color: #475569; }
-:root[data-theme="light"] .cve-chip-highlight { background: rgba(184,155,18,0.15); color: #78350f; }
-:root[data-theme="light"] .btn-primary { background: linear-gradient(135deg, rgba(175, 214, 46, 0.95), rgba(28, 107, 39, 0.95)); }
-:root[data-theme="light"] .ma-form-panel { background: rgba(241, 245, 249, 0.6); }
-:root[data-theme="light"] .required      { color: #be123c; }
-:root[data-theme="light"] .ma-btn-delete { color: #be123c; border-color: rgba(190,18,60,0.3); }
+:root[data-theme="light"] .feedback-error { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.2); color: #be123c; }
+:root[data-theme="light"] .cve-chip       { background: rgba(71, 85, 105, 0.1); color: #475569; }
+:root[data-theme="light"] .cve-chip-highlight { background: rgba(184, 155, 18, 0.15); color: #78350f; }
+:root[data-theme="light"] .required       { color: #be123c; }
+:root[data-theme="light"] .all-clear-icon { background: rgba(21, 128, 61, 0.1); color: #15803d; }
+:root[data-theme="light"] .kpi-value--warn   { color: #78350f; }
+:root[data-theme="light"] .kpi-value--danger { color: #be123c; }
+:root[data-theme="light"] .eos-days--over .eos-days-label { color: #be123c; }
+:root[data-theme="light"] .eos-days--warn .eos-days-label { color: #78350f; }
+:root[data-theme="light"] .eos-days--ok .eos-days-label   { color: #15803d; }
+:root[data-theme="light"] .eos-days--over .eos-bar-fill { background: #f87171; }
+:root[data-theme="light"] .eos-days--warn .eos-bar-fill { background: #f59e0b; }
+:root[data-theme="light"] .eos-days--ok   .eos-bar-fill { background: #22c55e; }
+:root[data-theme="light"] .eos-row--expired td:first-child { box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.5); }
 </style>
