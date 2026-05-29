@@ -227,7 +227,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { apiClient } from '@/services/api';
 
 interface AssessmentQuestion {
   id: string;
@@ -306,45 +306,10 @@ async function nextStep() {
   } else if (currentStep.value === 1) {
     // Load questions for selected methodology
     try {
-      const authStore = useAuthStore();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      // Include auth token if available
-      if (authStore.accessToken) {
-        headers['Authorization'] = `Bearer ${authStore.accessToken}`;
-      }
-
-      const url = `http://localhost:8000/api/v1/changes/assessment-templates/${selectedMethodology.value}?t=${Date.now()}`;
-      console.log('📤 Fetching assessment template from:', url);
-      const response = await fetch(url, {
-        headers,
-        credentials: 'include'
-      });
-
-      console.log('📥 Response received - status:', response.status, 'content-type:', response.headers.get('content-type'));
-
-      // Read response body once - it can only be read once!
-      const text = await response.text();
-      console.log('📄 Response body length:', text.length);
-      console.log('📄 Response body JSON:', text);
-      console.log('📄 Response body bytes:', text.split('').map(c => c.charCodeAt(0)));
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${text}`);
-      }
-
-      if (!text) {
-        throw new Error('Empty response from API');
-      }
-
-      if (text === 'null' || text.trim() === '') {
-        throw new Error(`Invalid response: "${text}"`);
-      }
-
-      console.log('🔄 Parsing JSON...');
-      const data = JSON.parse(text) as TemplateResponse;
-      console.log('✅ Successfully parsed, got', data.questions.length, 'questions');
+      const { data } = await apiClient.get<TemplateResponse>(
+        `/changes/assessment-templates/${selectedMethodology.value}`,
+        { params: { t: Date.now() } }
+      );
       currentQuestions.value = data.questions;
       // Initialize all answers to null
       currentQuestions.value.forEach(q => {
@@ -355,8 +320,7 @@ async function nextStep() {
       currentStep.value = 2;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      const fullError = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack}` : String(error);
-      console.error('❌ Failed to load assessment template:', fullError);
+      console.error('❌ Failed to load assessment template:', error);
       errorMessage.value = `Error: ${errorMsg}`;
     }
   } else if (currentStep.value === 2) {
@@ -397,31 +361,7 @@ async function submitAssessment() {
       decision_date: new Date().toISOString().split('T')[0],
     };
 
-    const authStore = useAuthStore();
-    if (!authStore.accessToken) {
-      throw new Error('Not authenticated. Please log in first.');
-    }
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authStore.accessToken}`
-    };
-
-    const response = await fetch(`http://localhost:8000/api/v1/changes/${props.changeId}/assess`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      credentials: 'include'
-    });
-
-    const responseText = await response.text();
-    console.log('Submit response status:', response.status);
-    console.log('Submit response:', responseText);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${responseText}`);
-    }
-
+    await apiClient.post(`/changes/${props.changeId}/assess`, payload);
     emit('submitted');
   } catch (error) {
     console.error('Error submitting assessment:', error);
