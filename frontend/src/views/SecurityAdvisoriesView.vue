@@ -622,7 +622,7 @@ input:focus, select:focus, textarea:focus {
 
 .text-warning { color: var(--color-warning-text); }
 .nowrap { white-space: nowrap; }
-.row-arrow { color: var(--color-text-muted); font-size: 1.1rem; text-align: right; opacity: 0; transition: opacity 0.12s; }
+.row-arrow { color: var(--color-text-muted); font-size: var(--text-lg); text-align: right; opacity: 0; transition: opacity 0.12s; }
 .table-row-clickable:hover .row-arrow,
 .table-row-clickable:focus-visible .row-arrow { opacity: 1; }
 </style>

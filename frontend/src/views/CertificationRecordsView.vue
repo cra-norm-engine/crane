@@ -45,9 +45,9 @@
             click a row to view details
           </p>
         </div>
-        <button v-if="canWrite" class="button" type="button" @click="openCreateModal">
+        <AppButton v-if="canWrite" variant="primary" type="button" @click="openCreateModal">
           Add record
-        </button>
+        </AppButton>
       </div>
 
       <div v-if="isLoading" class="empty-panel muted">Loading…</div>
@@ -296,7 +296,7 @@
                 Delete record
               </button>
             </div>
-            <button class="btn btn-secondary" @click="closeDetail">Close</button>
+            <AppButton variant="secondary" @click="closeDetail">Close</AppButton>
           </div>
         </div>
       </div>
@@ -406,10 +406,10 @@
           <div class="detail-footer">
             <div class="footer-actions"></div>
             <div class="footer-actions">
-              <button class="btn btn-secondary" type="button" @click="closeCreateModal">Cancel</button>
-              <button class="btn btn-primary" type="submit" form="create-cert-form" :disabled="isSubmitting">
+              <AppButton variant="secondary" type="button" @click="closeCreateModal">Cancel</AppButton>
+              <AppButton variant="primary" type="submit" form="create-cert-form" :disabled="isSubmitting">
                 {{ isSubmitting ? "Saving…" : "Add record" }}
-              </button>
+              </AppButton>
             </div>
           </div>
         </div>
@@ -420,6 +420,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import AppButton from "@/components/AppButton.vue";
 import { useAuthStore } from "@/stores/auth";
 import { certificationRecordService } from "@/services/certification-record-service";
 import { productService } from "@/services/product-service";
@@ -772,7 +773,10 @@ onMounted(async () => {
 }
 
 .field-label {
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted);
 }
 
@@ -815,7 +819,7 @@ textarea:focus {
 .empty-panel {
   padding: 1.5rem 1rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 
 /* ── Table ── */
@@ -838,10 +842,10 @@ textarea:focus {
 
 .data-table th {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
@@ -865,7 +869,7 @@ textarea:focus {
 
 .row-arrow {
   color: var(--color-text-muted);
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   text-align: right;
   opacity: 0;
   transition: opacity 0.12s;
@@ -890,7 +894,7 @@ textarea:focus {
   align-items: center;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -907,7 +911,7 @@ textarea:focus {
   align-items: center;
   padding: 0.18rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   background: var(--color-info-bg);
   color: var(--color-info-text);
@@ -921,7 +925,7 @@ textarea:focus {
 }
 
 .expiry-hint {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   opacity: 0.8;
 }
 
@@ -966,7 +970,7 @@ textarea:focus {
 
 .btn-icon {
   padding: 0.4rem 0.65rem;
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   line-height: 1;
 }
 
@@ -1034,14 +1038,14 @@ textarea:focus {
 
 .detail-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   line-height: 1.3;
 }
 
 .detail-body-name {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .detail-body {
@@ -1072,20 +1076,20 @@ textarea:focus {
 }
 
 .date-label {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
 }
 
 .date-value {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
 .date-sep {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 /* Detail grid */
@@ -1111,7 +1115,7 @@ textarea:focus {
 
 .detail-section-title {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1126,18 +1130,18 @@ textarea:focus {
 }
 
 .detail-key {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .detail-val {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   word-break: break-word;
 }
 
 .scope-text {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   line-height: 1.55;
   color: var(--color-meta-text);
 }
@@ -1159,13 +1163,13 @@ textarea:focus {
 
 .evidence-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
 }
 
 .evidence-count {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   padding: 0.25rem 0.5rem;
   background: rgba(110, 168, 254, 0.15);
   color: #93c5fd;
@@ -1179,7 +1183,7 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.02);
   border: 1px dashed rgba(233, 238, 252, 0.15);
   text-align: center;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: rgba(233, 238, 252, 0.5);
 }
 
@@ -1206,7 +1210,7 @@ textarea:focus {
 
 .evidence-name {
   display: block;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
   word-break: break-word;
@@ -1214,7 +1218,7 @@ textarea:focus {
 
 .evidence-meta {
   margin: 0.25rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: rgba(233, 238, 252, 0.5);
 }
 
