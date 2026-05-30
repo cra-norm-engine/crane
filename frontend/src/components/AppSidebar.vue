@@ -21,8 +21,7 @@
          BRAND — logo + product name
          ══════════════════════════════════════════ -->
     <div class="brand">
-      <img src="/logo/darkFullLogo.svg"  alt="CRANE logo" class="brand-logo logo-dark"  />
-      <img src="/logo/lightFullLogo.svg" alt="CRANE logo" class="brand-logo logo-light" />
+      <AppLogo />
     </div>
 
     <!-- ══════════════════════════════════════════
@@ -363,6 +362,7 @@ import { computed } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
+import AppLogo from "@/components/AppLogo.vue";
 
 /* ── Props ───────────────────────────────────────────── */
 const props = withDefaults(
@@ -495,17 +495,6 @@ function logout(): void {
   flex-shrink: 0;
 }
 
-.brand-logo {
-  max-width: 148px;
-  max-height: 64px;
-  width: 100%;
-  object-fit: contain;
-}
-
-/* Theme-aware logo swap */
-.logo-light { display: none; }
-:root[data-theme="light"] .logo-dark  { display: none; }
-:root[data-theme="light"] .logo-light { display: block; }
 
 /* ═══════════════════════════════════════════════
    NAVIGATION AREA

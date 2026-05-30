@@ -4,11 +4,7 @@
 
       <!-- Brand -->
       <div class="brand">
-        <img src="/logo/logo.png" alt="CRANE logo" class="brand-logo" />
-        <div class="brand-text">
-          <div class="brand-title">CRANE</div>
-          <div class="brand-sub">CRA Norm Engine</div>
-        </div>
+        <AppLogo :scale="1.2" />
       </div>
 
       <div class="divider" role="separator" />
@@ -120,6 +116,7 @@ import { RouterLink, useRouter } from "vue-router";
 
 import { changePasswordRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
+import AppLogo from "@/components/AppLogo.vue";
 
 const authStore = useAuthStore();
 const router    = useRouter();
@@ -180,27 +177,6 @@ async function handleSubmit(): Promise<void> {
   gap: 0.65rem;
 }
 
-.brand-logo {
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
-}
-
-.brand-text {
-  text-align: center;
-}
-
-.brand-title {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.brand-sub {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-top: 0.1rem;
-}
 
 .heading-block {
   display: grid;

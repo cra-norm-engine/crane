@@ -4,9 +4,8 @@
     <!-- ═══════════ Brand panel (always dark) ═══════════ -->
     <section class="brand-panel">
 
-      <!-- Full CRANE logo -->
       <div class="bp-mark">
-        <img src="/logo/darkFullLogo.svg" alt="CRANE — Cyber Resilience Act Norm Engine" class="bp-logo" />
+        <AppLogo on-dark :scale="1.4" />
       </div>
 
       <!-- Centre content -->
@@ -64,8 +63,7 @@
 
         <!-- Mobile-only logo (brand panel hidden on small screens) -->
         <div class="mobile-brand">
-          <img src="/logo/darkFullLogo.svg"  alt="CRANE" class="mobile-logo logo-dark"  />
-          <img src="/logo/lightFullLogo.svg" alt="CRANE" class="mobile-logo logo-light" />
+          <AppLogo :scale="1.1" />
         </div>
 
         <!-- Heading -->
@@ -201,6 +199,7 @@ import { useRoute, useRouter } from "vue-router";
 import { fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
 import type { ApiError } from "@/services/error-handler";
+import AppLogo from "@/components/AppLogo.vue";
 
 /* ── Reactive form state ─────────────────────── */
 const email        = ref("");
@@ -283,15 +282,7 @@ function handleSso(): void {
 
 .brand-panel > * { position: relative; z-index: 1; }
 
-/* CRANE logo in the brand panel */
 .bp-mark { display: flex; align-items: flex-start; }
-
-.bp-logo {
-  height: 80px;
-  width: auto;
-  object-fit: contain;
-  filter: brightness(1.08);
-}
 
 /* Centre block */
 .bp-center { margin: auto 0; max-width: 30rem; }
@@ -395,17 +386,6 @@ function handleSso(): void {
   display: none;
   margin-bottom: 28px;
 }
-
-.mobile-logo {
-  height: 40px;
-  width: auto;
-  object-fit: contain;
-}
-
-/* Swap logo variant based on app theme */
-.mobile-logo.logo-light { display: none; }
-:root[data-theme="light"] .mobile-logo.logo-dark  { display: none; }
-:root[data-theme="light"] .mobile-logo.logo-light { display: block; }
 
 .form-head h2 {
   font-size: 24px;
