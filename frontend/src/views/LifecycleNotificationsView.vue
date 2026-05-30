@@ -62,7 +62,7 @@
           <span class="field-label">Classification</span>
           <select v-model="filters.classification" class="select">
             <option value="">All</option>
-            <option value="normal">Normal</option>
+            <option value="normal">Default</option>
             <option value="important_class_1">Important Class I</option>
             <option value="important_class_2">Important Class II</option>
             <option value="critical">Critical</option>
@@ -467,7 +467,7 @@ function formatClassification(value: ProductClassification): string {
     case "critical":
       return "Critical";
     default:
-      return "Normal";
+      return "Default";
   }
 }
 

@@ -129,7 +129,7 @@
         </svg>
         <select v-model="filters.classification" class="pi-fpill-select" aria-label="Filter by classification">
           <option value="">All</option>
-          <option value="normal">Normal</option>
+          <option value="normal">Default</option>
           <option value="important_class_1">Important Class I</option>
           <option value="important_class_2">Important Class II</option>
           <option value="critical">Critical</option>
@@ -258,7 +258,7 @@
         <label class="pi-field">
           <span class="pi-field-lbl">Classification</span>
           <select v-model="form.current_classification" class="pi-select">
-            <option value="normal">Normal</option>
+            <option value="normal">Default</option>
             <option value="important_class_1">Important Class I</option>
             <option value="important_class_2">Important Class II</option>
             <option value="critical">Critical</option>
@@ -681,7 +681,7 @@ function formatClassification(value: ProductClassification | string): string {
     case "important_class_1": return "Important Class I";
     case "important_class_2": return "Important Class II";
     case "critical":          return "Critical";
-    default:                  return "Normal";
+    default:                  return "Default";
   }
 }
 

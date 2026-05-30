@@ -542,6 +542,7 @@
                 </button>
 
                 <span class="vuln-sort-count muted">{{ sortedVulnFindings.length }} of {{ vulnFindings.length }}</span>
+                <a href="https://www.first.org/epss" target="_blank" rel="noopener" class="epss-attribution" title="EPSS scores provided by FIRST.org — CC-BY 4.0">EPSS by FIRST.org</a>
               </div>
 
               <!-- Severity summary strip -->
@@ -2002,6 +2003,17 @@ input:focus, select:focus, textarea:focus {
 .source-badge-trivy  { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
 /* NVD — green */
 .source-badge-nvd    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+
+/* ── EPSS attribution link ── */
+.epss-attribution {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  margin-left: auto;
+  opacity: 0.7;
+}
+.epss-attribution:hover { opacity: 1; text-decoration: underline; }
 
 /* ── EPSS exploit probability badge ── */
 .epss-badge {

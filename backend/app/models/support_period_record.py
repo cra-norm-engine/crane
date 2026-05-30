@@ -39,7 +39,7 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
         default=SupportType.standard,
     )
 
-    justification_text: Mapped[str] = mapped_column(Text, nullable=False)
+    justification_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     expected_use_time_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     comparable_products_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     third_party_support_constraints_text: Mapped[str | None] = mapped_column(Text, nullable=True)

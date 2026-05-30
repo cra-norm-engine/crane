@@ -140,7 +140,10 @@ class SupportPeriodRecordService:
     def create_record(self, payload: SupportPeriodRecordCreate, actor: object) -> SupportPeriodRecordRead:
         self.product_repository.get_or_404(payload.product_id)
 
-        active_record = self.repository.get_active_by_product_id(payload.product_id)
+        active_record = self.repository.get_active_by_product_id(
+            payload.product_id,
+            product_release_id=payload.product_release_id,
+        )
         if active_record is not None:
             raise ConflictException(
                 "An active support period record already exists for this product. Use update/versioning instead."

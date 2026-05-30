@@ -1,385 +1,114 @@
-# CRA Compliance Tool
+# CRANE — CRA Norm Engine
 
-> **Self-hosted, open-source compliance management platform for manufacturers of products with digital elements under the EU Cyber Resilience Act (CRA).**
+**Self-hosted compliance management for the EU Cyber Resilience Act.**
 
----
-
-```
-  ██████╗██████╗  █████╗      ████████╗ ██████╗  ██████╗ ██╗
- ██╔════╝██╔══██╗██╔══██╗     ╚══██╔══╝██╔═══██╗██╔═══██╗██║
- ██║     ██████╔╝███████║        ██║   ██║   ██║██║   ██║██║
- ██║     ██╔══██╗██╔══██║        ██║   ██║   ██║██║   ██║██║
- ╚██████╗██║  ██║██║  ██║        ██║   ╚██████╔╝╚██████╔╝███████╗
-  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝        ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝
-
-  Compliance Management Platform  ·  EU Cyber Resilience Act
-```
+CRANE helps manufacturers of products with digital elements meet their CRA obligations — from SBOM analysis and vulnerability tracking to release gates and lifecycle notifications — in one auditable, self-hosted platform.
 
 ---
 
-## Why this exists
-
-The EU Cyber Resilience Act mandates that manufacturers of products with digital elements demonstrate continuous cybersecurity compliance — covering vulnerability management, SBOM generation, lifecycle notifications, risk assessments, and more. Existing tools are generic, expensive, or proprietary.
-
-This tool is built by a product security engineer who lives this problem daily. It is open source, self-hosted, and designed to be actually useful rather than checkbox theatre.
+![CRANE Dashboard](.github/assets/dashboard.png)
 
 ---
 
-## Feature Overview
+## Who is this for?
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     CRA COMPLIANCE TOOL                         │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│  Product        │  Security       │  Compliance                 │
-│  Management     │  Operations     │  Evidence                   │
-├─────────────────┼─────────────────┼─────────────────────────────┤
-│  Risk &         │  Vulnerability  │  Platform                   │
-│  Assessment     │  Handling       │  Administration             │
-└─────────────────┴─────────────────┴─────────────────────────────┘
-```
+| Audience | How CRANE helps |
+|---|---|
+| **Small & medium manufacturers** | Affordable alternative to expensive GRC platforms — self-host with Docker in minutes |
+| **Software manufacturers** | Track products, releases, SBOMs, and vulnerabilities in one place from day one of CRA |
+| **Consultants** | Deploy a dedicated instance per client engagement; portable data export at project close |
+| **Education & research** | Free, open source, fully documented — ideal for CRA training and academic research |
+| **Critical infrastructure operators** | Self-hosted with no external data sharing; LDAP/AD integration for enterprise environments |
 
 ---
 
-## Modules
+## Features
 
-### 📦 Product Management
-
-```
-Products ──► Releases ──► Release Gates ──► Artifacts
-   │             │              │
-   │             │         Gate Items (SBOM, pentest,
-   │             │         risk assessment, etc.)
-   │             │
-   └─────────────┴──► Support Periods ──► Lifecycle Alerts
-```
-
-- **Product inventory** — manage products, versions, manufacturers, categories, and intended purpose
-- **Release management** — version lifecycle tracking with release status (draft → released → recalled)
-- **Release gate workflow** — structured readiness checklist before a release ships; attach and review evidence artifacts per gate item
-- **Artifact management** — upload, version, and link evidence files (SBOMs, test reports, pentest results) to releases
-- **Support periods** — define start/end of active support per release
-
----
-
-### 🛡️ SBOM Analyzer
-
-```
-Upload SBOM ──► sbom-tools CLI ──► Analysis Results
-     │               │
-     │          ┌────┴─────────────────────┐
-     │          │  Quality score (0–100)   │
-     │          │  CRA Phase 2 validation  │
-     │          │  NTIA minimum elements   │
-     │          │  Recommendations         │
-     │          └──────────────────────────┘
-     │
-     └──► Auto-import from release gate artifact
-          Differential analysis vs previous SBOM
-```
-
-- **Automated analysis** via [sbom-tools](https://github.com/sbom-tool/sbom-tools) Rust CLI
-- **Quality scoring** (0–100, graded A–F) with prioritised improvement recommendations
-- **CRA Phase 2** compliance validation (EU Cyber Resilience Act Annex I Part II §1)
-- **NTIA Minimum Elements** validation (7 required data fields)
-- **Differential analysis** — automatically compares new SBOM against previous version; shows added, removed, and changed components
-- **Auto-import** from release gate artifacts — no double upload needed
-- Supports **CycloneDX** (JSON 1.4–1.7) and **SPDX** (JSON 2.2–3.0)
-
----
-
-### 🔒 Security Operations
-
-```
-Security Advisories ──► CVE tracking, affected versions, patches
-Security Updates     ──► Update history per product release
-CVD Policies         ──► Coordinated vulnerability disclosure policy
-Vulnerability Reports──► Incoming report intake and triage
-PSIRT Workflow       ──► Internal handling, severity, remediation
-```
-
-- **Security advisories** — publish and track CVEs affecting your products
-- **Security update history** — record updates issued per release, CVEs addressed, distribution mechanism
-- **CVD policies** — define and publish your coordinated vulnerability disclosure policy (CRA Annex I requirement)
-- **Vulnerability reports** — manage incoming reports from researchers and customers
-- **PSIRT workflow** — internal vulnerability handling from report to fix
-
----
-
-### 📋 CRA Essential Requirements
-
-```
-CRA Annex I Requirements
-        │
-        ├── Requirement coverage map
-        ├── Per-product compliance status
-        └── Evidence linking
-```
-
-- Visual **requirement coverage matrix** mapping CRA Annex I obligations to your products
-- Filter by product to see which requirements are met, partially met, or open
-- Links compliance evidence directly to specific requirements
-
----
-
-### ⚠️ Risk Assessment
-
-```
-Assessment ──► Risk Items ──► Severity + Likelihood ──► Mitigation
-    │
-    └──► Methodology (STRIDE, TARA, custom)
-         Version tracking
-         Approval workflow
-```
-
-- Structured **cybersecurity risk assessments** per product and release
-- Multiple methodology support (STRIDE, TARA, custom)
-- Risk item tracking with severity, likelihood, and mitigation actions
-- Version-controlled assessments with approval status
-
----
-
-### 🔔 Lifecycle Alerts
-
-```
-Support Periods ──► EOS analysis ──► Alerts
-                         │
-                    Threshold filters:
-                    < 30 days / < 3 months /
-                    < 6 months / < 1 year /
-                    Expired
-```
-
-- **End-of-Support (EOS) analysis** across all products
-- Configurable threshold alerts (30 days, 3 months, 6 months, 1 year)
-- Filters by EOS state, classification, and search
-- Manual EOS check trigger
-
----
-
-### 📜 Certification Records
-
-Track third-party certifications and conformity assessments:
-- Certificate type, issuing body, validity period
-- Linked to specific product releases
-- Expiry tracking
-
----
-
-### 🔄 Substantial Changes
-
-CRA Article 3(4) requires manufacturers to assess whether product modifications constitute a "substantial change" requiring re-conformity assessment:
-
-- Record and categorise changes (feature, security, repair, maintenance)
-- Assess substantiality with documented rationale
-- Status workflow (draft → submitted → assessed → closed)
-- Linked to specific product releases
-
----
-
-### 📊 Dashboard
-
-```
-┌──────────────┬──────────────┬──────────────┬──────────────┐
-│   Products   │   Releases   │ Open Vulns   │  SBOM Score  │
-├──────────────┴──────────────┴──────────────┴──────────────┤
-│          Compliance status overview                        │
-│          Recent activity feed                              │
-│          Tasks requiring attention                         │
-└────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 🏢 Support Hub
-
-CRA-oriented tools for customer support teams:
-- Product support lookup by product code or customer
-- EOS watchlist for at-risk customers
-- CVE lookup by product
-
----
-
-### 🗃️ Data Export / Import
-
-- Full data export for backup and migration
-- Import from external sources
-- Works with the self-hosted model — your data is always portable
-
----
-
-### 👥 Platform Administration
-
-```
-Users ──► Roles ──► Permissions
-  │
-  ├── Local authentication (email + password)
-  ├── LDAP / Active Directory integration
-  ├── Force password change on next login
-  └── Account activation / deactivation
-```
-
-- **Role-based access control** — define custom roles with granular permissions
-- **User management** — invite users, assign roles, manage account status
-- **LDAP integration** — plug into your existing Active Directory or OpenLDAP
-- **Audit history** — immutable, timestamped log of every action in the platform
-
----
-
-## Tech Stack
-
-```
-┌──────────────────────────────────────────────────────┐
-│  Frontend                                            │
-│  Vue 3 · TypeScript · Pinia · Vue Router · Axios    │
-├──────────────────────────────────────────────────────┤
-│  Backend                                             │
-│  FastAPI · SQLAlchemy 2.x · Pydantic v2 · Alembic   │
-├──────────────────────────────────────────────────────┤
-│  Database                                            │
-│  PostgreSQL 16                                       │
-├──────────────────────────────────────────────────────┤
-│  Analysis                                            │
-│  sbom-tools (Rust CLI) — quality + CRA validation   │
-├──────────────────────────────────────────────────────┤
-│  Infrastructure                                      │
-│  Docker · Docker Compose                             │
-└──────────────────────────────────────────────────────┘
-```
+| Area | What it does |
+|---|---|
+| **Product registry** | Track products, versions, releases, and support periods |
+| **Release gates** | Structured readiness checklist with evidence before every release |
+| **SBOM analysis** | Quality scoring, CRA Phase 2 validation, NTIA compliance, diff view |
+| **Vulnerability management** | PSIRT workflow, CVE tracking, EPSS scoring, VEX assessments |
+| **Security operations** | Advisories, CVD policies, update history, incoming report triage |
+| **Risk assessments** | STRIDE / TARA / custom methodology, approval workflow |
+| **CRA Annex I matrix** | Requirement coverage map per product with evidence links |
+| **Substantial changes** | Article 3(4) change assessment and re-conformity tracking |
+| **Lifecycle alerts** | End-of-support monitoring with configurable thresholds |
+| **Audit trail** | Immutable, timestamped log of every action |
+| **RBAC + LDAP** | Role-based access control, Active Directory / OpenLDAP integration |
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-- Docker and Docker Compose
-- Git
-
-### 1. Clone the repository
+**Prerequisites:** Docker and Docker Compose.
 
 ```bash
-git clone https://github.com/yourrepo/cra-compliance-tool.git
-cd cra-compliance-tool
-```
-
-### 2. Configure environment
-
-```bash
+git clone https://github.com/cra-norm-engine/crane.git
+cd crane
 cp .env.example .env
-```
-
-Edit `.env` and set at minimum:
-
-```env
-BACKEND_SECRET_KEY=your-secret-key-min-32-chars
-POSTGRES_PASSWORD=your-db-password
-```
-
-### 3. Start the stack
-
-```bash
+# Set BACKEND_SECRET_KEY and POSTGRES_PASSWORD in .env
 docker compose up -d
 ```
 
-### 4. Access the tool
-
-| Service  | URL                         |
-|----------|-----------------------------|
-| Frontend | http://localhost:5173       |
-| API      | http://localhost:8000/api/v1|
-| API Docs | http://localhost:8000/docs  |
-
----
-
-## Project Structure
-
-```
-cra-compliance-tool/
-├── backend/
-│   ├── app/
-│   │   ├── api/routes/       # FastAPI route handlers
-│   │   ├── models/           # SQLAlchemy ORM models
-│   │   ├── repositories/     # Database access layer
-│   │   ├── schemas/          # Pydantic request/response schemas
-│   │   ├── services/         # Business logic
-│   │   └── core/             # Config, security, database, audit
-│   ├── alembic/              # Database migrations
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── views/            # Page components
-│   │   ├── components/       # Shared UI components
-│   │   ├── services/         # API client services
-│   │   ├── stores/           # Pinia state stores
-│   │   └── types/            # TypeScript type definitions
-│   └── package.json
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
----
-
-## CRA Coverage
-
-| CRA Obligation | Covered by |
+| Service | URL |
 |---|---|
-| Annex I Part I — Security requirements | Risk assessments, PSIRT workflow, CVD policy |
-| Annex I Part II §1 — SBOM | SBOM analyzer with CRA Phase 2 validation |
-| Annex I Part II §2 — Vulnerability handling | Security advisories, vulnerability reports |
-| Annex I Part II §3 — CVD policy | CVD policies module |
-| Annex I Part II §4 — Security updates | Security update history |
-| Article 3(4) — Substantial changes | Substantial changes module |
-| Article 13 — Lifecycle notifications | Lifecycle alerts, support periods |
-| Annex II — Technical documentation | Certification records, release gate evidence |
+| App | http://localhost:5173 |
+| API | http://localhost:8000/api/v1 |
+| API docs | http://localhost:8000/docs |
+
+Default admin credentials are printed in the backend logs on first run.
 
 ---
 
-## Authentication
+## Stack
 
-- **Local accounts** — email and password, bcrypt hashed
-- **LDAP / Active Directory** — JIT provisioning on first login
-- **JWT** — short-lived access tokens + refresh token rotation
-- **Forced password change** — flag users to change password on next login
-- **Immutable audit log** — every login, change, and deletion is recorded
-
----
-
-## Self-Hosted by Design
-
-Your compliance data never leaves your infrastructure:
-
-- All data stored in your own PostgreSQL instance
-- SBOM files stored on your own filesystem
-- No telemetry, no callbacks, no external dependencies at runtime
-- Full data export at any time
-- Open source — audit the code, fork it, extend it
+**Backend:** FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Alembic · Pydantic v2  
+**Frontend:** Vue 3 · TypeScript · Pinia · Vite  
+**Scanning:** Trivy (optional) · OSV · NVD · EPSS by FIRST.org
 
 ---
 
 ## Roadmap
 
-- [ ] PDF compliance report export (Notified Body audit package)
-- [ ] Self-service registration with demo workspaces
-- [ ] GitHub / Google OAuth
-- [ ] Email-based password reset
-- [ ] Jira / GitHub Issues integration for vulnerability tracking
-- [ ] Multi-tenant support
-- [ ] Railway sector overlay (NIS2, CENELEC EN 50128/50657)
+### Near term
+- [ ] PDF compliance report export — audit-ready package for Notified Body submissions
+- [ ] Email notifications — EOS alerts, vulnerability digest, gate approvals
+- [ ] GitHub / GitLab OAuth login
+- [ ] Password reset via email
+
+### Medium term
+- [ ] Multi-tenant support — manage multiple organisations from one instance
+- [ ] Jira / GitHub Issues integration — sync vulnerabilities to your issue tracker
+- [ ] REST API webhooks — push compliance events to external systems
+- [ ] CRA Article 14 incident reporting workflow
+
+### Long term
+- [ ] Railway sector overlay (NIS2, CENELEC EN 50128 / EN 50657)
+- [ ] IEC 62443 requirement mapping
+- [ ] AI-assisted risk assessment suggestions
+- [ ] Marketplace for sector-specific compliance templates
+
+---
+
+## Self-hosted by design
+
+- All data stays in your own PostgreSQL instance
+- No telemetry, no callbacks, no external dependencies at runtime
+- Full data export at any time
+- AGPL-3.0 — audit the code, fork it, extend it
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please open an issue before submitting a pull request for significant changes.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please open an issue before submitting a PR for significant changes.
 
----
+## Security
+
+To report a vulnerability privately, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE)
-
----
-
-> Built by a product security engineer working in critical infrastructure.  
-> CRA compliance is hard. This tool tries to make it less hard.
+[GNU Affero General Public License v3.0](LICENSE)

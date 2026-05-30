@@ -1454,7 +1454,7 @@ function formatClassification(value: ProductClassification): string {
     case "important_class_1": return "Important Class I";
     case "important_class_2": return "Important Class II";
     case "critical":          return "Critical";
-    default:                  return "Normal";
+    default:                  return "Default";
   }
 }
 

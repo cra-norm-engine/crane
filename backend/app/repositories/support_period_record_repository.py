@@ -49,12 +49,17 @@ class SupportPeriodRecordRepository(BaseRepository[SupportPeriodRecord]):
             raise NotFoundException("Support period record not found")
         return record
 
-    def get_active_by_product_id(self, product_id: UUID) -> SupportPeriodRecord | None:
+    def get_active_by_product_id(
+        self,
+        product_id: UUID,
+        product_release_id: UUID | None = None,
+    ) -> SupportPeriodRecord | None:
         statement = (
             select(SupportPeriodRecord)
             .where(
                 SupportPeriodRecord.product_id == product_id,
                 SupportPeriodRecord.is_active.is_(True),
+                SupportPeriodRecord.product_release_id == product_release_id,
             )
             .options(*self._default_options())
             .order_by(SupportPeriodRecord.created_at.desc())

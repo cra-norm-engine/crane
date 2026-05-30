@@ -37,7 +37,7 @@ class SupportPeriodRecordBase(BaseModel):
     support_type: SupportType = SupportType.standard
     recipient_user_ids: list[UUID] = Field(default_factory=list)
 
-    justification_text: str = Field(min_length=1)
+    justification_text: str | None = None
     expected_use_time_text: str | None = None
     comparable_products_text: str | None = None
     third_party_support_constraints_text: str | None = None
@@ -63,7 +63,7 @@ class SupportPeriodRecordUpdate(BaseModel):
     support_type: SupportType | None = None
     recipient_user_ids: list[UUID] | None = None
 
-    justification_text: str | None = Field(default=None, min_length=1)
+    justification_text: str | None = None
     expected_use_time_text: str | None = None
     comparable_products_text: str | None = None
     third_party_support_constraints_text: str | None = None
@@ -100,7 +100,7 @@ class SupportPeriodSnippetGenerateRequest(BaseModel):
     support_end_date: date
     support_type: SupportType = SupportType.standard
 
-    justification_text: str = Field(min_length=1)
+    justification_text: str | None = None
     expected_use_time_text: str | None = None
     comparable_products_text: str | None = None
     third_party_support_constraints_text: str | None = None
