@@ -79,6 +79,11 @@ See [Scenarios](https://cra-norm-engine.github.io/crane/scenarios.html) where CR
 ---
 
 ## Installation
+Prerequisites#
+
+- [Docker Desktop](https://docs.docker.com/get-started/get-docker/) installed and running.
+- On Windows: Docker set to Linux containers (right-click the Docker tray icon to switch).
+- Roughly 2 GB of free disk for the image and vulnerability database.
 
 **One-liner (fastest):**
 
