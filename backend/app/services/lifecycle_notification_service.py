@@ -36,11 +36,13 @@ class LifecycleNotificationService:
         status: LifecycleNotificationStatus | None = None,
         support_period_record_id: UUID | None = None,
         notification_type: LifecycleNotificationType | None = None,
+        recipient_user_id: UUID | None = None,
     ) -> list[LifecycleNotificationRead]:
         notifications = self.repository.list_all(
             status=status,
             support_period_record_id=support_period_record_id,
             notification_type=notification_type,
+            recipient_user_id=recipient_user_id,
         )
         return [LifecycleNotificationRead.model_validate(item) for item in notifications]
 
@@ -151,9 +153,15 @@ class LifecycleNotificationService:
             .filter_by(product_id=product.id, is_active=True)
             .first()
         )
-        if active_record is None or not active_record.notification_recipients:
+
+        # Collect recipients — fall back to the actor if no support period or no recipients.
+        if active_record and active_record.notification_recipients:
+            recipient_user_ids = [r.user_id for r in active_record.notification_recipients]
+        elif actor is not None and hasattr(actor, "id"):
+            recipient_user_ids = [actor.id]
+        else:
             logger.debug(
-                "No active support period recipients for product %s — skipping security update notifications",
+                "No recipients and no actor for product %s — skipping security update notifications",
                 product.id,
             )
             return []
@@ -166,19 +174,21 @@ class LifecycleNotificationService:
         )
         created: list[LifecycleNotification] = []
 
-        for recipient in active_record.notification_recipients:
+        support_record_id = active_record.id if active_record else None
+
+        for user_id in recipient_user_ids:
             existing = self.repository.get_by_security_update_and_type(
                 security_update_id=su.id,
                 notification_type=LifecycleNotificationType.security_update_available,
-                recipient_user_id=recipient.user_id,
+                recipient_user_id=user_id,
             )
             if existing is not None:
                 continue
 
             notif = LifecycleNotification(
-                support_period_record_id=None,
+                support_period_record_id=support_record_id,
                 security_update_id=su.id,
-                recipient_user_id=recipient.user_id,
+                recipient_user_id=user_id,
                 notification_type=LifecycleNotificationType.security_update_available,
                 status=LifecycleNotificationStatus.pending,
                 scheduled_for=datetime.now(UTC),

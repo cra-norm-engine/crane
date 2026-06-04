@@ -55,6 +55,8 @@
         <button
           class="button"
           type="button"
+          :disabled="!selectedReleaseId"
+          :title="!selectedReleaseId ? 'Select a product and release first' : ''"
           @click="showCreateModal = true"
         >
           + New security update
@@ -973,7 +975,7 @@ select {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #6ea8fe);
+  background: linear-gradient(135deg, var(--color-primary, #16a34a), var(--color-primary-dark, #15803d));
   color: white;
 }
 

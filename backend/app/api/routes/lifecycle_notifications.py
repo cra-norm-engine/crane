@@ -33,6 +33,7 @@ def list_lifecycle_notifications(
         status=status,
         support_period_record_id=support_period_record_id,
         notification_type=notification_type,
+        recipient_user_id=current_user.id,
     )
 
 

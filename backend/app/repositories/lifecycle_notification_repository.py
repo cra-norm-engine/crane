@@ -28,6 +28,7 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         status: LifecycleNotificationStatus | None = None,
         notification_type: LifecycleNotificationType | None = None,
         support_period_record_id: UUID | None = None,
+        recipient_user_id: UUID | None = None,
     ) -> list[LifecycleNotification]:
         statement = (
             select(LifecycleNotification)
@@ -44,6 +45,11 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         if support_period_record_id is not None:
             statement = statement.where(
                 LifecycleNotification.support_period_record_id == support_period_record_id
+            )
+
+        if recipient_user_id is not None:
+            statement = statement.where(
+                LifecycleNotification.recipient_user_id == recipient_user_id
             )
 
         return list(self.db.scalars(statement).all())
