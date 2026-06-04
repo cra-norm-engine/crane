@@ -1,6 +1,6 @@
 alembic==1.14.1
 jinja2==3.1.4
-weasyprint==60.2
+weasyprint==69.0
 bleach==6.2.0
 ldap3==2.9.1
 email-validator==2.2.0

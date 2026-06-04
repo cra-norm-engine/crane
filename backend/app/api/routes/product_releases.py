@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from functools import partial
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -91,7 +93,7 @@ def update_release_requirement_decision(
 
 
 @router.get("/{release_id}/report", response_class=Response)
-def download_release_report(
+async def download_release_report(
     release_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
@@ -99,13 +101,12 @@ def download_release_report(
     """
     Generate and return a PDF compliance report for the given release.
 
-    The report includes: product summary, release metadata, EU DoC fields,
-    release gate status, substantial modification analysis, risk assessments,
-    SBOM records, security updates, vulnerability reports, support periods,
-    and certification records.
+    WeasyPrint is CPU-intensive so generation runs in a thread-pool executor
+    to avoid blocking the event loop during rendering.
     """
     service = ReleaseReportService(db)
-    pdf_bytes = service.generate_pdf(release_id)
+    loop = asyncio.get_event_loop()
+    pdf_bytes = await loop.run_in_executor(None, partial(service.generate_pdf, release_id))
     filename = service.generate_filename(release_id)
     return Response(
         content=pdf_bytes,

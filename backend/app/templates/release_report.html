@@ -817,7 +817,7 @@ p  { margin-bottom: 6pt; }
         <td><span class="badge badge-blue">{{ sp.support_type.value | fmt_status }}</span></td>
         <td>{{ sp.support_start_date | fmt_date }}</td>
         <td>{{ sp.support_end_date | fmt_date }}</td>
-        <td>{{ sp.justification_text[:120] }}{% if sp.justification_text | length > 120 %}…{% endif %}</td>
+        <td>{% if sp.justification_text %}{{ sp.justification_text[:120] }}{% if sp.justification_text | length > 120 %}…{% endif %}{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
