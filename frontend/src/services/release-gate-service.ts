@@ -124,10 +124,11 @@ export const releaseGateService = {
   },
 
   async downloadReport(productReleaseId: string): Promise<void> {
-    /* Generate and download the PDF compliance report for this release. */
+    /* Generate and download the PDF compliance report for this release.
+       Extended timeout: WeasyPrint rendering on low-resource hosts can take 60–90 s. */
     const response = await apiClient.get(
       `/product-releases/${productReleaseId}/report`,
-      { responseType: "blob" },
+      { responseType: "blob", timeout: 120_000 },
     );
     const contentDisposition: string = response.headers["content-disposition"] ?? "";
     const match = contentDisposition.match(/filename="([^"]+)"/);
