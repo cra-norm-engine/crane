@@ -10,7 +10,7 @@ WORKDIR /workspace/backend
 # Trivy (Aqua Security) — secondary SBOM vulnerability scanner; aggregates NVD,
 # GHSA, OSV, Ubuntu, Debian, Alpine, RHEL for broader OS-level CVE coverage.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl tar \
+        ca-certificates curl tar \
         # WeasyPrint runtime dependencies (PDF rendering via Pango/Cairo)
         libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-xlib-2.0-0 \
         shared-mime-info fonts-dejavu-core && \
