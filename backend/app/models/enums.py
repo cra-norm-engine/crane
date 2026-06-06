@@ -367,6 +367,33 @@ class VulnerabilitySource(StrEnum):
     sbom_scan = "sbom_scan" # Auto-created from an SBOM component scan via OSV API
 
 
+class IncidentReportStatus(StrEnum):
+    """
+    Lifecycle of a severe incident report (CRA Art. 14 — incident branch).
+    Transitions: reported → triaged → contained → resolved → closed
+    """
+    reported  = "reported"   # Incident logged, initial assessment pending
+    triaged   = "triaged"    # Impact and severity assessed
+    contained = "contained"  # Immediate threat neutralised, fix in progress
+    resolved  = "resolved"   # Corrective measures deployed
+    closed    = "closed"     # Post-incident review complete
+
+
+class IncidentSeverityCriteria(StrEnum):
+    """
+    ENISA SRP field i22 — the specific severity criterion that makes an incident reportable.
+    A reportable incident must meet at least one of these two criteria (CRA Art. 14(3)).
+    """
+    # Negatively affects the product's ability to protect availability,
+    # authenticity, integrity, or confidentiality of sensitive/important data.
+    data_protection_impact = "data_protection_impact"
+    # Has led to or is capable of leading to the introduction or execution
+    # of malicious code in the product or in a user's network/system.
+    malicious_code_execution = "malicious_code_execution"
+    # Both criteria apply.
+    both = "both"
+
+
 class EntityType(StrEnum):
     user = "user"
     role = "role"
@@ -394,3 +421,4 @@ class EntityType(StrEnum):
     market_action = "market_action"
     comment = "comment"
     sbom_vulnerability_finding = "sbom_vulnerability_finding"
+    incident_report = "incident_report"

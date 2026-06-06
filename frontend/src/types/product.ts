@@ -653,6 +653,19 @@ export interface VulnerabilityReportRead {
   epss_score: number | null;
   /** EPSS percentile rank [0.0–1.0] among all scored CVEs. */
   epss_percentile: number | null;
+  // ENISA SRP vulnerability-specific fields (v14–v26)
+  /** v14 — ENISA European Vulnerability Database ID (separate from CVE). */
+  euvd_id: string | null;
+  /** v18 — actions the manufacturer has taken to fix or mitigate the vulnerability. */
+  corrective_measures_taken: string | null;
+  /** v19 — guidance for product users (patches to apply, config changes, workarounds). */
+  user_corrective_measures: string | null;
+  /** v20 — whether this report contains sensitive information that should not be publicly disseminated. */
+  information_sensitivity: string | null;
+  /** v24 — impact of the vulnerability, e.g. remote code execution, data exfiltration, denial of service. */
+  vulnerability_impact: string | null;
+  /** v25 — known or suspected threat actor actively exploiting this vulnerability. */
+  malicious_actor_info: string | null;
   // CRA Art. 14 — ENISA Single Reporting Platform fields
   /** True when the manufacturer confirms reliable evidence of active exploitation (Art. 3(42)) requiring ENISA notification. */
   enisa_reporting_required: boolean;
@@ -701,6 +714,12 @@ export interface VulnerabilityReportUpdate {
   linked_advisory_id?: string | null;
   assigned_to_user_id?: string | null;
   due_date?: string | null;
+  euvd_id?: string | null;
+  corrective_measures_taken?: string | null;
+  user_corrective_measures?: string | null;
+  information_sensitivity?: string | null;
+  vulnerability_impact?: string | null;
+  malicious_actor_info?: string | null;
   enisa_reporting_required?: boolean;
   enisa_reference_number?: string | null;
 }
@@ -844,4 +863,84 @@ export interface LifecycleNotificationMarkSentRequest {
 
 export interface LifecycleNotificationDismissRequest {
   dismissed_at?: string | null;
+}
+
+// ── CRA Art. 14 — Incident Reports ───────────────────────────────────────────
+
+export type IncidentReportStatus = "reported" | "triaged" | "contained" | "resolved" | "closed";
+
+export interface IncidentReportRead {
+  id: string;
+  product_release_id: string;
+  title: string;
+  status: IncidentReportStatus;
+  suspected_malicious_act: boolean;
+  incident_nature: string | null;
+  detected_at: string | null;
+  occurred_at: string | null;
+  initial_assessment: string | null;
+  corrective_measures_taken: string | null;
+  user_corrective_measures: string | null;
+  information_sensitivity: string | null;
+  incident_impact_category: string | null;
+  severity: SecurityUpdateSeverity | null;
+  incident_impact: string | null;
+  threat_type_root_cause: string | null;
+  applied_mitigations: string | null;
+  assigned_to_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+  enisa_reporting_required: boolean;
+  enisa_reference_number: string | null;
+  enisa_early_warning_sent_at: string | null;
+  enisa_initial_report_sent_at: string | null;
+  enisa_final_report_sent_at: string | null;
+  enisa_early_warning_deadline: string | null;
+  enisa_initial_report_deadline: string | null;
+  enisa_final_report_deadline: string | null;
+}
+
+export interface IncidentReportCreate {
+  product_release_id: string;
+  title: string;
+  suspected_malicious_act?: boolean;
+  incident_nature?: string | null;
+  detected_at?: string | null;
+  occurred_at?: string | null;
+  initial_assessment?: string | null;
+  corrective_measures_taken?: string | null;
+  user_corrective_measures?: string | null;
+  information_sensitivity?: string | null;
+  incident_impact_category?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  incident_impact?: string | null;
+  threat_type_root_cause?: string | null;
+  applied_mitigations?: string | null;
+  enisa_reporting_required?: boolean;
+}
+
+export interface IncidentReportUpdate {
+  title?: string;
+  status?: IncidentReportStatus;
+  suspected_malicious_act?: boolean;
+  incident_nature?: string | null;
+  detected_at?: string | null;
+  occurred_at?: string | null;
+  initial_assessment?: string | null;
+  corrective_measures_taken?: string | null;
+  user_corrective_measures?: string | null;
+  information_sensitivity?: string | null;
+  incident_impact_category?: string | null;
+  severity?: SecurityUpdateSeverity | null;
+  incident_impact?: string | null;
+  threat_type_root_cause?: string | null;
+  applied_mitigations?: string | null;
+  assigned_to_user_id?: string | null;
+  enisa_reporting_required?: boolean;
+  enisa_reference_number?: string | null;
+}
+
+export interface IncidentEnisaMarkSentRequest {
+  sent_at?: string | null;
+  reference_number?: string | null;
 }
