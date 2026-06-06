@@ -310,6 +310,13 @@ class ProductRelease(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(VulnerabilityReport.created_at)",
     )
+    incident_reports: Mapped[list["IncidentReport"]] = relationship(
+        "IncidentReport",
+        back_populates="product_release",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(IncidentReport.created_at)",
+    )
     sbom_records: Mapped[list["SbomRecord"]] = relationship(
         "SbomRecord",
         back_populates="product_release",

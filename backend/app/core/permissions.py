@@ -50,6 +50,12 @@ class Permission(StrEnum):
     lifecycle_notification_read = "lifecycle_notification_read"
     lifecycle_notification_write = "lifecycle_notification_write"
 
+    # CRA Art. 14 — vulnerability reports and ENISA SRP filings
+    vulnerability_report_read = "vulnerability_report_read"
+    vulnerability_report_write = "vulnerability_report_write"
+    enisa_report_read = "enisa_report_read"
+    enisa_report_write = "enisa_report_write"
+
     audit_read = "audit_read"
     authority_package_generate = "authority_package_generate"
     admin_manage_users = "admin_manage_users"
