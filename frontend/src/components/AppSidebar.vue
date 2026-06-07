@@ -66,7 +66,20 @@
 
       <!-- Main workspace links -->
       <div class="nav-group">
-        <p class="nav-group-label">Menu</p>
+        <button
+          type="button"
+          class="nav-group-header"
+          :aria-expanded="isExpanded('menu')"
+          aria-controls="nav-group-body-menu"
+          @click="toggleGroup('menu')"
+        >
+          <span class="nav-group-label">Menu</span>
+          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('menu') }" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" fill="currentColor"/>
+          </svg>
+        </button>
+        <div id="nav-group-body-menu" class="nav-group-body" :class="{ 'is-expanded': isExpanded('menu') }">
+        <div class="nav-group-links">
 
         <!-- Product inventory — always visible -->
         <RouterLink
@@ -171,13 +184,29 @@
           </span>
           <span>Support Hub</span>
         </RouterLink>
+
+        </div>
+        </div>
       </div>
 
       <!-- Vulnerability handling — CRA Annex I Part II (PSIRT workflow) -->
       <template v-if="canViewSecurityUpdates">
         <div class="nav-divider" role="separator" />
         <div class="nav-group">
-          <p class="nav-group-label">Vulnerability handling</p>
+          <button
+            type="button"
+            class="nav-group-header"
+            :aria-expanded="isExpanded('vulnerability')"
+            aria-controls="nav-group-body-vulnerability"
+            @click="toggleGroup('vulnerability')"
+          >
+            <span class="nav-group-label">Vulnerability handling</span>
+            <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('vulnerability') }" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="currentColor"/>
+            </svg>
+          </button>
+          <div id="nav-group-body-vulnerability" class="nav-group-body" :class="{ 'is-expanded': isExpanded('vulnerability') }">
+          <div class="nav-group-links">
 
           <RouterLink
             :to="{ name: 'vulnerability-handling' }"
@@ -216,6 +245,9 @@
             </span>
             <span>SBOM analyzer</span>
           </RouterLink>
+
+          </div>
+          </div>
         </div>
       </template>
 
@@ -223,7 +255,20 @@
 
       <!-- Governance group -->
       <div class="nav-group">
-        <p class="nav-group-label">Governance</p>
+        <button
+          type="button"
+          class="nav-group-header"
+          :aria-expanded="isExpanded('governance')"
+          aria-controls="nav-group-body-governance"
+          @click="toggleGroup('governance')"
+        >
+          <span class="nav-group-label">Governance</span>
+          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('governance') }" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" fill="currentColor"/>
+          </svg>
+        </button>
+        <div id="nav-group-body-governance" class="nav-group-body" :class="{ 'is-expanded': isExpanded('governance') }">
+        <div class="nav-group-links">
 
         <!-- Audit history — permission-gated -->
         <RouterLink
@@ -253,6 +298,9 @@
           </span>
           <span>Data export / import</span>
         </RouterLink>
+
+        </div>
+        </div>
       </div>
 
       <!-- Administration group — only for admins -->
@@ -260,7 +308,20 @@
         <div class="nav-divider" role="separator" />
 
         <div class="nav-group">
-          <p class="nav-group-label">Administration</p>
+          <button
+            type="button"
+            class="nav-group-header"
+            :aria-expanded="isExpanded('administration')"
+            aria-controls="nav-group-body-administration"
+            @click="toggleGroup('administration')"
+          >
+            <span class="nav-group-label">Administration</span>
+            <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('administration') }" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="currentColor"/>
+            </svg>
+          </button>
+          <div id="nav-group-body-administration" class="nav-group-body" :class="{ 'is-expanded': isExpanded('administration') }">
+          <div class="nav-group-links">
 
           <RouterLink
             :to="{ name: 'admin-users' }"
@@ -300,6 +361,9 @@
             </span>
             <span>LDAP</span>
           </RouterLink>
+
+          </div>
+          </div>
         </div>
       </template>
 
@@ -358,8 +422,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { computed, ref } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
 import AppLogo from "@/components/AppLogo.vue";
@@ -384,7 +448,71 @@ const emit = defineEmits<{
 
 /* ── Composables ─────────────────────────────────────── */
 const router    = useRouter();
+const route     = useRoute();
 const authStore = useAuthStore();
+
+/* ── Collapsible nav groups ──────────────────────────── */
+const NAV_GROUP_STORAGE_KEY = "sidebar-nav-group-state";
+
+/** Maps route names to the nav group that contains them, so the
+ *  group holding the active route auto-expands on navigation. */
+const ROUTE_GROUP_MAP: Record<string, string> = {
+  products: "menu",
+  "risk-assessments": "menu",
+  "annex-matrix": "menu",
+  "lifecycle-notifications": "menu",
+  "certification-records": "menu",
+  changes: "menu",
+  "support-hub": "menu",
+
+  "vulnerability-handling": "vulnerability",
+  "security-updates": "vulnerability",
+  "sbom-records": "vulnerability",
+
+  "audit-history": "governance",
+  "product-data": "governance",
+
+  "admin-users": "administration",
+  "admin-roles": "administration",
+  "admin-ldap": "administration",
+};
+
+const activeGroupId = computed(() => ROUTE_GROUP_MAP[(route.name as string) ?? ""]);
+
+/** User's explicit expand/collapse choices, persisted to localStorage.
+ *  Absence of an entry means "follow the active route automatically". */
+const manualOverrides = ref<Map<string, boolean>>(loadGroupOverrides());
+
+function loadGroupOverrides(): Map<string, boolean> {
+  try {
+    const raw = localStorage.getItem(NAV_GROUP_STORAGE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw) as Record<string, boolean>;
+    return new Map(Object.entries(parsed));
+  } catch {
+    return new Map();
+  }
+}
+
+function persistGroupOverrides(): void {
+  try {
+    localStorage.setItem(
+      NAV_GROUP_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(manualOverrides.value)),
+    );
+  } catch {
+    /* localStorage unavailable (e.g. private browsing) — preference simply won't persist */
+  }
+}
+
+function isExpanded(groupId: string): boolean {
+  return manualOverrides.value.get(groupId) ?? groupId === activeGroupId.value;
+}
+
+function toggleGroup(groupId: string): void {
+  manualOverrides.value.set(groupId, !isExpanded(groupId));
+  persistGroupOverrides();
+}
 
 /* ── Permission gates ────────────────────────────────── */
 /* Each computed checks a single permission string so the
@@ -531,6 +659,70 @@ function logout(): void {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(220, 233, 214, 0.35);
+}
+
+/* Clickable header that toggles a collapsible nav group */
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.2rem 0.5rem;
+  margin: 0 0 0.1rem;
+  border-radius: 6px;
+  transition: background-color var(--t-fast);
+}
+
+.nav-group-header:hover { background: var(--color-nav-hover-bg); }
+
+.nav-group-header:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.nav-group-header .nav-group-label {
+  margin: 0;
+  padding: 0;
+}
+
+.nav-group-chevron {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  opacity: 0.55;
+  transition: transform var(--t-base), opacity var(--t-fast);
+  transform: rotate(-90deg);
+}
+
+.nav-group-chevron.is-expanded {
+  transform: rotate(0deg);
+  opacity: 0.9;
+}
+
+/* Animated collapse/expand wrapper for a group's links */
+.nav-group-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  transition: grid-template-rows var(--t-slow), opacity var(--t-base);
+}
+
+.nav-group-body.is-expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.nav-group-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 0;
 }
 
 /* Thin horizontal rule between groups */
