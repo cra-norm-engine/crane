@@ -74,6 +74,7 @@
         <table class="data-table">
           <thead>
             <tr>
+              <th>Product / Release</th>
               <th>Format</th>
               <th>Spec display_version</th>
               <th>Components</th>
@@ -94,6 +95,12 @@
               tabindex="0"
               @keydown.enter="openDetail(r)"
             >
+              <td>
+                <div class="sbom-release-cell">
+                  <span class="sbom-product-name">{{ releaseMap.get(r.product_release_id)?.product_name ?? '—' }}</span>
+                  <span class="sbom-release-ver muted">{{ releaseMap.get(r.product_release_id)?.display_version ?? r.product_release_id.slice(0,8) }}</span>
+                </div>
+              </td>
               <td><span class="format-badge" :class="`format-${r.format}`">{{ r.format.toUpperCase() }}</span></td>
               <td>{{ r.spec_version || "—" }}</td>
               <td>
@@ -733,6 +740,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import AppModal from "@/components/AppModal.vue";
 import { apiClient } from "@/services/api";
 import { sbomRecordService } from "@/services/sbom-record-service";
+import { productReleaseService } from "@/services/product-release-service";
 import type {
   ProductReleaseSummaryRead,
   ProductSummaryRead,
@@ -768,6 +776,7 @@ const vulnSourceFilter = ref<"all" | "osv" | "trivy">("all");
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseSummaryRead[]>([]);
 const records = ref<SbomRecordRead[]>([]);
+const releaseMap = ref<Map<string, ProductReleaseSummaryRead>>(new Map());
 
 const productQuery = ref("");
 const selectedProductId = ref("");
@@ -976,6 +985,10 @@ async function loadSbomRecords(): Promise<void> {
     }
     const { data } = await apiClient.get<SbomRecordRead[]>("/sbom-records/", { params });
     records.value = data;
+
+    /* Build a release lookup map so each row can display product + release name */
+    const allReleases = releases.value.length ? releases.value : await productReleaseService.list();
+    releaseMap.value = new Map(allReleases.map((r) => [r.id, r]));
   } catch {
     errorMessage.value = "Failed to load SBOM records.";
   } finally {
@@ -1383,6 +1396,11 @@ input:focus, select:focus, textarea:focus {
 .table-row-clickable { cursor: pointer; transition: background 0.12s; }
 .table-row-clickable:hover { background: var(--color-surface-elevated); }
 .table-row-clickable:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+/* ── Product / release cell ── */
+.sbom-release-cell { display: flex; flex-direction: column; gap: 0.1rem; }
+.sbom-product-name { font-weight: 600; font-size: 0.88rem; }
+.sbom-release-ver  { font-size: 0.78rem; }
 
 /* ── Format badges ── */
 .format-badge {

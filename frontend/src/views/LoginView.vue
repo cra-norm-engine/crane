@@ -4,6 +4,20 @@
     <!-- ═══════════ Brand panel (always dark) ═══════════ -->
     <section class="brand-panel">
 
+      <!-- Floating particles -->
+      <div class="bp-particles" aria-hidden="true">
+        <span style="--px: 8%;  --ps: 5px; --pd: 16s; --pdelay: -2s;"></span>
+        <span style="--px: 22%; --ps: 8px; --pd: 22s; --pdelay: -9s;"></span>
+        <span style="--px: 38%; --ps: 4px; --pd: 14s; --pdelay: -5s;"></span>
+        <span style="--px: 53%; --ps: 7px; --pd: 24s; --pdelay: -14s;"></span>
+        <span style="--px: 67%; --ps: 5px; --pd: 18s; --pdelay: -3s;"></span>
+        <span style="--px: 79%; --ps: 9px; --pd: 26s; --pdelay: -11s;"></span>
+        <span style="--px: 91%; --ps: 4px; --pd: 15s; --pdelay: -7s;"></span>
+        <span style="--px: 14%; --ps: 6px; --pd: 20s; --pdelay: -16s;"></span>
+        <span style="--px: 60%; --ps: 4px; --pd: 13s; --pdelay: -1s;"></span>
+        <span style="--px: 85%; --ps: 6px; --pd: 19s; --pdelay: -6s;"></span>
+      </div>
+
       <div class="bp-mark">
         <AppLogo on-dark :scale="1.4" />
       </div>
@@ -18,7 +32,7 @@
           EU Cyber Resilience Act
         </span>
 
-        <h1 class="bp-heading">Compliance,<br>under control.</h1>
+        <h1 class="bp-heading">Cyber Resilience Act<br>Norm Engine (CRANE)</h1>
 
         <p class="bp-desc">
           One workspace for CRA conformity — from product scope and risk
@@ -138,12 +152,6 @@
             </div>
           </div>
 
-          <!-- Remember me -->
-          <label class="remember">
-            <input v-model="remember" class="remember-ck" type="checkbox" />
-            <span>Keep me signed in on this device</span>
-          </label>
-
           <!-- Submit -->
           <button class="btn btn-primary" type="submit" :disabled="loading" :aria-busy="loading">
             <span v-if="loading" class="btn-loading">
@@ -185,7 +193,7 @@
         </button>
 
         <!-- Admin contact -->
-        <p class="admin-note">New to CRANE? <a href="#">Contact your administrator</a></p>
+        <p class="admin-note">New to CRANE? Contact your administrator: <a href="mailto:cra.norm.engine@gmail.com">cra.norm.engine@gmail.com</a></p>
 
       </div>
     </section>
@@ -198,6 +206,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
+import { useToast } from "@/composables/useToast";
 import type { ApiError } from "@/services/error-handler";
 import AppLogo from "@/components/AppLogo.vue";
 
@@ -207,12 +216,12 @@ const password     = ref("");
 const loading      = ref(false);
 const error        = ref<string | null>(null);
 const showPassword = ref(false);
-const remember     = ref(false);
 
 /* ── Composables ─────────────────────────────── */
 const authStore = useAuthStore();
 const router    = useRouter();
 const route     = useRoute();
+const { showToast } = useToast();
 
 /* ── Login handler ───────────────────────────── */
 async function handleLogin(): Promise<void> {
@@ -240,7 +249,7 @@ async function handleLogin(): Promise<void> {
 }
 
 function handleSso(): void {
-  /* SSO/LDAP flow — placeholder for future integration */
+  showToast({ type: "info", message: "SSO / LDAP sign-in is disabled by your administrator." });
 }
 </script>
 
@@ -280,7 +289,64 @@ function handleSso(): void {
   pointer-events: none;
 }
 
+/* Roaming glow orbs */
+.brand-panel::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(30rem 30rem at 50% 50%, oklch(0.58 0.11 155 / 0.26) 0%, transparent 58%),
+    radial-gradient(24rem 24rem at 50% 50%, oklch(0.64 0.10 168 / 0.20) 0%, transparent 60%);
+  background-position: 15% 20%, 80% 75%;
+  background-repeat: no-repeat;
+  filter: blur(6px);
+  animation: bp-drift 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes bp-drift {
+  0%   { background-position: 12% 18%, 82% 78%; transform: scale(1)    rotate(0deg); }
+  33%  { background-position: 40% 60%, 60% 30%; transform: scale(1.12) rotate(4deg); }
+  66%  { background-position: 70% 25%, 25% 70%; transform: scale(0.96) rotate(-3deg); }
+  100% { background-position: 12% 18%, 82% 78%; transform: scale(1)    rotate(0deg); }
+}
+
+/* Floating particles rising through the panel */
+.bp-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bp-particles span {
+  position: absolute;
+  bottom: -8%;
+  width: var(--ps, 6px);
+  height: var(--ps, 6px);
+  border-radius: 50%;
+  background: oklch(0.78 0.09 155 / 0.5);
+  box-shadow: 0 0 10px 1px oklch(0.78 0.09 155 / 0.35);
+  left: var(--px, 50%);
+  animation: bp-float var(--pd, 18s) linear infinite;
+  animation-delay: var(--pdelay, 0s);
+}
+
+@keyframes bp-float {
+  0%   { transform: translateY(0) translateX(0);    opacity: 0; }
+  10%  { opacity: 0.8; }
+  50%  { transform: translateY(-58vh) translateX(14px); }
+  90%  { opacity: 0.5; }
+  100% { transform: translateY(-118vh) translateX(-10px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-panel::after { animation: none; }
+  .bp-particles span { animation: none; display: none; }
+}
+
 .brand-panel > * { position: relative; z-index: 1; }
+.brand-panel > .bp-particles { z-index: 0; }
 
 .bp-mark { display: flex; align-items: flex-start; }
 
@@ -473,48 +539,6 @@ function handleSso(): void {
   background: var(--color-surface-elevated);
   color: var(--color-text);
 }
-
-/* ── Remember me ──────────────────── */
-.remember {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  cursor: pointer;
-  user-select: none;
-  margin: 2px 0 4px;
-}
-
-.remember-ck {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  border: 1.5px solid var(--color-border-strong, var(--color-border));
-  border-radius: 5px;
-  background: var(--color-surface);
-  cursor: pointer;
-  position: relative;
-  transition: background var(--t-fast), border-color var(--t-fast);
-}
-
-.remember-ck:hover  { border-color: var(--color-primary); }
-
-.remember-ck:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.remember-ck:checked {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6L9 17l-5-5'/></svg>");
-  background-size: 11px 11px;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.remember span { font-size: 13px; color: var(--color-text-muted); }
 
 /* ── Buttons ──────────────────────── */
 .btn {
