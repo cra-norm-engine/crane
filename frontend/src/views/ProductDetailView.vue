@@ -1238,50 +1238,68 @@
 
               <!-- Modal body — wizard form + result panel -->
               <div class="wizard-modal-body">
-                <form class="wizard-grid" @submit.prevent="runScopeEvaluation">
-                  <label class="check-field">
-                    <input v-model="scopeForm.is_digital_product" type="checkbox" />
-                    <span>Digital product</span>
-                  </label>
+                <p class="wiz-intro">
+                  Select everything that describes your product. We'll evaluate how it falls under the
+                  EU Cyber Resilience Act and which obligations apply.
+                </p>
 
-                  <label class="check-field">
-                    <input v-model="scopeForm.has_network_connectivity" type="checkbox" />
-                    <span>Has network connectivity</span>
-                  </label>
+                <form @submit.prevent="runScopeEvaluation">
+                  <p class="sec-label wiz-sec-label">Product characteristics</p>
+                  <div class="wiz-list">
+                    <label
+                      v-for="crit in SCOPE_CRITERIA"
+                      :key="crit.key"
+                      class="crit"
+                      :class="{ 'is-checked': scopeForm[crit.key] }"
+                    >
+                      <input v-model="scopeForm[crit.key]" type="checkbox" />
+                      <span class="cbox">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      </span>
+                      <span class="ctext">
+                        <span class="clabel">{{ crit.label }}</span>
+                        <span class="chelp">{{ crit.help }}</span>
+                      </span>
+                    </label>
+                  </div>
 
-                  <label class="check-field">
-                    <input v-model="scopeForm.performs_remote_data_processing" type="checkbox" />
-                    <span>Performs remote data processing</span>
-                  </label>
+                  <p class="sec-label wiz-sec-label">Exemptions</p>
+                  <div class="wiz-list">
+                    <label
+                      v-for="crit in SCOPE_EXEMPT_CRITERIA"
+                      :key="crit.key"
+                      class="crit exempt"
+                      :class="{ 'is-checked': scopeForm[crit.key] }"
+                    >
+                      <input v-model="scopeForm[crit.key]" type="checkbox" />
+                      <span class="cbox">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      </span>
+                      <span class="ctext">
+                        <span class="clabel">{{ crit.label }}</span>
+                        <span class="chelp">{{ crit.help }}</span>
+                      </span>
+                    </label>
+                  </div>
 
-                  <label class="check-field">
-                    <input v-model="scopeForm.safety_component" type="checkbox" />
-                    <span>Safety component</span>
-                  </label>
+                  <div class="wiz-notes">
+                    <label class="field-label" for="wiz-notes-input">Notes</label>
+                    <textarea
+                      id="wiz-notes-input"
+                      v-model.trim="scopeForm.notes"
+                      rows="3"
+                      placeholder="Add context about deployment, exemption rationale, or assumptions…"
+                    />
+                  </div>
 
-                  <label class="check-field">
-                    <input v-model="scopeForm.used_in_critical_sector" type="checkbox" />
-                    <span>Used in critical sector</span>
-                  </label>
+                  <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
 
-                  <label class="check-field">
-                    <input v-model="scopeForm.handles_sensitive_functions" type="checkbox" />
-                    <span>Handles sensitive functions</span>
-                  </label>
-
-                  <label class="check-field">
-                    <input v-model="scopeForm.excluded_category" type="checkbox" />
-                    <span>Excluded category</span>
-                  </label>
-
-                  <label class="field field-span-full">
-                    <span class="field-label">Notes</span>
-                    <textarea v-model.trim="scopeForm.notes" rows="3" />
-                  </label>
-
-                  <div class="form-actions field-span-full">
-                    <p v-if="scopeError" class="form-error">{{ scopeError }}</p>
-                    <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope">
+                  <!-- Footer: selection count + reset + run -->
+                  <div class="wiz-foot">
+                    <span class="foot-count"><b>{{ scopeSelectedCount }}</b> of {{ SCOPE_CRITERIA.length + SCOPE_EXEMPT_CRITERIA.length }} selected</span>
+                    <div class="foot-spacer" />
+                    <button class="btn btn-secondary" type="button" @click="resetScopeForm">Reset</button>
+                    <button class="btn btn-primary" type="submit" :disabled="isEvaluatingScope || scopeSelectedCount === 0">
                       {{ isEvaluatingScope ? "Evaluating…" : "Run scope evaluation" }}
                     </button>
                   </div>
@@ -1649,6 +1667,20 @@ const scopeError           = ref("");
 const auditErrorMessage    = ref("");
 
 /* ── Reactive form objects ──────────────────────────── */
+
+// Scope wizard criteria — label + helper text shown on each checkbox card
+const SCOPE_CRITERIA: { key: keyof ProductScopeEvaluationRequest; label: string; help: string }[] = [
+  { key: "is_digital_product", label: "Digital product", help: "Software, or hardware with digital elements." },
+  { key: "has_network_connectivity", label: "Has network connectivity", help: "Connects directly or indirectly to a device or network." },
+  { key: "performs_remote_data_processing", label: "Performs remote data processing", help: "Processes data on a remote system on the product's behalf." },
+  { key: "safety_component", label: "Safety component", help: "Acts as a safety component of another product or system." },
+  { key: "used_in_critical_sector", label: "Used in a critical sector", help: "Deployed in essential services or critical infrastructure." },
+  { key: "handles_sensitive_functions", label: "Handles sensitive functions", help: "Manages authentication, access control, or sensitive data." },
+];
+
+const SCOPE_EXEMPT_CRITERIA: { key: keyof ProductScopeEvaluationRequest; label: string; help: string }[] = [
+  { key: "excluded_category", label: "Excluded category", help: "Falls under a CRA exemption (e.g. open-source, medical devices, separately regulated). Overrides the criteria above." },
+];
 
 // Scope wizard answers — reset each time the wizard is opened
 const scopeForm = reactive<ProductScopeEvaluationRequest>({
@@ -2198,6 +2230,24 @@ async function saveSupportPeriod(): Promise<void> {
   } finally {
     isSavingSupportPeriod.value = false;
   }
+}
+
+// Count of checkbox criteria currently selected — drives the wizard footer counter
+const scopeSelectedCount = computed((): number => {
+  return [...SCOPE_CRITERIA, ...SCOPE_EXEMPT_CRITERIA].reduce(
+    (count, crit) => count + (scopeForm[crit.key] ? 1 : 0),
+    0,
+  );
+});
+
+// Clear every checkbox and the notes field, and discard any prior result
+function resetScopeForm(): void {
+  for (const crit of [...SCOPE_CRITERIA, ...SCOPE_EXEMPT_CRITERIA]) {
+    (scopeForm[crit.key] as boolean) = false;
+  }
+  scopeForm.notes = "";
+  scopeError.value  = "";
+  scopeResult.value = null;
 }
 
 async function runScopeEvaluation(): Promise<void> {
@@ -3166,6 +3216,157 @@ onBeforeUnmount(() => {
   border-radius: 0.85rem;
   border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
   background: var(--color-surface-soft, rgba(15, 23, 42, 0.45));
+}
+
+/* ── Scope wizard — intro / section labels / footer ──────── */
+.wiz-intro {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.wiz-sec-label {
+  margin: 1.1rem 0 0.6rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.wiz-sec-label:first-of-type {
+  margin-top: 0;
+}
+
+.wiz-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+/* Checkbox card — custom square with animated checkmark + label/help text */
+.crit {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.crit:hover {
+  border-color: var(--color-border-strong);
+}
+
+.crit input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.crit .cbox {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-top: 0.1rem;
+  border-radius: 0.4rem;
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.crit .cbox svg {
+  transform: scale(0.5);
+  opacity: 0;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.12s ease;
+}
+
+.crit.is-checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft, var(--color-surface-soft));
+}
+
+.crit.is-checked .cbox {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary, #fff);
+}
+
+.crit.is-checked .cbox svg {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.crit.exempt.is-checked {
+  border-color: var(--color-warning-border, var(--color-warning-text));
+  background: var(--color-warning-bg);
+}
+
+.crit.exempt.is-checked .cbox {
+  border-color: var(--color-warning-text);
+  background: var(--color-warning-text);
+}
+
+.crit .ctext {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.crit .clabel {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.crit .chelp {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.wiz-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1.1rem;
+}
+
+.wiz-notes textarea {
+  resize: vertical;
+}
+
+.wiz-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.wiz-foot .foot-count {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.wiz-foot .foot-count b {
+  color: var(--color-text);
+}
+
+.wiz-foot .foot-spacer {
+  flex: 1;
 }
 
 /* Question-mark tooltip */

@@ -97,8 +97,9 @@ const props = withDefaults(
      * sm  — 400 px  (confirmations, simple prompts)
      * md  — 600 px  (forms, detail views)  ← default
      * lg  — 820 px  (complex forms, tables)
+     * xl  — 1180 px (dense multi-pane analysis views)
      */
-    size?: "sm" | "md" | "lg";
+    size?: "sm" | "md" | "lg" | "xl";
     /**
      * When true, clicking the backdrop does NOT close the modal.
      * Useful for forms with unsaved changes.
@@ -213,6 +214,7 @@ onUnmounted(() => {
 .modal-panel-sm { max-width: 420px; }
 .modal-panel-md { max-width: 620px; }
 .modal-panel-lg { max-width: 860px; }
+.modal-panel-xl { max-width: 1180px; }
 
 /* ── Header ───────────────────────────────────────── */
 .modal-header {

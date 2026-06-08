@@ -248,76 +248,123 @@
   </AppModal>
 
   <!-- ── Detail Modal ── -->
-  <AppModal v-if="detailItem" v-model="showDetailModal" :title="detailItem.file_name || 'SBOM record'" size="lg">
+  <AppModal v-if="detailItem" v-model="showDetailModal" :title="detailItem.file_name || 'SBOM record'" size="xl">
     <div class="sbom-detail-layout">
 
-      <!-- ── Left sidebar: permanent metadata ── -->
-      <aside class="sbom-sidebar">
-        <!-- Quality score hero -->
-        <div class="sidebar-score-hero">
-          <span class="sidebar-score-label">Quality score</span>
-          <span
-            v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined"
-            class="sidebar-score-value"
-            :class="qualityClass(detailItem.quality_score)"
-          >{{ detailItem.quality_score }}<span class="score-denom">/100</span></span>
-          <span v-else class="sidebar-score-value muted">—</span>
-          <div v-if="qualityReport?.grade" class="sidebar-grade-row">
-            <span class="sidebar-grade">Grade {{ qualityReport.grade }}</span>
-            <span
-              class="grade-info-icon"
-              title="Grading scale — A: 80–100 · B: 60–79 · C: 40–59 · D: 20–39 · F: 0–19"
-            >ⓘ</span>
+      <!-- ── Top bar: score ring + metadata + compliance pills ── -->
+      <header class="sbom-topbar">
+        <!-- Quality score — circular ring -->
+        <div class="topbar-score-card">
+          <div class="score-ring-wrap">
+            <svg viewBox="0 0 40 40" class="score-ring" aria-hidden="true">
+              <circle class="ring-track" cx="20" cy="20" r="16" />
+              <circle
+                v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined"
+                class="ring-value"
+                :class="qualityClass(detailItem.quality_score)"
+                cx="20" cy="20" r="16"
+                pathLength="100"
+                :stroke-dasharray="`${Math.round(detailItem.quality_score)} 100`"
+                transform="rotate(-90 20 20)"
+              />
+            </svg>
+            <div class="ring-number">
+              <template v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined">
+                <span :class="qualityClass(detailItem.quality_score)">{{ Math.round(detailItem.quality_score) }}</span><small>/100</small>
+              </template>
+              <span v-else class="muted">—</span>
+            </div>
+          </div>
+          <div class="topbar-score-meta">
+            <span class="topbar-score-label">Quality score</span>
+            <div v-if="qualityReport?.grade" class="topbar-grade-row">
+              <span class="topbar-grade-pill" :class="qualityClass(detailItem.quality_score ?? 0)">Grade {{ qualityReport.grade }}</span>
+              <span
+                class="grade-info-icon"
+                tabindex="0"
+                role="img"
+                aria-label="Grading scale: A is 80 to 100, B is 60 to 79, C is 40 to 59, D is 20 to 39, F is 0 to 19"
+                title="Grading scale — A: 80–100 · B: 60–79 · C: 40–59 · D: 20–39 · F: 0–19"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <line x1="12" y1="11" x2="12" y2="16.5" />
+                  <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
+                </svg>
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- Compliance status pills (one per standard) -->
-        <div v-if="validateList.length" class="sidebar-compliance-pills">
-          <span
-            v-for="(std, i) in validateList"
-            :key="i"
-            class="compliance-pill"
-            :class="std.is_compliant ? 'pill-pass' : 'pill-fail'"
-            :title="`${standardName(std.level)}${standardDescription(std.level) ? '\n\n' + standardDescription(std.level) : ''}`"
-          >
-            {{ std.level ?? `STD ${i + 1}` }}&nbsp;{{ std.is_compliant ? "✓" : "✗" }}
-          </span>
-        </div>
-
-        <div class="sidebar-divider" />
+        <div class="topbar-divider" />
 
         <!-- Key-value metadata -->
-        <dl class="sidebar-meta">
-          <dt>Format</dt>
-          <dd><span class="format-badge" :class="`format-${detailItem.format}`">{{ detailItem.format.toUpperCase() }}</span></dd>
-
-          <dt>Spec display_version</dt>
-          <dd>{{ detailItem.spec_version || "—" }}</dd>
-
-          <dt>Components</dt>
-          <dd>
-            <span v-if="detailItem.component_count !== null" class="component-count">{{ detailItem.component_count }}</span>
-            <span v-else class="muted">—</span>
-          </dd>
-
-          <dt>Tool</dt>
-          <dd>{{ detailItem.tool_name ? `${detailItem.tool_name}${detailItem.tool_version ? " " + detailItem.tool_version : ""}` : "—" }}</dd>
-
-          <dt>Generated</dt>
-          <dd>{{ formatDate(detailItem.generated_at) }}</dd>
-
-          <dt>Added</dt>
-          <dd>{{ formatDate(detailItem.created_at) }}</dd>
+        <dl class="topbar-meta-grid">
+          <div class="topbar-meta-item">
+            <dt>Format</dt>
+            <dd><span class="format-badge" :class="`format-${detailItem.format}`">{{ detailItem.format.toUpperCase() }}</span></dd>
+          </div>
+          <div class="topbar-meta-item">
+            <dt>Spec display_version</dt>
+            <dd>{{ detailItem.spec_version || "—" }}</dd>
+          </div>
+          <div class="topbar-meta-item">
+            <dt>Components</dt>
+            <dd>
+              <span v-if="detailItem.component_count !== null" class="component-count">{{ detailItem.component_count }}</span>
+              <span v-else class="muted">—</span>
+            </dd>
+          </div>
+          <div class="topbar-meta-item">
+            <dt>Tool</dt>
+            <dd>{{ detailItem.tool_name ? `${detailItem.tool_name}${detailItem.tool_version ? " " + detailItem.tool_version : ""}` : "—" }}</dd>
+          </div>
+          <div class="topbar-meta-item">
+            <dt>Generated</dt>
+            <dd>{{ formatDate(detailItem.generated_at) }}</dd>
+          </div>
+          <div class="topbar-meta-item">
+            <dt>Added</dt>
+            <dd>{{ formatDate(detailItem.created_at) }}</dd>
+          </div>
         </dl>
 
-        <!-- Notes -->
-        <div v-if="detailItem.notes" class="sidebar-notes">
-          <span class="sidebar-notes-label">Notes</span>
-          <p class="sidebar-notes-text">{{ detailItem.notes }}</p>
-        </div>
-      </aside>
+        <div class="topbar-divider" />
 
-      <!-- ── Right pane: tabbed analysis ── -->
+        <!-- Compliance status pills (one per standard) -->
+        <div v-if="validateList.length" class="topbar-compliance-pills">
+          <span class="topbar-pills-label">Compliance</span>
+          <span v-for="(std, i) in validateList" :key="i" class="compliance-pill-group">
+            <span
+              class="compliance-pill"
+              :class="std.is_compliant ? 'pill-pass' : 'pill-fail'"
+            >
+              {{ std.level ?? `STD ${i + 1}` }}&nbsp;{{ std.is_compliant ? "✓" : "✗" }}
+            </span>
+            <span
+              class="grade-info-icon"
+              tabindex="0"
+              role="img"
+              :aria-label="`${standardName(std.level)} — ${std.is_compliant ? 'compliant' : 'not compliant'}.${standardDescription(std.level) ? ' ' + standardDescription(std.level) : ''}`"
+              :title="`${standardName(std.level)} — ${std.is_compliant ? 'PASS' : 'FAIL'}${standardDescription(std.level) ? '\n\n' + standardDescription(std.level) : ''}`"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="12" y1="11" x2="12" y2="16.5" />
+                <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Notes — shown as a slim banner below the top bar when present -->
+      <div v-if="detailItem.notes" class="topbar-notes">
+        <span class="topbar-notes-label">Notes</span>
+        <p class="topbar-notes-text">{{ detailItem.notes }}</p>
+      </div>
+
+      <!-- ── Tabbed analysis pane ── -->
       <div class="sbom-analysis-pane">
         <div class="detail-tabs">
           <button
@@ -342,15 +389,27 @@
             </div>
             <div v-else-if="validateList.length" class="standards-list">
               <div v-for="(std, idx) in validateList" :key="idx" class="standard-block">
-                <!-- Standard header: human name + PASS/FAIL -->
-                <div class="standard-header">
-                  <div class="standard-name-group">
-                    <span class="standard-name">{{ standardName(std.level) }}</span>
-                    <span v-if="standardDescription(std.level)" class="standard-desc">{{ standardDescription(std.level) }}</span>
-                  </div>
-                  <span class="compliance-verdict" :class="std.is_compliant ? 'verdict-pass' : 'verdict-fail'">
-                    {{ std.is_compliant ? "PASS" : "FAIL" }}
+                <!-- Verdict banner: icon + name + description + PASS/FAIL pill + meta tags -->
+                <div class="standard-verdict" :class="std.is_compliant ? 'verdict-card-pass' : 'verdict-card-fail'">
+                  <span class="standard-verdict-icon">
+                    <svg v-if="std.is_compliant" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                   </span>
+                  <div class="standard-verdict-body">
+                    <div class="standard-verdict-top">
+                      <span class="standard-name">{{ standardName(std.level) }}</span>
+                      <span class="compliance-verdict" :class="std.is_compliant ? 'verdict-pass' : 'verdict-fail'">
+                        {{ std.is_compliant ? "PASS" : "FAIL" }}
+                      </span>
+                    </div>
+                    <p v-if="standardDescription(std.level)" class="standard-desc">{{ standardDescription(std.level) }}</p>
+                    <div class="standard-tags">
+                      <span class="tag-chip">{{ std.level ?? `Standard ${idx + 1}` }}</span>
+                      <span v-if="(std.violations as unknown[])?.length" class="tag-chip">
+                        {{ (std.violations as unknown[]).length }} finding{{ (std.violations as unknown[]).length !== 1 ? "s" : "" }}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <template v-if="(std.violations as unknown[])?.length">
@@ -365,8 +424,11 @@
                         :key="`e-${i}`"
                         class="finding-item finding-fail"
                       >
-                        {{ v.message }}
-                        <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                        <span class="finding-rail"></span>
+                        <span class="finding-text">
+                          {{ v.message }}
+                          <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                        </span>
                       </li>
                     </ul>
                   </div>
@@ -382,8 +444,11 @@
                         :key="`w-${i}`"
                         class="finding-item finding-warn"
                       >
-                        {{ v.message }}
-                        <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                        <span class="finding-rail"></span>
+                        <span class="finding-text">
+                          {{ v.message }}
+                          <span v-if="v.element" class="finding-element">{{ v.element }}</span>
+                        </span>
                       </li>
                     </ul>
                   </div>
@@ -400,6 +465,28 @@
               No quality analysis available. Upload the SBOM file to enable analysis.
             </div>
             <div v-else-if="qualityReport">
+              <!-- Potential score panel — shows current score vs. recoverable points -->
+              <div v-if="qualityRecommendations.length && detailItem.quality_score !== null && detailItem.quality_score !== undefined" class="quality-potential">
+                <div class="potential-top">
+                  <span class="potential-score" :class="qualityClass(detailItem.quality_score)">{{ roundScore(detailItem.quality_score) }} / 100</span>
+                  <span class="potential-text">
+                    resolving all {{ qualityRecommendations.length }} recommendation{{ qualityRecommendations.length !== 1 ? "s" : "" }} adds
+                  </span>
+                  <span v-if="qualityPotentialGain > 0" class="potential-gain">
+                    +{{ qualityPotentialGain }} → {{ Math.min(100, roundScore(detailItem.quality_score) + qualityPotentialGain) }} pts
+                  </span>
+                </div>
+                <p class="potential-hint">Recommendations are ranked by the points they recover — start at the top for the fastest path to compliance.</p>
+                <div class="potential-bar">
+                  <div class="potential-now" :style="{ width: Math.min(100, roundScore(detailItem.quality_score)) + '%' }"></div>
+                  <div class="potential-future" :style="{ width: Math.min(100 - roundScore(detailItem.quality_score), qualityPotentialGain) + '%' }"></div>
+                </div>
+                <div class="potential-legend">
+                  <span><i class="potential-dot potential-dot-now"></i>Current {{ roundScore(detailItem.quality_score) }} pts</span>
+                  <span><i class="potential-dot potential-dot-gain"></i>Recoverable +{{ qualityPotentialGain }} pts</span>
+                </div>
+              </div>
+
               <div v-if="qualityRecommendations.length" class="recommendations">
                 <h3 class="tab-section-title">Recommendations ({{ qualityRecommendations.length }})</h3>
                 <ul class="rec-list">
@@ -407,6 +494,7 @@
                     v-for="(rec, i) in (qualityRecommendations as Record<string,unknown>[])"
                     :key="i"
                     class="rec-item"
+                    :class="recPriorityClass(rec)"
                   >
                     <span class="rec-priority">P{{ rec.priority ?? i + 1 }}</span>
                     <span class="rec-body">
@@ -415,7 +503,7 @@
                         ({{ rec.affected_count }} component{{ (rec.affected_count as number) !== 1 ? "s" : "" }})
                       </span>
                     </span>
-                    <span v-if="rec.impact" class="rec-impact">+{{ rec.impact }} pts</span>
+                    <span v-if="rec.impact" class="rec-impact">+{{ roundScore(rec.impact) }} pts</span>
                   </li>
                 </ul>
               </div>
@@ -427,13 +515,42 @@
           <!-- Tab: Differential analysis -->
           <div v-else-if="activeDetailTab === 'diff'" class="tab-panel">
             <div v-if="!detailItem.analysis_findings?.diff" class="diff-empty-state">
-              <p class="diff-empty-title">No differential analysis available</p>
+              <div class="diff-empty-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/>
+                  <path d="M6 8.5v7"/><path d="M8.5 6H13a3 3 0 0 1 3 3v.5"/>
+                </svg>
+              </div>
+              <p class="diff-empty-title">No differential analysis available yet</p>
               <p class="diff-empty-hint">
                 A differential analysis is generated automatically when you upload a <strong>new display_version</strong>
                 of the SBOM for the same release. It compares the new SBOM against the immediately preceding one
                 and shows which components were added, removed, or updated — making it easy to audit supply-chain
                 changes between releases.
               </p>
+              <div class="diff-empty-steps">
+                <div class="diff-empty-step">
+                  <span class="diff-empty-step-num">1</span>
+                  <div>
+                    <h4>Upload a new version</h4>
+                    <p>Add a newer display_version of the SBOM under the same release.</p>
+                  </div>
+                </div>
+                <div class="diff-empty-step">
+                  <span class="diff-empty-step-num">2</span>
+                  <div>
+                    <h4>We compare automatically</h4>
+                    <p>The new SBOM is diffed against the immediately preceding one.</p>
+                  </div>
+                </div>
+                <div class="diff-empty-step">
+                  <span class="diff-empty-step-num">3</span>
+                  <div>
+                    <h4>Audit the changes</h4>
+                    <p>See which components were added, removed, or updated between releases.</p>
+                  </div>
+                </div>
+              </div>
             </div>
             <div v-else>
               <!-- Explanation note -->
@@ -483,9 +600,6 @@
             <!-- Header: description + scanner legend + scan button -->
             <div class="vuln-scan-header">
               <div>
-                <p class="tab-description muted" style="margin-bottom:0.4rem">
-                  Multi-scanner CVE analysis — OSV · Trivy · NVD — CRA Art. 13(2)
-                </p>
                 <!-- Scanner legend: shows which databases are queried -->
                 <div class="scanner-legend">
                   <span class="scanner-legend-item">
@@ -552,14 +666,26 @@
                 <a href="https://www.first.org/epss" target="_blank" rel="noopener" class="epss-attribution" title="EPSS scores provided by FIRST.org — CC-BY 4.0">EPSS by FIRST.org</a>
               </div>
 
-              <!-- Severity summary strip -->
-              <div class="vuln-severity-summary">
-                <span v-if="vulnCountBySeverity.critical" class="sev-chip sev-chip-critical">{{ vulnCountBySeverity.critical }} Critical</span>
-                <span v-if="vulnCountBySeverity.high"     class="sev-chip sev-chip-high"    >{{ vulnCountBySeverity.high }} High</span>
-                <span v-if="vulnCountBySeverity.medium"   class="sev-chip sev-chip-medium"  >{{ vulnCountBySeverity.medium }} Medium</span>
-                <span v-if="vulnCountBySeverity.low"      class="sev-chip sev-chip-low"     >{{ vulnCountBySeverity.low }} Low</span>
-                <span v-if="vulnCountBySeverity.unknown"  class="sev-chip sev-chip-unknown" >{{ vulnCountBySeverity.unknown }} Unknown</span>
-                <span class="sev-total muted">{{ vulnFindings.length }} finding{{ vulnFindings.length !== 1 ? "s" : "" }} total</span>
+              <!-- Severity overview: proportional bar + colour-keyed legend explaining what each segment means -->
+              <div class="sev-overview">
+                <div class="sev-overview-bar" role="img" aria-label="Findings by severity">
+                  <span
+                    v-for="seg in severityBarSegments"
+                    :key="seg.key"
+                    class="sev-overview-seg"
+                    :class="`sev-overview-seg-${seg.key}`"
+                    :style="{ width: seg.pct + '%' }"
+                    :title="`${seg.key}: ${vulnCountBySeverity[seg.key]}`"
+                  ></span>
+                </div>
+                <div class="sev-legend">
+                  <span v-if="vulnCountBySeverity.critical" class="sev-key"><i class="sev-key-swatch sev-key-critical"></i><b>{{ vulnCountBySeverity.critical }}</b> Critical</span>
+                  <span v-if="vulnCountBySeverity.high"     class="sev-key"><i class="sev-key-swatch sev-key-high"></i><b>{{ vulnCountBySeverity.high }}</b> High</span>
+                  <span v-if="vulnCountBySeverity.medium"   class="sev-key"><i class="sev-key-swatch sev-key-medium"></i><b>{{ vulnCountBySeverity.medium }}</b> Medium</span>
+                  <span v-if="vulnCountBySeverity.low"      class="sev-key"><i class="sev-key-swatch sev-key-low"></i><b>{{ vulnCountBySeverity.low }}</b> Low</span>
+                  <span v-if="vulnCountBySeverity.unknown"  class="sev-key"><i class="sev-key-swatch sev-key-unknown"></i><b>{{ vulnCountBySeverity.unknown }}</b> Unknown</span>
+                  <span class="sev-total muted">{{ vulnFindings.length }} finding{{ vulnFindings.length !== 1 ? "s" : "" }} total</span>
+                </div>
               </div>
 
               <!-- Findings cards -->
@@ -838,6 +964,29 @@ const qualityRecommendations = computed((): unknown[] => {
   if (Array.isArray(recs)) return recs;
   return [];
 });
+
+// Rounds a quality score / points value to a whole number for display — backend may return floats
+function roundScore(val: unknown): number {
+  const n = Number(val ?? 0);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+// Sum of recoverable points across all open recommendations — drives the "potential score" bar.
+// Each recommendation's impact is rounded first so the total matches the sum of displayed values.
+const qualityPotentialGain = computed((): number => {
+  return (qualityRecommendations.value as Record<string, unknown>[]).reduce(
+    (sum, rec) => sum + roundScore(rec.impact),
+    0,
+  );
+});
+
+function recPriorityClass(rec: Record<string, unknown>): string {
+  const p = Number(rec.priority ?? 5);
+  if (p <= 1) return "rec-p1";
+  if (p === 2) return "rec-p2";
+  if (p === 3) return "rec-p3";
+  return "rec-p4";
+}
 
 const diffFindings = computed(() => {
   const f = detailItem.value?.analysis_findings;
@@ -1224,6 +1373,15 @@ const vulnCountBySeverity = computed(() => {
   return counts;
 });
 
+// Proportional widths for the severity overview bar — empty segments are skipped
+const severityBarSegments = computed(() => {
+  const counts = vulnCountBySeverity.value;
+  const total = vulnFindings.value.length || 1;
+  return (["critical", "high", "medium", "low", "unknown"] as const)
+    .map((key) => ({ key, pct: (counts[key] / total) * 100 }))
+    .filter((seg) => seg.pct > 0);
+});
+
 function toggleFinding(id: string): void {
   expandedFindingId.value = expandedFindingId.value === id ? null : id;
 }
@@ -1438,32 +1596,74 @@ input:focus, select:focus, textarea:focus {
 /* ── Two-column detail layout ── */
 .sbom-detail-layout {
   display: flex;
+  flex-direction: column;
   gap: 0;
-  height: 460px; /* fixed — modal never resizes when switching tabs */
+  height: 640px; /* fixed — modal never resizes when switching tabs */
 }
 
-/* ── Left sidebar ── */
-.sbom-sidebar {
-  width: 200px;
+/* ── Top bar: score ring + metadata + compliance pills ── */
+.sbom-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  padding-right: 1.25rem;
-  border-right: 1px solid var(--color-border);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
 }
 
-.sidebar-score-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding-bottom: 0.1rem;
+.topbar-divider {
+  align-self: stretch;
+  width: 1px;
+  background: var(--color-border);
+  flex-shrink: 0;
 }
 
-.sidebar-score-label {
+/* Circular quality score ring */
+.topbar-score-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+}
+
+.score-ring-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.score-ring { width: 100%; height: 100%; }
+.ring-track { fill: none; stroke: var(--color-border); stroke-width: 3.2; }
+.ring-value { fill: none; stroke-width: 3.2; stroke-linecap: round; transition: stroke-dasharray 0.3s; }
+.ring-value.quality-high   { stroke: var(--color-success-text); }
+.ring-value.quality-medium { stroke: var(--color-warning-text); }
+.ring-value.quality-low    { stroke: var(--color-danger-text); }
+
+.ring-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  font-weight: 800;
+  line-height: 1;
+}
+.ring-number small { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-muted); margin-left: 0.05rem; }
+.ring-number .quality-high   { color: var(--color-success-text); }
+.ring-number .quality-medium { color: var(--color-warning-text); }
+.ring-number .quality-low    { color: var(--color-danger-text); }
+
+.topbar-score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.topbar-score-label {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-muted);
@@ -1471,45 +1671,92 @@ input:focus, select:focus, textarea:focus {
   letter-spacing: 0.06em;
 }
 
-.sidebar-score-value {
-  font-size: 2.4rem;
-  font-weight: 800;
-  line-height: 1;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.65rem;
-  border: 1px solid transparent;
-  align-self: flex-start;
-}
-
-.score-denom { font-size: var(--text-base); font-weight: 500; opacity: 0.6; }
-
-.sidebar-grade-row {
+.topbar-grade-row {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin-top: 0.1rem;
 }
 
-.sidebar-grade {
+.topbar-grade-pill {
+  display: inline-block;
   font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--color-text-muted);
+  font-weight: 800;
   letter-spacing: 0.04em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
 }
+.topbar-grade-pill.quality-high   { background: var(--color-success-bg); color: var(--color-success-text); border-color: var(--color-success-border); }
+.topbar-grade-pill.quality-medium { background: var(--color-warning-bg); color: var(--color-warning-text); border-color: var(--color-warning-border); }
+.topbar-grade-pill.quality-low    { background: var(--color-danger-bg);  color: var(--color-danger-text);  border-color: var(--color-danger-border); }
 
 .grade-info-icon {
-  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-muted);
   cursor: help;
-  opacity: 0.7;
-  user-select: none;
+  opacity: 0.75;
+  border-radius: 50%;
+  transition: opacity 0.12s, color 0.12s;
+}
+.grade-info-icon:hover,
+.grade-info-icon:focus-visible {
+  opacity: 1;
+  color: var(--color-text);
+}
+.grade-info-icon:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-/* Compliance status pills in sidebar */
-.sidebar-compliance-pills {
+/* Key-value metadata grid */
+.topbar-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0.5rem 1.75rem;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-meta-item { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.topbar-meta-item dt {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.topbar-meta-item dd {
+  font-size: var(--text-sm);
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Compliance status pills */
+.topbar-compliance-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.topbar-pills-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 0.15rem;
+}
+
+.compliance-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .compliance-pill {
@@ -1526,65 +1773,41 @@ input:focus, select:focus, textarea:focus {
 .pill-pass { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
 .pill-fail { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
 
-.sidebar-divider {
-  border: none;
-  border-top: 1px solid var(--color-border);
-  margin: 0;
+/* Notes banner below the top bar */
+.topbar-notes {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.85rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
-/* Key-value pairs */
-.sidebar-meta {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.45rem 0.65rem;
-  align-items: start;
-  margin: 0;
-}
-
-.sidebar-meta dt {
+.topbar-notes-label {
   font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  padding-top: 0.1rem;
-}
-
-.sidebar-meta dd {
-  font-size: var(--text-xs);
-  margin: 0;
-  word-break: break-all;
-}
-
-/* Notes at the bottom of the sidebar */
-.sidebar-notes {
-  border-top: 1px solid var(--color-border);
-  padding-top: 0.75rem;
-}
-
-.sidebar-notes-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  display: block;
-  margin-bottom: 0.3rem;
+  flex-shrink: 0;
 }
 
-.sidebar-notes-text {
+.topbar-notes-text {
   font-size: var(--text-xs);
   margin: 0;
   color: var(--color-text-muted);
   line-height: 1.5;
 }
 
-/* ── Right analysis pane ── */
+/* ── Analysis pane ── */
 .sbom-analysis-pane {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-left: 1.25rem;
   overflow: hidden;
 }
 
@@ -1653,20 +1876,47 @@ input:focus, select:focus, textarea:focus {
   background: var(--color-surface-soft);
 }
 
-.standard-header {
+/* Verdict banner — icon + name + description + PASS/FAIL pill + tags */
+.standard-verdict {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.65rem;
+  padding: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
-.standard-name-group {
+.verdict-card-pass { border-color: var(--color-success-border); }
+.verdict-card-fail { border-color: var(--color-danger-border); }
+
+.standard-verdict-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.verdict-card-pass .standard-verdict-icon { background: var(--color-success-bg); color: var(--color-success-text); }
+.verdict-card-fail .standard-verdict-icon { background: var(--color-danger-bg); color: var(--color-danger-text); }
+
+.standard-verdict-body {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.35rem;
   flex: 1;
   min-width: 0;
+}
+
+.standard-verdict-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .standard-name {
@@ -1677,7 +1927,26 @@ input:focus, select:focus, textarea:focus {
 .standard-desc {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  line-height: 1.45;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.standard-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
 }
 
 /* Violation group (errors / warnings) */
@@ -1707,16 +1976,80 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--color-warning-border);
 }
 
-.findings-list { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
-.finding-item { font-size: var(--text-sm); display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; padding: 0.25rem 0; }
-.finding-fail { color: var(--color-danger-text); }
-.finding-warn { color: var(--color-warning-text); }
+.findings-list { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+.finding-item {
+  position: relative;
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.55rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.finding-rail { width: 3px; flex-shrink: 0; border-radius: 999px; align-self: stretch; }
+.finding-text { flex: 1; line-height: 1.5; color: var(--color-text); }
+.finding-fail .finding-rail { background: var(--color-danger-text); }
+.finding-warn .finding-rail { background: var(--color-warning-text); }
 .finding-none { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: 0.25rem; }
-.finding-element { font-family: monospace; font-size: var(--text-xs); opacity: 0.7; }
+.finding-element { font-family: monospace; font-size: var(--text-xs); opacity: 0.7; margin-left: 0.4rem; }
 
 /* ── Quality tab ── */
+
+/* Potential score panel */
+.quality-potential {
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.potential-top { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; font-size: var(--text-sm); }
+.potential-score { font-size: var(--text-lg); font-weight: 800; }
+.potential-score.quality-high   { color: var(--color-success-text); }
+.potential-score.quality-medium { color: var(--color-warning-text); }
+.potential-score.quality-low    { color: var(--color-danger-text); }
+.potential-text { color: var(--color-text-muted); font-weight: 600; }
+.potential-gain { font-weight: 800; color: var(--color-success-text); margin-left: auto; }
+.potential-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; }
+.potential-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-surface-elevated);
+  overflow: hidden;
+  display: flex;
+}
+.potential-now    { height: 100%; background: var(--color-primary); border-radius: 999px 0 0 999px; }
+.potential-future { height: 100%; background: var(--color-primary-2); opacity: 0.45; }
+.potential-legend { display: flex; gap: 1.1rem; font-size: var(--text-xs); color: var(--color-text-muted); }
+.potential-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.35rem; }
+.potential-dot-now  { background: var(--color-primary); }
+.potential-dot-gain { background: var(--color-primary-2); opacity: 0.6; }
+
 .rec-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
-.rec-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.6rem; background: var(--color-surface-soft); border: 1px solid var(--color-border); font-size: var(--text-sm); flex-wrap: wrap; }
+.rec-item {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+.rec-item.rec-p1 { border-left-color: var(--color-danger-text); }
+.rec-item.rec-p2 { border-left-color: var(--color-warning-text); }
+.rec-item.rec-p3 { border-left-color: var(--color-info-text); }
+.rec-item.rec-p4 { border-left-color: var(--color-border-strong); }
 .rec-priority { font-size: var(--text-xs); font-weight: 800; color: var(--color-text-muted); flex-shrink: 0; min-width: 1.8rem; }
 .rec-body { flex: 1; }
 .rec-count { color: var(--color-text-muted); font-size: var(--text-xs); }
@@ -1725,23 +2058,82 @@ input:focus, select:focus, textarea:focus {
 
 /* ── Diff tab ── */
 .diff-empty-state {
-  padding: 1.25rem;
+  padding: 1.5rem;
   border: 1px dashed var(--color-border);
   border-radius: 0.75rem;
   background: var(--color-surface-soft);
+  text-align: center;
+}
+
+.diff-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  margin: 0 auto 0.75rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
 }
 
 .diff-empty-title {
   font-weight: 700;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   margin: 0 0 0.5rem;
 }
 
 .diff-empty-hint {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  margin: 0 auto;
+  max-width: 46rem;
+  line-height: 1.6;
+}
+
+.diff-empty-steps {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.diff-empty-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.diff-empty-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-weight: 800;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.diff-empty-step h4 {
+  margin: 0 0 0.2rem;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.diff-empty-step p {
   margin: 0;
-  line-height: 1.55;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
 }
 
 .diff-summary-bar {
@@ -1824,33 +2216,57 @@ input:focus, select:focus, textarea:focus {
 .tab-description { margin: 0; font-size: var(--text-sm); }
 .btn-sm { padding: 0.35rem 0.8rem; font-size: var(--text-sm); }
 
-/* Severity summary strip */
-.vuln-severity-summary {
+/* Severity overview — segmented bar + colour-keyed legend (legend swatches match bar segment colours 1:1) */
+.sev-overview {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-bottom: 0.85rem;
 }
 
-.sev-chip {
+.sev-overview-bar {
+  display: flex;
+  height: 9px;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-surface-elevated);
+}
+.sev-overview-seg { display: block; height: 100%; }
+.sev-overview-seg-critical,
+.sev-key-critical { background: #ef4444; }
+.sev-overview-seg-high,
+.sev-key-high     { background: #f97316; }
+.sev-overview-seg-medium,
+.sev-key-medium   { background: #f59e0b; }
+.sev-overview-seg-low,
+.sev-key-low      { background: var(--color-info-text, #3b82f6); }
+.sev-overview-seg-unknown,
+.sev-key-unknown  { background: var(--color-border-strong); }
+
+/* Legend — one entry per colour used in the bar above, so the meaning of each segment is explicit */
+.sev-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.sev-key {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  border: 1px solid transparent;
+  gap: 0.4rem;
 }
-
-.sev-chip-critical { background: #fff1f2; color: #991b1b; border-color: #fca5a5; }
-.sev-chip-high     { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
-.sev-chip-medium   { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
-.sev-chip-low      { background: var(--color-info-bg); color: var(--color-info-text); border-color: var(--color-info-border); }
-.sev-chip-unknown  { background: var(--color-surface-soft); color: var(--color-text-muted); border-color: var(--color-border); }
-.sev-total         { font-size: var(--text-xs); margin-left: 0.25rem; }
+.sev-key b { color: var(--color-text); font-size: var(--text-sm); }
+.sev-key-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.sev-total { font-size: var(--text-xs); margin-left: auto; }
 
 /* Findings card list */
 .vuln-list {

@@ -834,8 +834,8 @@ function formatActionType(value: string): string {
 /* Workflow timeline strip */
 .timeline-strip {
   display: flex;
-  align-items: center;
-  padding: 1rem 1.5rem;
+  align-items: flex-start;
+  padding: 1.75rem 2rem 1.5rem;
   overflow-x: auto;
   gap: 0;
 }
@@ -846,23 +846,32 @@ function formatActionType(value: string): string {
   align-items: center;
   position: relative;
   flex-shrink: 0;
+  min-width: 7.5rem;
+  padding: 0 0.5rem;
+  box-sizing: border-box;
 }
 
 .step-dot {
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--color-border, rgba(148, 163, 184, 0.3));
+  border: 2px solid var(--color-surface, transparent);
+  box-shadow: 0 0 0 1px var(--color-border, rgba(148, 163, 184, 0.3));
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
-.step-done .step-dot   { background: #4ade80; }
-.step-active .step-dot { background: #6ea8fe; box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.25); }
+.step-done .step-dot   { background: #4ade80; box-shadow: 0 0 0 1px #4ade80; }
+.step-active .step-dot { background: #6ea8fe; box-shadow: 0 0 0 4px rgba(110, 168, 254, 0.25); }
 
 .step-label {
-  font-size: 0.72rem;
-  margin-top: 0.4rem;
-  white-space: nowrap;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  margin-top: 0.6rem;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
   color: var(--color-text-muted, #94a3b8);
 }
 
@@ -871,9 +880,10 @@ function formatActionType(value: string): string {
 
 .step-connector {
   position: absolute;
-  top: 5px;  /* vertically center on the dot */
-  left: 100%;
-  width: 4rem;
+  top: 9px;  /* vertically center on the larger dot */
+  left: calc(50% + 9px + 0.5rem);
+  right: calc(-50% + 9px + 0.5rem);
+  width: auto;
   height: 2px;
   background: var(--color-border, rgba(148, 163, 184, 0.25));
 }
@@ -1268,7 +1278,8 @@ input, textarea, select {
 @media (max-width: 800px) {
   .detail-grid { grid-template-columns: 1fr; }
   .timeline-strip { gap: 0; }
-  .step-connector { width: 2rem; }
+  .timeline-step { min-width: 6rem; }
+  .step-label { font-size: 0.78rem; }
 }
 </style>
 
