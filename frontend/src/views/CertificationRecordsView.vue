@@ -1171,8 +1171,8 @@ textarea:focus {
 .evidence-count {
   font-size: var(--text-sm);
   padding: 0.25rem 0.5rem;
-  background: rgba(110, 168, 254, 0.15);
-  color: #93c5fd;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
   border-radius: 0.3rem;
   font-weight: 600;
 }
@@ -1180,11 +1180,11 @@ textarea:focus {
 .empty-evidence {
   padding: 1rem;
   border-radius: 0.65rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px dashed rgba(233, 238, 252, 0.15);
+  background: var(--color-surface-soft);
+  border: 1px dashed var(--color-border-strong);
   text-align: center;
   font-size: var(--text-sm);
-  color: rgba(233, 238, 252, 0.5);
+  color: var(--color-text-muted);
 }
 
 .evidence-list {
@@ -1200,8 +1200,8 @@ textarea:focus {
   gap: 1rem;
   padding: 0.75rem;
   border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(233, 238, 252, 0.08);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
 }
 
 .evidence-info {
@@ -1219,7 +1219,7 @@ textarea:focus {
 .evidence-meta {
   margin: 0.25rem 0 0;
   font-size: var(--text-xs);
-  color: rgba(233, 238, 252, 0.5);
+  color: var(--color-text-muted);
 }
 
 .evidence-actions {
@@ -1234,8 +1234,8 @@ textarea:focus {
   gap: 1rem;
   padding: 1rem;
   border-radius: 0.65rem;
-  background: rgba(110, 168, 254, 0.08);
-  border: 1px solid rgba(110, 168, 254, 0.2);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-strong);
 }
 
 .evidence-form {
