@@ -83,6 +83,9 @@ class Product(UUIDTimestampMixin, Base):
         back_populates="product",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        # Always return releases in ascending system_version order so that
+        # callers can reliably use at(-1) to find the latest release.
+        order_by="ProductRelease.system_version.asc()",
     )
     artifact_links: Mapped[list["ArtifactProductLink"]] = relationship(
         "ArtifactProductLink",

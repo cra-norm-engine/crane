@@ -49,6 +49,14 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
 
     eos_notification_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    # Audit trail — who created this record version and why it was changed.
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    change_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # lifecycle versioning
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
 
@@ -62,6 +70,11 @@ class SupportPeriodRecord(UUIDTimestampMixin, Base):
     product: Mapped["Product"] = relationship(
         "Product",
         back_populates="support_period_records",
+    )
+
+    created_by_user: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys="[SupportPeriodRecord.created_by_user_id]",
     )
 
     # Optional relationship to the specific release this support period covers.

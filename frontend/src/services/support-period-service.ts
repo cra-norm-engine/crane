@@ -48,9 +48,14 @@ export const supportPeriodService = {
     return data;
   },
 
-  async getActiveForProduct(productId: string): Promise<SupportPeriodRecordRead> {
+  async getActiveForProduct(
+    productId: string,
+    options?: { latestRelease?: boolean },
+  ): Promise<SupportPeriodRecordRead> {
+    const params = options?.latestRelease ? { latest_release: true } : undefined;
     const { data } = await apiClient.get<SupportPeriodRecordRead>(
       `/support-periods/product/${productId}/active`,
+      { params },
     );
     return data;
   },

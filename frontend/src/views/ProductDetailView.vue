@@ -211,69 +211,91 @@
               No releases yet. Create the first release to start the workflow.
             </p>
 
-            <!-- Compact release list — one row per release, entire row is a link -->
-            <div v-else class="release-list" role="list">
-              <RouterLink
+            <!-- Release cards — one card per release with embedded support period row -->
+            <div v-else class="rel-table" role="list">
+              <div
                 v-for="release in product.releases"
                 :key="release.id"
-                class="release-row"
+                class="rel-card"
                 role="listitem"
-                :to="{ name: 'release-gate', params: { releaseId: release.id } }"
               >
-                <!-- Release icon mark -->
-                <div class="release-mark" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M3 7.5L12 12l9-4.5M12 12v9"/></svg>
+                <!-- ── Card header: version · meta · view button ── -->
+                <div class="rel-card-head">
+                  <!-- Release icon -->
+                  <div class="release-mark" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z"/><path d="M3 7.5L12 12l9-4.5M12 12v9"/></svg>
+                  </div>
+
+                  <!-- Version + CRA lineage tags -->
+                  <div class="release-row-left">
+                    <span class="release-display_version">{{ release.display_version }}</span>
+                    <span v-if="release.is_consolidated_support_version" class="release-tag release-tag-amber">Art. 13(10)</span>
+                    <span v-if="release.parent_release_id" class="release-tag release-tag-blue">Non-substantial</span>
+                    <span v-if="release.hardware_version" class="release-tag release-tag-hw">HW: {{ release.hardware_version }}</span>
+                    <span v-if="release.software_version" class="release-tag release-tag-sw">SW: {{ release.software_version }}</span>
+                  </div>
+
+                  <!-- Status + conformity + placement date -->
+                  <div class="rel-card-meta">
+                    <span class="badge badge-neutral">{{ formatReleaseStatus(release.release_status) }}</span>
+                    <span class="rel-meta-sep">·</span>
+                    <span class="rel-meta-text">{{ formatConformityRoute(release.conformity_route_snapshot) }}</span>
+                    <span class="rel-meta-sep">·</span>
+                    <span class="rel-meta-text">
+                      <template v-if="release.placed_on_market_date">Placed {{ formatDate(release.placed_on_market_date) }}</template>
+                      <template v-else>Not yet placed</template>
+                    </span>
+                  </div>
+
+                  <!-- View release workspace link -->
+                  <RouterLink
+                    :to="{ name: 'release-gate', params: { releaseId: release.id } }"
+                    class="btn btn-ghost btn-compact rel-view-btn"
+                  >
+                    View
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 3 11 8 6 13"/></svg>
+                  </RouterLink>
                 </div>
 
-                <!-- Version label + CRA lineage micro-tags -->
-                <div class="release-row-left">
-                  <span class="release-display_version">{{ release.display_version }}</span>
-                  <!-- Gap 5 — Art. 13(10) consolidated support designation tag -->
-                  <span v-if="release.is_consolidated_support_version" class="release-tag release-tag-amber">
-                    Art. 13(10)
-                  </span>
-                  <!-- Gap 2 — non-substantial update lineage tag -->
-                  <span v-if="release.parent_release_id" class="release-tag release-tag-blue">
-                    Non-substantial
-                  </span>
-                  <!-- Gap 2 — HW+SW version tags for embedded products -->
-                  <span v-if="release.hardware_version" class="release-tag release-tag-hw">
-                    HW: {{ release.hardware_version }}
-                  </span>
-                  <span v-if="release.software_version" class="release-tag release-tag-sw">
-                    SW: {{ release.software_version }}
-                  </span>
+                <!-- ── Support period row ── -->
+                <div class="rel-card-support">
+                  <span class="rel-support-label">Support period</span>
+
+                  <template v-if="activeSupportForRelease(release.id)">
+                    <!-- Active support period exists -->
+                    <div class="rel-support-info">
+                      <span class="rel-support-dates">
+                        {{ formatDate(activeSupportForRelease(release.id)!.support_start_date) }}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        {{ formatDate(activeSupportForRelease(release.id)!.support_end_date) }}
+                      </span>
+                      <span class="badge badge-neutral">{{ formatSupportType(activeSupportForRelease(release.id)!.support_type) }}</span>
+                      <span v-if="historyForRelease(release.id).length" class="rel-history-hint">
+                        {{ historyForRelease(release.id).length }} older version(s)
+                      </span>
+                    </div>
+                    <button
+                      class="btn btn-secondary btn-compact"
+                      type="button"
+                      @click="openSupportModalForRelease(release.id)"
+                    >
+                      Edit
+                    </button>
+                  </template>
+
+                  <template v-else>
+                    <!-- No support period yet for this release -->
+                    <span class="rel-support-not-set">Not set</span>
+                    <button
+                      class="btn btn-primary btn-compact"
+                      type="button"
+                      @click="openSupportModalForRelease(release.id)"
+                    >
+                      Set period
+                    </button>
+                  </template>
                 </div>
-
-                <!-- Status badge -->
-                <span class="badge badge-neutral release-status-badge">
-                  {{ formatReleaseStatus(release.release_status) }}
-                </span>
-
-                <!-- Conformity route — secondary meta -->
-                <span class="release-row-meta">
-                  {{ formatConformityRoute(release.conformity_route_snapshot) }}
-                </span>
-
-                <!-- Planned date -->
-                <span class="release-row-date">
-                  {{ formatDate(release.planned_release_date) }}
-                </span>
-
-                <!-- Chevron hint — indicates the row is a link -->
-                <svg
-                  class="release-row-arrow"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="6 3 11 8 6 13" />
-                </svg>
-              </RouterLink>
+              </div>
             </div>
           </section>
 
@@ -388,55 +410,42 @@
              ╚══════════════════════════════════════════════╝ -->
         <aside class="side-column">
 
-          <!-- Support period summary — full form opens in AppModal -->
+          <!-- Support period overview — per-release periods are set from the Releases table above -->
           <section class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Support period</h2>
-                <!-- Show number of historical versions recorded -->
-                <p class="muted section-sub">{{ supportHistoryCount }} display_version(s) on record.</p>
+                <h2 class="section-title">Support periods</h2>
+                <p class="muted section-sub">
+                  {{ supportHistoryCount }} of {{ product.releases.length }} release(s) covered
+                </p>
               </div>
-              <!-- Label adapts: "Set up" if none exists, "Edit" if one is active -->
-              <button
-                class="btn btn-primary btn-compact"
-                type="button"
-                @click="showSupportModal = true"
+            </div>
+
+            <!-- Per-release summary rows -->
+            <div v-if="product.releases.length" class="support-summary">
+              <div
+                v-for="release in product.releases"
+                :key="release.id"
+                class="sp-release-row"
               >
-                {{ activeSupportPeriod ? "Edit" : "Set up" }}
-              </button>
-            </div>
-
-            <!-- Active window highlight + detail rows -->
-            <div v-if="activeSupportPeriod" class="support-summary">
-              <!-- Green highlighted date range box -->
-              <div class="sp-window">
-                <div class="sp-window-lbl">Active window</div>
-                <div class="sp-dates">
-                  <span>{{ formatDate(activeSupportPeriod.support_start_date) }}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="sp-arrow"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                  <span>{{ formatDate(activeSupportPeriod.support_end_date) }}</span>
-                </div>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">Type</span>
-                <span class="badge badge-neutral">{{ activeSupportPeriod.support_type }}</span>
-              </div>
-
-              <div class="summary-row">
-                <span class="detail-label">EOS alert</span>
-                <span>{{ activeSupportPeriod.notify_before_days }} days before end</span>
-              </div>
-
-              <div v-if="activeSupportPeriod.recipient_user_ids.length > 0" class="summary-row">
-                <span class="detail-label">Recipients</span>
-                <span>{{ activeSupportPeriod.recipient_user_ids.length }} user(s)</span>
+                <span class="sp-release-ver">{{ release.display_version }}</span>
+                <template v-if="activeSupportForRelease(release.id)">
+                  <span class="sp-window sp-window-sm">
+                    <span class="sp-dates">
+                      {{ formatDate(activeSupportForRelease(release.id)!.support_start_date) }}
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                      {{ formatDate(activeSupportForRelease(release.id)!.support_end_date) }}
+                    </span>
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="sp-not-set muted">—</span>
+                </template>
               </div>
             </div>
 
-            <!-- Placeholder when no support period exists yet -->
             <div v-else class="empty-state empty-state-sm">
-              <p class="empty-state-title">No support period recorded yet.</p>
+              <p class="empty-state-title">No releases yet.</p>
             </div>
 
             <!-- Inline error from support period operations -->
@@ -599,7 +608,7 @@
            ════════════════════════════════════════════════════ -->
       <AppModal
         v-model="showSupportModal"
-        :title="activeSupportPeriod ? 'Edit support period' : 'Create support period'"
+        :title="activeSupportPeriod?.product_release_id ? 'Edit support period' : 'Create support period'"
         size="lg"
         :persistent="isSavingSupportPeriod"
       >
@@ -613,10 +622,10 @@
           <label class="field modal-field-span-2">
             <span class="field-label">
               Applies to release
-              <span class="field-label-hint">(optional — leave blank for product-level record)</span>
+              <span class="field-label-hint">(required — each support period must be linked to a release)</span>
             </span>
-            <select v-model="supportForm.product_release_id">
-              <option value="">Product-level (no specific release)</option>
+            <select v-model="supportForm.product_release_id" required>
+              <option value="" disabled>Select a release…</option>
               <option
                 v-for="rel in product?.releases ?? []"
                 :key="rel.id"
@@ -760,7 +769,111 @@
               <textarea v-model.trim="supportForm.packaging_summary" rows="3" />
             </label>
           </template>
+
+          <!-- Reason for change — required when versioning a release-specific record -->
+          <label v-if="activeSupportPeriod?.product_release_id" class="field modal-field-span-2 change-reason-field">
+            <span class="field-label">
+              Reason for change
+              <span class="field-label-hint field-label-required">(required)</span>
+            </span>
+            <textarea
+              v-model.trim="supportForm.change_reason"
+              rows="2"
+              placeholder="Describe why this support period is being updated…"
+              required
+            />
+          </label>
         </form>
+
+        <!-- Version history for the currently selected release -->
+        <div v-if="selectedReleaseHistory.length" class="support-history-section">
+          <p class="support-history-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Previous versions ({{ selectedReleaseHistory.length }}) — click to expand
+          </p>
+          <div class="support-history-list">
+            <div
+              v-for="record in selectedReleaseHistory"
+              :key="record.id"
+              class="sh-card"
+              :class="{ 'sh-card-open': expandedHistoryIds.has(record.id) }"
+            >
+              <!-- Always-visible summary row -->
+              <button
+                type="button"
+                class="sh-summary"
+                :aria-expanded="expandedHistoryIds.has(record.id)"
+                @click="toggleHistoryRecord(record.id)"
+              >
+                <span class="sh-dates">
+                  {{ formatDate(record.support_start_date) }} → {{ formatDate(record.support_end_date) }}
+                </span>
+                <span class="badge badge-neutral sh-type">{{ formatSupportType(record.support_type) }}</span>
+                <span v-if="record.created_by_user_name" class="sh-author muted">by {{ record.created_by_user_name }}</span>
+                <span class="sh-meta muted">{{ formatDate(record.created_at) }}</span>
+                <svg class="sh-chevron" :class="{ 'sh-chevron-open': expandedHistoryIds.has(record.id) }" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 6 8 10 12 6"/></svg>
+              </button>
+
+              <!-- Expanded field values -->
+              <div v-if="expandedHistoryIds.has(record.id)" class="sh-detail">
+                <div class="sh-fields">
+                  <div class="sh-field">
+                    <span class="sh-field-label">Support window</span>
+                    <span class="sh-field-value">{{ formatDate(record.support_start_date) }} → {{ formatDate(record.support_end_date) }}</span>
+                  </div>
+                  <div class="sh-field">
+                    <span class="sh-field-label">Type</span>
+                    <span class="sh-field-value">{{ formatSupportType(record.support_type) }}</span>
+                  </div>
+                  <div class="sh-field">
+                    <span class="sh-field-label">EOS alert</span>
+                    <span class="sh-field-value">{{ record.notify_before_days }} days before end</span>
+                  </div>
+                  <div v-if="record.recipients.length" class="sh-field">
+                    <span class="sh-field-label">EOL alert recipients</span>
+                    <span class="sh-field-value">{{ record.recipients.map(r => r.full_name || r.email).join(', ') }}</span>
+                  </div>
+                  <div v-if="record.eos_notification_sent_at" class="sh-field">
+                    <span class="sh-field-label">EOS sent</span>
+                    <span class="sh-field-value">{{ formatDate(record.eos_notification_sent_at) }}</span>
+                  </div>
+                  <div v-if="record.created_by_user_name" class="sh-field">
+                    <span class="sh-field-label">Updated by</span>
+                    <span class="sh-field-value">{{ record.created_by_user_name }}</span>
+                  </div>
+                  <div v-if="record.change_reason" class="sh-field sh-field-wide sh-field-reason">
+                    <span class="sh-field-label">Reason for change</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.change_reason }}</span>
+                  </div>
+                  <div v-if="record.justification_text" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">Justification</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.justification_text }}</span>
+                  </div>
+                  <div v-if="record.expected_use_time_text" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">Expected use time</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.expected_use_time_text }}</span>
+                  </div>
+                  <div v-if="record.comparable_products_text" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">Comparable products</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.comparable_products_text }}</span>
+                  </div>
+                  <div v-if="record.third_party_support_constraints_text" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">3rd-party constraints</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.third_party_support_constraints_text }}</span>
+                  </div>
+                  <div v-if="record.user_facing_summary" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">Art. 13(7) disclosure</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.user_facing_summary }}</span>
+                  </div>
+                  <div v-if="record.packaging_summary" class="sh-field sh-field-wide">
+                    <span class="sh-field-label">Packaging summary</span>
+                    <span class="sh-field-value sh-field-pre">{{ record.packaging_summary }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Footer slot — snippet generator + save action -->
         <template #footer>
@@ -780,8 +893,8 @@
           >
             {{ isSavingSupportPeriod
               ? "Saving…"
-              : activeSupportPeriod
-                ? "Save new display_version"
+              : activeSupportPeriod?.product_release_id
+                ? "Save new version"
                 : "Create support period" }}
           </button>
         </template>
@@ -1387,6 +1500,7 @@ const authStore = useAuthStore();
 /* ── Data refs ──────────────────────────────────────── */
 const product                      = ref<ProductDetailRead | null>(null);
 const activeSupportPeriod          = ref<SupportPeriodRecordRead | null>(null);
+const allSupportPeriods            = ref<SupportPeriodRecordRead[]>([]);
 const supportHistoryCount          = ref(0);
 const notificationRecipientOptions = ref<SupportPeriodNotificationRecipientOptionRead[]>([]);
 const recipientDropdownRef         = ref<HTMLElement | null>(null);
@@ -1725,6 +1839,7 @@ const supportForm = reactive({
   third_party_support_constraints_text: "",
   user_facing_summary:                  "",
   packaging_summary:                    "",
+  change_reason:                        "",
 });
 
 // New release form — reset before each modal open
@@ -1832,7 +1947,12 @@ function syncEditForm(): void {
 /** Copy the active support period record into the support form before the modal opens. */
 function syncSupportForm(): void {
   if (!activeSupportPeriod.value) {
-    supportForm.product_release_id                   = "";
+    // Pre-select the latest release (highest system_version). Sort defensively
+    // since the API order is not always guaranteed.
+    const releases = [...(product.value?.releases ?? [])].sort(
+      (a, b) => a.system_version - b.system_version,
+    );
+    supportForm.product_release_id                   = releases.at(-1)?.id ?? "";
     supportForm.support_start_date                   = "";
     supportForm.support_end_date                     = "";
     supportForm.notify_before_days                   = 180;
@@ -1844,11 +1964,21 @@ function syncSupportForm(): void {
     supportForm.third_party_support_constraints_text = "";
     supportForm.user_facing_summary                  = "";
     supportForm.packaging_summary                    = "";
+    supportForm.change_reason                        = "";
     return;
   }
 
-  // Gap 1 — restore the release-level link if the loaded record has one
-  supportForm.product_release_id                   = activeSupportPeriod.value.product_release_id ?? "";
+  // Fill form from the loaded record.
+  // If this is a product-level SP (no release link), pre-select the latest release
+  // so saving will create a release-specific record rather than another product-level one.
+  if (!activeSupportPeriod.value.product_release_id) {
+    const releases = [...(product.value?.releases ?? [])].sort(
+      (a, b) => a.system_version - b.system_version,
+    );
+    supportForm.product_release_id = releases.at(-1)?.id ?? "";
+  } else {
+    supportForm.product_release_id = activeSupportPeriod.value.product_release_id;
+  }
   supportForm.support_start_date                   = activeSupportPeriod.value.support_start_date ?? "";
   supportForm.support_end_date                     = activeSupportPeriod.value.support_end_date ?? "";
   supportForm.notify_before_days                   = activeSupportPeriod.value.notify_before_days ?? 180;
@@ -1861,6 +1991,7 @@ function syncSupportForm(): void {
     activeSupportPeriod.value.third_party_support_constraints_text ?? "";
   supportForm.user_facing_summary  = activeSupportPeriod.value.user_facing_summary ?? "";
   supportForm.packaging_summary    = activeSupportPeriod.value.packaging_summary ?? "";
+  supportForm.change_reason        = ""; // always cleared — user must provide a fresh reason
 }
 
 /* ── Modal open / close helpers ────────────────────── */
@@ -2008,6 +2139,72 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function formatSupportType(value: SupportType | string): string {
+  switch (value) {
+    case "standard":  return "Standard";
+    case "limited":   return "Limited";
+    case "extended":  return "Extended";
+    case "custom":    return "Custom";
+    default:          return String(value);
+  }
+}
+
+/* ── Per-release support period helpers ─────────────── */
+
+/** All support period records indexed by the release they belong to. */
+const supportPeriodsByReleaseId = computed((): Map<string, SupportPeriodRecordRead[]> => {
+  const map = new Map<string, SupportPeriodRecordRead[]>();
+  for (const record of allSupportPeriods.value) {
+    if (!record.product_release_id) continue;
+    const bucket = map.get(record.product_release_id) ?? [];
+    bucket.push(record);
+    map.set(record.product_release_id, bucket);
+  }
+  return map;
+});
+
+/** Returns the active (current) support period for a given release, or null. */
+function activeSupportForRelease(releaseId: string): SupportPeriodRecordRead | null {
+  return supportPeriodsByReleaseId.value.get(releaseId)?.find((r) => r.is_active) ?? null;
+}
+
+/** Returns the superseded (historical) support periods for a given release, newest first. */
+function historyForRelease(releaseId: string): SupportPeriodRecordRead[] {
+  return (supportPeriodsByReleaseId.value.get(releaseId) ?? [])
+    .filter((r) => !r.is_active)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+/** History records for whichever release is currently selected in the support form. */
+const selectedReleaseHistory = computed((): SupportPeriodRecordRead[] => {
+  if (!supportForm.product_release_id) return [];
+  return historyForRelease(supportForm.product_release_id);
+});
+
+/** Tracks which history record IDs are expanded in the modal. */
+const expandedHistoryIds = ref<Set<string>>(new Set());
+
+function toggleHistoryRecord(id: string): void {
+  const next = new Set(expandedHistoryIds.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  expandedHistoryIds.value = next;
+}
+
+/**
+ * Open the support period modal pre-selected for a specific release.
+ * Sets activeSupportPeriod to the existing active record (if any) so
+ * syncSupportForm fills the form correctly.
+ */
+function openSupportModalForRelease(releaseId: string): void {
+  activeSupportPeriod.value = activeSupportForRelease(releaseId);
+  syncSupportForm();
+  supportForm.product_release_id = releaseId;
+  supportPeriodError.value   = "";
+  supportPeriodSuccess.value = "";
+  showSupportModal.value     = true;
+}
+
 /* ── Data loaders ──────────────────────────────────── */
 
 async function loadSupportPeriod(): Promise<void> {
@@ -2016,17 +2213,41 @@ async function loadSupportPeriod(): Promise<void> {
   supportPeriodError.value = "";
 
   try {
-    activeSupportPeriod.value = await supportPeriodService.getActiveForProduct(props.productId);
+    // Load every record (active + historical) so the releases table can show per-release periods.
+    allSupportPeriods.value = await supportPeriodService.list({ product_id: props.productId });
   } catch {
-    activeSupportPeriod.value = null;
+    allSupportPeriods.value = [];
   }
 
-  try {
-    const history = await supportPeriodService.getHistoryForProduct(props.productId);
-    supportHistoryCount.value = history.records.length;
-  } catch {
-    supportHistoryCount.value = activeSupportPeriod.value ? 1 : 0;
-  }
+  // Derive the "active for latest release" record for the sidebar summary.
+  // Sort by system_version ascending so at(-1) is always the newest release,
+  // regardless of the order they arrived from the API.
+  const releases = [...(product.value?.releases ?? [])].sort(
+    (a, b) => a.system_version - b.system_version,
+  );
+  const latestReleaseId = releases.at(-1)?.id;
+  // Primary: release-specific active SP for the latest release.
+  // Fallback: product-level active SP (product_release_id === null) for backward
+  // compatibility with data that predates per-release support periods. When the
+  // fallback is used, saveSupportPeriod creates a new release-specific record
+  // instead of versioning the old product-level one.
+  activeSupportPeriod.value = latestReleaseId
+    ? (allSupportPeriods.value.find(
+        (r) => r.product_release_id === latestReleaseId && r.is_active,
+      ) ??
+      allSupportPeriods.value.find((r) => r.product_release_id === null && r.is_active) ??
+      null)
+    : (allSupportPeriods.value.find((r) => r.product_release_id === null && r.is_active) ?? null);
+
+  // Count only releases that have at least one active support period record.
+  const activeReleaseIds = new Set(
+    allSupportPeriods.value
+      .filter((r) => r.is_active && r.product_release_id !== null)
+      .map((r) => r.product_release_id),
+  );
+  supportHistoryCount.value = (product.value?.releases ?? []).filter((rel) =>
+    activeReleaseIds.has(rel.id),
+  ).length;
 
   syncSupportForm();
 }
@@ -2177,14 +2398,30 @@ async function generateSupportSnippets(): Promise<void> {
 async function saveSupportPeriod(): Promise<void> {
   if (!props.productId) return;
 
+  // A release must always be selected — product-level support periods are no longer supported.
+  if (!supportForm.product_release_id) {
+    supportPeriodError.value = "Please select a release before saving.";
+    return;
+  }
+
+  // A release-specific record requires a change reason when versioning.
+  // Product-level (legacy) records use the CREATE path, so no reason is needed.
+  const isEditingReleaseSpecific =
+    activeSupportPeriod.value !== null && activeSupportPeriod.value.product_release_id !== null;
+  if (isEditingReleaseSpecific && !supportForm.change_reason.trim()) {
+    supportPeriodError.value = "Please provide a reason for the change before saving.";
+    return;
+  }
+
   isSavingSupportPeriod.value = true;
   supportPeriodError.value    = "";
   supportPeriodSuccess.value  = "";
 
   try {
-    if (activeSupportPeriod.value) {
-      // Update path: creates a new immutable display_version of the support record
-      await supportPeriodService.update(activeSupportPeriod.value.id, {
+    if (isEditingReleaseSpecific) {
+      // Update path: creates a new immutable version of the release-specific record.
+      await supportPeriodService.update(activeSupportPeriod.value!.id, {
+        change_reason:                       supportForm.change_reason.trim(),
         support_start_date:                  supportForm.support_start_date,
         support_end_date:                    supportForm.support_end_date,
         notify_before_days:                  supportForm.notify_before_days,
@@ -2198,12 +2435,13 @@ async function saveSupportPeriod(): Promise<void> {
         user_facing_summary:  supportForm.user_facing_summary.trim() || null,
         packaging_summary:    supportForm.packaging_summary.trim() || null,
       });
-      supportPeriodSuccess.value = "Support period display_version recorded.";
+      supportPeriodSuccess.value = "Support period updated.";
     } else {
-      // Create path: new product-level or release-level support record
+      // Create path: new release-specific record.
+      // Also used when converting a legacy product-level SP: syncSupportForm() already
+      // pre-selected the latest release, so product_release_id is always set here.
       await supportPeriodService.create({
         product_id: props.productId,
-        // Gap 1 — pass the release-level FK if the user selected a specific release
         product_release_id:                  supportForm.product_release_id || null,
         support_start_date:                  supportForm.support_start_date,
         support_end_date:                    supportForm.support_end_date,
@@ -2578,6 +2816,13 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+.section-title-hint {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 0.3rem;
+}
+
 .section-sub {
   margin: 0.2rem 0 0;
   font-size: var(--text-sm);
@@ -2826,6 +3071,289 @@ onBeforeUnmount(() => {
   height: 1rem;
   flex-shrink: 0;
   color: var(--color-text-muted);
+}
+
+/* ── Release card table (replaces old .release-list) ─ */
+.rel-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rel-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.75rem);
+  background: var(--color-surface-elevated);
+  overflow: hidden;
+}
+
+/* Header row: icon · version+tags · meta · view button */
+.rel-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  flex-wrap: wrap;
+}
+
+/* Meta cluster: status badge + conformity + placement */
+.rel-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.rel-meta-sep {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  font-size: var(--text-sm);
+}
+
+.rel-meta-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* "View →" link button on the right of the card head */
+.rel-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Support period sub-row */
+.rel-card-support {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.04);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.rel-support-label {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  width: 90px;
+}
+
+/* Cluster containing dates + type badge + history hint */
+.rel-support-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.rel-support-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--color-success-text);
+}
+
+.rel-history-hint {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.rel-support-not-set {
+  font-style: italic;
+  flex: 1;
+}
+
+/* ── Sidebar support period per-release mini-rows ──── */
+.sp-release-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--text-sm);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sp-release-row:last-child {
+  border-bottom: none;
+}
+
+.sp-release-ver {
+  font-weight: 600;
+  flex-shrink: 0;
+  width: 3.5rem;
+}
+
+.sp-window-sm {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.sp-window-sm .sp-dates {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.sp-not-set {
+  font-style: italic;
+}
+
+/* ── Support period version history (in modal) ──────── */
+.support-history-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.support-history-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin: 0 0 0.6rem;
+}
+
+.support-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Individual history card */
+.sh-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 0.5rem);
+  overflow: hidden;
+}
+
+.sh-card-open {
+  border-color: var(--color-primary);
+}
+
+/* Always-visible clickable header */
+.sh-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: inherit;
+  text-align: left;
+  flex-wrap: wrap;
+  transition: background var(--t-fast);
+}
+
+.sh-summary:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sh-dates {
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.sh-type {
+  flex-shrink: 0;
+}
+
+.sh-author {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.sh-meta {
+  font-size: 0.72rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.sh-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--t-fast);
+}
+
+.sh-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Expanded detail area */
+.sh-detail {
+  padding: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* 2-column field grid, wide fields span both */
+.sh-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 1.5rem;
+}
+
+.sh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sh-field-wide {
+  grid-column: span 2;
+}
+
+.sh-field-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.sh-field-value {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.sh-field-pre {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.sh-field-reason {
+  background: rgba(var(--color-warning-rgb, 234 179 8) / 0.06);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  border-left: 3px solid var(--color-warning-border, #ca8a04);
+}
+
+/* Change-reason field highlighted inside the form */
+.change-reason-field {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+}
+
+.field-label-required {
+  color: var(--color-warning-text, #a16207);
 }
 
 /* ── Support period summary rows ───────────────────── */
@@ -3742,15 +4270,10 @@ textarea {
     grid-column: span 1;
   }
 
-  /* Release rows: stack fields vertically on small screens */
-  .release-row {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-  }
-
-  .release-row-meta,
-  .release-row-date {
-    display: none; /* hide secondary meta on very small screens */
+  /* Release cards: hide secondary meta on small screens */
+  .rel-card-meta .rel-meta-text,
+  .rel-card-meta .rel-meta-sep {
+    display: none;
   }
 }
 </style>
@@ -3867,13 +4390,12 @@ textarea {
   box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.13);
   border-color: transparent;
 }
-/* Release rows */
-[data-theme="light"] .page .release-row {
+/* Release cards */
+[data-theme="light"] .page .rel-card {
   border-color: transparent;
   box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.12);
 }
-[data-theme="light"] .page .release-row:hover {
-  border-color: transparent;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.09), 0 0 0 1.5px rgba(79,156,19,0.5);
+[data-theme="light"] .page .rel-card-support {
+  background: rgba(0,0,0,0.025);
 }
 </style>

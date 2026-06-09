@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRA Compliance Tool — Consultant Presentation</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:       #70b917;
+    --green-light: #afd62e;
+    --green-dark:  #1c6b27;
+    --bg:          #050e05;
+    --bg-card:     rgba(255,255,255,0.04);
+    --bg-card-h:   rgba(255,255,255,0.07);
+    --border:      rgba(112,185,23,0.18);
+    --border-h:    rgba(112,185,23,0.38);
+    --text:        #f0f4ee;
+    --muted:       rgba(240,244,238,0.55);
+    --radius:      14px;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Slides ──────────────────────────────────── */
+  .deck {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 6rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(60px);
+    transition: opacity 0.42s ease, transform 0.42s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0);
+  }
+
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-60px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  /* decorative background grid */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(112,185,23,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(112,185,23,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .slide { z-index: 1; }
+
+  /* ── Typography ──────────────────────────────── */
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 0.6rem;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  h1 span { color: var(--green-light); }
+
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-bottom: 1.8rem;
+    align-self: flex-start;
+  }
+
+  h2 span { color: var(--green-light); }
+
+  .subtitle {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin-top: 1rem;
+    max-width: 560px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ── Cards / grids ───────────────────────────── */
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.1rem; width: 100%; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.1rem; width: 100%; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem;   width: 100%; }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.4rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .card:hover { background: var(--bg-card-h); border-color: var(--border-h); }
+
+  .card-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+
+  .card-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--green-light);
+  }
+
+  .card-body {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── Stat block ──────────────────────────────── */
+  .stat-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.4rem 1rem;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: var(--green-light);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  /* ── Timeline / steps ────────────────────────── */
+  .steps { display: flex; flex-direction: column; gap: 0.85rem; width: 100%; }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-text { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  .step-text b { color: var(--text); }
+
+  /* ── Tag chips ───────────────────────────────── */
+  .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+
+  .tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(112,185,23,0.12);
+    border: 1px solid rgba(112,185,23,0.3);
+    color: var(--green-light);
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Logo bar (slide 1) ──────────────────────── */
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2.2rem;
+  }
+
+  .logo-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-icon svg { width: 28px; height: 28px; fill: #fff; }
+
+  .logo-text {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .logo-text span { color: var(--green-light); }
+
+  /* ── Divider ─────────────────────────────────── */
+  .divider {
+    width: 56px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--green), transparent);
+    border-radius: 2px;
+    margin: 1rem auto;
+  }
+
+  /* ── CTA pill ────────────────────────────────── */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+    padding: 0.7rem 1.6rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border: none;
+    cursor: default;
+  }
+
+  /* ── Navigation bar ──────────────────────────── */
+  nav {
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1rem 2rem 1.25rem;
+  }
+
+  .nav-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 0.45rem 1.2rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+  }
+
+  .nav-btn:hover { background: var(--bg-card-h); border-color: var(--border-h); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .dot-track { display: flex; gap: 0.5rem; align-items: center; }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(112,185,23,0.25);
+    transition: background 0.25s, transform 0.25s;
+    cursor: pointer;
+  }
+
+  .dot.active {
+    background: var(--green);
+    transform: scale(1.35);
+  }
+
+  /* ── Deployment slide ───────────────────────────── */
+  .dep-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    overflow: hidden;
+  }
+
+  .dep-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.9rem 1rem 0.75rem;
+    gap: 0.2rem;
+    text-align: center;
+  }
+
+  .dep-local  { background: linear-gradient(135deg, rgba(112,185,23,0.18), rgba(112,185,23,0.06)); border-bottom: 1px solid rgba(112,185,23,0.2); }
+  .dep-onprem { background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(99,102,241,0.06)); border-bottom: 1px solid rgba(99,102,241,0.2); }
+  .dep-cloud  { background: linear-gradient(135deg, rgba(14,165,233,0.18), rgba(14,165,233,0.06)); border-bottom: 1px solid rgba(14,165,233,0.2); }
+
+  .dep-icon  { font-size: 1.8rem; line-height: 1; }
+  .dep-title { font-size: 0.92rem; font-weight: 800; color: var(--text); margin-top: 0.15rem; }
+  .dep-sub   { font-size: 0.7rem; color: var(--muted); }
+
+  /* mini architecture diagram */
+  .dep-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0 0.9rem;
+  }
+
+  .dep-box {
+    width: 100%;
+    text-align: center;
+    padding: 0.35rem 0.5rem;
+    border-radius: 7px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text);
+  }
+
+  .dep-box small { display: block; font-weight: 400; color: var(--muted); font-size: 0.63rem; }
+
+  .dep-b-browser { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); }
+  .dep-b-proxy   { background: rgba(251,191,36,0.1);   border: 1px solid rgba(251,191,36,0.2); color: #fde68a; }
+  .dep-b-fe      { background: rgba(112,185,23,0.12);  border: 1px solid rgba(112,185,23,0.25); color: var(--green-light); }
+  .dep-b-be      { background: rgba(99,102,241,0.12);  border: 1px solid rgba(99,102,241,0.28); color: #a5b4fc; }
+  .dep-b-db      { background: rgba(14,165,233,0.1);   border: 1px solid rgba(14,165,233,0.22); color: #7dd3fc; }
+
+  .dep-row  { display: flex; align-items: center; gap: 0.25rem; width: 100%; }
+  .dep-row .dep-box { flex: 1; }
+  .dep-hsep { color: var(--muted); font-size: 0.75rem; flex-shrink: 0; }
+  .dep-arrow { font-size: 0.7rem; color: var(--muted); line-height: 1; }
+
+  /* numbered steps */
+  .dep-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0 0.9rem;
+  }
+
+  .dep-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .dep-step code {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    font-family: "Menlo", "Consolas", monospace;
+    font-size: 0.67rem;
+    color: var(--green-light);
+  }
+
+  .dep-snum {
+    flex-shrink: 0;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    background: rgba(112,185,23,0.15);
+    border: 1px solid rgba(112,185,23,0.3);
+    color: var(--green-light);
+    font-size: 0.62rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* tag row */
+  .dep-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0 0.9rem 0.9rem;
+  }
+
+  .dep-tag {
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+  }
+
+  /* ── License slide ───────────────────────────── */
+  .lic-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.8rem;
+    border-radius: 8px;
+    margin-bottom: 0.15rem;
+  }
+
+  .lic-ok  { background: rgba(112,185,23,0.12); color: var(--green-light); border: 1px solid rgba(112,185,23,0.25); }
+  .lic-no  { background: rgba(239,68,68,0.1);   color: #fca5a5;           border: 1px solid rgba(239,68,68,0.25); }
+
+  .lic-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.45;
+    flex-wrap: wrap;
+  }
+
+  .lic-row b { color: var(--text); }
+
+  .lic-ok-row { background: rgba(112,185,23,0.05); border: 1px solid rgba(112,185,23,0.12); }
+  .lic-no-row { background: rgba(239,68,68,0.05);  border: 1px solid rgba(239,68,68,0.15); }
+
+  .lic-icon { flex-shrink: 0; font-size: 1rem; margin-top: 0.05rem; }
+
+  .lic-row > span:nth-child(2) { flex: 1; }
+
+  .perm-btn {
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: auto;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.35);
+    color: #fca5a5;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    transition: background 0.18s, border-color 0.18s;
+    white-space: nowrap;
+  }
+
+  .perm-btn:hover { background: rgba(239,68,68,0.28); border-color: rgba(239,68,68,0.55); color: #fff; }
+
+  /* ── Slide 5 accent ──────────────────────────── */
+  .cta-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+  }
+
+  .big-icon {
+    font-size: 3.6rem;
+    margin-bottom: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+  <!-- ── SLIDE 1: Cover ─────────────────────────── -->
+  <section class="slide active" id="s1">
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2zm-1 13.5l-3.5-3.5 1.41-1.41L11 12.67l5.09-5.08 1.41 1.41L11 15.5z"/>
+        </svg>
+      </div>
+      <div class="logo-text">CRANE <span>Compliance</span></div>
+    </div>
+
+    <div class="eyebrow">EU Cyber Resilience Act</div>
+    <h1>End-to-end CRA<br><span>Compliance Platform</span></h1>
+    <div class="divider"></div>
+    <p class="subtitle">
+      One platform to scope products, track vulnerabilities, manage SBOMs,
+      and generate audit-ready compliance evidence — aligned with the EU
+      Cyber Resilience Act (2024/2847).
+    </p>
+    <div class="cta">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Consultant Overview · 2026
+    </div>
+  </section>
+
+  <!-- ── SLIDE 2: The Problem ───────────────────── -->
+  <section class="slide" id="s2">
+    <div class="eyebrow">The Challenge</div>
+    <h2>CRA compliance is <span>complex</span></h2>
+
+    <div class="grid-3" style="margin-bottom:1.1rem">
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <div class="card-title">Scope Assessment</div>
+        <div class="card-body">Determining whether a product falls under the CRA — and which class — requires evaluating multiple criteria against Article 3 definitions.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">SBOM Obligations</div>
+        <div class="card-body">Article 13 mandates a machine-readable Software Bill of Materials. Maintaining accuracy across releases with multi-scanner CVE coverage is resource-intensive.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏱️</div>
+        <div class="card-title">Incident Timelines</div>
+        <div class="card-body">Article 14 requires actively exploited vulnerability notifications to ENISA within 24 hours — with a full report within 72 hours.</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-icon">🗂️</div>
+        <div class="card-title">Audit Evidence</div>
+        <div class="card-body">Conformity assessment bodies expect traceable, timestamped documentation covering the entire product lifecycle — not spreadsheets.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <div class="card-title">Supply Chain Visibility</div>
+        <div class="card-body">Identifying transitive dependencies with known vulnerabilities across multiple product releases demands automated, version-aware tooling.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SLIDE 3: The Solution ──────────────────── -->
+  <section class="slide" id="s3">
+    <div class="eyebrow">Platform Capabilities</div>
+    <h2>Everything compliance in <span>one place</span></h2>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">Scope Wizard</div>
+        <div class="card-body">Guided assessment against CRA Article 3 criteria. Instantly determines in-scope / out-of-scope, classification (Default / Class I / Class II), and recommended conformity route.</div>
+        <div class="tags">
+          <span class="tag">Art. 3</span>
+          <span class="tag">Classification</span>
+          <span class="tag">Conformity route</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">SBOM Analyser</div>
+        <div class="card-body">Uploads SBOMs and runs multi-scanner analysis (OSV, Trivy, NVD). Scores quality against NTIA minimum fields and CRA Phase 2 standards. Differential diff between releases.</div>
+        <div class="tags">
+          <span class="tag">Art. 13</span>
+          <span class="tag">NTIA</span>
+          <span class="tag">CVE</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚨</div>
+        <div class="card-title">Vulnerability Handling</div>
+        <div class="card-body">Full CVD workflow with severity tracking, coordinated disclosure timelines, and automatic lifecycle notifications to registered stakeholders.</div>
+        <div class="tags">
+          <span class="tag">Art. 13–14</span>
+          <span class="tag">CVD</span>
+          <span class="tag">PSIRT</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <div class="card-title">ENISA Reporting</div>
+        <div class="card-body">Structured incident reporting to ENISA per Art. 14. Tracks 24-hour early warning and 72-hour notification deadlines with auto-generated report drafts.</div>
+        <div class="tags">
+          <span class="tag">Art. 14</span>
+          <span class="tag">ENISA</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📜</div>
+        <div class="card-title">Certification Records</div>
+        <div class="card-body">Manage EU DoC and EU DoCA declarations of conformity per Annex IV. Attaches evidence artefacts and links to specific product releases.</div>
+        <div class="tags">
+          <span class="tag">Annex IV</span>
+          <span class="tag">DoC</span>
+          <span class="tag">DoCA</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕵️</div>
+        <div class="card-title">Audit Trail</div>
+        <div class="card-body">Immutable, timestamped event log for every action across products, releases, SBOMs, vulnerabilities, and certifications. Export-ready for assessors.</div>
+        <div class="tags">
+          <span class="tag">Annex I</span>
+          <span class="tag">Traceability</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SLIDE 4: Deployment & Integration ─────── -->
+  <section class="slide" id="s4">
+    <div class="eyebrow">Deployment & Integration</div>
+    <h2>Built for <span>enterprise</span> environments</h2>
+
+    <div style="display:flex;gap:1.2rem;width:100%;align-items:flex-start">
+      <div style="flex:1;display:flex;flex-direction:column;gap:0.85rem">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><b>Self-hosted Docker deployment</b><br>Single <code>docker-compose up</code> brings up the API, Vue 3 frontend, and PostgreSQL. Air-gapped or cloud-hosted — you control the data.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text"><b>LDAP / Active Directory integration</b><br>Connects to existing corporate directories for SSO. Role-based access control (Admin, Auditor, Developer, Viewer) maps to your org structure.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text"><b>REST API + webhook events</b><br>Every action is available via a versioned REST API. Integrate with your existing CI/CD pipelines, ITSM, or GRC platform.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text"><b>Open source core (AGPL v3)</b><br>The CRANE core is publicly available at <em>github.com/cra-norm-engine/crane</em>. No vendor lock-in. Extend or audit the codebase freely. Modifications deployed as a network service must remain open source.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:0.85rem;width:220px;flex-shrink:0">
+        <div class="stat-block"><div class="stat-num">100%</div><div class="stat-label">Data sovereignty</div></div>
+        <div class="stat-block"><div class="stat-num">24h</div><div class="stat-label">ENISA early warning<br>deadline tracking</div></div>
+        <div class="stat-block"><div class="stat-num">3</div><div class="stat-label">SBOM scanners<br>(OSV · Trivy · NVD)</div></div>
+        <div class="stat-block"><div class="stat-num">RBAC</div><div class="stat-label">Role-based access<br>+ LDAP support</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SLIDE 5: Deployment ──────────────────────── -->
+  <section class="slide" id="s5">
+    <div class="eyebrow">Deployment Options</div>
+    <h2>Run it anywhere — <span>your infrastructure</span></h2>
+
+    <div class="grid-3" style="width:100%;align-items:stretch">
+
+      <!-- LOCAL -->
+      <div class="dep-card">
+        <div class="dep-head dep-local">
+          <span class="dep-icon">💻</span>
+          <span class="dep-title">Local / Developer</span>
+          <span class="dep-sub">Single machine, no internet required</span>
+        </div>
+        <div class="dep-diagram">
+          <div class="dep-box dep-b-browser">🌐 Browser<br><small>localhost:5173</small></div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-row">
+            <div class="dep-box dep-b-fe">Vue 3<br><small>Frontend</small></div>
+            <div class="dep-hsep">↔</div>
+            <div class="dep-box dep-b-be">FastAPI<br><small>Backend :8000</small></div>
+          </div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-box dep-b-db">🗄 PostgreSQL<br><small>Docker volume</small></div>
+        </div>
+        <div class="dep-steps">
+          <div class="dep-step"><span class="dep-snum">1</span><code>git clone …</code></div>
+          <div class="dep-step"><span class="dep-snum">2</span><code>cp .env.example .env</code></div>
+          <div class="dep-step"><span class="dep-snum">3</span><code>docker-compose up</code></div>
+          <div class="dep-step"><span class="dep-snum">4</span>Open <code>localhost:5173</code></div>
+        </div>
+        <div class="dep-tags">
+          <span class="dep-tag">~5 min setup</span>
+          <span class="dep-tag">No cloud account</span>
+        </div>
+      </div>
+
+      <!-- ON-PREM -->
+      <div class="dep-card">
+        <div class="dep-head dep-onprem">
+          <span class="dep-icon">🏢</span>
+          <span class="dep-title">On-Premises</span>
+          <span class="dep-sub">Your server, your network, your data</span>
+        </div>
+        <div class="dep-diagram">
+          <div class="dep-box dep-b-browser">🌐 Corporate browser<br><small>Internal DNS</small></div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-box dep-b-proxy">🔀 Reverse Proxy<br><small>Nginx / Traefik + TLS</small></div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-row">
+            <div class="dep-box dep-b-fe">Vue 3<br><small>Frontend</small></div>
+            <div class="dep-hsep">↔</div>
+            <div class="dep-box dep-b-be">FastAPI<br><small>Backend</small></div>
+          </div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-box dep-b-db">🗄 PostgreSQL<br><small>Local or NAS volume</small></div>
+        </div>
+        <div class="dep-steps">
+          <div class="dep-step"><span class="dep-snum">1</span>Copy repo to server</div>
+          <div class="dep-step"><span class="dep-snum">2</span>Configure <code>.env</code> + LDAP</div>
+          <div class="dep-step"><span class="dep-snum">3</span><code>docker-compose -f compose.prod.yml up -d</code></div>
+          <div class="dep-step"><span class="dep-snum">4</span>Point DNS &amp; enable TLS</div>
+        </div>
+        <div class="dep-tags">
+          <span class="dep-tag">Air-gap ready</span>
+          <span class="dep-tag">LDAP / AD SSO</span>
+          <span class="dep-tag">Full data control</span>
+        </div>
+      </div>
+
+      <!-- CLOUD -->
+      <div class="dep-card">
+        <div class="dep-head dep-cloud">
+          <span class="dep-icon">☁️</span>
+          <span class="dep-title">Cloud</span>
+          <span class="dep-sub">AWS · Azure · GCP · Hetzner</span>
+        </div>
+        <div class="dep-diagram">
+          <div class="dep-box dep-b-browser">🌐 Public Internet<br><small>HTTPS + domain</small></div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-box dep-b-proxy">🔀 Load Balancer / CDN<br><small>Cloud-managed TLS</small></div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-row">
+            <div class="dep-box dep-b-fe">Container<br><small>Frontend</small></div>
+            <div class="dep-hsep">↔</div>
+            <div class="dep-box dep-b-be">Container<br><small>Backend</small></div>
+          </div>
+          <div class="dep-arrow">↕</div>
+          <div class="dep-box dep-b-db">🗄 Managed DB<br><small>RDS / Cloud SQL / Supabase</small></div>
+        </div>
+        <div class="dep-steps">
+          <div class="dep-step"><span class="dep-snum">1</span>Provision VM or container service</div>
+          <div class="dep-step"><span class="dep-snum">2</span>Push images to registry</div>
+          <div class="dep-step"><span class="dep-snum">3</span>Set env vars + managed DB URL</div>
+          <div class="dep-step"><span class="dep-snum">4</span>Attach domain &amp; SSL cert</div>
+        </div>
+        <div class="dep-tags">
+          <span class="dep-tag">Auto-scaling</span>
+          <span class="dep-tag">Managed backups</span>
+          <span class="dep-tag">Multi-region</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── SLIDE 6: Next Steps ──────────────────────── -->
+  <section class="slide" id="s5">
+    <div class="eyebrow">Next Steps</div>
+    <h2>Getting <span>started</span></h2>
+
+    <div class="grid-3" style="margin-bottom:1.2rem">
+      <div class="card" style="align-items:center;text-align:center">
+        <div class="card-icon" style="font-size:2.2rem">🗺️</div>
+        <div class="card-title">1 — Scoping Workshop</div>
+        <div class="card-body">Half-day session to inventory your product portfolio, identify CRA-applicable items, and classify them using the built-in scope wizard. Output: a prioritised compliance roadmap.</div>
+      </div>
+      <div class="card" style="align-items:center;text-align:center">
+        <div class="card-icon" style="font-size:2.2rem">🚀</div>
+        <div class="card-title">2 — Pilot Deployment</div>
+        <div class="card-body">Deploy CRANE in your environment (on-prem or cloud), onboard 1–2 pilot products, ingest existing SBOMs, and wire up your CVD process. Target: 2 weeks.</div>
+      </div>
+      <div class="card" style="align-items:center;text-align:center">
+        <div class="card-icon" style="font-size:2.2rem">✅</div>
+        <div class="card-title">3 — Full Roll-out</div>
+        <div class="card-body">Expand to the full product portfolio, enable LDAP SSO, connect CI/CD pipelines for automated SBOM ingestion, and produce the first audit-ready evidence package.</div>
+      </div>
+    </div>
+
+    <div class="card" style="flex-direction:row;align-items:center;gap:1.5rem;width:100%;padding:1.2rem 1.8rem">
+      <div style="flex:1">
+        <div class="card-title" style="font-size:0.95rem;margin-bottom:0.3rem">Open source · Self-hosted · No per-seat licensing</div>
+        <div class="card-body">CRANE is built on open standards (CycloneDX, SPDX, OpenVEX) and published under <strong style="color:var(--green-light)">AGPL v3</strong>. Free to use, deploy, and modify — modifications must remain open source if deployed as a network service. Consulting engagements cover deployment, customisation, and compliance advisory.</div>
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:0.4rem;align-items:center">
+        <div class="tag" style="font-size:0.75rem;padding:0.3rem 1rem">github.com/cra-norm-engine/crane</div>
+        <div class="tag" style="font-size:0.75rem;padding:0.3rem 1rem">CRA Regulation 2024/2847</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SLIDE 6: Licensing ─────────────────────── -->
+  <section class="slide" id="s6">
+    <div class="eyebrow">AGPL v3 License</div>
+    <h2>What you can — and <span>can't</span> — do</h2>
+
+    <div style="display:flex;gap:1.1rem;width:100%">
+
+      <!-- Permitted column -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:0.6rem">
+        <div class="lic-header lic-ok">✅ Permitted — no approval needed</div>
+        <div class="lic-row lic-ok-row">
+          <span class="lic-icon">🏢</span>
+          <span><b>Internal use</b> — deploy and run CRANE inside your organisation for any purpose</span>
+        </div>
+        <div class="lic-row lic-ok-row">
+          <span class="lic-icon">🖥️</span>
+          <span><b>Host unmodified for clients</b> — run CRANE as a hosted service without touching the source code</span>
+        </div>
+        <div class="lic-row lic-ok-row">
+          <span class="lic-icon">⚙️</span>
+          <span><b>Configuration &amp; infrastructure changes</b> — env vars, Docker setup, reverse proxy, custom domains</span>
+        </div>
+        <div class="lic-row lic-ok-row">
+          <span class="lic-icon">💼</span>
+          <span><b>Sell services around it</b> — consulting, deployment, training, compliance advisory</span>
+        </div>
+        <div class="lic-row lic-ok-row">
+          <span class="lic-icon">🔬</span>
+          <span><b>Modify for internal use</b> — customise freely as long as the modified version is not offered to external users over a network</span>
+        </div>
+      </div>
+
+      <!-- Not permitted column -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:0.6rem">
+        <div class="lic-header lic-no">⛔ Requires permission from the project owner</div>
+        <div class="lic-row lic-no-row">
+          <span class="lic-icon">🔒</span>
+          <span><b>Closed-source modifications hosted publicly</b> — deploying a modified version as a network service without releasing the changed source</span>
+          <a class="perm-btn" href="mailto:emath94@gmail.com?subject=CRANE%20License%20Permission%20Request&body=Hi%2C%0A%0AI%20would%20like%20to%20request%20permission%20to%3A%0A%0A[describe%20your%20use%20case]%0A%0AOrganisation%3A%0AContact%3A">Request permission</a>
+        </div>
+        <div class="lic-row lic-no-row">
+          <span class="lic-icon">☁️</span>
+          <span><b>Proprietary SaaS product</b> — building a commercial cloud platform on top of CRANE with proprietary modifications</span>
+          <a class="perm-btn" href="mailto:emath94@gmail.com?subject=CRANE%20License%20Permission%20Request&body=Hi%2C%0A%0AI%20would%20like%20to%20request%20permission%20to%3A%0A%0A[describe%20your%20use%20case]%0A%0AOrganisation%3A%0AContact%3A">Request permission</a>
+        </div>
+        <div class="lic-row lic-no-row">
+          <span class="lic-icon">📦</span>
+          <span><b>Re-licensing or sublicensing</b> — distributing CRANE or a derivative under a different or more restrictive license</span>
+          <a class="perm-btn" href="mailto:emath94@gmail.com?subject=CRANE%20License%20Permission%20Request&body=Hi%2C%0A%0AI%20would%20like%20to%20request%20permission%20to%3A%0A%0A[describe%20your%20use%20case]%0A%0AOrganisation%3A%0AContact%3A">Request permission</a>
+        </div>
+        <div class="lic-row lic-no-row">
+          <span class="lic-icon">🏷️</span>
+          <span><b>Removing copyright or license notices</b> — stripping AGPL v3 attribution from source or UI</span>
+          <a class="perm-btn" href="mailto:emath94@gmail.com?subject=CRANE%20License%20Permission%20Request&body=Hi%2C%0A%0AI%20would%20like%20to%20request%20permission%20to%3A%0A%0A[describe%20your%20use%20case]%0A%0AOrganisation%3A%0AContact%3A">Request permission</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ── Navigation ────────────────────────────── -->
+<nav>
+  <button class="nav-btn" id="prevBtn" onclick="go(-1)" disabled>← Prev</button>
+  <div class="dot-track" id="dots"></div>
+  <button class="nav-btn" id="nextBtn" onclick="go(1)">Next →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsWrap = document.getElementById('dots');
+  let current = 0;
+
+  // Build dots
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsWrap.appendChild(d);
+  });
+
+  function goTo(n) {
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current].classList.remove('exit'), 350);
+
+    current = n;
+    slides[current].classList.add('active');
+
+    document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === slides.length - 1;
+  }
+
+  function go(dir) {
+    const next = current + dir;
+    if (next >= 0 && next < slides.length) goTo(next);
+  }
+
+  // Keyboard arrows
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+  });
+</script>
+</body>
+</html>

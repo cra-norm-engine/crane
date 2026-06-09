@@ -2,10 +2,11 @@
 My Tasks endpoint — aggregates open items assigned to the current user
 across all entity types that support task assignment:
 
-  • vulnerability_reports  (assigned_to_user_id)
-  • changes                (assigned_to_user_id)
-  • release_gate_items     (assigned_to_user_id)
-  • risk_items             (owner_user_id)
+  • vulnerability_reports      (assigned_to_user_id)
+  • changes                    (assigned_to_user_id)
+  • release_gate_items         (assigned_to_user_id)
+  • risk_items                 (owner_user_id)
+  • lifecycle_notifications    (recipient_user_id, EOS alerts only)
 
 Results are sorted: overdue first, then by due_date ascending, then no-date items last.
 """
@@ -23,11 +24,15 @@ from app.models.change import Change
 from app.models.enums import (
     ArtifactReviewDecision,
     ChangeStatus,
+    LifecycleNotificationStatus,
+    LifecycleNotificationType,
     RiskItemStatus,
     VulnerabilityLifecycleStatus,
 )
+from app.models.lifecycle_notification import LifecycleNotification
 from app.models.release_gate import ReleaseGate, ReleaseGateItem
 from app.models.risk_item import RiskItem
+from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
 from app.schemas.my_tasks import TaskItem
@@ -184,6 +189,42 @@ def list_my_tasks(
             release_version=None,
             severity=ri.risk_level,
             parent_id=getattr(assessment, "id", None),
+            created_by_name=None,
+        ))
+
+    # ── EOS alerts (lifecycle notifications) ─────────────────────────────────
+    # Surface pending end-of-support alerts where the current user is a recipient.
+    eos_stmt = (
+        select(LifecycleNotification)
+        .where(
+            LifecycleNotification.recipient_user_id == current_user.id,
+            LifecycleNotification.notification_type == LifecycleNotificationType.end_of_support_upcoming,
+            LifecycleNotification.status == LifecycleNotificationStatus.pending,
+        )
+        .options(
+            joinedload(LifecycleNotification.support_period_record).joinedload(SupportPeriodRecord.product),
+            joinedload(LifecycleNotification.support_period_record).joinedload(SupportPeriodRecord.product_release),
+        )
+    )
+    for notif in db.scalars(eos_stmt).unique().all():
+        sp = notif.support_period_record
+        product_name = getattr(getattr(sp, "product", None), "name", None) if sp else None
+        product_id = getattr(sp, "product_id", None) if sp else None
+        release = getattr(sp, "product_release", None) if sp else None
+        release_version = getattr(release, "version", None)
+        support_end_date: date | None = getattr(sp, "support_end_date", None) if sp else None
+        tasks.append(TaskItem(
+            entity_type="eos_alert",
+            entity_id=notif.id,
+            title=notif.title,
+            status=notif.status.value,
+            due_date=support_end_date,
+            is_overdue=_is_overdue(support_end_date),
+            product_name=product_name,
+            release_version=release_version,
+            severity=None,
+            # parent_id carries product_id so the frontend can deep-link to the product detail page.
+            parent_id=product_id,
             created_by_name=None,
         ))
 
