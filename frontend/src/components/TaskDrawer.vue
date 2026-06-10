@@ -29,6 +29,9 @@
                 <template v-else-if="task.entity_type === 'change'">
                   <path d="M3 5h14M3 9h14M3 13h9"/>
                 </template>
+                <template v-else-if="task.entity_type === 'eos_alert'">
+                  <circle cx="10" cy="10" r="7"/><path d="M10 6.5v3.5l2.5 1.5"/>
+                </template>
                 <template v-else>
                   <path d="M4 10.5l3.5 3.5 8.5-8.5"/><rect x="2.5" y="2.5" width="15" height="15" rx="2"/>
                 </template>
@@ -131,6 +134,9 @@
               </template>
               <template v-else-if="task.entity_type === 'release_gate_item'">
                 Gate item status is updated through evidence review. Open the full record to review evidence and decisions.
+              </template>
+              <template v-else-if="task.entity_type === 'eos_alert'">
+                This product's support period is approaching end of life. Open the product record to review the support period details and take action.
               </template>
             </p>
           </template>
@@ -240,7 +246,9 @@ async function saveStatus(): Promise<void> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const createdByLabel = computed(() => {
   if (!props.task) return "Created by";
-  return props.task.entity_type === "vulnerability_report" ? "Reported by" : "Initiated by";
+  if (props.task.entity_type === "vulnerability_report") return "Reported by";
+  if (props.task.entity_type === "eos_alert") return "Assigned as";
+  return "Initiated by";
 });
 
 const creatorInitials = computed(() => {
@@ -283,6 +291,7 @@ function formatEntityType(type: string): string {
     change:              "Change",
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
+    eos_alert:           "EOL Alert",
   };
   return map[type] ?? type;
 }
@@ -353,6 +362,7 @@ function formatDate(iso: string): string {
 .dtp-change               { background: var(--color-info-bg);    color: var(--color-info-text); }
 .dtp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .dtp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.dtp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
 /* Severity pill */
 .dw-sev-pill {

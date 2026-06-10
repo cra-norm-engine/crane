@@ -65,10 +65,17 @@ def generate_support_period_snippets(
 @router.get("/product/{product_id}/active", response_model=SupportPeriodRecordRead)
 def get_active_support_period_record_for_product(
     product_id: UUID,
+    latest_release: bool = Query(
+        default=False,
+        description="When true, return the support period for the product's latest release "
+        "(highest system_version) instead of the product-level record.",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.support_period_read)),
 ) -> SupportPeriodRecordRead:
-    return SupportPeriodRecordService(db).get_active_record_for_product(product_id)
+    return SupportPeriodRecordService(db).get_active_record_for_product(
+        product_id, use_latest_release=latest_release
+    )
 
 
 @router.get("/product/{product_id}/history", response_model=SupportPeriodRecordHistoryRead)

@@ -2,7 +2,8 @@ export type TaskEntityType =
   | "vulnerability_report"
   | "change"
   | "release_gate_item"
-  | "risk_item";
+  | "risk_item"
+  | "eos_alert";
 
 export interface TaskItem {
   entity_type: TaskEntityType;

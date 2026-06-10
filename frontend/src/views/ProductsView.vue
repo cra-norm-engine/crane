@@ -320,7 +320,7 @@
               <th>Classification</th>
               <th>Scope</th>
               <th>Placed on market</th>
-              <th>Support period</th>
+              <th>Latest release support</th>
               <th>Updated</th>
               <th></th>
             </tr>
@@ -748,10 +748,13 @@ function toggleCreateForm(): void {
 }
 
 async function loadSupportPeriods(productList: ProductSummaryRead[]): Promise<void> {
+  // Fetch the latest-release support period for each product in parallel.
   const entries = await Promise.all(
     productList.map(async (product) => {
       try {
-        const record = await supportPeriodService.getActiveForProduct(product.id);
+        const record = await supportPeriodService.getActiveForProduct(product.id, {
+          latestRelease: true,
+        });
         return [product.id, record] as const;
       } catch {
         return [product.id, null] as const;

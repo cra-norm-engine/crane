@@ -68,6 +68,14 @@ class SupportPeriodRecordService:
             "is_active": record.is_active,
             "superseded_by_id": record.superseded_by_id,
             "recipients": recipients,
+            # Audit trail
+            "created_by_user_id": record.created_by_user_id,
+            "created_by_user_name": (
+                record.created_by_user.full_name
+                if record.created_by_user is not None
+                else None
+            ),
+            "change_reason": record.change_reason,
             "created_at": record.created_at,
             "updated_at": record.updated_at,
         }
@@ -122,9 +130,14 @@ class SupportPeriodRecordService:
         record = self.repository.get_or_404(record_id)
         return self._serialize_record(record)
 
-    def get_active_record_for_product(self, product_id: UUID) -> SupportPeriodRecordRead:
+    def get_active_record_for_product(
+        self, product_id: UUID, *, use_latest_release: bool = False
+    ) -> SupportPeriodRecordRead:
         self.product_repository.get_or_404(product_id)
-        record = self.repository.get_active_by_product_id(product_id)
+        if use_latest_release:
+            record = self.repository.get_active_by_latest_release_for_product(product_id)
+        else:
+            record = self.repository.get_active_by_product_id(product_id)
         if record is None:
             raise NotFoundException("Active support period record not found for product")
         return self._serialize_record(record)
@@ -152,6 +165,7 @@ class SupportPeriodRecordService:
         recipient_user_ids = self._validate_recipient_user_ids(payload.recipient_user_ids)
         record_payload = payload.model_dump(exclude={"recipient_user_ids"})
         record = SupportPeriodRecord(**record_payload)
+        record.created_by_user_id = getattr(actor, "id", None)
         record.notification_recipients = [
             SupportPeriodNotificationRecipient(user_id=user_id)
             for user_id in recipient_user_ids
@@ -230,6 +244,8 @@ class SupportPeriodRecordService:
         replacement_record = SupportPeriodRecord(
             **{key: value for key, value in next_values.items() if key != "recipient_user_ids"}
         )
+        replacement_record.created_by_user_id = getattr(actor, "id", None)
+        replacement_record.change_reason = payload.change_reason
         replacement_record.notification_recipients = [
             SupportPeriodNotificationRecipient(user_id=user_id)
             for user_id in next_recipient_user_ids

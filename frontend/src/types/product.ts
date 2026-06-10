@@ -344,6 +344,11 @@ export interface SupportPeriodRecordRead {
   is_active: boolean;
   superseded_by_id: string | null;
   recipients: SupportPeriodNotificationRecipientRead[];
+  /** Audit trail — user who created or versioned this record. */
+  created_by_user_id: string | null;
+  created_by_user_name: string | null;
+  /** Required when updating an existing record — explains why the change was made. */
+  change_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -366,6 +371,8 @@ export interface SupportPeriodRecordCreate {
 }
 
 export interface SupportPeriodRecordUpdate {
+  /** Required — must explain why the support period is being changed. */
+  change_reason: string;
   support_start_date?: string;
   support_end_date?: string;
   notify_before_days?: number;

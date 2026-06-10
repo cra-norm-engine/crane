@@ -311,6 +311,7 @@ const TypeIcon = defineComponent({
         change:               "M4 5h12M4 9h12M4 13h8",
         release_gate_item:    "M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
         risk_item:            "M4 4h12v12H4zM8 8h4M8 11h4M8 14h2",
+        eos_alert:            "M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3M10 6.5v3.5l2.5 1.5",
       };
       const d = paths[props.type ?? ""] ?? paths.risk_item;
       return h("svg", { viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", "stroke-width": "1.9", width: 13, height: 13, "stroke-linecap": "round", "stroke-linejoin": "round" },
@@ -334,7 +335,7 @@ const StatusPill = defineComponent({
         fixed: "spill-ok", mitigated: "spill-ok", accepted: "spill-ok",
         closed: "spill-ok", disclosed: "spill-ok",
         action_required: "spill-err", rejected: "spill-err",
-        open: "spill-warn", review: "spill-warn",
+        open: "spill-warn", review: "spill-warn", pending: "spill-warn",
       };
       const cls = map[s] ?? "spill-flat";
       const label = s.replace(/_/g, " ");
@@ -466,6 +467,11 @@ function navigateToTask(task: TaskItem): void {
         ? { name: "risk-assessment-detail", params: { assessmentId: task.parent_id } }
         : { name: "risk-assessments" });
       break;
+    case "eos_alert":
+      router.push(task.parent_id
+        ? { name: "product-detail", params: { productId: task.parent_id } }
+        : { name: "products" });
+      break;
   }
 }
 
@@ -476,6 +482,7 @@ function formatEntityType(type: string): string {
     change:              "Change",
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
+    eos_alert:           "EOL Alert",
   };
   return map[type] ?? type;
 }
@@ -767,6 +774,7 @@ function productInitials(name: string | null | undefined): string {
 .tp-change               { background: var(--color-info-bg);    color: var(--color-info-text); }
 .tp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .tp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.tp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
 /* ── Title cell ───────────────────────────────────────────────────────────── */
 .tt-wrap { min-width: 0; }

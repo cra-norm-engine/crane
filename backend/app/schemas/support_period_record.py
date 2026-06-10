@@ -57,6 +57,9 @@ class SupportPeriodRecordCreate(SupportPeriodRecordBase):
 
 
 class SupportPeriodRecordUpdate(BaseModel):
+    # Mandatory: every update must state why the support period is being changed.
+    change_reason: str = Field(min_length=1)
+
     support_start_date: date | None = None
     support_end_date: date | None = None
     notify_before_days: int | None = Field(default=None, ge=1, le=3650)
@@ -90,6 +93,10 @@ class SupportPeriodRecordRead(SupportPeriodRecordBase):
     is_active: bool
     superseded_by_id: UUID | None
     recipients: list[SupportPeriodNotificationRecipientRead] = Field(default_factory=list)
+    # Audit trail
+    created_by_user_id: UUID | None = None
+    created_by_user_name: str | None = None
+    change_reason: str | None = None
     created_at: datetime
     updated_at: datetime
 
