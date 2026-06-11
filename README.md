@@ -12,7 +12,7 @@
 - Email: demo@crane.com
 - Password: Hca@U~8%dZ!iNT
 
-- **Step1**: Initiate the server at https://cra-compliance-tool.onrender.com/ and wait for 2 miniutes
+- **Step1**: Initiate the server at https://cra-compliance-tool.onrender.com/ and wait for 2 minutes
 - **Step2**: Open CRANE at https://cra-compliance-tool-1.onrender.com and use above crendentials. 
 
 
