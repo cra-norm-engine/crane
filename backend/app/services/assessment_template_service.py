@@ -1,3 +1,10 @@
+# CRANE — CRA Norm Engine
+# Copyright (C) 2026 Ali Mohammad Hosseini
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of CRANE, free software under the GNU Affero General Public
+# License v3.0 or later. See <https://www.gnu.org/licenses/>.
+
 """Assessment template service for STRIDE and TARA methodologies.
 
 Provides stateless rule engines for threat assessment questions and CRA criteria mapping.

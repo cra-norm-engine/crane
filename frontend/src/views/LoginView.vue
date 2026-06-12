@@ -1,3 +1,10 @@
+<!--
+  CRANE — CRA Norm Engine
+  Copyright (C) 2026 Ali Mohammad Hosseini
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  This file is part of CRANE, free software under the GNU AGPL v3.0 or later.
+  See <https://www.gnu.org/licenses/>.
+-->
 <template>
   <div class="auth-layout">
 
@@ -63,7 +70,9 @@
 
       <!-- Footer -->
       <div class="bp-foot">
-        <span>© 2026 Cyber Resilience Act Norm Engine</span>
+        <span>© 2026 Ali Mohammad Hosseini</span>
+        <span class="bp-dot" aria-hidden="true"></span>
+        <a href="https://github.com/cra-norm-engine/crane" target="_blank" rel="noopener">Source (AGPL-3.0)</a>
         <span class="bp-dot" aria-hidden="true"></span>
         <span>Privacy</span>
         <span class="bp-dot" aria-hidden="true"></span>

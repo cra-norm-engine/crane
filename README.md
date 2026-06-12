@@ -208,4 +208,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please open an issue before submitting a
 
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE)
+Copyright (C) 2026 Ali Mohammad Hosseini
+
+CRANE is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+CRANE is network server software covered by the AGPL. Under section 13 of the
+license, if you run a modified version and let users interact with it over a
+network, you must offer those users access to the Corresponding Source of your
+version. The upstream source is available at
+<https://github.com/cra-norm-engine/crane>.
