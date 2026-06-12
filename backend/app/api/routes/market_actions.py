@@ -1,3 +1,10 @@
+# CRANE — CRA Norm Engine
+# Copyright (C) 2026 Ali Mohammad Hosseini
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of CRANE, free software under the GNU Affero General Public
+# License v3.0 or later. See <https://www.gnu.org/licenses/>.
+
 """API routes for market actions (CRA Art. 35 recalls and withdrawals)."""
 from __future__ import annotations
 

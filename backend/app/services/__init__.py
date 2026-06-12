@@ -1,3 +1,10 @@
+# CRANE — CRA Norm Engine
+# Copyright (C) 2026 Ali Mohammad Hosseini
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of CRANE, free software under the GNU Affero General Public
+# License v3.0 or later. See <https://www.gnu.org/licenses/>.
+
 from app.services.admin_user_service import AdminUserService
 from app.services.annex_requirement_service import AnnexRequirementService
 from app.services.auth_service import AuthService
