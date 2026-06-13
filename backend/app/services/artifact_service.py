@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.config import settings
-from app.core.exceptions import ConflictException, NotFoundException
+from app.core.exceptions import ConflictException, NotFoundException, ValidationException
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
 from app.models.enums import ArtifactSourceType, AuditStatus, EntityType, EvidenceType
 from app.repositories.artifact_repository import ArtifactRepository, ArtifactRevisionRepository
@@ -252,11 +252,22 @@ class ArtifactService:
         upload: UploadFile,
         change_summary: str | None,
     ) -> ArtifactRevision:
-        filename = upload.filename or "artifact.bin"
-        upload_root = Path(settings.artifact_upload_dir)
+        # SECURITY: never build the storage path from the client-supplied filename.
+        # Keep the original name only as a sanitized basename for display/download,
+        # and derive the on-disk name purely from a server-generated UUID so a
+        # malicious name (e.g. "../../etc/foo") cannot traverse out of the upload
+        # directory. See pentest finding H-01 (arbitrary file write / RCE).
+        original_filename = os.path.basename(upload.filename or "artifact.bin") or "artifact.bin"
+        upload_root = Path(settings.artifact_upload_dir).resolve()
         upload_root.mkdir(parents=True, exist_ok=True)
-        stored_name = f"{uuid4()}-{filename}"
-        destination = upload_root / stored_name
+
+        # The extension is taken from the sanitized basename only; the stem is a UUID.
+        stored_name = f"{uuid4()}{Path(original_filename).suffix}"
+        destination = (upload_root / stored_name).resolve()
+
+        # Defense in depth: the resolved file must stay directly inside upload_root.
+        if destination.parent != upload_root:
+            raise ValidationException("Invalid upload filename")
 
         hasher = hashlib.sha256()
         size = 0
@@ -276,7 +287,7 @@ class ArtifactService:
             artifact_id=artifact.id,
             revision_number=current_revision_count + 1,
             source_type=ArtifactSourceType.upload,
-            original_filename=filename,
+            original_filename=original_filename,
             content_type=upload.content_type,
             file_size_bytes=size,
             sha256=hasher.hexdigest(),

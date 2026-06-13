@@ -433,6 +433,7 @@ import { computed, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
+import { apiClient } from "@/services/api";
 import AppLogo from "@/components/AppLogo.vue";
 
 /* ── Props ───────────────────────────────────────────── */
@@ -580,8 +581,15 @@ function handleNavClick(): void {
   emit("close");
 }
 
-/** Clear auth state and redirect to the login page */
-function logout(): void {
+/** Revoke tokens server-side (best-effort), clear auth state, redirect to login */
+async function logout(): Promise<void> {
+  // Ask the backend to revoke the current access token and refresh token (M-04).
+  // Best-effort: never block local logout if the request fails.
+  try {
+    await apiClient.post("/auth/logout", { refresh_token: authStore.refreshToken });
+  } catch {
+    // ignore — clear local state regardless
+  }
   authStore.logout();
   router.push({ name: "login" });
 }

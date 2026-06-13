@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import AuditLogger
@@ -25,6 +26,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import AuthProvider, AuditActionType, AuditStatus, EntityType
 from app.models.revoked_token import RevokedToken
 from app.models.user import User
@@ -64,6 +66,75 @@ class AuthService:
             commit=True,
         )
 
+    def _count_recent_failed_logins(
+        self,
+        *,
+        cutoff: datetime,
+        email: str | None = None,
+        ip_address: str | None = None,
+    ) -> int:
+        """Count failed_login audit events since ``cutoff`` for an account and/or IP."""
+        stmt = (
+            select(func.count())
+            .select_from(AuditLogEvent)
+            .where(
+                AuditLogEvent.action_type == AuditActionType.failed_login.value,
+                AuditLogEvent.occurred_at >= cutoff,
+            )
+        )
+        if email is not None:
+            stmt = stmt.where(AuditLogEvent.details_json["email"].astext == email)
+        if ip_address is not None:
+            stmt = stmt.where(AuditLogEvent.ip_address == ip_address)
+        return self.db.scalar(stmt) or 0
+
+    def _enforce_login_rate_limit(self, email: str, ip_address: str | None) -> None:
+        """Reject login attempts once recent failures exceed the configured thresholds.
+
+        Brute-force / credential-stuffing protection (pentest finding M-02). Failures
+        are counted from the tamper-evident audit log over a rolling window, so the
+        control is shared across all workers/instances and needs no extra storage.
+        Fails open: a query error must never block legitimate logins.
+        """
+        window = settings.login_failure_window_minutes
+        per_account = settings.login_max_failures_per_account
+        per_ip = settings.login_max_failures_per_ip
+        if window <= 0 or (per_account <= 0 and per_ip <= 0):
+            return
+
+        cutoff = datetime.now(UTC) - timedelta(minutes=window)
+        try:
+            account_failures = (
+                self._count_recent_failed_logins(cutoff=cutoff, email=email)
+                if per_account > 0
+                else 0
+            )
+            ip_failures = (
+                self._count_recent_failed_logins(cutoff=cutoff, ip_address=ip_address)
+                if per_ip > 0 and ip_address
+                else 0
+            )
+        except Exception:
+            log.exception("Login rate-limit check failed; allowing attempt to proceed")
+            return
+
+        throttled = (per_account > 0 and account_failures >= per_account) or (
+            per_ip > 0 and ip_failures >= per_ip
+        )
+        if throttled:
+            log.warning(
+                "Login throttled: email=%s ip=%s account_failures=%d ip_failures=%d window=%dm",
+                email,
+                ip_address,
+                account_failures,
+                ip_failures,
+                window,
+            )
+            raise AppException(
+                "Too many failed login attempts. Please wait a few minutes and try again.",
+                status_code=429,
+            )
+
     def _jit_provision_ldap_user(self, email: str, full_name: str) -> User:
         """Create a local user record for an LDAP-authenticated user on first login."""
         user = self.user_repository.create_user(
@@ -92,6 +163,11 @@ class AuthService:
         user_agent: str | None = None,
     ) -> TokenRead:
         email_lower = payload.email.lower().strip()
+
+        # Brute-force / credential-stuffing protection (M-02): block before doing
+        # any credential check once recent failures exceed the configured limits.
+        self._enforce_login_rate_limit(email_lower, ip_address)
+
         user = self.user_repository.get_by_email(email_lower)
 
         # --- LDAP path ---
@@ -139,9 +215,13 @@ class AuthService:
                 "roles": user.role_names,
                 "permissions": permissions,
                 "email": user.email,
+                "ver": user.token_version,
             },
         )
-        refresh_token = create_refresh_token(str(user.id))
+        refresh_token = create_refresh_token(
+            str(user.id),
+            extra_claims={"ver": user.token_version},
+        )
 
         self.audit_logger.log_event(
             actor_user_id=user.id,
@@ -191,6 +271,44 @@ class AuthService:
             )
             raise AppException("User not found or inactive", status_code=401)
 
+        # Reuse detection: a refresh JTI that is already blocklisted was rotated out
+        # or logged out. Re-presentation signals theft → kill the whole token family
+        # (bump token_version) and refuse (M-04).
+        if self.db.get(RevokedToken, refresh_jti) is not None:
+            self.user_repository.bump_token_version(user.id)
+            self.audit_logger.log_event(
+                actor_user_id=user.id,
+                action_type=AuditActionType.failed_login.value,
+                entity_type=EntityType.user.value,
+                entity_id=user.id,
+                status=AuditStatus.failure.value,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details_json={
+                    "email": user.email,
+                    "reason": "refresh_token_reuse_detected",
+                    "refresh_jti": refresh_jti,
+                },
+                commit=True,
+            )
+            raise AppException("Refresh token has been revoked", status_code=401)
+
+        # Reject refresh tokens minted before the user's token_version was bumped
+        # (e.g. after a password change or a prior reuse event).
+        if payload.get("ver", 0) != user.token_version:
+            raise AppException("Refresh token has been invalidated", status_code=401)
+
+        # Rotation: blocklist the presented refresh token so it can be used only once,
+        # then mint a fresh refresh token below.
+        refresh_exp = payload.get("exp")
+        if refresh_exp:
+            self.db.merge(
+                RevokedToken(
+                    jti=refresh_jti,
+                    expires_at=datetime.fromtimestamp(refresh_exp, tz=UTC),
+                )
+            )
+
         permissions = sorted(permission.value for permission in get_permissions_from_user(user))
 
         new_access_token = create_access_token(
@@ -199,9 +317,13 @@ class AuthService:
                 "roles": user.role_names,
                 "permissions": permissions,
                 "email": user.email,
+                "ver": user.token_version,
             },
         )
-        new_refresh_token = create_refresh_token(str(user.id))
+        new_refresh_token = create_refresh_token(
+            str(user.id),
+            extra_claims={"ver": user.token_version},
+        )
 
         self.audit_logger.log_event(
             actor_user_id=user.id,
@@ -260,6 +382,7 @@ class AuthService:
         *,
         user: User,
         access_token_payload: dict,
+        refresh_token: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
@@ -269,6 +392,24 @@ class AuthService:
         if jti and exp:
             expires_at = datetime.fromtimestamp(exp, tz=UTC)
             self.db.merge(RevokedToken(jti=jti, expires_at=expires_at))
+
+        # Also revoke the refresh token (when the client supplies it) so it cannot
+        # mint new access tokens after logout (M-04). Best-effort: never fail logout
+        # because of a malformed token.
+        if refresh_token:
+            try:
+                refresh_payload = decode_refresh_token(refresh_token)
+                refresh_jti = refresh_payload.get("jti")
+                refresh_exp = refresh_payload.get("exp")
+                if refresh_jti and refresh_exp:
+                    self.db.merge(
+                        RevokedToken(
+                            jti=refresh_jti,
+                            expires_at=datetime.fromtimestamp(refresh_exp, tz=UTC),
+                        )
+                    )
+            except Exception:
+                log.warning("Could not decode refresh token during logout; skipping its revocation")
 
         self.audit_logger.log_event(
             actor_user_id=user.id,

@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import List
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +51,11 @@ class User(UUIDTimestampMixin, Base):
     # True for local users who have not yet changed their initial password.
     # Always False for LDAP users (they authenticate externally).
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Bumped to invalidate all of this user's outstanding access/refresh tokens at
+    # once (password change, refresh-token reuse/theft). Tokens carry the value of
+    # token_version at issue time and are rejected when it no longer matches (M-04).
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     roles: Mapped[List["UserRole"]] = relationship(
         back_populates="user",
