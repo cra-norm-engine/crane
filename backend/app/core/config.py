@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     secret_key: str = Field(alias="BACKEND_SECRET_KEY")
     audit_hmac_key: str = Field(default="", alias="BACKEND_AUDIT_HMAC_KEY")
 
+    # --- Initial admin bootstrap ---
+    # Email of the seeded admin account.
+    admin_email: str = Field(default="admin@example.com", alias="BACKEND_ADMIN_EMAIL")
+    # Password for the seeded admin. If left blank: development builds fall back to
+    # the well-known "admin1234" (convenience), while non-development builds generate
+    # a random password and log it once — so no known default credentials ever ship
+    # to production. The account always starts with must_change_password=True.
+    admin_password: str = Field(default="", alias="BACKEND_ADMIN_PASSWORD")
+
     @field_validator("secret_key")
     @classmethod
     def secret_key_must_not_be_default(cls, v: str) -> str:
@@ -63,6 +72,23 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = Field(
         default=7,
         alias="BACKEND_REFRESH_TOKEN_EXPIRE_DAYS",
+    )
+
+    # --- Auth brute-force protection ---
+    # Failed logins are counted over a rolling window; once a threshold is hit,
+    # further login attempts for that account/IP are rejected with HTTP 429 until
+    # older failures age out of the window. Set a threshold to 0 to disable it.
+    login_failure_window_minutes: int = Field(
+        default=15,
+        alias="BACKEND_LOGIN_FAILURE_WINDOW_MINUTES",
+    )
+    login_max_failures_per_account: int = Field(
+        default=10,
+        alias="BACKEND_LOGIN_MAX_FAILURES_PER_ACCOUNT",
+    )
+    login_max_failures_per_ip: int = Field(
+        default=50,
+        alias="BACKEND_LOGIN_MAX_FAILURES_PER_IP",
     )
 
     # --- CORS ---

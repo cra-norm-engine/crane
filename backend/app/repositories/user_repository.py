@@ -125,11 +125,22 @@ class UserRepository(BaseRepository[User]):
             raise ValueError("User not found")
         user.hashed_password = hashed_password
         user.must_change_password = must_change_password
+        # Any password change invalidates all outstanding access/refresh tokens.
+        user.token_version = (user.token_version or 0) + 1
         self.db.flush()
         refreshed = self.get_by_id(user_id)
         if refreshed is None:
             raise ValueError("User not found")
         return refreshed
+
+    def bump_token_version(self, user_id: UUID) -> int:
+        """Increment token_version, immediately invalidating the user's issued tokens."""
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise ValueError("User not found")
+        user.token_version = (user.token_version or 0) + 1
+        self.db.flush()
+        return user.token_version
 
     def set_user_active(self, user_id: UUID, is_active: bool) -> User:
         user = self.get_by_id(user_id)

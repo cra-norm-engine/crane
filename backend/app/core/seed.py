@@ -8,10 +8,12 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import ProgrammingError
 
 from app.core.annex_i_catalog import sync_annex_i_requirements
+from app.core.config import settings
 from app.core.permissions import Permission as PermissionEnum
 from app.core.security import hash_password
 from app.models.permission import Permission
@@ -19,6 +21,41 @@ from app.models.role_permission import RolePermission
 from app.models.user import Role, User, UserRole
 
 logger = logging.getLogger(__name__)
+
+_DEV_ENVIRONMENTS = {"development", "dev", "local", "test"}
+
+
+def _resolve_initial_admin_password() -> str:
+    """Choose the seeded admin password without shipping a known default to production (M-03).
+
+    Priority:
+      1. explicit ``BACKEND_ADMIN_PASSWORD`` (any environment);
+      2. development builds fall back to the well-known ``admin1234`` for convenience;
+      3. any other environment gets a random password, logged exactly once.
+
+    The admin account is always created with ``must_change_password=True``.
+    """
+    if settings.admin_password:
+        return settings.admin_password
+
+    if settings.environment.lower() in _DEV_ENVIRONMENTS:
+        logger.warning(
+            "Seeding admin '%s' with the well-known development password 'admin1234'. "
+            "Set BACKEND_ADMIN_PASSWORD (or run with a non-development BACKEND_ENVIRONMENT) "
+            "to avoid shipping known default credentials.",
+            settings.admin_email,
+        )
+        return "admin1234"
+
+    generated = secrets.token_urlsafe(24)
+    logger.warning(
+        "No BACKEND_ADMIN_PASSWORD configured; generated a random initial password for "
+        "admin '%s'. Sign in with it once and change it immediately:\n"
+        "    initial admin password: %s",
+        settings.admin_email,
+        generated,
+    )
+    return generated
 
 
 def seed_initial_data(db: Session) -> None:
@@ -62,14 +99,15 @@ def seed_initial_data(db: Session) -> None:
                 db.add(RolePermission(role_id=admin_role.id, permission_id=permission.id))
         db.commit()
 
-    admin_user = db.query(User).filter(User.email == "admin@example.com").first()
+    admin_email = settings.admin_email
+    admin_user = db.query(User).filter(User.email == admin_email).first()
     if admin_user is None:
         admin_user = User(
-            email="admin@example.com",
+            email=admin_email,
             full_name="Admin",
-            hashed_password=hash_password("admin1234"),
+            hashed_password=hash_password(_resolve_initial_admin_password()),
             is_active=True,
-            # Force password change on first login — default password is known.
+            # Always force a password change on first login.
             must_change_password=True,
         )
         db.add(admin_user)

@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_password_change_exempt
 from app.core.database import get_db
 from app.core.permissions import get_permissions_from_user
 from app.core.security import decode_access_token
@@ -19,6 +19,7 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     CurrentUserRead,
     LoginRequest,
+    LogoutRequest,
     RefreshTokenRequest,
     TokenRead,
 )
@@ -56,7 +57,8 @@ def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    body: LogoutRequest | None = None,
+    current_user: User = Depends(get_current_user_password_change_exempt),
     db: Session = Depends(get_db),
 ):
     # Extract the raw token from the Authorization header so we can blocklist its JTI.
@@ -67,13 +69,14 @@ def logout(
     AuthService(db).logout(
         user=current_user,
         access_token_payload=token_payload,
+        refresh_token=body.refresh_token if body else None,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
 
 
 @router.get("/me", response_model=CurrentUserRead, status_code=status.HTTP_200_OK)
-def me(current_user: User = Depends(get_current_user)) -> CurrentUserRead:
+def me(current_user: User = Depends(get_current_user_password_change_exempt)) -> CurrentUserRead:
     permissions = sorted(permission.value for permission in get_permissions_from_user(current_user))
 
     return CurrentUserRead(
@@ -91,7 +94,7 @@ def me(current_user: User = Depends(get_current_user)) -> CurrentUserRead:
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     payload: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_password_change_exempt),
     db: Session = Depends(get_db),
 ):
     AuthService(db).change_password(user=current_user, payload=payload)

@@ -19,6 +19,12 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    # Optional: when supplied, the refresh token is also revoked on logout so it
+    # can no longer mint access tokens (M-04). Logout still succeeds without it.
+    refresh_token: str | None = None
+
+
 class TokenRead(BaseModel):
     access_token: str
     refresh_token: str
