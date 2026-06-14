@@ -27,6 +27,16 @@ import SbomRecordsView from "@/views/SbomRecordsView.vue";
 
 import { useAuthStore } from "@/stores/auth";
 
+// Routes a user can choose as their post-login landing page (none are permission-gated).
+const LANDING_ROUTE_NAMES = new Set(["dashboard", "my-tasks", "products", "product-data"]);
+
+/** Resolve a valid landing route name from the user's preferences (defaults to dashboard). */
+export function resolveLandingRouteName(): string {
+  const authStore = useAuthStore();
+  const preferred = authStore.preferences?.default_landing_page;
+  return preferred && LANDING_ROUTE_NAMES.has(preferred) ? preferred : "dashboard";
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: "/login",
@@ -202,6 +212,11 @@ const routes: RouteRecordRaw[] = [
         name: "product-data",
         component: () => import("@/views/ProductDataView.vue"),
       },
+      {
+        path: "settings",
+        name: "settings",
+        component: () => import("@/views/SettingsView.vue"),
+      },
     ],
   },
   {
@@ -229,7 +244,7 @@ router.beforeEach(async (to) => {
 
   if (to.meta.public) {
     if (to.name === "login" && authStore.isAuthenticated) {
-      return { name: "dashboard" };
+      return { name: resolveLandingRouteName() };
     }
     return true;
   }

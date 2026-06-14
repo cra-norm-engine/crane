@@ -31,7 +31,14 @@ from app.models.enums import AuthProvider, AuditActionType, AuditStatus, EntityT
 from app.models.revoked_token import RevokedToken
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenRead
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    ProfileUpdateRequest,
+    TokenRead,
+    UserPreferenceRead,
+    UserPreferenceUpdate,
+)
 from app.services import ldap_service
 from app.services.ldap_service import LDAPConnectionError
 
@@ -422,3 +429,69 @@ class AuthService:
             details_json={"email": user.email},
             commit=True,
         )
+
+    def logout_all_sessions(
+        self,
+        *,
+        user: User,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        """Invalidate every session for the user by bumping token_version (M-04)."""
+        self.user_repository.bump_token_version(user.id)
+        self.audit_logger.log_event(
+            actor_user_id=user.id,
+            action_type=AuditActionType.logout.value,
+            entity_type=EntityType.user.value,
+            entity_id=user.id,
+            status=AuditStatus.success.value,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details_json={"email": user.email, "event": "logout_all_sessions"},
+            commit=True,
+        )
+
+    def update_profile(self, *, user: User, payload: ProfileUpdateRequest) -> User:
+        if user.auth_provider != AuthProvider.local:
+            raise AppException(
+                "Profile changes are not available for LDAP accounts", status_code=400
+            )
+        updated = self.user_repository.update_full_name(user.id, payload.full_name.strip())
+        self.audit_logger.log_event(
+            actor_user_id=user.id,
+            action_type="auth.profile_updated",
+            entity_type=EntityType.user.value,
+            entity_id=user.id,
+            status=AuditStatus.success.value,
+            details_json={"email": user.email, "full_name": updated.full_name},
+            commit=True,
+        )
+        return updated
+
+    def read_preferences(self, *, user: User) -> UserPreferenceRead:
+        """Return the user's preferences, falling back to defaults if none stored yet."""
+        preference = self.user_repository.get_preferences(user.id)
+        if preference is None:
+            return UserPreferenceRead(
+                theme="dark",
+                timezone="UTC",
+                date_format="YYYY-MM-DD",
+                default_landing_page="dashboard",
+            )
+        return UserPreferenceRead.model_validate(preference)
+
+    def update_preferences(
+        self, *, user: User, payload: UserPreferenceUpdate
+    ) -> UserPreferenceRead:
+        changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+        preference = self.user_repository.upsert_preferences(user.id, **changes)
+        self.audit_logger.log_event(
+            actor_user_id=user.id,
+            action_type="auth.preferences_updated",
+            entity_type=EntityType.user.value,
+            entity_id=user.id,
+            status=AuditStatus.success.value,
+            details_json={"email": user.email, "changes": changes},
+            commit=True,
+        )
+        return UserPreferenceRead.model_validate(preference)

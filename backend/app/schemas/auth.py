@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
@@ -31,6 +31,28 @@ class TokenRead(BaseModel):
     token_type: str = "bearer"
 
 
+class UserPreferenceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    theme: str
+    timezone: str
+    date_format: str
+    default_landing_page: str
+
+
+class UserPreferenceUpdate(BaseModel):
+    """Partial update of personal preferences; only provided fields change."""
+
+    theme: str | None = Field(default=None, max_length=20)
+    timezone: str | None = Field(default=None, max_length=64)
+    date_format: str | None = Field(default=None, max_length=32)
+    default_landing_page: str | None = Field(default=None, max_length=64)
+
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str = Field(min_length=1, max_length=255)
+
+
 class CurrentUserRead(BaseModel):
     id: str
     email: EmailStr
@@ -40,6 +62,7 @@ class CurrentUserRead(BaseModel):
     is_active: bool
     auth_provider: str
     must_change_password: bool
+    preferences: UserPreferenceRead
 
 
 class ChangePasswordRequest(BaseModel):

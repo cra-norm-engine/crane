@@ -20,8 +20,11 @@ from app.schemas.auth import (
     CurrentUserRead,
     LoginRequest,
     LogoutRequest,
+    ProfileUpdateRequest,
     RefreshTokenRequest,
     TokenRead,
+    UserPreferenceRead,
+    UserPreferenceUpdate,
 )
 from app.services.auth_service import AuthService
 
@@ -76,7 +79,10 @@ def logout(
 
 
 @router.get("/me", response_model=CurrentUserRead, status_code=status.HTTP_200_OK)
-def me(current_user: User = Depends(get_current_user_password_change_exempt)) -> CurrentUserRead:
+def me(
+    current_user: User = Depends(get_current_user_password_change_exempt),
+    db: Session = Depends(get_db),
+) -> CurrentUserRead:
     permissions = sorted(permission.value for permission in get_permissions_from_user(current_user))
 
     return CurrentUserRead(
@@ -88,6 +94,59 @@ def me(current_user: User = Depends(get_current_user_password_change_exempt)) ->
         is_active=current_user.is_active,
         auth_provider=current_user.auth_provider,
         must_change_password=current_user.must_change_password,
+        preferences=AuthService(db).read_preferences(user=current_user),
+    )
+
+
+@router.patch("/me/profile", response_model=CurrentUserRead, status_code=status.HTTP_200_OK)
+def update_profile(
+    payload: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CurrentUserRead:
+    service = AuthService(db)
+    updated = service.update_profile(user=current_user, payload=payload)
+    permissions = sorted(permission.value for permission in get_permissions_from_user(updated))
+    return CurrentUserRead(
+        id=str(updated.id),
+        email=updated.email,
+        full_name=updated.full_name,
+        roles=updated.role_names,
+        permissions=permissions,
+        is_active=updated.is_active,
+        auth_provider=updated.auth_provider,
+        must_change_password=updated.must_change_password,
+        preferences=service.read_preferences(user=updated),
+    )
+
+
+@router.get("/me/preferences", response_model=UserPreferenceRead, status_code=status.HTTP_200_OK)
+def get_preferences(
+    current_user: User = Depends(get_current_user_password_change_exempt),
+    db: Session = Depends(get_db),
+) -> UserPreferenceRead:
+    return AuthService(db).read_preferences(user=current_user)
+
+
+@router.put("/me/preferences", response_model=UserPreferenceRead, status_code=status.HTTP_200_OK)
+def update_preferences(
+    payload: UserPreferenceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserPreferenceRead:
+    return AuthService(db).update_preferences(user=current_user, payload=payload)
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_all(
+    request: Request,
+    current_user: User = Depends(get_current_user_password_change_exempt),
+    db: Session = Depends(get_db),
+):
+    AuthService(db).logout_all_sessions(
+        user=current_user,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
 
 

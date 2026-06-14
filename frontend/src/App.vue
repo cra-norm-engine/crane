@@ -20,15 +20,27 @@ import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 
 import { useAppStore } from "@/stores/app";
+import { useAuthStore } from "@/stores/auth";
 import AppToast from "@/components/AppToast.vue";
 
 const appStore = useAppStore();
+const authStore = useAuthStore();
 
 /*
   Apply the persisted theme (dark / light) as early as possible so
-  there is no flash of the wrong theme on first load.
+  there is no flash of the wrong theme on first load. If the signed-in
+  user has a server-synced theme preference, it takes precedence so the
+  choice follows them across devices.
 */
 onMounted(() => {
+  if (!authStore.isInitialized) {
+    authStore.initializeFromStorage();
+  }
   appStore.initializeTheme();
+
+  const preferredTheme = authStore.preferences?.theme;
+  if (preferredTheme === "dark" || preferredTheme === "light") {
+    appStore.setTheme(preferredTheme);
+  }
 });
 </script>

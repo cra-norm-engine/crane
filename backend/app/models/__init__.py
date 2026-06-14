@@ -38,6 +38,7 @@ from app.models.security_advisory import SecurityAdvisory
 from app.models.security_update import SecurityUpdate
 from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.user import Role, User, UserRole
+from app.models.user_preference import UserPreference
 from app.models.vulnerability_report import VulnerabilityReport
 from app.models.incident_report import IncidentReport
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
@@ -81,6 +82,7 @@ __all__ = [
     "Role",
     "User",
     "UserRole",
+    "UserPreference",
     "VulnerabilityReport",
     "IncidentReport",
     "SbomVulnerabilityFinding",

@@ -63,6 +63,14 @@ class User(UUIDTimestampMixin, Base):
         passive_deletes=True,
     )
 
+    preferences: Mapped["UserPreference | None"] = relationship(
+        "UserPreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     owned_risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
         "RiskAssessment",
         foreign_keys="RiskAssessment.owner_user_id",

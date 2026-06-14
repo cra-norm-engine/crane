@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.role_permission import RolePermission
 from app.models.user import Role, User, UserRole
+from app.models.user_preference import UserPreference
 from app.repositories.base import BaseRepository
 
 
@@ -141,6 +142,33 @@ class UserRepository(BaseRepository[User]):
         user.token_version = (user.token_version or 0) + 1
         self.db.flush()
         return user.token_version
+
+    def update_full_name(self, user_id: UUID, full_name: str) -> User:
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise ValueError("User not found")
+        user.full_name = full_name
+        self.db.flush()
+        refreshed = self.get_by_id(user_id)
+        if refreshed is None:
+            raise ValueError("User not found")
+        return refreshed
+
+    def get_preferences(self, user_id: UUID) -> UserPreference | None:
+        return self.db.scalar(
+            select(UserPreference).where(UserPreference.user_id == user_id)
+        )
+
+    def upsert_preferences(self, user_id: UUID, **changes: str) -> UserPreference:
+        """Create the user's preference row if absent, then apply the given fields."""
+        preference = self.get_preferences(user_id)
+        if preference is None:
+            preference = UserPreference(user_id=user_id)
+            self.db.add(preference)
+        for field, value in changes.items():
+            setattr(preference, field, value)
+        self.db.flush()
+        return preference
 
     def set_user_active(self, user_id: UUID, is_active: bool) -> User:
         user = self.get_by_id(user_id)
