@@ -215,6 +215,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
+import { useAppStore } from "@/stores/app";
 import { useToast } from "@/composables/useToast";
 import type { ApiError } from "@/services/error-handler";
 import AppLogo from "@/components/AppLogo.vue";
@@ -228,6 +229,7 @@ const showPassword = ref(false);
 
 /* ── Composables ─────────────────────────────── */
 const authStore = useAuthStore();
+const appStore  = useAppStore();
 const router    = useRouter();
 const route     = useRoute();
 const { showToast } = useToast();
@@ -242,8 +244,19 @@ async function handleLogin(): Promise<void> {
     const user = await fetchCurrentUser(tokenResponse.access_token);
     authStore.login(tokenResponse.access_token, tokenResponse.refresh_token, user);
 
-    const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/";
-    await router.push(redirect);
+    // Apply the user's server-synced theme so the choice follows them across devices.
+    if (user.preferences?.theme === "dark" || user.preferences?.theme === "light") {
+      appStore.setTheme(user.preferences.theme);
+    }
+
+    // Honour an explicit deep-link redirect; otherwise use the user's preferred
+    // landing page. Lazy import avoids a router <-> view circular import.
+    if (typeof route.query.redirect === "string") {
+      await router.push(route.query.redirect);
+    } else {
+      const { resolveLandingRouteName } = await import("@/router");
+      await router.push({ name: resolveLandingRouteName() });
+    }
   } catch (err: unknown) {
     if (err instanceof Error && "userMessage" in err) {
       error.value = (err as ApiError).userMessage || err.message;

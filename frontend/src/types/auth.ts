@@ -15,6 +15,15 @@ export interface TokenResponse {
   token_type: string;
 }
 
+export interface UserPreferences {
+  theme: string;
+  timezone: string;
+  date_format: string;
+  default_landing_page: string;
+}
+
+export type UserPreferencesUpdate = Partial<UserPreferences>;
+
 export interface UserRead {
   id: string;
   email: string;
@@ -24,4 +33,5 @@ export interface UserRead {
   permissions: string[];
   auth_provider: string;
   must_change_password: boolean;
+  preferences: UserPreferences;
 }

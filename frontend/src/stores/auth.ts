@@ -7,6 +7,8 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 
+import type { UserPreferences } from "@/types/auth";
+
 const STORAGE_KEY = "cra-compliance-auth";
 
 interface AuthUser {
@@ -18,6 +20,8 @@ interface AuthUser {
   is_active: boolean;
   auth_provider: string;
   must_change_password: boolean;
+  // Optional for backward-compatibility with auth blobs stored before preferences existed.
+  preferences?: UserPreferences;
 }
 
 interface AuthState {
@@ -38,6 +42,7 @@ export const useAuthStore = defineStore("auth", () => {
   const permissions = computed(() => user.value?.permissions ?? []);
   const userEmail = computed(() => user.value?.email ?? "");
   const userFullName = computed(() => user.value?.full_name ?? "");
+  const preferences = computed(() => user.value?.preferences ?? null);
 
   function hasRole(role: string): boolean {
     return userRoles.value.includes(role);
@@ -123,6 +128,7 @@ export const useAuthStore = defineStore("auth", () => {
     permissions,
     userEmail,
     userFullName,
+    preferences,
     hasRole,
     hasAnyRole,
     hasPermission,

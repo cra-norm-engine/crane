@@ -409,6 +409,20 @@
         <span>Change password</span>
       </RouterLink>
 
+      <!-- Settings hub — available to all users -->
+      <RouterLink
+        :to="{ name: 'settings' }"
+        class="nav-link"
+        active-class="nav-link-active"
+        @click="handleNavClick"
+      >
+        <span class="nav-icon" aria-hidden="true">
+          <!-- Gear / cog icon -->
+          <svg viewBox="0 0 20 20"><path d="M10 6.5A3.5 3.5 0 1 0 10 13.5 3.5 3.5 0 0 0 10 6.5zm0 2A1.5 1.5 0 1 1 10 11.5 1.5 1.5 0 0 1 10 8.5zM8.6 1.5l-.4 1.9a6.6 6.6 0 0 0-1.5.9l-1.8-.7-1.4 2.4 1.5 1.2a6.6 6.6 0 0 0 0 1.7l-1.5 1.2 1.4 2.4 1.8-.7c.46.37.97.67 1.5.9l.4 1.9h2.8l.4-1.9c.53-.23 1.04-.53 1.5-.9l1.8.7 1.4-2.4-1.5-1.2a6.6 6.6 0 0 0 0-1.7l1.5-1.2-1.4-2.4-1.8.7a6.6 6.6 0 0 0-1.5-.9l-.4-1.9z" fill="currentColor"/></svg>
+        </span>
+        <span>Settings</span>
+      </RouterLink>
+
       <!-- Logout button styled as a nav link for visual consistency -->
       <button
         class="nav-link nav-link-button"
