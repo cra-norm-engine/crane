@@ -259,7 +259,7 @@
           '<span>CRANE \u00b7 CRA Norm Engine \u00b7 AGPL-3.0</span>' +
           '<span><a href="' + REPO + '" target="_blank" rel="noopener">GitHub</a> \u00b7 ' +
           '<a href="' + REPO + '/blob/main/LICENSE" target="_blank" rel="noopener">License</a> \u00b7 ' +
-          '<a href="mailto:cra.norm.engine@gmail.com">Contact</a></span>' +
+          '<a href="mailto:amh1036@yahoo.com">Contact</a></span>' +
         '</footer>');
     }
 
