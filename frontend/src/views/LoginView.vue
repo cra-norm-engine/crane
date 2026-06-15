@@ -202,7 +202,7 @@
         </button>
 
         <!-- Admin contact -->
-        <p class="admin-note">New to CRANE? Contact your administrator: <a href="mailto:cra.norm.engine@gmail.com">cra.norm.engine@gmail.com</a></p>
+        <p class="admin-note">New to CRANE? Contact your administrator: <a href="mailto:amh1036@yahoo.com">amh1036@yahoo.com</a></p>
 
       </div>
     </section>
