@@ -8,19 +8,19 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/cra-norm-engine/crane/ci.yml?branch=main)
 
 ## Online Demo
-- To see the online demo of latest version of CRANE, use bellow credentials:
+- To see the online demo of the latest version of CRANE, use the credentials below:
 - Email: demo@crane.com
 - Password: Hca@U~8%dZ!iNT
 
 - **Step1**: Initiate the server at https://cra-compliance-tool.onrender.com/ and wait for 2 minutes
-- **Step2**: Open CRANE at https://cra-compliance-tool-1.onrender.com and use above crendentials. 
+- **Step2**: Open CRANE at https://cra-compliance-tool-1.onrender.com and use the above credentials.
 
 
-**Remark**: Do not enter any sensetive and private information in the online demo. 
+**Remark**: Do not enter any sensitive or private information in the online demo.
 
 ## What is CRANE?
 
-**CRANE** is a self-hosted open-source compliance management platform for meeting the **EU Cyber Resilience Act (CRA)**. CRANE can be deployed on-prem or via third-party clouds. Play with an online instance [here](https://cra-compliance-tool-1.onrender.com/). To get a username and password, please contact with this email address [cra.norm.engine@gmail.com]
+**CRANE** is a self-hosted open-source compliance management platform for meeting the **EU Cyber Resilience Act (CRA)**. CRANE can be deployed on-prem or via third-party clouds.
 
 ![CRANE Dashboard](.github/assets/Main_dashboard.png)
 
@@ -198,7 +198,7 @@ CRANE is **beta software** currently used in real compliance engagements. **Core
 
 - **Issues & feature requests:** [GitHub Issues](https://github.com/cra-norm-engine/crane/issues)
 - **Security vulnerabilities:** See [SECURITY.md](SECURITY.md)
-- **General enquiries:** cra.norm.engine@gmail.com
+- **General enquiries:** amh1036@yahoo.com
 
 ---
 
