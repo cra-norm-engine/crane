@@ -8,6 +8,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
 
 import AppLayout from "@/layouts/AppLayout.vue";
 import DashboardView from "@/views/DashboardView.vue";
+import ComplianceJourneyView from "@/views/ComplianceJourneyView.vue";
 import LoginView from "@/views/LoginView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 import ProductDetailView from "@/views/ProductDetailView.vue";
@@ -62,6 +63,11 @@ const routes: RouteRecordRaw[] = [
         path: "my-tasks",
         name: "my-tasks",
         component: () => import("@/views/MyTasksView.vue"),
+      },
+      {
+        path: "compliance-journey",
+        name: "compliance-journey",
+        component: ComplianceJourneyView,
       },
       {
         path: "products",

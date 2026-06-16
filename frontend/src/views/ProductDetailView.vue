@@ -195,7 +195,7 @@
           </section>
 
           <!-- Releases — compact single-row list; new release opens AppModal -->
-          <section class="card">
+          <section id="releases" class="card">
             <div class="section-header">
               <div>
                 <h2 class="section-title">Releases</h2>
@@ -307,7 +307,7 @@
           </section>
 
           <!-- Remote processing solutions — full CRUD + CRA Art. 3(2) evaluation -->
-          <section class="card">
+          <section id="remote-processing" class="card">
             <div class="section-header">
               <div>
                 <h2 class="section-title">Remote processing solutions</h2>
@@ -418,7 +418,7 @@
         <aside class="side-column">
 
           <!-- Support period overview — per-release periods are set from the Releases table above -->
-          <section class="card">
+          <section id="support-periods" class="card">
             <div class="section-header">
               <div>
                 <h2 class="section-title">Support periods</h2>
@@ -462,7 +462,7 @@
           </section>
 
           <!-- CRA scope wizard trigger card -->
-          <section class="card wizard-trigger-card">
+          <section id="cra-scope" class="card wizard-trigger-card">
             <div class="wizard-trigger-body">
               <div class="wizard-trigger-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1467,6 +1467,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useScrollToHash } from "@/composables/useScrollToHash";
 
 import AppButton from "@/components/AppButton.vue";
 import AppModal from "@/components/AppModal.vue";
@@ -1503,6 +1504,10 @@ const props = defineProps<{
 }>();
 const router    = useRouter();
 const authStore = useAuthStore();
+
+// Scroll to the deep-linked section (e.g. #support-periods) from the
+// Compliance Journey, once the async product data has rendered.
+useScrollToHash();
 
 /* ── Data refs ──────────────────────────────────────── */
 const product                      = ref<ProductDetailRead | null>(null);

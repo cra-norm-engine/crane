@@ -78,3 +78,40 @@ export interface DashboardRead {
   recent_activity: ActivityItem[];
   compliance_score: number;
 }
+
+// ── Compliance Journey (guided roadmap) ──────────────────────────────────────
+// Mirrors backend schemas in app/schemas/release_journey.py. A journey is a
+// computed, read-only checklist that sequences existing per-entity states into
+// a step-by-step roadmap toward a CRA-ready release.
+
+export type JourneyStepStatus =
+  | "complete"
+  | "in_progress"
+  | "todo"
+  | "blocked"
+  | "not_applicable";
+
+export interface JourneyStep {
+  id: string;
+  title: string;
+  description: string;
+  status: JourneyStepStatus;
+  next_action: string;
+  // Vue route target for the deep link (name + params + optional query + hash).
+  route_name: string;
+  route_params: Record<string, string>;
+  route_query: Record<string, string>;
+  route_hash: string | null;
+}
+
+export interface ReleaseJourney {
+  release_id: string | null;
+  product_id: string;
+  product_name: string;
+  version: string;
+  release_status: string | null;
+  completed_steps: number;
+  total_steps: number;
+  next_step_id: string | null;
+  steps: JourneyStep[];
+}

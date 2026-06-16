@@ -69,6 +69,22 @@
         </RouterLink>
       </div>
 
+      <!-- Compliance journey — guided, step-by-step workflow per release -->
+      <div class="nav-group">
+        <RouterLink
+          :to="{ name: 'compliance-journey' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Route / steps icon -->
+            <svg viewBox="0 0 20 20"><path d="M6 3a2.5 2.5 0 0 0-.5 4.95V12.5a2.5 2.5 0 1 0 2 0V7.95A2.5 2.5 0 0 0 6 3zm8 1a3 3 0 0 0-3 3c0 2 3 5 3 5s3-3 3-5a3 3 0 0 0-3-3zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" fill="currentColor"/></svg>
+          </span>
+          <span>Compliance journey</span>
+        </RouterLink>
+      </div>
+
       <div class="nav-divider" role="separator" />
 
       <!-- Main workspace links -->

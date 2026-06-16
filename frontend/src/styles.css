@@ -741,3 +741,15 @@ textarea {
   padding: 1.5rem;
   text-align: center;
 }
+
+/* ── Deep-link anchor highlight ──────────────────────────────────────────────
+   Briefly emphasises the section/item a Compliance Journey link scrolls to,
+   applied transiently by the useScrollToHash composable. */
+.anchor-flash {
+  animation: anchor-flash 1.6s ease-out;
+}
+@keyframes anchor-flash {
+  0%   { box-shadow: 0 0 0 0 var(--color-primary, #84cc16); }
+  15%  { box-shadow: 0 0 0 3px var(--color-primary, #84cc16); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+}
