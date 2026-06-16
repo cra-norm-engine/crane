@@ -34,7 +34,7 @@
         </div>
       </div>
 
-      <div class="rg-head-actions">
+      <div id="gate-actions" class="rg-head-actions">
         <AppButton variant="ghost" @click="loadWorkspace" :disabled="loading || busy">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.9"/></svg>
           {{ loading ? "Refreshing…" : "Refresh" }}
@@ -137,7 +137,7 @@
       <div class="rg-workspace">
 
         <!-- Left: gate item checklist -->
-        <section class="card rg-checklist-card">
+        <section id="evidence-checklist" class="card rg-checklist-card">
           <div class="rg-checklist-head">
             <p class="rg-eyebrow">Evidence checklist</p>
             <div class="rg-checklist-head-right">
@@ -176,6 +176,7 @@
             <div
               v-for="item in releaseDetail.gate.items"
               :key="item.id"
+              :id="item.code ? `gate-item-${item.code}` : undefined"
               class="rg-ck-row"
             >
               <button
@@ -692,6 +693,7 @@ import { useRoute } from "vue-router";
 import AppButton from "@/components/AppButton.vue";
 import DropZone from "@/components/DropZone.vue";
 import SbomDiffPanel from "@/components/SbomDiffPanel.vue";
+import { useScrollToHash } from "@/composables/useScrollToHash";
 import { artifactService } from "@/services/artifact-service";
 import { releaseGateService } from "@/services/release-gate-service";
 import { sbomRecordService } from "@/services/sbom-record-service";
@@ -704,6 +706,10 @@ const props = defineProps<{ releaseId: string }>();
 
 const route = useRoute();
 const authStore = useAuthStore();
+
+// Scroll to a deep-linked gate item / section (e.g. #gate-item-technical_documentation)
+// when arriving from the Compliance Journey, once the workspace has loaded.
+useScrollToHash();
 
 const loading = ref(false);
 const busy = ref(false);

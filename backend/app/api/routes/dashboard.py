@@ -12,6 +12,7 @@ from __future__ import annotations
 # All queries are read-only; no writes occur in this route.
 
 from datetime import date, timedelta
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import and_, distinct, func, select
@@ -48,6 +49,8 @@ from app.schemas.dashboard import (
     UpcomingRelease,
     VulnSeverityBreakdown,
 )
+from app.schemas.release_journey import ReleaseJourney
+from app.services.release_journey_service import list_journeys
 
 router = APIRouter()
 
@@ -418,3 +421,23 @@ def get_dashboard(
         recent_activity=recent_activity,
         compliance_score=compliance_score,
     )
+
+
+@router.get("/journeys", response_model=list[ReleaseJourney])
+def get_release_journeys(
+    product_id: UUID | None = None,
+    release_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ReleaseJourney]:
+    """
+    Return "compliance journeys" — computed, read-only checklists that sequence
+    the existing per-entity states (scope, SBOM, risk assessment, release gate, …)
+    so the user can see the next CRA step. Soft guidance only: nothing blocks.
+
+    Filters:
+    - release_id → just that release's journey.
+    - product_id → every release of that product (or a "create release" prompt).
+    - neither    → the active overview across products.
+    """
+    return list_journeys(db, product_id=product_id, release_id=release_id)

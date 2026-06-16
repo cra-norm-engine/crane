@@ -598,7 +598,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 
 import AppModal from "@/components/AppModal.vue";
 import AppButton from "@/components/AppButton.vue";
@@ -1103,9 +1104,29 @@ watch(selectedReleaseId, async () => {
   await loadMatrix();
 });
 
+const route = useRoute();
+
 onMounted(async () => {
   try {
     await loadProducts();
+
+    // Deep-link support: the Compliance Journey links here with
+    // ?product_id=&release_id= so the matrix opens pre-filtered to that release.
+    const qProduct = route.query.product_id;
+    const qRelease = route.query.release_id;
+    if (typeof qProduct === "string" && products.value.some((p) => p.id === qProduct)) {
+      selectedProductId.value = qProduct;
+      // The selectedProductId watcher resets the release and loads its context;
+      // wait for it, then ensure releases are loaded before selecting one.
+      await nextTick();
+      await loadProductContext(qProduct);
+      if (
+        typeof qRelease === "string" &&
+        productReleases.value.some((r) => r.id === qRelease)
+      ) {
+        selectedReleaseId.value = qRelease;
+      }
+    }
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load products.";
   }
