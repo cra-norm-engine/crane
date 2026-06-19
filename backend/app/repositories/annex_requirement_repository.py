@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
@@ -26,8 +26,12 @@ class AnnexRequirementRepository(BaseRepository[AnnexRequirement]):
         annex_part: AnnexPart | None = None,
         is_active: bool | None = None,
     ) -> list[AnnexRequirement]:
+        # Natural order: Part I before Part II, then by the trailing number.
+        # Sorting by code length before code keeps 1–9 ahead of 10+ (otherwise a
+        # string sort yields 1, 10, 11, …, 2, 3 …).
         stmt = select(AnnexRequirement).order_by(
             AnnexRequirement.annex_part.asc(),
+            func.length(AnnexRequirement.code).asc(),
             AnnexRequirement.code.asc(),
         )
 

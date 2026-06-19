@@ -7,6 +7,7 @@
 import { apiClient } from "@/services/api";
 import type { ReleaseGateDetailRead, GateDecision } from "@/types/release-gate";
 import type { ArtifactType } from "@/types/artifact";
+import type { ReleaseReport } from "@/types/report";
 
 export const releaseGateService = {
   async getByRelease(productReleaseId: string): Promise<ReleaseGateDetailRead> {
@@ -91,6 +92,32 @@ export const releaseGateService = {
     return data;
   },
 
+  // Make `dependentItemId` require `prerequisiteItemId` to be accepted first.
+  async addPrerequisite(
+    productReleaseId: string,
+    dependentItemId: string,
+    prerequisiteItemId: string,
+  ): Promise<ReleaseGateDetailRead> {
+    const { data } = await apiClient.post<ReleaseGateDetailRead>(
+      `/product-releases/${productReleaseId}/gate/prerequisites`,
+      null,
+      { params: { dependent_item_id: dependentItemId, prerequisite_item_id: prerequisiteItemId } },
+    );
+    return data;
+  },
+
+  async removePrerequisite(
+    productReleaseId: string,
+    dependentItemId: string,
+    prerequisiteItemId: string,
+  ): Promise<ReleaseGateDetailRead> {
+    const { data } = await apiClient.delete<ReleaseGateDetailRead>(
+      `/product-releases/${productReleaseId}/gate/prerequisites`,
+      { params: { dependent_item_id: dependentItemId, prerequisite_item_id: prerequisiteItemId } },
+    );
+    return data;
+  },
+
   async addChecklistItem(
     productReleaseId: string,
     title: string,
@@ -145,5 +172,14 @@ export const releaseGateService = {
     anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
+  },
+
+  // Fetch the structured compliance-report data (all 17 sections) for the
+  // in-app HTML report view. Same builder backs the PDF export.
+  async getReportData(productReleaseId: string): Promise<ReleaseReport> {
+    const { data } = await apiClient.get<ReleaseReport>(
+      `/product-releases/${productReleaseId}/report/data`,
+    );
+    return data;
   },
 };

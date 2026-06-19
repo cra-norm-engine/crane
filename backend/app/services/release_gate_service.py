@@ -31,7 +31,13 @@ from app.models.enums import (
     ReleaseStatus,
 )
 from app.models.product import ProductRelease
-from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem, ReleaseGateItemPrerequisite
+from app.models.release_gate import (
+    ReleaseGate,
+    ReleaseGateEvidenceLink,
+    ReleaseGateItem,
+    ReleaseGateItemPrerequisite,
+    ReleaseGateReview,
+)
 from app.services.artifact_service import ArtifactService
 from app.repositories.artifact_repository import ArtifactRevisionRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
@@ -285,10 +291,31 @@ class ReleaseGateService:
         if gate.status == ReleaseGateWorkflowStatus.approved:
             raise ConflictException("Gate is approved and frozen. Evidence decisions cannot be changed.")
 
+        # A rejection is final for that piece of evidence: it cannot later be
+        # accepted or waived. The submitter must attach new evidence, which is
+        # reviewed afresh. (The rejection is preserved in the review history.)
+        if link.decision == ArtifactReviewDecision.rejected:
+            raise ConflictException(
+                "This evidence was rejected and cannot be accepted or waived. "
+                "Submit new evidence for review."
+            )
+
+        reviewed_at = datetime.now(UTC)
+        # Update the link's latest-decision snapshot (used for gate status logic)…
         link.decision = decision
         link.rationale = rationale
         link.reviewed_by_user_id = actor_user_id
-        link.reviewed_at = datetime.now(UTC)
+        link.reviewed_at = reviewed_at
+        # …and append an immutable history row so prior reviewer notes persist.
+        self.db.add(
+            ReleaseGateReview(
+                release_gate_evidence_link_id=link.id,
+                decision=decision,
+                rationale=rationale,
+                reviewed_by_user_id=actor_user_id,
+                reviewed_at=reviewed_at,
+            )
+        )
         self.db.flush()
         self._refresh_gate_status(gate)
 
@@ -906,6 +933,16 @@ class ReleaseGateService:
                                 "reviewed_at": link.reviewed_at,
                                 "created_at": link.created_at,
                                 "updated_at": link.updated_at,
+                                "reviews": [
+                                    {
+                                        "id": review.id,
+                                        "decision": review.decision,
+                                        "rationale": review.rationale,
+                                        "reviewed_by_user": self._user_summary_payload(review.reviewed_by_user),
+                                        "reviewed_at": review.reviewed_at,
+                                    }
+                                    for review in link.reviews
+                                ],
                                 "artifact_revision": {
                                     "id": link.artifact_revision.id,
                                     "artifact_id": link.artifact_revision.artifact_id,

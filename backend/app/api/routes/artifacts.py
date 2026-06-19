@@ -10,16 +10,20 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.core.exceptions import ConflictException, NotFoundException
 from app.core.permissions import Permission, require_permissions
 from app.models.enums import EvidenceType
 from app.models.user import User
-from app.schemas.artifact import ArtifactListRead, ArtifactRead
+from app.schemas.artifact import (
+    ArtifactListRead,
+    ArtifactRead,
+    IntegritySweepResult,
+    LegalHoldRequest,
+)
 from app.services.artifact_service import ArtifactService
 
 router = APIRouter()
@@ -109,20 +113,87 @@ async def upload_artifact_revision(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ArtifactRead:
+    # NotFoundException etc. are converted to the canonical error shape by the
+    # global exception handlers — no manual HTTPException translation needed.
     require_permissions(current_user, {Permission.evidence_item_write})
     service = ArtifactService(db)
-    try:
-        return ArtifactRead.model_validate(
-            await service.upload_revision(
-                artifact_id,
-                uploaded_by_user_id=current_user.id,
-                upload=upload,
-                change_summary=change_summary,
-                product_id=product_id,
-            )
+    return ArtifactRead.model_validate(
+        await service.upload_revision(
+            artifact_id,
+            uploaded_by_user_id=current_user.id,
+            upload=upload,
+            change_summary=change_summary,
+            product_id=product_id,
         )
-    except NotFoundException as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    )
+
+
+@router.post("/{artifact_id}/snapshot", response_model=ArtifactRead)
+async def snapshot_external_artifact(
+    artifact_id: UUID,
+    change_summary: str | None = Form(default=None),
+    product_id: UUID | None = Form(default=None),
+    upload: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ArtifactRead:
+    """
+    Store a retained copy of an externally-linked document as a new uploaded
+    revision, so CRANE holds a hashed, retained snapshot rather than only a URL.
+    """
+    require_permissions(current_user, {Permission.evidence_item_write})
+    service = ArtifactService(db)
+    return ArtifactRead.model_validate(
+        await service.upload_revision(
+            artifact_id,
+            uploaded_by_user_id=current_user.id,
+            upload=upload,
+            change_summary=change_summary or "Snapshot of external document",
+            product_id=product_id,
+        )
+    )
+
+
+@router.post("/verify-integrity", response_model=IntegritySweepResult)
+def verify_artifacts_integrity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IntegritySweepResult:
+    """
+    Re-hash every stored file and flag any that no longer match their recorded
+    SHA-256 (tamper / corruption). Intended for manual or scheduled (cron) runs.
+    """
+    require_permissions(current_user, {Permission.evidence_item_write})
+    service = ArtifactService(db)
+    return IntegritySweepResult.model_validate(service.verify_all(actor_user_id=current_user.id))
+
+
+@router.patch("/{artifact_id}/legal-hold", response_model=ArtifactRead)
+def set_artifact_legal_hold(
+    artifact_id: UUID,
+    payload: LegalHoldRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ArtifactRead:
+    require_permissions(current_user, {Permission.artifact_legal_hold})
+    service = ArtifactService(db)
+    return ArtifactRead.model_validate(
+        service.set_legal_hold(
+            artifact_id, hold=payload.hold, reason=payload.reason, actor_user_id=current_user.id
+        )
+    )
+
+
+@router.delete("/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_artifact(
+    artifact_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Permanently delete an artifact + files — refused under retention/legal hold."""
+    require_permissions(current_user, {Permission.artifact_delete})
+    ArtifactService(db).delete_artifact(artifact_id, actor_user_id=current_user.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/revisions/{revision_id}/download")
@@ -131,12 +202,10 @@ def download_artifact_revision(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Integrity is re-verified before streaming; a tampered/corrupted file is
+    # blocked (409) and audited. See ArtifactService.get_revision_for_download.
     require_permissions(current_user, {Permission.evidence_item_read})
     service = ArtifactService(db)
-    revision = service.artifact_revision_repository.get_or_404(revision_id)
-    if not revision.storage_path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="External link revisions cannot be downloaded.")
-    path = Path(revision.storage_path)
-    if not path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stored artifact file not found.")
+    revision = service.get_revision_for_download(revision_id, actor_user_id=current_user.id)
+    path = Path(revision.storage_path)  # guaranteed present by the service
     return FileResponse(path, filename=revision.original_filename or path.name, media_type=revision.content_type)

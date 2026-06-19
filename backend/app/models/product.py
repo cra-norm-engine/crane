@@ -11,6 +11,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Column, Date, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -75,6 +76,17 @@ class Product(UUIDTimestampMixin, Base):
     # security_contact_url can point to a security.txt or bug-bounty programme.
     security_contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     security_contact_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
+    # Economic operators (CRA Art. 13/18-23) — beyond the manufacturer captured above.
+    authorised_representative: Mapped[str | None] = mapped_column(Text, nullable=True)
+    importers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    distributors: Mapped[str | None] = mapped_column(Text, nullable=True)
+    single_point_of_contact: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Specific Annex III/IV category/item this product matches (Art. 7-8).
+    annex_category: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Annex II "information and instructions to the user" checklist:
+    # list of {ref, content, status, location}.
+    annex_ii_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     parent_product: Mapped["Product | None"] = relationship(
         "Product",
@@ -237,6 +249,21 @@ class ProductRelease(UUIDTimestampMixin, Base):
     eu_doc_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     eu_doc_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     eu_doc_notified_body: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # CRA Art. 28/30 — fuller DoC + CE marking metadata.
+    eu_doc_signatory: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    eu_doc_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    eu_doc_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    ce_marking_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # CRA Art. 32 — conformity assessment detail (module, NB number, standards).
+    conformity_module: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notified_body_number: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    standards_applied: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Multi-role report sign-off (free text per role).
+    signoff_compliance_lead: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signoff_notified_body_reviewer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signoff_executive: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     product: Mapped[Product] = relationship(back_populates="releases")
 

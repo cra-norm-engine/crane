@@ -39,10 +39,16 @@ services:
       BACKEND_REFRESH_TOKEN_EXPIRE_DAYS: ${BACKEND_REFRESH_TOKEN_EXPIRE_DAYS:-7}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       BACKEND_LOG_LEVEL: ${BACKEND_LOG_LEVEL:-INFO}
+      # Uploaded evidence/documents live on a dedicated persistent volume (below),
+      # not inside the source tree, so they survive container restarts/rebuilds.
+      BACKEND_ARTIFACT_UPLOAD_DIR: ${BACKEND_ARTIFACT_UPLOAD_DIR:-/workspace/backend/uploads/artifacts}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend:/workspace/backend
+      # Named volume for retained documents — mounted over the source subdir so
+      # uploads are not lost when ./backend is re-synced or the container rebuilds.
+      - backend_artifacts:/workspace/backend/uploads/artifacts
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,3 +78,4 @@ services:
 volumes:
   postgres_data:
   frontend_node_modules:
+  backend_artifacts:

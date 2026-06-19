@@ -49,6 +49,12 @@ class Permission(StrEnum):
 
     evidence_item_read = "evidence_item_read"
     evidence_item_write = "evidence_item_write"
+    # Destructive / governance actions on stored documents (artifacts).
+    # artifact_delete    → permanently delete an artifact + its files (guarded by
+    #                      retention period, legal hold, and approved-gate links).
+    # artifact_legal_hold → place or release a legal hold on an artifact.
+    artifact_delete = "artifact_delete"
+    artifact_legal_hold = "artifact_legal_hold"
 
     support_period_read = "support_period_read"
     support_period_write = "support_period_write"

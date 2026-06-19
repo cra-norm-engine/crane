@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from datetime import date, datetime
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -27,6 +29,14 @@ class Artifact(UUIDTimestampMixin, Base):
         nullable=False,
         index=True,
     )
+
+    # --- Retention & legal hold (CRA Art. 31 — keep technical documentation /
+    #     evidence for the retention period). ``retention_until`` is the earliest
+    #     date the artifact may be deleted; ``legal_hold`` blocks deletion entirely
+    #     regardless of the retention date (e.g. during an investigation/dispute).
+    retention_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    legal_hold: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    legal_hold_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_by_user: Mapped["User"] = relationship("User", foreign_keys=[created_by_user_id])
     revisions: Mapped[list["ArtifactRevision"]] = relationship(
@@ -64,6 +74,11 @@ class ArtifactRevision(UUIDTimestampMixin, Base):
     storage_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     external_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     change_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # --- Integrity verification: the on-disk file is re-hashed and compared to
+    #     ``sha256``. ``integrity_status`` is one of verified / failed / missing /
+    #     external (link, nothing to verify); ``last_verified_at`` records when.
+    integrity_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     uploaded_by_user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
