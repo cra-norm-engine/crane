@@ -105,6 +105,9 @@ class Settings(BaseSettings):
         default="/workspace/backend/uploads/artifacts",
         alias="BACKEND_ARTIFACT_UPLOAD_DIR",
     )
+    # CRA Art. 31 — minimum retention for technical documentation / evidence.
+    # Used to set each artifact's retention_until = created date + this many years.
+    artifact_retention_years: int = Field(default=10, alias="BACKEND_ARTIFACT_RETENTION_YEARS")
 
     # --- LDAP ---
     ldap_enabled: bool = Field(default=False, alias="LDAP_ENABLED")

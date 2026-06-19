@@ -242,6 +242,11 @@ export interface ProductRead {
   is_pre_cra: boolean;
   /** Gap 4 — earliest known EU market placement date for this product line. */
   first_placed_on_market_date: string | null;
+  /** Economic operators (CRA Art. 13, 18–23) — free-text supply-chain descriptions. */
+  authorised_representative: string | null;
+  importers: string | null;
+  distributors: string | null;
+  single_point_of_contact: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -267,6 +272,11 @@ export interface ProductCreate {
   /** Gap 4 — Art. 69(2) flag; defaults to false for new products created after CRA. */
   is_pre_cra?: boolean;
   first_placed_on_market_date?: string | null;
+  /** Economic operators (CRA Art. 13, 18–23). */
+  authorised_representative?: string | null;
+  importers?: string | null;
+  distributors?: string | null;
+  single_point_of_contact?: string | null;
 }
 
 export interface ProductUpdate {
@@ -285,6 +295,11 @@ export interface ProductUpdate {
   /** Gap 4 — update the pre-CRA flag when a product's status is clarified. */
   is_pre_cra?: boolean;
   first_placed_on_market_date?: string | null;
+  /** Economic operators (CRA Art. 13, 18–23). */
+  authorised_representative?: string | null;
+  importers?: string | null;
+  distributors?: string | null;
+  single_point_of_contact?: string | null;
 }
 
 export interface ProductScopeEvaluationRequest {

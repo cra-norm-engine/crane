@@ -18,6 +18,18 @@ from app.schemas.product_release import ProductReleaseRead
 from app.schemas.user import UserSummaryRead
 
 
+class ReleaseGateReviewRead(BaseModel):
+    """One historical reviewer decision + note on an evidence link."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    decision: ArtifactReviewDecision
+    rationale: str | None
+    reviewed_by_user: UserSummaryRead | None = None
+    reviewed_at: datetime
+
+
 class ReleaseGateEvidenceLinkRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,6 +43,7 @@ class ReleaseGateEvidenceLinkRead(BaseModel):
     reviewed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    reviews: list[ReleaseGateReviewRead] = []
     artifact_revision: ArtifactRevisionRead
 
 

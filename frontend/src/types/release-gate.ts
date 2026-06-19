@@ -62,6 +62,14 @@ export interface ProductReleaseRead {
   updated_at: string;
 }
 
+export interface ReleaseGateReviewRead {
+  id: string;
+  decision: GateDecision;
+  rationale: string | null;
+  reviewed_by_user: UserSummaryRead | null;
+  reviewed_at: string;
+}
+
 export interface ReleaseGateEvidenceLinkRead {
   id: string;
   decision: GateDecision;
@@ -73,6 +81,8 @@ export interface ReleaseGateEvidenceLinkRead {
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Append-only history of every review decision + note on this link. */
+  reviews: ReleaseGateReviewRead[];
   artifact_revision: ArtifactRevisionRead;
 }
 

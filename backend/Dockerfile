@@ -23,12 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chmod +x /usr/local/bin/sbom-tools && \
     rm -rf /tmp/sbom-tools* && \
     \
-    # Trivy — pinned to v0.50.0 for reproducible builds
-    curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz \
-        -o /tmp/trivy.tar.gz && \
-    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin && \
-    chmod +x /usr/local/bin/trivy && \
-    rm -rf /tmp/trivy* && \
+    # Trivy — use the official install script which picks the correct release URL
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+        | sh -s -- -b /usr/local/bin && \
     \
     apt-get purge -y curl && apt-get autoremove -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -44,10 +41,4 @@ COPY . /workspace/backend
 
 WORKDIR /workspace/backend
 RUN chmod +x start.sh
-
-# Create non-root user and set proper permissions
-RUN useradd -m -u 1000 crane && \
-    chown -R crane:crane /workspace/backend
-USER crane
-
 CMD ["./start.sh"]

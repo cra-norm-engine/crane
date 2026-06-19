@@ -1,874 +1,618 @@
+{#-
+  CRANE — CRA Norm Engine
+  Copyright (C) 2026 Ali Mohammad Hosseini
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  This file is part of CRANE, free software under the GNU AGPL v3.0 or later.
+
+  Formal CRA compliance report (PDF via WeasyPrint). WeasyPrint-safe CSS only:
+  tables / blocks / inline-block — no flexbox or grid. Front matter (cover,
+  table of contents, glossary, introduction) then §00–§17. Fields that need a
+  data model CRANE does not have yet render an honest "Not recorded in CRANE"
+  placeholder via the v()/ph() macros.
+-#}
+{%- macro ph() -%}<span class="ph">Not recorded in CRANE</span>{%- endmacro -%}
+{%- macro v(x) -%}{% if x is none or x == PLACEHOLDER or x == '' %}{{ ph() }}{% else %}{{ x }}{% endif %}{%- endmacro -%}
+{%- macro pill(label, kind) -%}<span class="pill pill--{{ kind }}">{{ label }}</span>{%- endmacro -%}
+{%- macro statuspill(bucket) -%}
+  {%- if bucket == 'compliant' -%}{{ pill('Compliant','ok') }}
+  {%- elif bucket == 'partial' -%}{{ pill('Partial','warn') }}
+  {%- elif bucket == 'gap' -%}{{ pill('Gap','bad') }}
+  {%- else -%}{{ pill('N/A','na') }}{%- endif -%}
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>CRA Compliance Report — {{ product.name }} {{ release.user_version or ("v" ~ release.system_version) }}</title>
+<title>CRA Compliance Report — {{ product.name }}</title>
 <style>
-/* =========================================================
-   Page layout
-   ========================================================= */
-@page {
-  size: A4;
-  margin: 20mm 18mm 22mm 18mm;
-
-  @bottom-center {
-    content: "Page " counter(page) " of " counter(pages);
-    font-family: 'DejaVu Sans', sans-serif;
-    font-size: 8pt;
-    color: #6b7280;
+  @page {
+    size: A4;
+    margin: 22mm 17mm 18mm 17mm;
+    @top-right { content: "CRANE · {{ meta.report_id }}"; font-family: monospace; font-size: 8pt; color: #9a9a9a; }
+    @bottom-left { content: "{{ meta.confidentiality }}"; font-size: 7pt; color: #b0b0b0; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #9a9a9a; }
   }
-  @bottom-left {
-    content: "{{ tool_name }} — Confidential";
-    font-family: 'DejaVu Sans', sans-serif;
-    font-size: 8pt;
-    color: #6b7280;
-  }
-  @bottom-right {
-    content: "Generated {{ generated_at }}";
-    font-family: 'DejaVu Sans', sans-serif;
-    font-size: 8pt;
-    color: #6b7280;
-  }
-}
+  @page :first { @top-right { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }
 
-@page :first {
-  @bottom-center { content: ""; }
-  @bottom-left   { content: ""; }
-  @bottom-right  { content: ""; }
-}
+  *{ box-sizing: border-box; }
+  body{ font-family: 'Helvetica Neue', Arial, sans-serif; color:#1C1F1E; font-size:10.5pt; line-height:1.5; margin:0; }
+  h1,h2,h3{ font-family: Georgia, 'Times New Roman', serif; }
+  h2{ bookmark-level:1; bookmark-label: content(); font-size:16pt; margin:0 0 4px; color:#0E332D; }
+  h3{ font-size:12pt; margin:16px 0 6px; }
+  a{ color:#0E332D; text-decoration:none; }
+  .mono{ font-family: monospace; }
+  .muted{ color:#5B6260; }
 
-/* =========================================================
-   Base typography
-   ========================================================= */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+  .cover{ page-break-after: always; padding-top:38mm; }
+  .cover .mark{ font-family:monospace; font-size:10pt; letter-spacing:.14em; text-transform:uppercase; color:#1F5C52; }
+  .cover h1{ font-family:Georgia,serif; font-size:30pt; line-height:1.12; margin:10px 0 6px; }
+  .cover .model{ color:#5B6260; }
+  .cover .sub{ font-size:11pt; color:#5B6260; margin-bottom:30px; }
+  .cover-meta{ width:100%; border-collapse:collapse; margin-top:24px; font-size:10pt; }
+  .cover-meta td{ padding:6px 0; border-bottom:1px solid #E7E1D2; }
+  .cover-meta td.k{ width:38%; color:#8B9290; font-family:monospace; font-size:8.5pt; text-transform:uppercase; letter-spacing:.06em; }
+  .stamp{ display:inline-block; margin-top:30px; border:2px solid #9C6A14; color:#9C6A14; border-radius:6px; padding:8px 16px; font-family:monospace; font-size:10pt; text-transform:uppercase; letter-spacing:.06em; }
+  .confnote{ margin-top:26px; font-size:8.5pt; color:#8B9290; }
 
-body {
-  font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif;
-  font-size: 9pt;
-  color: #1f2937;
-  line-height: 1.5;
-}
+  .page-break{ page-break-before: always; }
+  .eyebrow{ font-family:monospace; font-size:8.5pt; letter-spacing:.12em; text-transform:uppercase; color:#8B9290; margin-bottom:3px; }
+  .intro{ color:#5B6260; font-size:10pt; margin:4px 0 14px; }
 
-h1 { font-size: 22pt; font-weight: 700; }
-h2 { font-size: 13pt; font-weight: 700; margin-bottom: 6pt; color: #1f2937; }
-h3 { font-size: 10pt; font-weight: 600; margin-bottom: 4pt; color: #374151; }
+  .toc{ list-style:none; padding:0; margin:0; font-size:10.5pt; }
+  .toc li{ padding:4px 0; border-bottom:1px dotted #E7E1D2; }
+  .toc .g{ font-family:monospace; font-size:8.5pt; text-transform:uppercase; letter-spacing:.1em; color:#8B9290; padding-top:12px; border:none; }
+  .toc a{ color:#1C1F1E; }
+  .toc a .num{ font-family:monospace; color:#8B9290; display:inline-block; width:26px; }
+  .toc a::after{ content: target-counter(attr(href url), page); float:right; font-family:monospace; color:#8B9290; }
 
-p  { margin-bottom: 6pt; }
+  table.kv{ width:100%; border-collapse:collapse; margin:8px 0 14px; }
+  table.kv td{ padding:7px 10px; border:1px solid #E7E1D2; vertical-align:top; font-size:10pt; }
+  table.kv td.k{ width:32%; background:#F7F4EC; color:#5B6260; font-family:monospace; font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; }
 
-/* =========================================================
-   Cover page
-   ========================================================= */
-.cover {
-  page-break-after: always;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 240mm;
-  padding: 10mm 0;
-}
+  table.req{ width:100%; border-collapse:collapse; font-size:9.5pt; margin:6px 0 12px; }
+  table.req th{ text-align:left; font-family:monospace; font-size:8pt; letter-spacing:.06em; text-transform:uppercase; color:#8B9290; border-bottom:1px solid #DCD6C6; padding:6px 8px; font-weight:normal; }
+  table.req td{ padding:7px 8px; border-bottom:1px solid #EFEADF; vertical-align:top; }
+  .cite{ font-family:monospace; font-size:8.5pt; color:#0E332D; background:#E3ECE6; padding:1px 5px; border-radius:3px; }
 
-.cover-header {
-  background: linear-gradient(135deg, #166534 0%, #15803d 60%, #4ade80 100%);
-  color: #ffffff;
-  padding: 16mm 16mm 12mm 16mm;
-  border-radius: 4px;
-  margin-bottom: 10mm;
-}
+  .pill{ display:inline-block; font-family:monospace; font-size:8pt; letter-spacing:.03em; text-transform:uppercase; padding:2px 7px; border-radius:99px; }
+  .pill--ok{ background:#E3ECE6; color:#0E332D; }
+  .pill--warn{ background:#F4E9D3; color:#9C6A14; }
+  .pill--bad{ background:#F3E2DF; color:#92332C; }
+  .pill--na{ background:#E7E6E2; color:#6B6F73; }
+  .ph{ font-family:monospace; font-size:8.5pt; color:#9C6A14; background:#F9F1DE; border:1px dashed #D8B873; border-radius:3px; padding:1px 6px; }
 
-.cover-label {
-  font-size: 9pt;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  opacity: 0.85;
-  margin-bottom: 4mm;
-}
+  .note{ background:#F2EEE3; border-left:3px solid #1F5C52; padding:9px 13px; font-size:9.5pt; color:#5B6260; margin:12px 0; }
+  .note--gap{ border-left-color:#92332C; }
 
-.cover h1 { margin-bottom: 3mm; }
+  table.meter{ width:100%; border-collapse:collapse; height:13px; margin:6px 0; border:1px solid #DCD6C6; }
+  table.meter td{ padding:0; }
+  .m-ok{ background:#1F5C52; } .m-warn{ background:#9C6A14; } .m-bad{ background:#92332C; } .m-na{ background:#E7E6E2; }
+  .legend{ font-size:9pt; color:#5B6260; }
+  .legend span{ margin-right:16px; }
+  .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
 
-.cover-version {
-  font-size: 16pt;
-  font-weight: 300;
-  opacity: 0.9;
-  margin-bottom: 6mm;
-}
+  table.cards{ width:100%; border-collapse:collapse; margin:8px 0 12px; }
+  table.cards td{ border:1px solid #E7E1D2; text-align:center; padding:10px 8px; width:25%; }
+  table.cards .n{ font-family:Georgia,serif; font-size:18pt; }
+  table.cards .l{ font-family:monospace; font-size:7.5pt; text-transform:uppercase; letter-spacing:.05em; color:#8B9290; }
+  .n-bad{ color:#92332C; } .n-warn{ color:#9C6A14; } .n-ok{ color:#1F5C52; }
 
-.cover-meta {
-  font-size: 9pt;
-  opacity: 0.8;
-}
-
-.cover-details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6mm;
-  margin-top: 8mm;
-}
-
-.cover-detail-block {
-  border: 1px solid #d1fae5;
-  border-radius: 3px;
-  padding: 5mm;
-  background: #f0fdf4;
-}
-
-.cover-detail-block .label {
-  font-size: 7.5pt;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin-bottom: 2pt;
-}
-
-.cover-detail-block .value {
-  font-size: 10pt;
-  font-weight: 600;
-  color: #111827;
-}
-
-/* =========================================================
-   Section layout
-   ========================================================= */
-.section {
-  margin-bottom: 10mm;
-  page-break-inside: avoid;
-}
-
-.section-title {
-  border-bottom: 2px solid #16a34a;
-  padding-bottom: 3pt;
-  margin-bottom: 6pt;
-  page-break-after: avoid;
-}
-
-/* =========================================================
-   Two-column definition table
-   ========================================================= */
-.def-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 8.5pt;
-}
-
-.def-table td {
-  padding: 3.5pt 6pt;
-  vertical-align: top;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.def-table td:first-child {
-  width: 38%;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-/* =========================================================
-   Data tables (gate items, risk items, etc.)
-   ========================================================= */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 8pt;
-  margin-top: 4pt;
-}
-
-.data-table th {
-  background: #f9fafb;
-  border-bottom: 2px solid #e5e7eb;
-  padding: 4pt 6pt;
-  text-align: left;
-  font-weight: 600;
-  color: #374151;
-  font-size: 7.5pt;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.data-table td {
-  padding: 4pt 6pt;
-  border-bottom: 1px solid #f3f4f6;
-  vertical-align: top;
-}
-
-.data-table tr:last-child td { border-bottom: none; }
-
-/* =========================================================
-   Status badges
-   ========================================================= */
-.badge {
-  display: inline-block;
-  padding: 1pt 5pt;
-  border-radius: 3px;
-  font-size: 7.5pt;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.badge-green  { background: #d1fae5; color: #065f46; }
-.badge-red    { background: #fee2e2; color: #991b1b; }
-.badge-yellow { background: #fef3c7; color: #92400e; }
-.badge-gray   { background: #f3f4f6; color: #4b5563; }
-.badge-blue   { background: #dbeafe; color: #1e40af; }
-
-/* =========================================================
-   Criterion checklist
-   ========================================================= */
-.criterion-list { list-style: none; margin: 4pt 0; }
-.criterion-list li {
-  padding: 2.5pt 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 5pt;
-  font-size: 8.5pt;
-}
-
-.criterion-tick { font-size: 10pt; line-height: 1.2; }
-.tick-yes  { color: #dc2626; }
-.tick-no   { color: #16a34a; }
-
-/* =========================================================
-   Summary row (gate overview)
-   ========================================================= */
-.gate-overview {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4mm;
-  margin-bottom: 6mm;
-}
-
-.gate-stat {
-  border: 1px solid #e5e7eb;
-  border-radius: 3px;
-  padding: 4mm;
-  text-align: center;
-}
-
-.gate-stat .num  { font-size: 18pt; font-weight: 700; line-height: 1.1; }
-.gate-stat .lbl  { font-size: 7.5pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-.gate-stat.green { border-color: #86efac; background: #f0fdf4; }
-.gate-stat.green .num { color: #15803d; }
-.gate-stat.red   { border-color: #fca5a5; background: #fef2f2; }
-.gate-stat.red   .num { color: #b91c1c; }
-.gate-stat.yellow{ border-color: #fde68a; background: #fffbeb; }
-.gate-stat.yellow .num { color: #b45309; }
-.gate-stat.gray  { border-color: #d1d5db; background: #f9fafb; }
-.gate-stat.gray  .num { color: #4b5563; }
-
-/* =========================================================
-   Info box
-   ========================================================= */
-.info-box {
-  border-left: 3px solid #16a34a;
-  background: #f0fdf4;
-  padding: 4pt 8pt;
-  margin: 4pt 0 8pt 0;
-  font-size: 8.5pt;
-  color: #166534;
-}
-
-.warn-box {
-  border-left: 3px solid #f59e0b;
-  background: #fffbeb;
-  padding: 4pt 8pt;
-  margin: 4pt 0 8pt 0;
-  font-size: 8.5pt;
-  color: #92400e;
-}
-
-.none-note {
-  color: #9ca3af;
-  font-style: italic;
-  font-size: 8.5pt;
-  padding: 4pt 0;
-}
-
-/* =========================================================
-   Utility
-   ========================================================= */
-.page-break-before { page-break-before: always; }
-.text-muted { color: #6b7280; }
-.text-bold  { font-weight: 700; }
+  ul.checklist{ list-style:none; padding:0; margin:0; font-size:10pt; }
+  ul.checklist li{ padding:6px 0; border-bottom:1px solid #EFEADF; }
 </style>
 </head>
 <body>
 
-<!-- ============================================================
-     COVER PAGE
-     ============================================================ -->
+{# ============================ COVER ============================ #}
 <div class="cover">
-  <div class="cover-header">
-    <div class="cover-label">CRA Compliance Report</div>
-    <h1>{{ product.name }}</h1>
-    <div class="cover-version">
-      {{ release.user_version or ("Version " ~ release.system_version) }}
-    </div>
-    <div class="cover-meta">
-      {{ product.manufacturer_name or "—" }} &nbsp;·&nbsp;
-      Classification: {{ release.classification_snapshot.value | fmt_status }}
-    </div>
-  </div>
-
-  <div class="cover-details">
-    <div class="cover-detail-block">
-      <div class="label">Product Code</div>
-      <div class="value">{{ product.product_code }}</div>
-    </div>
-    <div class="cover-detail-block">
-      <div class="label">Release Status</div>
-      <div class="value">{{ release.release_status.value | fmt_status }}</div>
-    </div>
-    <div class="cover-detail-block">
-      <div class="label">Placed on Market</div>
-      <div class="value">{{ release.placed_on_market_date | fmt_date }}</div>
-    </div>
-    <div class="cover-detail-block">
-      <div class="label">Conformity Route</div>
-      <div class="value">{{ release.conformity_route_snapshot.value | fmt_status }}</div>
-    </div>
-    <div class="cover-detail-block">
-      <div class="label">EU DoC Number</div>
-      <div class="value">{{ release.eu_doc_number or "—" }}</div>
-    </div>
-    <div class="cover-detail-block">
-      <div class="label">EU DoC Date</div>
-      <div class="value">{{ release.eu_doc_date | fmt_date }}</div>
-    </div>
-  </div>
+  <div class="mark">CRANE · CRA Norm Engine</div>
+  <h1>{{ product.name }} <span class="model">{{ v(product.model) }}</span></h1>
+  <div class="sub">Cyber Resilience Act — Single-Product Compliance Report</div>
+  <table class="cover-meta">
+    <tr><td class="k">Firmware / version</td><td>{{ v(product.firmware_version) }}</td></tr>
+    <tr><td class="k">Manufacturer</td><td>{{ v(operators.manufacturer.name) }}</td></tr>
+    <tr><td class="k">Report ID</td><td>{{ meta.report_id }}</td></tr>
+    <tr><td class="k">Generated</td><td>{{ meta.generated_at }} · {{ v(meta.generated_by) }}</td></tr>
+    <tr><td class="k">Regulatory basis</td><td>Regulation (EU) 2024/2847 (Cyber Resilience Act)</td></tr>
+  </table>
+  <div class="stamp">{{ meta.status }}</div>
+  <div class="confnote">{{ meta.confidentiality }}. Generated by {{ meta.tool_name }}. This document is an
+  informational compliance dossier and does not constitute legal advice.</div>
 </div>
 
+{# ============================ TABLE OF CONTENTS ============================ #}
+<div class="page-break">
+  <div class="eyebrow">Contents</div>
+  <h2>Table of contents</h2>
+  <ul class="toc">
+    <li class="g">Front matter</li>
+    <li><a href="#glossary"><span class="num">—</span> Glossary of terms</a></li>
+    <li><a href="#intro"><span class="num">—</span> Introduction &amp; regulatory basis</a></li>
+    <li><a href="#doc-control"><span class="num">00</span> Document control</a></li>
+    <li class="g">Scope &amp; identity</li>
+    <li><a href="#product-id"><span class="num">01</span> Product identification</a></li>
+    <li><a href="#operators"><span class="num">02</span> Economic operators</a></li>
+    <li><a href="#classification"><span class="num">03</span> Classification</a></li>
+    <li class="g">Essential requirements</li>
+    <li><a href="#risk"><span class="num">04</span> Risk assessment</a></li>
+    <li><a href="#annex1-p1"><span class="num">05</span> Annex I · Part I</a></li>
+    <li><a href="#annex1-p2"><span class="num">06</span> Annex I · Part II</a></li>
+    <li><a href="#sbom"><span class="num">07</span> Software bill of materials</a></li>
+    <li><a href="#vuln"><span class="num">08</span> Vulnerability &amp; incident management</a></li>
+    <li class="g">Conformity</li>
+    <li><a href="#conformity"><span class="num">09</span> Conformity assessment route</a></li>
+    <li><a href="#doc-ce"><span class="num">10</span> EU DoC &amp; CE marking</a></li>
+    <li><a href="#tech-doc"><span class="num">11</span> Technical documentation index</a></li>
+    <li><a href="#user-info"><span class="num">12</span> Information &amp; instructions to user</a></li>
+    <li class="g">Lifecycle</li>
+    <li><a href="#support"><span class="num">13</span> Support period &amp; lifecycle</a></li>
+    <li><a href="#mods"><span class="num">14</span> Substantial modifications</a></li>
+    <li><a href="#cvd"><span class="num">15</span> CVD &amp; reporting readiness</a></li>
+    <li class="g">Assurance</li>
+    <li><a href="#audit"><span class="num">16</span> Audit trail</a></li>
+    <li><a href="#signoff"><span class="num">17</span> Sign-off</a></li>
+  </ul>
+</div>
 
-<!-- ============================================================
-     1. PRODUCT SUMMARY
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">1. Product Summary</h2>
-  <table class="def-table">
-    <tbody>
-      <tr><td>Product Name</td><td>{{ product.name }}</td></tr>
-      <tr><td>Product Code</td><td>{{ product.product_code }}</td></tr>
-      <tr><td>Manufacturer</td><td>{{ product.manufacturer_name or "—" }}</td></tr>
-      <tr><td>Product Type</td><td>{{ product.product_type.value | fmt_status if product.product_type else "—" }}</td></tr>
-      <tr><td>Current Classification</td><td>{{ product.current_classification.value | fmt_status }}</td></tr>
-      <tr><td>Intended Use</td><td>{{ product.intended_use or "—" }}</td></tr>
-      <tr><td>Pre-CRA Product</td><td>{{ product.is_pre_cra | fmt_bool }}</td></tr>
-      {% if product.is_pre_cra and product.first_placed_on_market_date %}
-      <tr><td>First Placed on Market</td><td>{{ product.first_placed_on_market_date | fmt_date }}</td></tr>
-      {% endif %}
-      <tr><td>Security Contact</td><td>{{ product.security_contact_email or product.security_contact_url or "—" }}</td></tr>
-    </tbody>
+{# ============================ GLOSSARY ============================ #}
+<div class="page-break" id="glossary">
+  <div class="eyebrow">Front matter</div>
+  <h2>Glossary of terms</h2>
+  <table class="kv">
+    <tr><td class="k">CRA</td><td>Cyber Resilience Act — Regulation (EU) 2024/2847.</td></tr>
+    <tr><td class="k">PDE</td><td>Product with digital elements — the products the CRA regulates.</td></tr>
+    <tr><td class="k">Annex I</td><td>Essential cybersecurity requirements: Part I (product properties), Part II (vulnerability handling).</td></tr>
+    <tr><td class="k">Annex II</td><td>Information and instructions that must be supplied to the user.</td></tr>
+    <tr><td class="k">Annex VII</td><td>Required contents of the technical documentation.</td></tr>
+    <tr><td class="k">EU DoC</td><td>EU Declaration of Conformity (Art. 28) — the manufacturer's formal conformity statement.</td></tr>
+    <tr><td class="k">CE marking</td><td>Mark affixed (Art. 30) indicating conformity before placing on the market.</td></tr>
+    <tr><td class="k">NB</td><td>Notified body — third party performing conformity assessment where required.</td></tr>
+    <tr><td class="k">CSIRT / ENISA</td><td>National incident-response team / EU cybersecurity agency — recipients of CRA reports.</td></tr>
+    <tr><td class="k">SBOM</td><td>Software bill of materials (Annex I Part II).</td></tr>
+    <tr><td class="k">VEX</td><td>Vulnerability Exploitability eXchange — states whether a vulnerability affects the product.</td></tr>
+    <tr><td class="k">EPSS</td><td>Exploit Prediction Scoring System — probability a vulnerability is exploited.</td></tr>
+    <tr><td class="k">KEV</td><td>Known exploitable vulnerability — must be absent at placing on the market (Annex I Part I).</td></tr>
+    <tr><td class="k">Substantial modification</td><td>A change that alters compliance/risk and triggers a new conformity assessment (Art. 3(30)).</td></tr>
   </table>
 </div>
 
+{# ============================ INTRODUCTION ============================ #}
+<div class="page-break" id="intro">
+  <div class="eyebrow">Front matter</div>
+  <h2>Introduction &amp; regulatory basis</h2>
+  <p class="intro">This report compiles, for a single product release, the evidence and records relevant to
+  conformity with the EU Cyber Resilience Act (Regulation (EU) 2024/2847). It is generated by CRANE from the
+  data captured for this product and release at the snapshot time shown in §00.</p>
+  <h3>How to read this report</h3>
+  <p class="intro">The coverage meter below summarises the Annex I requirement matrix. Each requirement is rated
+  <b>Compliant</b>, <b>Partial</b>, <b>Gap</b> or <b>N/A</b>. Sections follow the CRA's structure — scope
+  &amp; identity, essential requirements, conformity, lifecycle, and assurance.</p>
+  <p class="intro">A <span class="ph">Not recorded in CRANE</span> marker indicates information the tool does not
+  capture yet; such fields must be completed by other means before relying on this report for a notified body
+  or market-surveillance authority.</p>
 
-<!-- ============================================================
-     2. RELEASE DETAILS
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">2. Release Details</h2>
-  <table class="def-table">
-    <tbody>
-      <tr><td>System Version</td><td>v{{ release.system_version }}</td></tr>
-      <tr><td>Display Version</td><td>{{ release.user_version or "—" }}</td></tr>
-      <tr><td>Release Status</td><td>{{ release.release_status.value | fmt_status }}</td></tr>
-      <tr><td>Classification (snapshot)</td><td>{{ release.classification_snapshot.value | fmt_status }}</td></tr>
-      <tr><td>Conformity Route</td><td>{{ release.conformity_route_snapshot.value | fmt_status }}</td></tr>
-      <tr><td>Planned Release Date</td><td>{{ release.planned_release_date | fmt_date }}</td></tr>
-      <tr><td>Actual Release Date</td><td>{{ release.actual_release_date | fmt_date }}</td></tr>
-      <tr><td>Placed on Market Date</td><td>{{ release.placed_on_market_date | fmt_date }}</td></tr>
-      <tr><td>Known Exploitable Vulns</td><td>{{ release.has_known_exploitable_vulnerabilities | fmt_bool }}</td></tr>
-      {% if release.kev_notes %}
-      <tr><td>KEV Notes</td><td>{{ release.kev_notes }}</td></tr>
-      {% endif %}
-      {% if release.release_notes %}
-      <tr><td>Release Notes</td><td style="white-space: pre-wrap;">{{ release.release_notes }}</td></tr>
-      {% endif %}
-    </tbody>
-  </table>
-</div>
-
-
-<!-- ============================================================
-     3. EU DECLARATION OF CONFORMITY
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">3. EU Declaration of Conformity (Art. 28)</h2>
-  {% if release.eu_doc_date or release.eu_doc_number %}
-  <div class="info-box">
-    DoC metadata recorded. The full EU DoC document is attached as a gate evidence artifact.
+  <h3>Annex I requirement coverage</h3>
+  {% if coverage.available %}
+  <table class="meter"><tr>
+    {% if coverage.pct.compliant %}<td class="m-ok" style="width:{{ coverage.pct.compliant }}%"></td>{% endif %}
+    {% if coverage.pct.partial %}<td class="m-warn" style="width:{{ coverage.pct.partial }}%"></td>{% endif %}
+    {% if coverage.pct.gap %}<td class="m-bad" style="width:{{ coverage.pct.gap }}%"></td>{% endif %}
+    {% if coverage.pct.na %}<td class="m-na" style="width:{{ coverage.pct.na }}%"></td>{% endif %}
+  </tr></table>
+  <div class="legend">
+    <span><i class="dot m-ok"></i>Compliant ({{ coverage.counts.compliant }})</span>
+    <span><i class="dot m-warn"></i>Partial ({{ coverage.counts.partial }})</span>
+    <span><i class="dot m-bad"></i>Gap ({{ coverage.counts.gap }})</span>
+    <span><i class="dot m-na"></i>N/A ({{ coverage.counts.na }})</span>
+    &nbsp;·&nbsp; {{ coverage.total }} requirements assessed
   </div>
-  <table class="def-table">
-    <tbody>
-      <tr><td>DoC Reference Number</td><td>{{ release.eu_doc_number or "—" }}</td></tr>
-      <tr><td>Draw-up Date</td><td>{{ release.eu_doc_date | fmt_date }}</td></tr>
-      <tr><td>Conformity Route</td><td>{{ release.conformity_route_snapshot.value | fmt_status }}</td></tr>
-      {% if release.eu_doc_notified_body %}
-      <tr><td>Notified Body</td><td>{{ release.eu_doc_notified_body }}</td></tr>
-      {% endif %}
-      <tr><td>Placed on Market Date</td><td>{{ release.placed_on_market_date | fmt_date }}</td></tr>
-    </tbody>
-  </table>
   {% else %}
-  <p class="none-note">EU DoC metadata not yet recorded for this release.</p>
+  <p class="intro">No Annex I requirement mappings have been recorded for this release yet.</p>
   {% endif %}
 </div>
 
+{# ============================ 00 DOCUMENT CONTROL ============================ #}
+<div class="page-break" id="doc-control">
+  <div class="eyebrow">00 · Front matter</div>
+  <h2>Document control</h2>
+  <p class="intro">Identifies this specific report export — its id, version, and the moment its data was
+  snapshotted — so reviewers can tell which export they are looking at and whether it is current.</p>
+  <table class="kv">
+    <tr><td class="k">Report ID</td><td>{{ meta.report_id }}</td></tr>
+    <tr><td class="k">Report version</td><td>{{ v(meta.version) }}</td></tr>
+    <tr><td class="k">Generated at</td><td>{{ meta.generated_at }}</td></tr>
+    <tr><td class="k">Generated by</td><td>{{ v(meta.generated_by) }}</td></tr>
+    <tr><td class="k">Data snapshot</td><td>{{ meta.data_snapshot_at }}</td></tr>
+    <tr><td class="k">Overall status</td><td>{{ meta.status }}</td></tr>
+  </table>
+  <div class="note">Point-in-time export. Re-generate before submission if the underlying data has changed.</div>
+</div>
 
-<!-- ============================================================
-     4. RELEASE GATE
-     ============================================================ -->
-<div class="section page-break-before">
-  <h2 class="section-title">4. Release Gate</h2>
-
-  {% if gate %}
-  <table class="def-table" style="margin-bottom: 6mm;">
-    <tbody>
-      <tr><td>Gate Status</td><td>{{ gate.status.value | fmt_status }}</td></tr>
-      <tr><td>Submitted At</td><td>{{ gate.submitted_at | fmt_date }}</td></tr>
-      <tr><td>Approved At</td><td>{{ gate.approved_at | fmt_date }}</td></tr>
-      {% if gate.approved_by_user %}
-      <tr><td>Approved By</td><td>{{ gate.approved_by_user.full_name or gate.approved_by_user.email }}</td></tr>
-      {% endif %}
-      {% if gate.bundle_sha256 %}
-      <tr><td>Bundle SHA-256</td><td style="font-family: monospace; font-size: 7.5pt;">{{ gate.bundle_sha256 }}</td></tr>
-      {% endif %}
-    </tbody>
+{# ============================ 01 PRODUCT IDENTIFICATION ============================ #}
+<div class="page-break" id="product-id">
+  <div class="eyebrow">01 · Scope &amp; identity — Art. 2–3</div>
+  <h2>Product identification</h2>
+  <p class="intro">Identifies the product and release covered by this report, including the versions in
+  scope and whether it qualifies as a CRA "product with digital elements" under Art. 2–3.</p>
+  <table class="kv">
+    <tr><td class="k">Product name</td><td>{{ v(product.name) }}</td></tr>
+    <tr><td class="k">Model / code</td><td>{{ v(product.model) }}</td></tr>
+    <tr><td class="k">Hardware version</td><td>{{ v(product.hardware_version) }}</td></tr>
+    <tr><td class="k">Firmware / version</td><td>{{ v(product.firmware_version) }}</td></tr>
+    <tr><td class="k">Product type</td><td>{{ v(product.product_type) }}</td></tr>
+    <tr><td class="k">Intended use</td><td>{{ v(product.intended_use) }}</td></tr>
+    <tr><td class="k">Embedded (HW+SW)</td><td>{{ product.is_embedded }}</td></tr>
+    <tr><td class="k">Remote data processing in scope?</td><td>{{ product.remote_processing_in_scope }}</td></tr>
   </table>
 
-  <!-- Gate item overview stats -->
-  <div class="gate-overview">
-    <div class="gate-stat green">
-      <div class="num">{{ gate_summary.accepted }}</div>
-      <div class="lbl">Accepted</div>
-    </div>
-    <div class="gate-stat red">
-      <div class="num">{{ gate_summary.rejected }}</div>
-      <div class="lbl">Rejected</div>
-    </div>
-    <div class="gate-stat yellow">
-      <div class="num">{{ gate_summary.pending }}</div>
-      <div class="lbl">Pending</div>
-    </div>
-    <div class="gate-stat gray">
-      <div class="num">{{ gate_summary.waived }}</div>
-      <div class="lbl">Waived</div>
-    </div>
-  </div>
-
-  {% if gate_items %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 35%;">Gate Item</th>
-        <th style="width: 15%;">Status</th>
-        <th>Description</th>
-      </tr>
-    </thead>
+  {% if remote_processing.available %}
+  <h3>Remote processing solutions</h3>
+  <p class="intro">Each remote data-processing solution the product relies on, with the classification
+  decision under Art. 3(2) (is it "necessary for the product to perform a function" and does it have a
+  "direct relationship" with the product?) and the rationale recorded for that decision.</p>
+  <table class="req">
+    <thead><tr><th>Solution</th><th>Provider</th><th>Data processed</th><th>Classification</th></tr></thead>
     <tbody>
-      {% for item in gate_items %}
+      {% for r in remote_processing['items'] %}
       <tr>
-        <td class="text-bold">{{ item.title }}</td>
-        <td>
-          {% set s = item.status.value if item.status else "" %}
-          {% if s == "accepted" %}
-            <span class="badge badge-green">Accepted</span>
-          {% elif s == "rejected" %}
-            <span class="badge badge-red">Rejected</span>
-          {% elif s == "waived" %}
-            <span class="badge badge-gray">Waived</span>
-          {% else %}
-            <span class="badge badge-yellow">Pending</span>
-          {% endif %}
-        </td>
-        <td class="text-muted">{{ item.description or "—" }}</td>
+        <td><strong>{{ r.name }}</strong><br><span class="muted">Location: {{ r.location }} · Criticality: {{ r.criticality }} · Necessary: {{ r.necessary }} · Bidirectional: {{ r.bidirectional }}</span></td>
+        <td>{{ r.provider }}</td>
+        <td class="muted">{{ r.data_processed }}</td>
+        <td>{{ pill(r.classification, r.classification_bucket) }}<br><span class="muted">{{ r.rationale }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <p class="none-note">No gate items recorded.</p>
-  {% endif %}
-
-  {% else %}
-  <p class="none-note">No release gate found for this release.</p>
   {% endif %}
 </div>
 
-
-<!-- ============================================================
-     5. SUBSTANTIAL MODIFICATION ANALYSIS (Art. 3(30))
-     ============================================================ -->
-<div class="section page-break-before">
-  <h2 class="section-title">5. Substantial Modification Analysis (Art. 3(30))</h2>
-
-  {% if substantiality_analysis %}
-  {% set a = substantiality_analysis %}
-  <table class="def-table" style="margin-bottom: 5mm;">
+{# ============================ 02 ECONOMIC OPERATORS ============================ #}
+<div class="page-break" id="operators">
+  <div class="eyebrow">02 · Scope &amp; identity — Art. 13, 18–23</div>
+  <h2>Economic operators</h2>
+  <p class="intro">Lists the economic operators with CRA obligations for this product — the manufacturer
+  and, where applicable, an authorised representative, importers, and distributors (Art. 13, 18–23) —
+  plus the single point of contact for authorities and users.</p>
+  <table class="req">
+    <thead><tr><th>Role</th><th>Entity</th><th>Contact</th></tr></thead>
     <tbody>
-      <tr><td>Decision Date</td><td>{{ a.decision_date | fmt_date }}</td></tr>
-      <tr><td>Methodology</td><td>{{ a.methodology.value | fmt_status if a.methodology else "Manual assessment" }}</td></tr>
-      <tr>
-        <td>Outcome</td>
-        <td>
-          {% if a.is_substantial %}
-            <span class="badge badge-red">Substantial Modification</span>
-          {% else %}
-            <span class="badge badge-green">Not Substantial</span>
-          {% endif %}
-        </td>
-      </tr>
+      <tr><td>{{ pill('Manufacturer','ok') }}</td><td>{{ v(operators.manufacturer.name) }}</td><td>{{ v(operators.manufacturer.contact_email) }}</td></tr>
+      <tr><td>{{ pill('Authorised rep.','na') }}</td><td colspan="2">{{ v(operators.authorised_rep) }}</td></tr>
+      <tr><td>{{ pill('Importer(s)','na') }}</td><td colspan="2">{{ v(operators.importers) }}</td></tr>
+      <tr><td>{{ pill('Distributor(s)','na') }}</td><td colspan="2">{{ v(operators.distributors) }}</td></tr>
+      <tr><td>{{ pill('Single point of contact','na') }}</td><td colspan="2">{{ v(operators.spoc) }}</td></tr>
     </tbody>
   </table>
+</div>
 
-  <h3>Criteria Assessment</h3>
-  <ul class="criterion-list">
+{# ============================ 03 CLASSIFICATION ============================ #}
+<div class="page-break" id="classification">
+  <div class="eyebrow">03 · Scope &amp; identity — Art. 7–8, Annex III/IV</div>
+  <h2>Classification</h2>
+  <p class="intro">Records how the product is classified under the CRA's risk tiers (default / important
+  Class I or II / critical) and the conformity-assessment route that classification drives, with the
+  reasoning behind the decision.</p>
+  <table class="kv">
+    <tr><td class="k">Classification</td><td>{{ v(classification.classification) }}</td></tr>
+    <tr><td class="k">Critical (Annex IV)?</td><td>{{ classification.is_critical }}</td></tr>
+    <tr><td class="k">Scope status</td><td>{{ v(classification.scope_status) }}</td></tr>
+    <tr><td class="k">Annex III/IV item</td><td>{{ v(classification.annex_item) }}</td></tr>
+    <tr><td class="k">Conformity route</td><td>{{ v(classification.conformity_route) }}</td></tr>
+    <tr><td class="k">Rationale</td><td>{{ v(classification.rationale) }}</td></tr>
+  </table>
+</div>
+
+{# ============================ 04 RISK ASSESSMENT ============================ #}
+<div class="page-break" id="risk">
+  <div class="eyebrow">04 · Essential requirements — Art. 13(2)–(4)</div>
+  <h2>Cybersecurity risk assessment</h2>
+  {% if risk.available %}
+  <table class="kv">
+    <tr><td class="k">Methodology</td><td>{{ v(risk.methodology) }}</td></tr>
+    <tr><td class="k">Status</td><td>{{ v(risk.status) }}</td></tr>
+    <tr><td class="k">Approved by / date</td><td>{{ v(risk.approved_by) }} · {{ risk.approved_at }}</td></tr>
+    <tr><td class="k">Risk items modelled</td><td>{{ risk.item_count }}</td></tr>
+  </table>
+  {% if risk.summary %}<p class="intro">{{ risk.summary }}</p>{% endif %}
+  {% if risk['items'] %}
+  <h3>Risk register</h3>
+  <table class="req">
+    <thead><tr><th>Risk &amp; mitigation</th><th>Likelihood</th><th>Impact</th><th>Inherent</th><th>Residual</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for it in risk['items'] %}
+      <tr>
+        <td>
+          <strong>{{ it.title }}</strong><br>
+          <span class="muted">Threat: {{ it.threat }} · Asset: {{ it.asset }}</span><br>
+          <span class="muted">Mitigation: {{ it.mitigation }}</span>
+        </td>
+        <td>{{ it.likelihood }}</td>
+        <td>{{ it.impact }}</td>
+        <td>{{ pill(it.risk_level, it.risk_bucket) }}</td>
+        <td>{% if it.residual != '—' %}{{ pill(it.residual, it.residual_bucket) }}{% else %}—{% endif %}</td>
+        <td>{{ it.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}<p class="intro">No risk assessment recorded for this release.</p>{% endif %}
+</div>
+
+{# ============================ 05 ANNEX I PART I ============================ #}
+<div class="page-break" id="annex1-p1">
+  <div class="eyebrow">05 · Essential requirements — Annex I, Part I</div>
+  <h2>Product security properties</h2>
+  <p class="intro">The Annex I, Part I essential requirements that the product must meet by design and
+  default (e.g. secure configuration, data protection, resilience). Each row shows the applicability
+  decision and rationale, the implementation status, and any artifacts evidencing fulfilment.</p>
+  {% if annex_part1 %}
+  <table class="req"><thead><tr><th>Ref</th><th>Requirement</th><th>Status</th><th>Evidence</th></tr></thead>
+  <tbody>
+    {% for r in annex_part1 %}
+    <tr><td><span class="cite">{{ r.code }}</span></td><td>{{ r.title }}{% if r.rationale and r.rationale != PLACEHOLDER %}<br><span class="muted">Applicability: {{ r.applicability }} — {{ r.rationale }}</span>{% endif %}{% if r.linked_artifacts %}<br><span class="muted">Evidence files: {{ r.linked_artifacts|join(', ') }}</span>{% endif %}</td><td>{{ statuspill(r.bucket) }}</td><td class="muted">{{ r.evidence }}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% else %}<p class="intro">No Part I requirement mappings recorded.</p>{% endif %}
+</div>
+
+{# ============================ 06 ANNEX I PART II ============================ #}
+<div class="page-break" id="annex1-p2">
+  <div class="eyebrow">06 · Essential requirements — Annex I, Part II</div>
+  <h2>Vulnerability handling processes</h2>
+  <p class="intro">The Annex I, Part II requirements covering the manufacturer's vulnerability-handling
+  processes across the product's lifecycle (SBOM maintenance, patching, coordinated disclosure,
+  exploitation mitigation). As above, each row records applicability, rationale, and supporting evidence.</p>
+  {% if annex_part2 %}
+  <table class="req"><thead><tr><th>Ref</th><th>Requirement</th><th>Status</th><th>Evidence</th></tr></thead>
+  <tbody>
+    {% for r in annex_part2 %}
+    <tr><td><span class="cite">{{ r.code }}</span></td><td>{{ r.title }}{% if r.rationale and r.rationale != PLACEHOLDER %}<br><span class="muted">Applicability: {{ r.applicability }} — {{ r.rationale }}</span>{% endif %}{% if r.linked_artifacts %}<br><span class="muted">Evidence files: {{ r.linked_artifacts|join(', ') }}</span>{% endif %}</td><td>{{ statuspill(r.bucket) }}</td><td class="muted">{{ r.evidence }}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% else %}<p class="intro">No Part II requirement mappings recorded.</p>{% endif %}
+</div>
+
+{# ============================ 07 SBOM ============================ #}
+<div class="page-break" id="sbom">
+  <div class="eyebrow">07 · Annex I, Part II(1)</div>
+  <h2>Software bill of materials</h2>
+  <p class="intro">The machine-readable inventory of software components in this release, satisfying the
+  Art. 13(8) duty to maintain an SBOM, plus any known vulnerabilities CRANE's SBOM analysis has matched
+  against those components and their current fix status.</p>
+  {% if sbom.available %}
+  <table class="kv">
+    <tr><td class="k">SBOM</td><td>{{ v(sbom.id) }}</td></tr>
+    <tr><td class="k">Format</td><td>{{ v(sbom.format) }}</td></tr>
+    <tr><td class="k">Component count</td><td>{{ v(sbom.component_count) }} <span class="muted">(direct/transitive split: {{ v(sbom.direct_transitive) }})</span></td></tr>
+    <tr><td class="k">CRANE quality score</td><td>{{ v(sbom.quality_score) }} / 100</td></tr>
+    <tr><td class="k">NTIA minimum elements</td><td>{{ v(sbom.ntia_compliant) }}</td></tr>
+  </table>
+  {% if sbom['findings'] %}
+  <h3>Top components &amp; known issues</h3>
+  <table class="req">
+    <thead><tr><th>Component</th><th>Vuln ID</th><th>Severity</th><th>CVSS</th><th>Fix status</th></tr></thead>
+    <tbody>
+      {% for f in sbom['findings'] %}
+      <tr>
+        <td><strong>{{ f.component }}</strong> <span class="muted">{{ f.version }}</span><br><span class="muted">{{ f.summary }}</span></td>
+        <td><span class="cite">{{ f.vuln_id }}</span></td>
+        <td>{{ pill(f.severity, f.severity_bucket) }}</td>
+        <td>{{ v(f.cvss_score) }}</td>
+        <td>{{ f.fix_status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}<p class="intro">No SBOM recorded for this release.</p>{% endif %}
+</div>
+
+{# ============================ 08 VULNERABILITY ============================ #}
+<div class="page-break" id="vuln">
+  <div class="eyebrow">08 · PSIRT</div>
+  <h2>Vulnerability &amp; incident management <span class="muted" style="font-size:10pt;">— summary</span></h2>
+  <p class="intro">Summary only — the full register is maintained in-platform.</p>
+  <table class="cards"><tr>
+    <td><div class="n n-bad">{{ vuln.open_critical }}</div><div class="l">Open critical</div></td>
+    <td><div class="n n-warn">{{ vuln.open_high }}</div><div class="l">Open high</div></td>
+    <td><div class="n n-ok">{{ vuln.resolved_count }}</div><div class="l">Resolved</div></td>
+    <td><div class="n">{{ vuln.mttr }}</div><div class="l">MTTR</div></td>
+  </tr></table>
+  {% if vuln.top %}
+  <table class="req"><thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>VEX</th></tr></thead>
+  <tbody>
+    {% for t in vuln.top %}
+    <tr><td><span class="cite">{{ t.cve }}</span></td><td>{{ t.title }}</td><td>{{ t.severity }}</td><td>{{ t.vex }}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% endif %}
+  <div class="note {% if vuln.kev_flag %}note--gap{% endif %}">
+    Known exploitable vulnerability flag: <b>{{ 'SET — blocks placing on market' if vuln.kev_flag else 'not set' }}</b>.
+    {% if vuln.vex_breakdown %}VEX breakdown: {% for k, n in vuln.vex_breakdown.items() %}{{ k }} ({{ n }}){% if not loop.last %} · {% endif %}{% endfor %}.{% endif %}
+  </div>
+</div>
+
+{# ============================ 09 CONFORMITY ROUTE ============================ #}
+<div class="page-break" id="conformity">
+  <div class="eyebrow">09 · Conformity — Art. 32</div>
+  <h2>Conformity assessment route</h2>
+  <p class="intro">The conformity-assessment module chosen for this product (self-assessment, or third-party
+  assessment via a notified body) under Art. 32, the harmonised standards relied on, and any
+  certifications already on record.</p>
+  <table class="kv">
+    <tr><td class="k">Route (recorded)</td><td>{{ v(conformity.route) }}</td></tr>
+    <tr><td class="k">CRA module (A / B+C / H)</td><td>{{ v(conformity.module) }}</td></tr>
+    <tr><td class="k">Notified body</td><td>{{ v(conformity.notified_body) }}</td></tr>
+    <tr><td class="k">NB number / type-exam cert</td><td>{{ v(conformity.nb_number) }}</td></tr>
+    <tr><td class="k">Standards applied</td><td>{{ v(conformity.standards) }}</td></tr>
+  </table>
+  {% if conformity.certifications %}
+  <h3>Certifications on record</h3>
+  <table class="req"><thead><tr><th>Scheme</th><th>Body</th><th>Certificate</th><th>Status</th><th>Valid until</th></tr></thead>
+  <tbody>
+    {% for c in conformity.certifications %}
+    <tr><td>{{ v(c.scheme) }}</td><td>{{ v(c.body) }}</td><td>{{ v(c.number) }}</td><td>{{ v(c.status) }}</td><td>{{ c.valid_until }}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% endif %}
+</div>
+
+{# ============================ 10 DOC & CE ============================ #}
+<div class="page-break" id="doc-ce">
+  <div class="eyebrow">10 · Conformity — Art. 28–30, Annex V</div>
+  <h2>EU declaration of conformity &amp; CE marking</h2>
+  <p class="intro">The EU Declaration of Conformity (Art. 28, Annex V) drawn up for this release — its
+  reference, signatory, and publication status — and the CE-marking information affixed to the product
+  or its packaging (Art. 30).</p>
+  <table class="kv">
+    <tr><td class="k">DoC reference no.</td><td>{{ v(doc.reference_no) }}</td></tr>
+    <tr><td class="k">DoC date drawn up</td><td>{{ doc.date }}</td></tr>
+    <tr><td class="k">Notified body</td><td>{{ v(doc.notified_body) }}</td></tr>
+    <tr><td class="k">Signatory</td><td>{{ v(doc.signatory) }}</td></tr>
+    <tr><td class="k">Simplified DoC URL</td><td>{{ v(doc.simplified_url) }}</td></tr>
+    <tr><td class="k">DoC status</td><td>{{ v(doc.status) }}</td></tr>
+    <tr><td class="k">CE marking</td><td>{{ v(doc.ce_marking) }}</td></tr>
+  </table>
+</div>
+
+{# ============================ 11 TECH DOC INDEX ============================ #}
+<div class="page-break" id="tech-doc">
+  <div class="eyebrow">11 · Conformity — Art. 31, Annex VII</div>
+  <h2>Technical documentation index</h2>
+  <p class="intro">Checks the technical documentation file (Art. 31, Annex VII) against its required
+  elements — product description, design/development records, risk assessment, support-period rationale,
+  standards applied, test reports, the DoC, and the SBOM — and whether each is present in CRANE.</p>
+  <ul class="checklist">
+    {% for t in techdoc %}
     <li>
-      <span class="criterion-tick {% if a.alters_intended_use %}tick-yes{% else %}tick-no{% endif %}">
-        {% if a.alters_intended_use %}✗{% else %}✓{% endif %}
-      </span>
-      Alters intended use or purpose (Art. 3(30)(b))
+      {% if t.status == PLACEHOLDER %}{{ ph() }}
+      {% elif t.status == 'Present' %}{{ pill('Present','ok') }}
+      {% elif t.status == 'Missing' %}{{ pill('Missing','bad') }}
+      {% else %}{{ pill(t.status,'warn') }}{% endif %}
+      &nbsp; ({{ t.n }}) {{ t.name }}
     </li>
-    <li>
-      <span class="criterion-tick {% if a.introduces_new_threat_vectors %}tick-yes{% else %}tick-no{% endif %}">
-        {% if a.introduces_new_threat_vectors %}✗{% else %}✓{% endif %}
-      </span>
-      Introduces new threat vectors
-    </li>
-    <li>
-      <span class="criterion-tick {% if a.enables_new_attack_scenarios %}tick-yes{% else %}tick-no{% endif %}">
-        {% if a.enables_new_attack_scenarios %}✗{% else %}✓{% endif %}
-      </span>
-      Enables new attack scenarios
-    </li>
-    <li>
-      <span class="criterion-tick {% if a.changes_attack_likelihood %}tick-yes{% else %}tick-no{% endif %}">
-        {% if a.changes_attack_likelihood %}✗{% else %}✓{% endif %}
-      </span>
-      Changes likelihood of existing attack scenarios
-    </li>
-    <li>
-      <span class="criterion-tick {% if a.changes_attack_impact %}tick-yes{% else %}tick-no{% endif %}">
-        {% if a.changes_attack_impact %}✗{% else %}✓{% endif %}
-      </span>
-      Changes impact of existing attack scenarios
-    </li>
+    {% endfor %}
   </ul>
 
-  {% if a.reasoning %}
-  <h3 style="margin-top: 5mm;">Assessor Reasoning</h3>
-  <p style="white-space: pre-wrap;">{{ a.reasoning }}</p>
-  {% endif %}
-
-  {% else %}
-  <p class="none-note">No formal substantiality analysis linked to this release.</p>
-  {% if release.parent_release_id %}
-  <div class="warn-box">
-    This is a subsequent release (v{{ release.system_version }}). A substantiality analysis
-    is required under CRA Art. 13(7) before placement on the market.
-  </div>
-  {% endif %}
-  {% endif %}
-
-  <!-- Changes logged against this release -->
-  {% if changes %}
-  <h3 style="margin-top: 6mm;">Logged Changes ({{ changes | length }})</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 40%;">Title</th>
-        <th style="width: 12%;">Type</th>
-        <th style="width: 13%;">Date</th>
-        <th style="width: 15%;">Status</th>
-        <th>Substantial?</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in changes %}
-      <tr>
-        <td>{{ c.title }}</td>
-        <td>{{ c.change_type.value | fmt_status }}</td>
-        <td>{{ c.change_date | fmt_date }}</td>
-        <td>{{ c.status.value | fmt_status }}</td>
-        <td>
-          {% if c.assessment %}
-            {% if c.assessment.is_substantial %}
-              <span class="badge badge-red">Yes</span>
-            {% else %}
-              <span class="badge badge-green">No</span>
-            {% endif %}
-          {% else %}
-            <span class="badge badge-gray">Not assessed</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
+  {% if evidence.available %}
+  <h3>Evidence integrity &amp; retention</h3>
+  <table class="kv">
+    <tr><td class="k">Evidence items</td><td>{{ evidence.total }} ({{ evidence.retained }} retained in CRANE, {{ evidence.external }} external link{{ '' if evidence.external == 1 else 's' }})</td></tr>
+    <tr><td class="k">Integrity verified</td><td>{{ evidence.verified }} verified{% if evidence.failed %}, <span class="pill pill--bad">{{ evidence.failed }} failed / missing</span>{% endif %}</td></tr>
+    <tr><td class="k">Earliest retention until</td><td>{{ evidence.earliest_retention }}</td></tr>
+    <tr><td class="k">Under legal hold</td><td>{{ evidence.legal_holds }}</td></tr>
   </table>
+  <div class="note">Each retained file is stored with a SHA-256 checksum and re-verified on download; external links are not retained by CRANE. Retention follows the configured CRA Art. 31 period.</div>
   {% endif %}
 </div>
 
-
-<!-- ============================================================
-     6. RISK ASSESSMENT
-     ============================================================ -->
-<div class="section page-break-before">
-  <h2 class="section-title">6. Risk Assessment</h2>
-
-  {% if risk_assessments %}
-  {% for ra in risk_assessments %}
-  <div style="margin-bottom: 8mm; {% if not loop.first %}page-break-before: always;{% endif %}">
-    <h3>{{ ra.title }} (v{{ ra.system_version }}{% if ra.user_version %} — {{ ra.user_version }}{% endif %})</h3>
-    <table class="def-table" style="margin-bottom: 4mm;">
-      <tbody>
-        <tr><td>Status</td><td>{{ ra.status.value | fmt_status }}</td></tr>
-        <tr><td>Methodology</td><td>{{ ra.methodology or "—" }}</td></tr>
-        <tr><td>Approved At</td><td>{{ ra.approved_at | fmt_date }}</td></tr>
-        {% if ra.summary %}
-        <tr><td>Summary</td><td>{{ ra.summary }}</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-
-    {% if ra.risk_items %}
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width: 25%;">Threat</th>
-          <th style="width: 20%;">Asset Affected</th>
-          <th>Likelihood</th>
-          <th>Impact</th>
-          <th>Risk Level</th>
-          <th>Residual Risk</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in ra.risk_items %}
-        <tr>
-          <td>{{ item.title }}</td>
-          <td>{{ item.asset_affected }}</td>
-          <td>{{ item.likelihood.value | fmt_status }}</td>
-          <td>{{ item.impact.value | fmt_status }}</td>
-          <td>
-            {% set rl = item.risk_level.value %}
-            {% if rl in ("high", "critical") %}
-              <span class="badge badge-red">{{ rl | title }}</span>
-            {% elif rl == "medium" %}
-              <span class="badge badge-yellow">{{ rl | title }}</span>
-            {% else %}
-              <span class="badge badge-green">{{ rl | title }}</span>
-            {% endif %}
-          </td>
-          <td>{{ item.residual_risk_level.value | fmt_status if item.residual_risk_level else "—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="none-note">No risk items recorded for this assessment.</p>
-    {% endif %}
-  </div>
-  {% endfor %}
+{# ============================ 12 USER INFO (Annex II) ============================ #}
+<div class="page-break" id="user-info">
+  <div class="eyebrow">12 · Conformity — Annex II</div>
+  <h2>Information &amp; instructions to the user</h2>
+  <p class="intro">The Annex II checklist of information that must be supplied to the user alongside the
+  product — manufacturer identity, intended use, known risks, security-update mechanism, and how to
+  report vulnerabilities — together with where each item is published or delivered.</p>
+  {% if user_info.available %}
+  <table class="req"><thead><tr><th>Ref</th><th>Required content</th><th>Status</th><th>Location</th></tr></thead>
+  <tbody>
+    {% for it in user_info['items'] %}
+    <tr><td><span class="cite">{{ it.ref }}</span></td><td>{{ it.content }}</td>
+        <td>{% if it.status == 'Present' %}{{ pill('Present','ok') }}{% else %}{{ pill(it.status,'warn') }}{% endif %}</td>
+        <td class="muted">{{ it.location }}</td></tr>
+    {% endfor %}
+  </tbody></table>
   {% else %}
-  <p class="none-note">No risk assessments linked to this release.</p>
+  <div class="note">{{ ph() }} — no Annex II content checklist recorded for this product yet.</div>
   {% endif %}
 </div>
 
-
-<!-- ============================================================
-     7. SOFTWARE BILL OF MATERIALS (SBOM)
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">7. Software Bill of Materials (Annex I Part II §1)</h2>
-
-  {% if sbom_records %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Format</th>
-        <th>Spec Version</th>
-        <th>Components</th>
-        <th>Tool</th>
-        <th>File</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in sbom_records %}
-      <tr>
-        <td><span class="badge badge-blue">{{ s.format.value | upper }}</span></td>
-        <td>{{ s.spec_version or "—" }}</td>
-        <td>{{ s.component_count if s.component_count is not none else "—" }}</td>
-        <td>{{ s.tool_name or "—" }}{% if s.tool_version %} {{ s.tool_version }}{% endif %}</td>
-        <td class="text-muted" style="font-size: 7.5pt;">{{ s.file_name or "—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+{# ============================ 13 SUPPORT ============================ #}
+<div class="page-break" id="support">
+  <div class="eyebrow">13 · Lifecycle — Art. 13(8)</div>
+  <h2>Support period &amp; lifecycle</h2>
+  {% if support.available %}
+  <table class="kv">
+    <tr><td class="k">Support start</td><td>{{ support.start }}</td></tr>
+    <tr><td class="k">End of support</td><td>{{ support.end }}</td></tr>
+    <tr><td class="k">Support type</td><td>{{ v(support.type) }}</td></tr>
+    <tr><td class="k">Notify before (days)</td><td>{{ v(support.notify_before_days) }}</td></tr>
+    <tr><td class="k">Justification</td><td>{{ v(support.justification) }}</td></tr>
   </table>
-  {% else %}
-  <p class="none-note">No SBOM records linked to this release.</p>
-  {% endif %}
+  {% else %}<p class="intro">No support period recorded.</p>{% endif %}
 </div>
 
-
-<!-- ============================================================
-     8. SECURITY UPDATES & VULNERABILITY HANDLING
-     ============================================================ -->
-<div class="section page-break-before">
-  <h2 class="section-title">8. Security Updates &amp; Vulnerability Handling</h2>
-
-  <!-- Vulnerability report summary -->
-  <table class="def-table" style="margin-bottom: 5mm;">
-    <tbody>
-      <tr><td>Known Exploitable Vulns</td><td>{{ release.has_known_exploitable_vulnerabilities | fmt_bool }}</td></tr>
-      <tr><td>Open Vulnerability Reports</td><td>{{ open_vuln_count }}</td></tr>
-      <tr><td>Total Security Updates</td><td>{{ security_updates | length }}</td></tr>
-      {% if max_cvss is not none %}
-      <tr><td>Highest CVSS Score</td><td>{{ "%.1f" | format(max_cvss) }}</td></tr>
-      {% endif %}
-    </tbody>
-  </table>
-
-  {% if security_updates %}
-  <h3>Security Updates</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 35%;">Title</th>
-        <th>Severity</th>
-        <th>CVSS</th>
-        <th>CVEs</th>
-        <th>Free of Charge</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for u in security_updates %}
-      <tr>
-        <td>{{ u.title }}</td>
-        <td>
-          {% if u.severity %}
-            {% set sv = u.severity.value %}
-            {% if sv in ("critical",) %}
-              <span class="badge badge-red">{{ sv | title }}</span>
-            {% elif sv == "high" %}
-              <span class="badge badge-red">High</span>
-            {% elif sv == "medium" %}
-              <span class="badge badge-yellow">Medium</span>
-            {% else %}
-              <span class="badge badge-gray">{{ sv | title }}</span>
-            {% endif %}
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ "%.1f" | format(u.cvss_score) if u.cvss_score is not none else "—" }}</td>
-        <td style="font-size: 7.5pt;">
-          {% if u.cves_addressed_json %}
-            {{ u.cves_addressed_json | join(", ") if u.cves_addressed_json is iterable and u.cves_addressed_json is not string else u.cves_addressed_json }}
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ u.is_free_of_charge | fmt_bool }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="none-note">No security updates recorded for this release.</p>
-  {% endif %}
-
-  {% if vuln_reports %}
-  <h3 style="margin-top: 6mm;">Vulnerability Reports ({{ vuln_reports | length }})</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 40%;">Title</th>
-        <th>Status</th>
-        <th>Reported</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for v in vuln_reports %}
-      <tr>
-        <td>{{ v.title if v.title else "Untitled" }}</td>
-        <td>{{ v.status.value | fmt_status if v.status else "—" }}</td>
-        <td>{{ v.created_at | fmt_date }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
+{# ============================ 14 SUBSTANTIAL MODIFICATIONS ============================ #}
+<div class="page-break" id="mods">
+  <div class="eyebrow">14 · Lifecycle — Art. 3(30)</div>
+  <h2>Substantial modifications log</h2>
+  <p class="intro">Tracks every change assessed against the CRA's "substantial modification" test
+  (Art. 3(30)) — a change is substantial when it affects compliance with the essential requirements or
+  changes the product's intended purpose, which can trigger re-assessment of conformity.</p>
+  {% if mods %}
+  <table class="req"><thead><tr><th>Date</th><th>Change</th><th>Type</th><th>Outcome</th></tr></thead>
+  <tbody>
+    {% for m in mods %}
+    <tr><td>{{ m.date }}</td><td>{{ m.description }}</td><td>{{ m.type }}</td>
+        <td>{% if m.substantial %}{{ pill('Substantial','bad') }}{% else %}{{ pill('Not substantial','na') }}{% endif %}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% else %}<p class="intro">No changes recorded against this release.</p>{% endif %}
 </div>
 
-
-<!-- ============================================================
-     9. SUPPORT PERIOD (Art. 13(8))
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">9. Support Period (Art. 13(8))</h2>
-
-  {% if support_periods %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Type</th>
-        <th>Start Date</th>
-        <th>End Date</th>
-        <th>Justification</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for sp in support_periods %}
-      <tr>
-        <td><span class="badge badge-blue">{{ sp.support_type.value | fmt_status }}</span></td>
-        <td>{{ sp.support_start_date | fmt_date }}</td>
-        <td>{{ sp.support_end_date | fmt_date }}</td>
-        <td>{% if sp.justification_text %}{{ sp.justification_text[:120] }}{% if sp.justification_text | length > 120 %}…{% endif %}{% else %}—{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+{# ============================ 15 CVD & REPORTING ============================ #}
+<div class="page-break" id="cvd">
+  <div class="eyebrow">15 · Lifecycle — Art. 14–15</div>
+  <h2>CVD &amp; reporting readiness</h2>
+  <p class="intro">The manufacturer's coordinated vulnerability disclosure (CVD) policy under Art. 14
+  — scope, safe-harbor commitment, response SLAs, and reporting channels — and the product's readiness
+  to meet the mandatory 24-hour/72-hour/14-day exploitation and incident reporting timers.</p>
+  <table class="kv">
+    <tr><td class="k">CVD policy</td><td>{{ v(cvd.policy_status) }}{% if cvd.policy_url %} · {{ cvd.policy_url }}{% endif %}</td></tr>
+    <tr><td class="k">Reporting contact</td><td>{{ v(cvd.contact) }}</td></tr>
+    <tr><td class="k">Routing CSIRT (coordinator)</td><td>{{ v(cvd.csirt_coordinator) }}</td></tr>
+    <tr><td class="k">24h / 72h / 14-day playbook</td><td>{{ 'Ready' if cvd.playbook_ready else 'Not exercised yet' }}</td></tr>
+    <tr><td class="k">Last mandatory notification</td><td>{{ v(cvd.last_notification) }}</td></tr>
+    <tr><td class="k">Safe harbor for good-faith research</td><td>{{ v(cvd.safe_harbor) }}</td></tr>
+    <tr><td class="k">Reporter acknowledgement offered</td><td>{{ v(cvd.acknowledgement_offered) }}</td></tr>
+    <tr><td class="k">Disclosure window</td><td>{{ v(cvd.disclosure_window_days) }} days</td></tr>
+    <tr><td class="k">Response SLA</td><td>{{ v(cvd.response_sla_hours) }} hours</td></tr>
+    <tr><td class="k">security.txt</td><td>{{ v(cvd.security_txt_url) }}</td></tr>
+    <tr><td class="k">PGP key</td><td>{{ v(cvd.pgp_key_url) }}</td></tr>
+    <tr><td class="k">Bug bounty</td><td>{{ v(cvd.bug_bounty_url) }}</td></tr>
+    <tr><td class="k">Scope</td><td>{{ v(cvd.scope_description) }}</td></tr>
+    <tr><td class="k">Out of scope</td><td>{{ v(cvd.out_of_scope_description) }}</td></tr>
+    <tr><td class="k">Supported versions</td><td>{{ v(cvd.supported_versions) }}</td></tr>
   </table>
-  {% else %}
-  <p class="none-note">No support period records found.</p>
-  {% endif %}
+  <div class="note">Reporting obligations under Art. 14 apply from 11 September 2026.</div>
 </div>
 
+{# ============================ 16 AUDIT TRAIL ============================ #}
+<div class="page-break" id="audit">
+  <div class="eyebrow">16 · Assurance</div>
+  <h2>Audit trail (recent activity)</h2>
+  {% if audit %}
+  <table class="req"><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th></tr></thead>
+  <tbody>
+    {% for a in audit %}<tr><td class="mono">{{ a.at }}</td><td>{{ a.actor }}</td><td>{{ a.action }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<p class="intro">No audit events recorded for this product/release.</p>{% endif %}
+  <p class="intro">CRANE's audit log is append-only and hash-chained; this is a recent excerpt.</p>
+</div>
 
-<!-- ============================================================
-     10. CERTIFICATION RECORDS
-     ============================================================ -->
-<div class="section">
-  <h2 class="section-title">10. Certification Records</h2>
-
-  {% if cert_records %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Scheme</th>
-        <th>Body</th>
-        <th>Certificate No.</th>
-        <th>Status</th>
-        <th>Valid Until</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for cr in cert_records %}
-      <tr>
-        <td>{{ cr.certification_scheme.value | fmt_status }}</td>
-        <td>{{ cr.certification_body_name }}</td>
-        <td>{{ cr.certificate_number or "—" }}</td>
-        <td>
-          {% set cs = cr.status.value %}
-          {% if cs == "active" %}
-            <span class="badge badge-green">Active</span>
-          {% elif cs == "expired" %}
-            <span class="badge badge-red">Expired</span>
-          {% else %}
-            <span class="badge badge-gray">{{ cs | title }}</span>
-          {% endif %}
-        </td>
-        <td>{{ cr.valid_until_date | fmt_date }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+{# ============================ 17 SIGN-OFF ============================ #}
+<div class="page-break" id="signoff">
+  <div class="eyebrow">17 · Assurance</div>
+  <h2>Sign-off &amp; approval</h2>
+  <table class="kv">
+    <tr><td class="k">Release-gate approver</td><td>{% if signoff.gate_approver %}{{ v(signoff.gate_approver.email) }} · {{ signoff.gate_approver.at }}{% else %}{{ ph() }}{% endif %}</td></tr>
+    <tr><td class="k">Compliance lead</td><td>{{ ph() }}</td></tr>
+    <tr><td class="k">Notified body reviewer</td><td>{{ ph() }}</td></tr>
+    <tr><td class="k">Executive (DoC signatory)</td><td>{{ ph() }}</td></tr>
   </table>
-  {% else %}
-  <p class="none-note">No certification records found for this product.</p>
-  {% endif %}
+  <div class="note">Multi-role formal sign-off requires a data model CRANE does not have yet; the release-gate
+  approver above is what is recorded today.</div>
 </div>
 
 </body>

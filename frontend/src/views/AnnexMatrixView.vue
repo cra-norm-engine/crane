@@ -501,9 +501,9 @@
 
           <form class="editor-grid" @submit.prevent="saveTrace">
             <label class="field">
-              <span>Risk item</span>
+              <span>Risk item <span class="field-hint">(optional)</span></span>
               <select v-model="traceForm.risk_item_id" class="select">
-                <option value="">Select a risk item</option>
+                <option value="">No risk item linked</option>
                 <option v-for="risk in productRiskItems" :key="risk.id" :value="risk.id">
                   {{ risk.title }} · {{ formatLabel(risk.risk_level) }}
                 </option>
@@ -958,10 +958,9 @@ async function loadMatrix(): Promise<void> {
 
 async function saveTrace(): Promise<void> {
   if (!selectedRow.value) return;
-  if (!traceForm.risk_item_id) {
-    errorMessage.value = "Select a product risk item so the trace record stays linked to this product.";
-    return;
-  }
+  // Linking a product risk item is recommended but optional: the backend stores
+  // risk_item_id as nullable, so a status change must be saveable on its own
+  // without forcing the user to also bind a risk item.
 
   busy.value = true;
   errorMessage.value = "";

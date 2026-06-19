@@ -43,6 +43,9 @@ class CvdPolicy(UUIDTimestampMixin, Base):
     # Primary security contact email advertised in the policy.
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
 
+    # CRA Art. 14 — the CSIRT designated as coordinator that mandatory reports route to.
+    coordinator_csirt: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # URL to the PGP/GPG public key for encrypted vulnerability submission.
     pgp_key_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 

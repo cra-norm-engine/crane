@@ -594,6 +594,41 @@
             <span class="field-label">First placed on market</span>
             <input v-model="editForm.first_placed_on_market_date" type="date" />
           </label>
+
+          <!-- Economic operators (CRA Art. 13, 18–23). These feed the compliance
+               report's "Economic operators" section; leave blank or "Not applicable"
+               when the manufacturer sells direct with no such operator. -->
+          <label class="field modal-field-span-2">
+            <span class="field-label">
+              Authorised representative
+              <span class="field-label-hint">(Art. 18 — name &amp; contact, if appointed)</span>
+            </span>
+            <input v-model.trim="editForm.authorised_representative" type="text" placeholder="Not applicable" />
+          </label>
+
+          <label class="field modal-field-span-2">
+            <span class="field-label">
+              Importer(s)
+              <span class="field-label-hint">(Art. 19–22 — name &amp; contact, if any)</span>
+            </span>
+            <input v-model.trim="editForm.importers" type="text" placeholder="Not applicable" />
+          </label>
+
+          <label class="field modal-field-span-2">
+            <span class="field-label">
+              Distributor(s)
+              <span class="field-label-hint">(Art. 23 — distribution channels, if any)</span>
+            </span>
+            <input v-model.trim="editForm.distributors" type="text" placeholder="Not applicable" />
+          </label>
+
+          <label class="field modal-field-span-2">
+            <span class="field-label">
+              Single point of contact
+              <span class="field-label-hint">(Art. 13(1) — contact for authorities &amp; users)</span>
+            </span>
+            <input v-model.trim="editForm.single_point_of_contact" type="text" placeholder="Not applicable" />
+          </label>
         </form>
 
         <!-- Footer slot — Cancel and Save actions -->
@@ -1834,6 +1869,11 @@ const editForm = reactive({
   // Gap 4 — Article 69(2): pre-CRA flag and first placement date
   is_pre_cra:                      false as boolean,
   first_placed_on_market_date:     "" as string,
+  // Economic operators (CRA Art. 13, 18–23)
+  authorised_representative:       "" as string,
+  importers:                       "" as string,
+  distributors:                    "" as string,
+  single_point_of_contact:         "" as string,
 });
 
 // Support period form — synced from the active record before modal opens
@@ -1952,6 +1992,11 @@ function syncEditForm(): void {
   // Gap 4 — sync pre-CRA flag and first placement date
   editForm.is_pre_cra                  = product.value.is_pre_cra ?? false;
   editForm.first_placed_on_market_date = product.value.first_placed_on_market_date ?? "";
+  // Economic operators
+  editForm.authorised_representative   = product.value.authorised_representative ?? "";
+  editForm.importers                   = product.value.importers ?? "";
+  editForm.distributors                = product.value.distributors ?? "";
+  editForm.single_point_of_contact     = product.value.single_point_of_contact ?? "";
   // Keep release form classification in sync with the product default
   releaseForm.classification_snapshot  = product.value.current_classification;
 }
@@ -2362,6 +2407,11 @@ async function saveProduct(): Promise<void> {
       // Gap 4 — include pre-CRA flag and first placement date in every product save
       is_pre_cra:                      editForm.is_pre_cra,
       first_placed_on_market_date:     editForm.first_placed_on_market_date || null,
+      // Economic operators (CRA Art. 13, 18–23) — null when left blank
+      authorised_representative:       editForm.authorised_representative.trim() || null,
+      importers:                       editForm.importers.trim() || null,
+      distributors:                    editForm.distributors.trim() || null,
+      single_point_of_contact:         editForm.single_point_of_contact.trim() || null,
     };
 
     await productService.update(props.productId, payload);

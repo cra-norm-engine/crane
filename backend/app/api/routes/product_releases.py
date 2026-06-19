@@ -113,10 +113,27 @@ async def download_release_report(
     """
     service = ReleaseReportService(db)
     loop = asyncio.get_event_loop()
-    pdf_bytes = await loop.run_in_executor(None, partial(service.generate_pdf, release_id))
+    pdf_bytes = await loop.run_in_executor(
+        None, partial(service.generate_pdf, release_id, current_user.email)
+    )
     filename = service.generate_filename(release_id)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{release_id}/report/data")
+def get_release_report_data(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
+) -> dict:
+    """
+    Return the structured compliance-report data (all 17 sections) as JSON.
+
+    Feeds the in-app HTML report view; the same builder backs the PDF export so
+    both stay in sync.
+    """
+    return ReleaseReportService(db).build_report_data(release_id, generated_by=current_user.email)

@@ -49,6 +49,15 @@ class ProductBase(BaseModel):
     security_contact_email: str | None = Field(default=None, max_length=320)
     security_contact_url: str | None = Field(default=None, max_length=2048)
 
+    # Economic operators (CRA Art. 13, 18–23). Free-text descriptions of the
+    # other operators in the supply chain; surfaced in the compliance report's
+    # "Economic operators" section. Optional — many products have none (e.g. a
+    # manufacturer selling direct has no importer/distributor).
+    authorised_representative: str | None = None
+    importers: str | None = None
+    distributors: str | None = None
+    single_point_of_contact: str | None = None
+
 
 class ProductCreate(ProductBase):
     pass
@@ -73,6 +82,11 @@ class ProductUpdate(BaseModel):
     first_placed_on_market_date: date | None = None
     security_contact_email: str | None = Field(default=None, max_length=320)
     security_contact_url: str | None = Field(default=None, max_length=2048)
+    # Economic operators (CRA Art. 13, 18–23) — editable post-creation.
+    authorised_representative: str | None = None
+    importers: str | None = None
+    distributors: str | None = None
+    single_point_of_contact: str | None = None
 
 
 class ProductSummaryRead(BaseModel):

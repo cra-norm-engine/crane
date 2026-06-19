@@ -204,8 +204,7 @@
       </div>
 
       <div v-else-if="securityAlerts.length === 0" class="empty-panel">
-        No security update alerts. Alerts appear automatically when a security update is
-        published for a product with an active support period.
+        No security update alerts. Alerts appear automatically when a security update is published for a product.
       </div>
 
       <div v-else class="table-wrapper">

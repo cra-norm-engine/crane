@@ -65,6 +65,15 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           {{ busyAction === "download" ? "Downloading…" : "Technical Documentation" }}
         </AppButton>
+        <!-- Open the full in-app compliance report (dossier) for this release -->
+        <AppButton
+          v-if="releaseDetail"
+          variant="primary"
+          @click="viewReport"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Compliance Report
+        </AppButton>
         <!-- Compliance report PDF — available for any non-draft release -->
         <AppButton
           v-if="releaseDetail && releaseDetail.release.release_status !== 'draft'"
@@ -418,7 +427,7 @@
               class="rg-detail-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'history' }"
               type="button"
-              @click="loadRevisionHistory"
+              @click="detailTabsActive = 'history'"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               History
@@ -506,18 +515,23 @@
                       <span class="rg-ev-activity-when">{{ formatDateTime(link.artifact_revision.created_at) }}</span>
                     </div>
                   </div>
-                  <div v-if="link.reviewed_by_user || link.reviewed_at" class="rg-ev-activity-item">
-                    <div class="rg-ev-avatar rg-ev-avatar--review">{{ userInitials(link.reviewed_by_user) }}</div>
-                    <div class="rg-ev-activity-text">
-                      <span class="rg-ev-activity-action">{{ reviewActionLabel(link.decision) }}</span>
-                      <span class="rg-ev-activity-who">{{ formatUser(link.reviewed_by_user) }}</span>
-                      <span v-if="link.reviewed_at" class="rg-ev-activity-when">{{ formatDateTime(link.reviewed_at) }}</span>
+                </div>
+
+                <!-- Review history — append-only; every reviewer note is kept -->
+                <div v-if="link.reviews && link.reviews.length" class="rg-ev-reviews">
+                  <div class="rg-ev-reviews-label">Review history</div>
+                  <div v-for="rev in link.reviews" :key="rev.id" class="rg-ev-review">
+                    <div class="rg-ev-avatar rg-ev-avatar--review">{{ userInitials(rev.reviewed_by_user) }}</div>
+                    <div class="rg-ev-review-body">
+                      <div class="rg-ev-review-head">
+                        <span class="rg-mini-pill" :class="`rg-decision--${rev.decision}`">{{ formatLabel(rev.decision) }}</span>
+                        <span class="rg-ev-activity-who">{{ formatUser(rev.reviewed_by_user) }}</span>
+                        <span class="rg-ev-activity-when">{{ formatDateTime(rev.reviewed_at) }}</span>
+                      </div>
+                      <p v-if="rev.rationale" class="rg-ev-rationale">{{ rev.rationale }}</p>
                     </div>
                   </div>
                 </div>
-
-                <!-- Rationale note -->
-                <p v-if="link.rationale" class="rg-ev-rationale">{{ link.rationale }}</p>
 
                 <!-- Actions row -->
                 <div class="rg-ev-actions">
@@ -551,8 +565,14 @@
                   </AppButton>
                 </div>
 
-                <!-- Review panel -->
-                <div v-if="canReview && !isApproved" class="rg-review-panel">
+                <!-- Rejected evidence is final — a new submission is required -->
+                <div v-if="link.decision === 'rejected'" class="rg-review-final">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  Rejected — this evidence is final. Submit new evidence to continue.
+                </div>
+
+                <!-- Review panel (hidden once the evidence has been rejected) -->
+                <div v-else-if="canReview && !isApproved" class="rg-review-panel">
                   <label class="rg-field">
                     <span class="rg-field-label">Reviewer note</span>
                     <textarea v-model.trim="reviewNotes[link.id]" rows="2" placeholder="Explain your decision (optional)" />
@@ -571,70 +591,78 @@
             </div>
           </div>
 
-          <!-- ── History tab ── -->
+          <!-- ── History tab — unified activity timeline for this item ── -->
           <div v-if="detailTabsActive === 'history'" class="rg-history-section">
-            <div v-if="revisionHistoryLoading" class="rg-loading-panel">
-              <div class="rg-spinner"></div>
-              <p>Loading revision history…</p>
+            <p class="rg-section-hint">Everything that happened to <strong>{{ selectedItem.title }}</strong> — submissions and review decisions, in order.</p>
+            <div v-if="itemTimeline.length === 0" class="rg-empty-panel">
+              Nothing yet. Attach evidence above to start this item's history.
             </div>
-            <div v-else-if="!revisionHistory" class="rg-empty-panel">
-              No artifact linked to this item yet.
-            </div>
-            <div v-else class="rg-revision-panel">
-              <p class="rg-revision-title">{{ revisionHistory.title }}</p>
-              <p class="rg-revision-meta">{{ revisionHistory.artifact_type }} · {{ revisionHistory.revisions?.length ?? 0 }} revision{{ (revisionHistory.revisions?.length ?? 0) !== 1 ? 's' : '' }}</p>
-              <div v-if="!revisionHistory.revisions || revisionHistory.revisions.length === 0" class="rg-empty-panel">
-                No revisions available.
-              </div>
-              <div v-else class="rg-revisions-list">
-                <article v-for="rev in revisionHistory.revisions" :key="rev.id" class="rg-revision-card">
-                  <div class="rg-revision-header">
-                    <span class="rg-revision-number">Rev {{ rev.revision_number }}</span>
-                    <span class="rg-revision-date">{{ formatDateTime(rev.created_at) }}</span>
+            <ol v-else class="rg-timeline">
+              <li v-for="(ev, i) in itemTimeline" :key="i" class="rg-tl-event" :class="`rg-tl--${ev.tone}`">
+                <span class="rg-tl-dot"></span>
+                <div class="rg-tl-body">
+                  <div class="rg-tl-head">
+                    <span class="rg-tl-title">{{ ev.title }}</span>
+                    <span class="rg-tl-when">{{ formatDateTime(ev.at) }}</span>
                   </div>
-                  <p v-if="rev.change_summary" class="rg-revision-summary">{{ rev.change_summary }}</p>
-                  <p class="rg-revision-uploader">Uploaded by {{ formatUser(rev.uploaded_by_user) }}</p>
-                  <div class="rg-revision-meta-row">
-                    <span>{{ formatLabel(rev.source_type) }}</span>
-                    <span v-if="rev.file_size_bytes">{{ formatSize(rev.file_size_bytes) }}</span>
-                    <span v-if="rev.sha256" class="rg-sha-label">{{ rev.sha256.slice(0, 12) }}…</span>
-                  </div>
-                </article>
-              </div>
-            </div>
+                  <div class="rg-tl-who">{{ ev.who }}</div>
+                  <p v-if="ev.note" class="rg-tl-note">{{ ev.note }}</p>
+                  <div v-if="ev.meta" class="rg-tl-meta">{{ ev.meta }}</div>
+                </div>
+              </li>
+            </ol>
           </div>
 
           <!-- ── SBOM Diff tab ── -->
           <div v-if="detailTabsActive === 'diff'" class="rg-diff-section">
-            <div v-if="sbomDiffData === null && !revisionHistoryLoading" class="rg-empty-panel">
+            <div v-if="sbomDiffData === null && !sbomDiffLoading" class="rg-empty-panel">
               No SBOM found for this item. Ensure an SBOM file is attached above.
             </div>
-            <SbomDiffPanel v-else :diff="sbomDiffData" :loading="revisionHistoryLoading" />
+            <SbomDiffPanel v-else :diff="sbomDiffData" :loading="sbomDiffLoading" />
           </div>
 
-          <!-- ── Dependencies tab ── -->
+          <!-- ── Dependencies tab — prerequisites for the selected item ── -->
           <div v-if="detailTabsActive === 'dependencies'" class="rg-dependencies-section">
-            <p class="rg-section-hint">Define prerequisite relationships between checklist items.</p>
-            <div class="rg-dep-graph">
-              <div v-for="item in releaseDetail.gate.items" :key="item.id" class="rg-dep-node">
-                <div class="rg-dep-node-card" :class="`rg-dep-node--${item.status}`">
-                  <strong class="rg-dep-node-title">{{ item.title }}</strong>
-                  <span class="rg-dep-node-status">{{ formatLabel(item.status) }}</span>
-                </div>
-                <div v-if="item.prerequisites && item.prerequisites.length > 0" class="rg-dep-prereqs">
-                  <p class="rg-dep-prereq-label">Requires:</p>
-                  <div v-for="prereq in item.prerequisites" :key="prereq.id" class="rg-dep-prereq-item">
-                    {{ prereq.title }}
-                  </div>
-                </div>
+            <p class="rg-section-hint">
+              <strong>{{ selectedItem.title }}</strong> can only be accepted once the items it
+              requires are accepted first.
+            </p>
+
+            <!-- Blocked banner -->
+            <div v-if="unmetPrereqs.length" class="rg-dep-blocked">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Blocked — waiting on {{ unmetPrereqs.length }} prerequisite{{ unmetPrereqs.length === 1 ? '' : 's' }}.
+            </div>
+
+            <!-- Current prerequisites -->
+            <div class="rg-dep-list">
+              <p class="rg-dep-list-label">Requires</p>
+              <div v-if="!selectedItem.prerequisites || selectedItem.prerequisites.length === 0" class="rg-empty-panel rg-empty-panel--inline">
+                No prerequisites — this item can be reviewed independently.
+              </div>
+              <div v-for="prereq in selectedItem.prerequisites" :key="prereq.id" class="rg-dep-row">
+                <span class="rg-dep-met" :class="prereqMet(prereq) ? 'is-met' : 'is-unmet'">
+                  {{ prereqMet(prereq) ? '✓' : '○' }}
+                </span>
+                <span class="rg-dep-row-title">{{ prereq.title }}</span>
+                <span class="rg-mini-pill" :class="`rg-decision--${prereq.status}`">{{ formatLabel(prereq.status) }}</span>
+                <AppButton
+                  v-if="canEdit && !isApproved"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="busy"
+                  @click="removePrereq(prereq.id)"
+                >Remove</AppButton>
               </div>
             </div>
-            <div v-if="canEdit && !isApproved" class="rg-dep-editor">
-              <p class="rg-dep-editor-label">Add prerequisite</p>
-              <p class="rg-dep-editor-hint">Mark {{ selectedItem.title }} as requiring another item to be completed first.</p>
-              <AppButton variant="secondary" size="sm" @click="showDependenciesEditor = !showDependenciesEditor">
-                {{ showDependenciesEditor ? "Cancel" : "Add prerequisite" }}
-              </AppButton>
+
+            <!-- Add prerequisite -->
+            <div v-if="canEdit && !isApproved && availablePrereqs.length" class="rg-dep-add">
+              <select v-model="newPrereqId" class="rg-input">
+                <option value="">Add a prerequisite…</option>
+                <option v-for="opt in availablePrereqs" :key="opt.id" :value="opt.id">{{ opt.title }}</option>
+              </select>
+              <AppButton variant="secondary" size="sm" :disabled="busy || !newPrereqId" @click="addPrereq">Add</AppButton>
             </div>
           </div>
 
@@ -688,7 +716,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import AppButton from "@/components/AppButton.vue";
 import DropZone from "@/components/DropZone.vue";
@@ -699,13 +727,19 @@ import { releaseGateService } from "@/services/release-gate-service";
 import { sbomRecordService } from "@/services/sbom-record-service";
 import { useAuthStore } from "@/stores/auth";
 import { extractDiffData, formatComponent } from "@/utils/sbomDiff";
-import type { ArtifactRead, ArtifactListRead, ArtifactType } from "@/types/artifact";
+import type { ArtifactListRead, ArtifactType } from "@/types/artifact";
 import type { GateDecision, ReleaseGateDetailRead, ReleaseGateItemRead } from "@/types/release-gate";
 
 const props = defineProps<{ releaseId: string }>();
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
+
+// Navigate to the full in-app compliance report (dossier) for this release.
+function viewReport(): void {
+  router.push({ name: "release-report", params: { releaseId: props.releaseId } });
+}
 
 // Scroll to a deep-linked gate item / section (e.g. #gate-item-technical_documentation)
 // when arriving from the Compliance Journey, once the workspace has loaded.
@@ -748,15 +782,111 @@ const externalForm = reactive({
 
 // Detail panel tabs and state
 const detailTabsActive = ref<"evidence" | "history" | "diff" | "dependencies" | "snapshot">("evidence");
-const revisionHistory = ref<ArtifactRead | null>(null);
-const revisionHistoryLoading = ref(false);
 const sbomDiffData = ref<ReturnType<typeof extractDiffData> | null>(null);
-const showDependenciesEditor = ref(false);
+const sbomDiffLoading = ref(false);
+const newPrereqId = ref<string>("");
 
 const selectedItem = computed<ReleaseGateItemRead | null>(() => {
   if (!releaseDetail.value) return null;
   return releaseDetail.value.gate.items.find((item) => item.id === selectedItemId.value) ?? releaseDetail.value.gate.items[0] ?? null;
 });
+
+// ── History: unified chronological activity timeline for the selected item ──
+// Built entirely from data already loaded (evidence links + their review history)
+// so it shows the real story: submitted → reviewed → rejected → resubmitted → …
+interface TimelineEvent { at: string; tone: string; title: string; who: string; note: string | null; meta: string | null }
+const itemTimeline = computed<TimelineEvent[]>(() => {
+  const item = selectedItem.value;
+  if (!item) return [];
+  const events: TimelineEvent[] = [];
+  for (const link of item.evidence_links) {
+    const rev = link.artifact_revision;
+    // Submission event (the evidence was attached).
+    const metaBits: string[] = [formatLabel(rev.source_type)];
+    if (rev.file_size_bytes) metaBits.push(formatSize(rev.file_size_bytes));
+    if (rev.sha256) metaBits.push(`sha256 ${rev.sha256.slice(0, 12)}…`);
+    if (rev.original_filename) metaBits.unshift(rev.original_filename);
+    events.push({
+      at: rev.created_at,
+      tone: "submit",
+      title: `Submitted — revision ${rev.revision_number}`,
+      who: formatUser(rev.uploaded_by_user),
+      note: rev.change_summary,
+      meta: metaBits.join(" · "),
+    });
+    // Each review decision on this evidence.
+    for (const review of link.reviews ?? []) {
+      events.push({
+        at: review.reviewed_at,
+        tone: review.decision,
+        title: reviewTitle(review.decision),
+        who: formatUser(review.reviewed_by_user),
+        note: review.rationale,
+        meta: null,
+      });
+    }
+  }
+  events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  return events;
+});
+
+function reviewTitle(decision: GateDecision): string {
+  switch (decision) {
+    case "accepted": return "Accepted";
+    case "rejected": return "Rejected";
+    case "waived": return "Waived";
+    case "needs_update": return "Update requested";
+    default: return "Reviewed";
+  }
+}
+
+// ── Dependencies: prerequisites for the selected item ──
+function prereqMet(prereq: { status: GateDecision }): boolean {
+  return prereq.status === "accepted" || prereq.status === "waived";
+}
+const unmetPrereqs = computed(() =>
+  (selectedItem.value?.prerequisites ?? []).filter((p) => !prereqMet(p)),
+);
+// Other checklist items eligible to be added as a prerequisite (not self, not already one).
+const availablePrereqs = computed(() => {
+  const item = selectedItem.value;
+  if (!item || !releaseDetail.value) return [];
+  const existing = new Set((item.prerequisites ?? []).map((p) => p.id));
+  return releaseDetail.value.gate.items.filter((i) => i.id !== item.id && !existing.has(i.id));
+});
+
+async function addPrereq(): Promise<void> {
+  if (!releaseDetail.value || !selectedItem.value || !newPrereqId.value) return;
+  busy.value = true;
+  errorMessage.value = "";
+  try {
+    const detail = await releaseGateService.addPrerequisite(
+      releaseDetail.value.release.id, selectedItem.value.id, newPrereqId.value,
+    );
+    setWorkspace(detail);
+    newPrereqId.value = "";
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to add prerequisite.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function removePrereq(prerequisiteItemId: string): Promise<void> {
+  if (!releaseDetail.value || !selectedItem.value) return;
+  busy.value = true;
+  errorMessage.value = "";
+  try {
+    const detail = await releaseGateService.removePrerequisite(
+      releaseDetail.value.release.id, selectedItem.value.id, prerequisiteItemId,
+    );
+    setWorkspace(detail);
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to remove prerequisite.";
+  } finally {
+    busy.value = false;
+  }
+}
 const derivedArtifactType = computed<ArtifactType>(() => {
   switch (selectedItem.value?.code) {
     case "sbom":
@@ -961,6 +1091,8 @@ async function reviewLink(linkId: string, decision: GateDecision): Promise<void>
   try {
     const detail = await releaseGateService.reviewEvidence(linkId, decision, reviewNotes[linkId]);
     setWorkspace(detail);
+    // Clear the input — the note is now persisted in the review history thread.
+    reviewNotes[linkId] = "";
     successMessage.value = `Evidence ${formatLabel(decision)}.`;
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to review evidence.";
@@ -1165,46 +1297,9 @@ function userInitials(user: { full_name: string; email: string } | null): string
   return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function reviewActionLabel(decision: GateDecision): string {
-  switch (decision) {
-    case "accepted":
-      return "Approved";
-    case "needs_update":
-      return "Requested update";
-    case "rejected":
-      return "Rejected";
-    case "waived":
-      return "Waived";
-    default:
-      return "Reviewed";
-  }
-}
-
 function fileTypeLabel(filename: string | null): string {
   if (!filename || !filename.includes(".")) return "FILE";
   return filename.split(".").pop()?.slice(0, 4).toUpperCase() ?? "FILE";
-}
-
-async function loadRevisionHistory(): Promise<void> {
-  detailTabsActive.value = "history";
-  if (!selectedItem.value || !selectedItem.value.evidence_links.length) {
-    revisionHistory.value = null;
-    return;
-  }
-
-  revisionHistoryLoading.value = true;
-  try {
-    const artifact = selectedItem.value.evidence_links[0]?.artifact_revision;
-    if (artifact?.artifact_id) {
-      const history = await artifactService.getById(artifact.artifact_id);
-      revisionHistory.value = history;
-    }
-  } catch (error: any) {
-    errorMessage.value = error?.message ?? "Failed to load revision history.";
-    revisionHistory.value = null;
-  } finally {
-    revisionHistoryLoading.value = false;
-  }
 }
 
 async function loadSbomDiff(): Promise<void> {
@@ -1214,7 +1309,7 @@ async function loadSbomDiff(): Promise<void> {
     return;
   }
 
-  revisionHistoryLoading.value = true;
+  sbomDiffLoading.value = true;
   try {
     const sbomRecords = await sbomRecordService.list({ productReleaseId: releaseDetail.value.release.id });
     const latestSbom = sbomRecords[0];
@@ -1227,7 +1322,7 @@ async function loadSbomDiff(): Promise<void> {
     errorMessage.value = error?.message ?? "Failed to load SBOM diff.";
     sbomDiffData.value = null;
   } finally {
-    revisionHistoryLoading.value = false;
+    sbomDiffLoading.value = false;
   }
 }
 
@@ -1916,12 +2011,34 @@ onMounted(() => {
 .rg-ev-activity-who { color: var(--color-text); font-weight: 500; }
 .rg-ev-activity-when { color: var(--color-text-muted); font-size: 0.73rem; }
 .rg-ev-rationale {
-  margin: 0;
-  padding: 0.55rem 1rem;
+  margin: 0.25rem 0 0;
   font-size: 0.81rem;
   color: var(--color-text-muted);
-  border-top: 1px solid var(--color-border);
   font-style: italic;
+}
+/* ── Review history thread ── */
+.rg-ev-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--color-border);
+}
+.rg-ev-reviews-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.rg-ev-review { display: flex; gap: 0.55rem; align-items: flex-start; }
+.rg-ev-review-body { min-width: 0; flex: 1; }
+.rg-ev-review-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.78rem;
 }
 .rg-ev-actions {
   display: flex;
@@ -1959,6 +2076,17 @@ onMounted(() => {
   background: var(--color-surface-elevated);
 }
 .rg-review-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.rg-review-final {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
 
 /* ── Loading / empty states ── */
 .rg-loading-panel {
@@ -2004,7 +2132,63 @@ onMounted(() => {
 /* ── Diff / Dependencies / Snapshot sections ── */
 .rg-diff-section { display: flex; flex-direction: column; }
 .rg-dependencies-section { display: flex; flex-direction: column; gap: 1rem; }
-.rg-section-hint { margin: 0; font-size: 0.83rem; color: var(--color-text-muted); font-style: italic; }
+.rg-section-hint { margin: 0; font-size: 0.83rem; color: var(--color-text-muted); }
+.rg-section-hint strong { color: var(--color-text); }
+
+/* ── History: activity timeline ── */
+.rg-timeline { list-style: none; margin: 0.75rem 0 0; padding: 0; display: flex; flex-direction: column; }
+.rg-tl-event { position: relative; display: flex; gap: 0.75rem; padding: 0 0 1rem 0.25rem; }
+.rg-tl-event::before {
+  content: ""; position: absolute; left: 5px; top: 14px; bottom: -2px;
+  width: 2px; background: var(--color-border);
+}
+.rg-tl-event:last-child::before { display: none; }
+.rg-tl-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex: none; margin-top: 3px;
+  background: var(--color-border-strong); box-shadow: 0 0 0 3px var(--color-surface);
+  position: relative; z-index: 1;
+}
+.rg-tl--submit .rg-tl-dot { background: var(--color-info); }
+.rg-tl--accepted .rg-tl-dot { background: var(--color-success); }
+.rg-tl--waived .rg-tl-dot { background: var(--color-text-muted); }
+.rg-tl--needs_update .rg-tl-dot { background: var(--color-warning); }
+.rg-tl--rejected .rg-tl-dot { background: var(--color-danger); }
+.rg-tl-body { min-width: 0; flex: 1; }
+.rg-tl-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; }
+.rg-tl-title { font-weight: 700; font-size: 0.88rem; color: var(--color-text); }
+.rg-tl-when { font-size: 0.73rem; color: var(--color-text-muted); }
+.rg-tl-who { font-size: 0.8rem; color: var(--color-text-muted); }
+.rg-tl-note {
+  margin: 0.35rem 0 0; padding: 0.45rem 0.7rem; font-size: 0.82rem; color: var(--color-text);
+  background: var(--color-inset-surface); border-left: 2px solid var(--color-border-strong); border-radius: 4px;
+}
+.rg-tl-meta { margin-top: 0.3rem; font-size: 0.72rem; color: var(--color-text-muted); font-family: var(--font-mono, monospace); }
+
+/* ── Dependencies: per-item prerequisites ── */
+.rg-dep-blocked {
+  display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem;
+  padding: 0.55rem 0.8rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+  color: var(--color-danger); background: var(--color-danger-bg);
+}
+.rg-dep-list { margin-top: 0.8rem; }
+.rg-dep-list-label, .rg-dep-add-label {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--color-text-muted); margin: 0 0 0.4rem;
+}
+.rg-dep-row {
+  display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.rg-dep-row-title { flex: 1; min-width: 0; font-size: 0.86rem; color: var(--color-text); }
+.rg-dep-met { width: 1.1rem; text-align: center; font-weight: 800; }
+.rg-dep-met.is-met { color: var(--color-success); }
+.rg-dep-met.is-unmet { color: var(--color-text-muted); }
+.rg-dep-add { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.9rem; }
+.rg-input {
+  flex: 1; padding: 0.45rem 0.6rem; border: 1px solid var(--color-border);
+  border-radius: 7px; background: var(--color-surface); color: var(--color-text); font-size: 0.85rem;
+}
+.rg-empty-panel--inline { padding: 0.6rem 0.8rem; text-align: left; }
 .rg-dep-graph { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
 .rg-dep-node { display: flex; flex-direction: column; gap: 0.5rem; }
 .rg-dep-node-card {

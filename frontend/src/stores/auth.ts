@@ -108,6 +108,18 @@ export const useAuthStore = defineStore("auth", () => {
     clearAuthState();
   }
 
+  // Replace just the access + refresh tokens after a silent refresh, keeping the
+  // current user. The backend rotates the refresh token on every refresh
+  // (single-use), so the new refresh token MUST be persisted here or the next
+  // refresh will be rejected as reuse.
+  function setTokens(accessTokenValue: string, refreshTokenValue: string): void {
+    setAuthState({
+      accessToken: accessTokenValue,
+      refreshToken: refreshTokenValue,
+      user: user.value,
+    });
+  }
+
   function updateUser(patch: Partial<AuthUser>): void {
     if (!user.value) return;
     user.value = { ...user.value, ...patch };
@@ -136,6 +148,7 @@ export const useAuthStore = defineStore("auth", () => {
     initializeFromStorage,
     login,
     logout,
+    setTokens,
     updateUser,
     setAuthState,
     clearAuthState,

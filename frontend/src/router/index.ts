@@ -90,6 +90,15 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: "releases/:releaseId/report",
+        name: "release-report",
+        component: () => import("@/views/ReleaseReportView.vue"),
+        props: true,
+        meta: {
+          permissions: ["release_read"],
+        },
+      },
+      {
         path: "security-updates",
         name: "security-updates",
         component: SecurityUpdateHistoryView,

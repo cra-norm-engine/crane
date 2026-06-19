@@ -157,6 +157,41 @@ class ReleaseGateEvidenceLink(UUIDTimestampMixin, Base):
     artifact_revision: Mapped["ArtifactRevision"] = relationship("ArtifactRevision", back_populates="release_gate_links")
     linked_by_user: Mapped["User"] = relationship("User", foreign_keys=[linked_by_user_id])
     reviewed_by_user: Mapped["User | None"] = relationship("User", foreign_keys=[reviewed_by_user_id])
+    # Append-only history of every review decision made on this evidence link.
+    # The decision/rationale columns above remain the latest snapshot; each
+    # individual note is preserved here so prior reviewer notes are never lost.
+    reviews: Mapped[list["ReleaseGateReview"]] = relationship(
+        "ReleaseGateReview",
+        back_populates="evidence_link",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ReleaseGateReview.reviewed_at",
+    )
+
+
+class ReleaseGateReview(UUIDTimestampMixin, Base):
+    """One immutable reviewer decision + note on a gate evidence link (history)."""
+
+    __tablename__ = "release_gate_reviews"
+
+    release_gate_evidence_link_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("release_gate_evidence_links.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    decision: Mapped[ArtifactReviewDecision] = mapped_column(nullable=False)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reviewed_at: Mapped[datetime] = mapped_column(nullable=False)
+
+    evidence_link: Mapped["ReleaseGateEvidenceLink"] = relationship(
+        "ReleaseGateEvidenceLink", back_populates="reviews"
+    )
+    reviewed_by_user: Mapped["User | None"] = relationship("User", foreign_keys=[reviewed_by_user_id])
 
 
 class ReleaseGateItemPrerequisite(UUIDTimestampMixin, Base):
