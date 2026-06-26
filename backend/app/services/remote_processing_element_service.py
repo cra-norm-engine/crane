@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
+from app.core.exceptions import ConflictException
 from app.models.enums import AuditActionType, AuditStatus, EntityType, RemoteProcessingClassification
 from app.models.product import RemoteProcessingElement
 from app.repositories.product_repository import ProductRepository
@@ -29,38 +30,38 @@ logger = logging.getLogger(__name__)
 
 
 def _classify(p: RemoteProcessingAssessRequest) -> RemoteProcessingClassification:
-    """Apply the DIGITALEUROPE I1/I3/I5/I6 inclusion criteria to classify the element.
+    """Apply the four CRA Art. 3(2) inclusion criteria (1-4) to classify the element.
 
     Classification logic (all four criteria must be True for in-scope):
-      I1 False → third_party_component (not manufacturer-developed)
-      I3 False → out_of_scope (ancillary/optional service)
-      I5 False → out_of_scope (no direct product interaction)
-      I6 False → out_of_scope (unidirectional data flow)
+      Criterion 1 False → third_party_component (not manufacturer-developed)
+      Criterion 2 False → out_of_scope (ancillary/optional service)
+      Criterion 3 False → out_of_scope (no direct product interaction)
+      Criterion 4 False → out_of_scope (unidirectional data flow)
       All True → cra_art_3_2_in_scope
       Any None (unanswered) → not_assessed or requires_legal_assessment
     """
     if p.classification_override:
         return p.classification_override
 
-    # I1: Designed/developed by or on behalf of the manufacturer.
+    # Criterion 1: Designed/developed by or on behalf of the manufacturer.
     if p.is_developed_by_manufacturer is False:
         return RemoteProcessingClassification.third_party_component
     if p.is_developed_by_manufacturer is None:
         return RemoteProcessingClassification.not_assessed
 
-    # I3: Necessary for the product to perform its functions.
+    # Criterion 2: Necessary for the product to perform its functions.
     if p.is_necessary_for_product_function is False:
         return RemoteProcessingClassification.out_of_scope
     if p.is_necessary_for_product_function is None:
         return RemoteProcessingClassification.not_assessed
 
-    # I5: Directly interacts with the product itself.
+    # Criterion 3: Directly interacts with the product itself.
     if p.directly_interacts_with_product is False:
         return RemoteProcessingClassification.out_of_scope
     if p.directly_interacts_with_product is None:
         return RemoteProcessingClassification.not_assessed
 
-    # I6: Bidirectional data exchange between product and RDPS.
+    # Criterion 4: Bidirectional data exchange between product and RDPS.
     if p.has_bidirectional_exchange is False:
         return RemoteProcessingClassification.out_of_scope
     if p.has_bidirectional_exchange is None:
@@ -114,6 +115,12 @@ class RemoteProcessingElementService:
         actor: object,
     ) -> RemoteProcessingElementRead:
         element = self.repository.get_or_404(element_id)
+        # Once an element has been evaluated it is locked — it can no longer be edited.
+        if element.assessed_at is not None:
+            raise ConflictException(
+                "This element has already been evaluated and is locked. "
+                "Delete it and create a new one to make changes."
+            )
         updates = payload.model_dump(exclude_unset=True)
 
         for field_name, value in updates.items():
@@ -142,6 +149,12 @@ class RemoteProcessingElementService:
     ) -> RemoteProcessingElementRead:
         """Apply the CRA Art. 3(2) decision tree and persist the classification."""
         element = self.repository.get_or_404(element_id)
+        # An element can only be evaluated once — re-evaluation is blocked after the first assessment.
+        if element.assessed_at is not None:
+            raise ConflictException(
+                "This element has already been evaluated and is locked. "
+                "Delete it and create a new one to re-evaluate."
+            )
 
         element.is_developed_by_manufacturer    = payload.is_developed_by_manufacturer
         element.is_necessary_for_product_function = payload.is_necessary_for_product_function

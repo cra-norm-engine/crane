@@ -395,14 +395,14 @@ class RemoteProcessingElement(UUIDTimestampMixin, Base):
         SAEnum(RemoteProcessingElementType, name="remoteprocessingelementtype"),
         nullable=True,
     )
-    # DIGITALEUROPE I1/I3/I5/I6 inclusion criteria (None = not yet answered).
-    # I1: Designed/developed by or on behalf of the manufacturer for this product.
+    # CRA Art. 3(2) inclusion criteria 1-4 (None = not yet answered).
+    # Criterion 1: Designed/developed by or on behalf of the manufacturer for this product.
     is_developed_by_manufacturer: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # I3: Necessary for the product to perform its functions (absence = cannot function).
+    # Criterion 2: Necessary for the product to perform its functions (absence = cannot function).
     is_necessary_for_product_function: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # I5: Directly interacts with the product itself.
+    # Criterion 3: Directly interacts with the product itself.
     directly_interacts_with_product: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # I6: Bidirectional data exchange (product → RDPS → result back to product).
+    # Criterion 4: Bidirectional data exchange (product → RDPS → result back to product).
     has_bidirectional_exchange: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Context field: is the provider already covered under NIS2 Managed Service Provider rules?
     provider_is_nis2_msp: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -420,6 +420,8 @@ class RemoteProcessingElement(UUIDTimestampMixin, Base):
     )
 
     product: Mapped[Product] = relationship(back_populates="remote_processing_elements")
+    # The user who last ran the CRA Art. 3(2) evaluation (used to surface their name in the UI).
+    assessed_by: Mapped["User | None"] = relationship("User", foreign_keys=[assessed_by_user_id])
     # Back-reference to releases that include this element in their processing scope.
     releases: Mapped[list["ProductRelease"]] = relationship(
         "ProductRelease",

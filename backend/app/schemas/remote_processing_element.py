@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import RemoteProcessingClassification, RemoteProcessingElementType
 
@@ -25,7 +26,7 @@ class RemoteProcessingElementBase(BaseModel):
     criticality: str | None = Field(default=None, max_length=100)
     # CRA Art. 3(2) fields — writeable on create and update
     element_type: RemoteProcessingElementType | None = None
-    # DIGITALEUROPE inclusion criteria (I1/I3/I5/I6); None = not yet answered.
+    # CRA Art. 3(2) inclusion criteria (1-4); None = not yet answered.
     is_developed_by_manufacturer: bool | None = None
     is_necessary_for_product_function: bool | None = None
     directly_interacts_with_product: bool | None = None
@@ -62,30 +63,50 @@ class RemoteProcessingElementRead(RemoteProcessingElementBase):
     id: UUID
     assessed_at: datetime | None = None
     assessed_by_user_id: UUID | None = None
+    # Display name of the user who ran the evaluation, resolved from the assessed_by relationship.
+    assessed_by_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_assessed_by_name(cls, data: Any) -> Any:
+        # When validating from an ORM object (from_attributes), the assessor's name is not a
+        # column, so resolve it from the assessed_by relationship and inject it for validation.
+        if isinstance(data, dict):
+            return data
+        assessed_by = getattr(data, "assessed_by", None)
+        full_name = getattr(assessed_by, "full_name", None)
+        if not full_name:
+            return data
+        # Build a dict of the fields Pydantic needs, plus the resolved assessor name.
+        values: dict[str, Any] = {
+            name: getattr(data, name) for name in cls.model_fields if name != "assessed_by_name"
+        }
+        values["assessed_by_name"] = full_name
+        return values
+
 
 class RemoteProcessingAssessRequest(BaseModel):
-    """Payload for the DIGITALEUROPE-aligned CRA Art. 3(2) RDPS evaluation wizard.
+    """Payload for the CRA Art. 3(2) RDPS evaluation wizard.
 
-    The four boolean fields correspond to the DIGITALEUROPE inclusion criteria:
-      I1 — is_developed_by_manufacturer
-      I3 — is_necessary_for_product_function
-      I5 — directly_interacts_with_product
-      I6 — has_bidirectional_exchange
+    The four boolean fields correspond to the four inclusion criteria:
+      Criterion 1 — is_developed_by_manufacturer
+      Criterion 2 — is_necessary_for_product_function
+      Criterion 3 — directly_interacts_with_product
+      Criterion 4 — has_bidirectional_exchange
 
     All four must be True for an element to be classified as cra_art_3_2_in_scope.
     A False on any criterion leads to out_of_scope or third_party_component.
     None means the question has not been answered yet.
     """
-    # I1: Designed/developed by or on behalf of the manufacturer for this specific product.
+    # Criterion 1: Designed/developed by or on behalf of the manufacturer for this specific product.
     is_developed_by_manufacturer: bool | None = None
-    # I3: Absence of the service would prevent the product from performing its functions.
+    # Criterion 2: Absence of the service would prevent the product from performing its functions.
     is_necessary_for_product_function: bool | None = None
-    # I5: The service directly interacts with the product itself (not just with users).
+    # Criterion 3: The service directly interacts with the product itself (not just with users).
     directly_interacts_with_product: bool | None = None
-    # I6: Data exchange is bidirectional — product sends data, RDPS processes and returns a result.
+    # Criterion 4: Data exchange is bidirectional — product sends data, RDPS processes and returns a result.
     has_bidirectional_exchange: bool | None = None
     # Context: is the third-party provider already covered by NIS2 as an MSP?
     provider_is_nis2_msp: bool | None = None

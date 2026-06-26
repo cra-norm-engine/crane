@@ -10,7 +10,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.exceptions import NotFoundException
 from app.models.product import RemoteProcessingElement
@@ -22,13 +22,23 @@ class RemoteProcessingElementRepository(BaseRepository[RemoteProcessingElement])
         super().__init__(db, RemoteProcessingElement)
 
     def list_all(self, *, product_id: UUID | None = None) -> list[RemoteProcessingElement]:
-        statement = select(RemoteProcessingElement).order_by(RemoteProcessingElement.created_at.desc())
+        statement = (
+            select(RemoteProcessingElement)
+            # Eager-load the assessor so the Read schema can surface their name without an N+1 query.
+            .options(joinedload(RemoteProcessingElement.assessed_by))
+            .order_by(RemoteProcessingElement.created_at.desc())
+        )
         if product_id:
             statement = statement.where(RemoteProcessingElement.product_id == product_id)
         return list(self.db.scalars(statement).all())
 
     def get_or_404(self, element_id: UUID) -> RemoteProcessingElement:
-        element = self.get_by_id(element_id)
+        statement = (
+            select(RemoteProcessingElement)
+            .options(joinedload(RemoteProcessingElement.assessed_by))
+            .where(RemoteProcessingElement.id == element_id)
+        )
+        element = self.db.scalars(statement).first()
         if element is None:
             raise NotFoundException("Remote processing element not found")
         return element

@@ -351,11 +351,23 @@
                       <span class="badge" :class="rpeClassBadge(el.classification)">
                         {{ rpeClassLabel(el.classification) }}
                       </span>
+                      <!-- Evaluation provenance — shown once the element has been assessed -->
+                      <p v-if="el.assessed_at" class="rpe-assessed-meta muted">
+                        Evaluated<template v-if="el.assessed_by_name"> by {{ el.assessed_by_name }}</template>
+                        on {{ formatDateTime(el.assessed_at) }}
+                      </p>
                     </td>
                     <td class="col-actions">
-                      <AppButton variant="secondary" size="sm" @click="openRpeEvaluate(el)">Evaluate</AppButton>
-                      <AppButton variant="secondary" size="sm" @click="openRpeEdit(el)">Edit</AppButton>
-                      <AppButton variant="danger" size="sm" @click="deleteRpe(el.id)">Delete</AppButton>
+                      <!-- Once evaluated, the record is locked: editing and re-evaluation are blocked. -->
+                      <template v-if="isRpeLocked(el)">
+                        <span class="badge badge-neutral rpe-locked-badge" title="This element has been evaluated and is locked. Delete it to start over.">🔒 Locked</span>
+                        <AppButton variant="danger" size="sm" @click="deleteRpe(el.id)">Delete</AppButton>
+                      </template>
+                      <template v-else>
+                        <AppButton variant="secondary" size="sm" @click="openRpeEvaluate(el)">Evaluate</AppButton>
+                        <AppButton variant="secondary" size="sm" @click="openRpeEdit(el)">Edit</AppButton>
+                        <AppButton variant="danger" size="sm" @click="deleteRpe(el.id)">Delete</AppButton>
+                      </template>
                     </td>
                   </tr>
                 </tbody>
@@ -1233,22 +1245,22 @@
       <!-- ════════════════════════════════════════════════════
            MODAL — CRA Art. 3(2) Evaluation Wizard
            ════════════════════════════════════════════════════ -->
-      <!-- CRA Art. 3(2) RDPS Evaluation wizard — implements DIGITALEUROPE I1/I3/I5/I6 inclusion criteria -->
+      <!-- CRA Art. 3(2) RDPS Evaluation wizard — applies the four inclusion criteria (1–4) -->
       <AppModal v-model="showRpeEvalModal" title="CRA Art. 3(2) RDPS Evaluation" size="lg">
         <div v-if="rpeEvalTarget" class="rpe-eval-wrap">
           <p class="rpe-eval-intro">
             Evaluating <strong>{{ rpeEvalTarget.name }}</strong> against CRA Article 3(2).
             A Remote Data Processing Solution (RDPS) is in scope only when all four
-            DIGITALEUROPE inclusion criteria (I1, I3, I5, I6) are satisfied.
+            inclusion criteria below are satisfied.
           </p>
 
-          <!-- I1: Designed/developed by the manufacturer -->
+          <!-- Criterion 1: Designed/developed by the manufacturer -->
           <div class="rpe-question">
             <p class="rpe-q-text">
-              <span class="rpe-q-num">I1</span>
-              Was this service designed and developed by your organisation (or specifically on your behalf) for this product?
+              <span class="rpe-q-num">1</span>
+              Did your organisation build this service (or have it built specifically for you) as part of this product?
             </p>
-            <p class="rpe-q-hint">If a third party developed and independently operates this service, they are the CRA manufacturer — track them as a dependency instead.</p>
+            <p class="rpe-q-hint">If an outside party built and runs this service on its own, that party is the CRA manufacturer — record them as a dependency instead.</p>
             <div class="rpe-q-options">
               <button type="button" :class="['rpe-opt', evalForm.is_developed_by_manufacturer === true && 'rpe-opt--active']" @click="evalForm.is_developed_by_manufacturer = true">Yes</button>
               <button type="button" :class="['rpe-opt', evalForm.is_developed_by_manufacturer === false && 'rpe-opt--active']" @click="evalForm.is_developed_by_manufacturer = false">No</button>
@@ -1256,7 +1268,7 @@
             </div>
           </div>
 
-          <!-- NIS2 context — shown only when I1 = No (helps generate guidance text) -->
+          <!-- NIS2 context — shown only when criterion 1 = No (helps generate guidance text) -->
           <div v-if="evalForm.is_developed_by_manufacturer === false" class="rpe-question rpe-question--optional">
             <p class="rpe-q-text">
               <span class="rpe-q-num">Context</span>
@@ -1270,14 +1282,14 @@
             </div>
           </div>
 
-          <!-- I3: Necessary for product function — shown when I1 = Yes -->
+          <!-- Criterion 2: Necessary for product function — shown when criterion 1 = Yes -->
           <div v-if="evalForm.is_developed_by_manufacturer === true" class="rpe-question">
             <p class="rpe-q-text">
-              <span class="rpe-q-num">I3</span>
-              Is this service necessary for the product to perform its functions?
-              (Without it, the product cannot do its intended job.)
+              <span class="rpe-q-num">2</span>
+              Does the product depend on this service to carry out its intended functions?
+              (If the service were removed, the product could no longer do its job.)
             </p>
-            <p class="rpe-q-hint">Optional/ancillary services such as dashboards, telemetry, or features the product works fine without are out of scope.</p>
+            <p class="rpe-q-hint">Nice-to-have services such as dashboards, telemetry, or features the product runs fine without are out of scope.</p>
             <div class="rpe-q-options">
               <button type="button" :class="['rpe-opt', evalForm.is_necessary_for_product_function === true && 'rpe-opt--active']" @click="evalForm.is_necessary_for_product_function = true">Yes</button>
               <button type="button" :class="['rpe-opt', evalForm.is_necessary_for_product_function === false && 'rpe-opt--active']" @click="evalForm.is_necessary_for_product_function = false">No</button>
@@ -1285,13 +1297,13 @@
             </div>
           </div>
 
-          <!-- I5: Directly interacts with the product — shown when I3 = Yes -->
+          <!-- Criterion 3: Directly interacts with the product — shown when criterion 2 = Yes -->
           <div v-if="showEvalQ3" class="rpe-question">
             <p class="rpe-q-text">
-              <span class="rpe-q-num">I5</span>
-              Does this service directly interact with the product itself?
+              <span class="rpe-q-num">3</span>
+              Does the service exchange data directly with the product itself?
             </p>
-            <p class="rpe-q-hint">Backend infrastructure (auth servers, databases, build systems) that interacts only with other systems — not the product directly — is out of scope.</p>
+            <p class="rpe-q-hint">Backend infrastructure (auth servers, databases, build systems) that talks only to other systems — not the product directly — is out of scope.</p>
             <div class="rpe-q-options">
               <button type="button" :class="['rpe-opt', evalForm.directly_interacts_with_product === true && 'rpe-opt--active']" @click="evalForm.directly_interacts_with_product = true">Yes</button>
               <button type="button" :class="['rpe-opt', evalForm.directly_interacts_with_product === false && 'rpe-opt--active']" @click="evalForm.directly_interacts_with_product = false">No</button>
@@ -1299,14 +1311,14 @@
             </div>
           </div>
 
-          <!-- I6: Bidirectional exchange — shown when I5 = Yes -->
+          <!-- Criterion 4: Bidirectional exchange — shown when criterion 3 = Yes -->
           <div v-if="showEvalQ4" class="rpe-question">
             <p class="rpe-q-text">
-              <span class="rpe-q-num">I6</span>
-              Is the data exchange bidirectional — the product sends data, the service processes it,
-              and returns a result back to the product?
+              <span class="rpe-q-num">4</span>
+              Does data flow both ways — the product sends data to the service, and the service
+              returns a processed result to the product?
             </p>
-            <p class="rpe-q-hint">Pure data sinks (telemetry, logging, crash reports where nothing is returned to the product) are out of CRA scope.</p>
+            <p class="rpe-q-hint">One-way destinations (telemetry, logging, or crash reports where nothing comes back to the product) are out of CRA scope.</p>
             <div class="rpe-q-options">
               <button type="button" :class="['rpe-opt', evalForm.has_bidirectional_exchange === true && 'rpe-opt--active']" @click="evalForm.has_bidirectional_exchange = true">Yes</button>
               <button type="button" :class="['rpe-opt', evalForm.has_bidirectional_exchange === false && 'rpe-opt--active']" @click="evalForm.has_bidirectional_exchange = false">No</button>
@@ -1601,24 +1613,24 @@ const rpeInScopeCount = computed(() =>
   rpeList.value.filter((e) => e.classification === "cra_art_3_2_in_scope").length,
 );
 
-// I5 question shown when I1=Yes AND I3=Yes
+// Criterion 3 question shown when criterion 1 = Yes AND criterion 2 = Yes
 const showEvalQ3 = computed(
   () => evalForm.is_developed_by_manufacturer === true && evalForm.is_necessary_for_product_function === true,
 );
 
-// I6 question shown when I5=Yes
+// Criterion 4 question shown when criterion 3 = Yes
 const showEvalQ4 = computed(() => showEvalQ3.value && evalForm.directly_interacts_with_product === true);
 
-// Live auto-classification — mirrors the backend _classify() logic exactly (DIGITALEUROPE I1/I3/I5/I6)
+// Live auto-classification — mirrors the backend _classify() logic exactly (criteria 1–4)
 const evalPreviewClassification = computed((): RemoteProcessingClassification => {
   if (evalForm.classification_override) return evalForm.classification_override;
-  if (evalForm.is_developed_by_manufacturer === false) return "third_party_component";      // I1 fails
+  if (evalForm.is_developed_by_manufacturer === false) return "third_party_component";      // criterion 1 fails
   if (evalForm.is_developed_by_manufacturer === null) return "not_assessed";
-  if (evalForm.is_necessary_for_product_function === false) return "out_of_scope";           // I3 fails
+  if (evalForm.is_necessary_for_product_function === false) return "out_of_scope";           // criterion 2 fails
   if (evalForm.is_necessary_for_product_function === null) return "not_assessed";
-  if (evalForm.directly_interacts_with_product === false) return "out_of_scope";             // I5 fails
+  if (evalForm.directly_interacts_with_product === false) return "out_of_scope";             // criterion 3 fails
   if (evalForm.directly_interacts_with_product === null) return "not_assessed";
-  if (evalForm.has_bidirectional_exchange === false) return "out_of_scope";                  // I6 fails
+  if (evalForm.has_bidirectional_exchange === false) return "out_of_scope";                  // criterion 4 fails
   if (evalForm.has_bidirectional_exchange === null) return "not_assessed";
   return "cra_art_3_2_in_scope";                                                             // all criteria met
 });
@@ -1627,7 +1639,7 @@ const evalPreviewDescription = computed((): string => {
   switch (evalPreviewClassification.value) {
     case "cra_art_3_2_in_scope":
       return (
-        "All four DIGITALEUROPE inclusion criteria are met — this is a CRA Art. 3(2) RDPS. " +
+        "All four inclusion criteria are met — this is a CRA Art. 3(2) RDPS. " +
         "Required actions: include in risk assessment (Art. 10); encrypt data flows (Annex I.I.2e); " +
         "cover in conformity assessment and technical documentation."
       );
@@ -1642,15 +1654,15 @@ const evalPreviewDescription = computed((): string => {
     case "out_of_scope":
       if (!evalForm.classification_override) {
         if (evalForm.is_necessary_for_product_function === false)
-          return "Criterion I3 not met — the product functions without this service. No CRA obligations. Document as an optional service; NIS2 may apply to the provider.";
+          return "Criterion 2 not met — the product functions without this service. No CRA obligations. Document as an optional service; NIS2 may apply to the provider.";
         if (evalForm.directly_interacts_with_product === false)
-          return "Criterion I5 not met — no direct interaction with the product. No CRA obligations. Track as backend infrastructure outside the product's CRA scope.";
+          return "Criterion 3 not met — no direct interaction with the product. No CRA obligations. Track as backend infrastructure outside the product's CRA scope.";
         if (evalForm.has_bidirectional_exchange === false)
-          return "Criterion I6 not met — data only flows in one direction. No CRA obligations. Track as a data sink (telemetry, logging, analytics).";
+          return "Criterion 4 not met — data only flows in one direction. No CRA obligations. Track as a data sink (telemetry, logging, analytics).";
       }
       return "This service is outside CRA scope. NIS2/DORA may apply to the provider if it is a cloud service.";
     case "requires_legal_assessment":
-      return "The answers indicate an edge case — consult legal counsel and review the DIGITALEUROPE CRA Art. 3(2) guidance before finalising this classification.";
+      return "The answers indicate an edge case — consult legal counsel and review the applicable CRA Art. 3(2) guidance before finalising this classification.";
     default:
       return "";
   }
@@ -1672,7 +1684,7 @@ function rpeTypeLabel(type: RemoteProcessingElementType): string {
 function rpeClassLabel(cls: RemoteProcessingClassification): string {
   const labels: Record<RemoteProcessingClassification, string> = {
     not_assessed:              "⚠ Not assessed",
-    cra_art_3_2_in_scope:      "✓ CRA Art. 3(2) in scope",
+    cra_art_3_2_in_scope:      "✓ In scope",
     third_party_component:     "⊕ Third-party",
     out_of_scope:              "— Out of scope",
     requires_legal_assessment: "⚖ Legal review",
@@ -1699,6 +1711,12 @@ async function loadRpe(): Promise<void> {
   }
 }
 
+// A remote processing element is locked once it has been evaluated (assessed_at is set).
+// Locked elements cannot be edited or re-evaluated — they must be deleted to start over.
+function isRpeLocked(el: RemoteProcessingElementRead): boolean {
+  return el.assessed_at != null;
+}
+
 function openRpeAdd(): void {
   rpeEditTarget.value = null;
   Object.assign(rpeForm, { name: "", description: "", provider_name: "", data_processed: "", geographic_location: "", criticality: "", element_type: null });
@@ -1706,6 +1724,8 @@ function openRpeAdd(): void {
 }
 
 function openRpeEdit(el: RemoteProcessingElementRead): void {
+  // Guard: locked (already-evaluated) elements are immutable.
+  if (isRpeLocked(el)) return;
   rpeEditTarget.value = el;
   Object.assign(rpeForm, {
     name: el.name,
@@ -1720,6 +1740,8 @@ function openRpeEdit(el: RemoteProcessingElementRead): void {
 }
 
 function openRpeEvaluate(el: RemoteProcessingElementRead): void {
+  // Guard: an element can only be evaluated once; re-evaluation is blocked after assessment.
+  if (isRpeLocked(el)) return;
   rpeEvalTarget.value = el;
   Object.assign(evalForm, {
     is_developed_by_manufacturer: el.is_developed_by_manufacturer ?? null,
@@ -4297,6 +4319,17 @@ textarea {
 .col-actions .btn,
 .col-actions button {
   margin-right: 0.25rem;
+}
+/* Evaluation provenance line shown under the classification badge once assessed */
+.rpe-assessed-meta {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+/* Lock indicator shown in the actions column for evaluated (immutable) elements */
+.rpe-locked-badge {
+  margin-right: 0.25rem;
+  font-size: 0.7rem;
 }
 
 /* ── Responsive breakpoints ────────────────────────── */
