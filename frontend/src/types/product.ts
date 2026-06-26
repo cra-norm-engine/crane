@@ -174,19 +174,21 @@ export interface RemoteProcessingElementRead extends RemoteProcessingElementSumm
   product_id: string;
   description: string;
   data_processed: string | null;
-  /** I1: Designed/developed by or on behalf of the manufacturer for this product. */
+  /** Criterion 1: Designed/developed by or on behalf of the manufacturer for this product. */
   is_developed_by_manufacturer: boolean | null;
-  /** I3: Necessary for the product to perform its functions. */
+  /** Criterion 2: Necessary for the product to perform its functions. */
   is_necessary_for_product_function: boolean | null;
-  /** I5: Directly interacts with the product itself. */
+  /** Criterion 3: Directly interacts with the product itself. */
   directly_interacts_with_product: boolean | null;
-  /** I6: Bidirectional data exchange — product sends, RDPS processes and returns. */
+  /** Criterion 4: Bidirectional data exchange — product sends, RDPS processes and returns. */
   has_bidirectional_exchange: boolean | null;
   /** Context: is the third-party provider already covered by NIS2 MSP rules? */
   provider_is_nis2_msp: boolean | null;
   classification_rationale: string | null;
   assessed_at: string | null;
   assessed_by_user_id: string | null;
+  /** Display name of the user who ran the evaluation (resolved from assessed_by). */
+  assessed_by_name: string | null;
 }
 
 export interface RemoteProcessingElementCreate {
@@ -211,13 +213,13 @@ export interface RemoteProcessingElementUpdate {
 }
 
 export interface RemoteProcessingAssessRequest {
-  /** I1: Designed/developed by or on behalf of the manufacturer for this product. */
+  /** Criterion 1: Designed/developed by or on behalf of the manufacturer for this product. */
   is_developed_by_manufacturer: boolean | null;
-  /** I3: Necessary for the product to perform its functions. */
+  /** Criterion 2: Necessary for the product to perform its functions. */
   is_necessary_for_product_function: boolean | null;
-  /** I5: Directly interacts with the product itself (not just with users). */
+  /** Criterion 3: Directly interacts with the product itself (not just with users). */
   directly_interacts_with_product: boolean | null;
-  /** I6: Bidirectional data exchange (product → RDPS processes → result returned). */
+  /** Criterion 4: Bidirectional data exchange (product → RDPS processes → result returned). */
   has_bidirectional_exchange: boolean | null;
   /** Context: is the provider covered by NIS2 as a Managed Service Provider? */
   provider_is_nis2_msp: boolean | null;
