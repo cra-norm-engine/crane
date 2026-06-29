@@ -29,8 +29,10 @@ from app.models.enums import (
     ReleaseGateItemCode,
     ReleaseGateWorkflowStatus,
     ReleaseStatus,
+    RequirementAssessmentStatus,
 )
 from app.models.product import ProductRelease
+from app.models.requirement_assessment import ReleaseRequirementAssessment
 from app.models.release_gate import (
     ReleaseGate,
     ReleaseGateEvidenceLink,
@@ -150,6 +152,20 @@ class ReleaseGateService:
                 "Resolve all exploitable findings (set VEX status to 'fixed' or 'not_affected') "
                 "before approving the release gate. "
                 f"Blocking issues: {release.kev_notes or 'see vulnerability reports'}"
+            )
+
+        # The Annex I requirement assessment must be formally approved (signed off)
+        # before the release gate can be approved.
+        assessment_status = self.db.scalar(
+            select(ReleaseRequirementAssessment.status).where(
+                ReleaseRequirementAssessment.product_release_id == product_release_id
+            )
+        )
+        if assessment_status != RequirementAssessmentStatus.approved:
+            raise ConflictException(
+                "Requirement assessment must be approved before the release gate can "
+                "be approved. Open the Annex I matrix for this release and approve the "
+                "assessment first."
             )
 
         gate.status = ReleaseGateWorkflowStatus.approved

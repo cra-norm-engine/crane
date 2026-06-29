@@ -79,6 +79,22 @@ class RequirementApplicabilityDecision(StrEnum):
     not_applicable = "not_applicable"
 
 
+class RequirementProgressStatus(StrEnum):
+    # Per-requirement implementation progress (one value per requirement/release).
+    # "validated" is the terminal state required to finalize an applicable
+    # requirement; it replaces the old per-trace "verified" concept.
+    planned = "planned"
+    implemented = "implemented"
+    validated = "validated"
+
+
+class RequirementAssessmentStatus(StrEnum):
+    # Lifecycle of a release's overall Annex I requirement assessment.
+    # "draft" also covers an approved assessment that was reopened for amendment.
+    draft = "draft"
+    approved = "approved"
+
+
 class SdlActivity(StrEnum):
     requirements = "requirements"
     design = "design"

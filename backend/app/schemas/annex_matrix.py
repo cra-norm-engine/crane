@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from app.models.enums import (
     RequirementApplicabilityDecision,
     RequirementImplementationStatus,
+    RequirementProgressStatus,
     SdlActivity,
 )
 from app.schemas.annex_requirement import AnnexRequirementRead
@@ -44,8 +45,16 @@ class ProductRequirementMatrixRowRead(BaseModel):
     overall_status: RequirementImplementationStatus | None = None
     applicability: str
     traceability_strength: str
+    # Per-requirement implementation progress (planned/implemented/validated).
+    implementation_status: RequirementProgressStatus
+    # True when the requirement is fully handled for this release (see finalize rule).
+    finalized: bool
 
 
 class ProductRequirementDecisionUpdate(BaseModel):
     applicability_decision: RequirementApplicabilityDecision
     rationale: str | None = None
+
+
+class RequirementImplementationStatusUpdate(BaseModel):
+    implementation_status: RequirementProgressStatus

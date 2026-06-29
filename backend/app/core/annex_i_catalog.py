@@ -151,11 +151,19 @@ ANNEX_I_REQUIREMENTS: Sequence[dict[str, str | AnnexPart]] = (
 )
 
 
-def sync_annex_i_requirements(db: Session) -> None:
+def sync_annex_i_requirements(db: Session) -> bool:
+    """Ensure the Annex I catalog rows exist and match the canonical definitions.
+
+    Idempotent: a row is only written when it is missing or its content has
+    actually drifted from the catalog. Returns True if any change was made, so
+    callers can decide whether a flush/commit is necessary. This avoids issuing
+    22 redundant UPDATEs on every read of the requirement matrix.
+    """
     existing_by_code = {
         requirement.code: requirement for requirement in db.query(AnnexRequirement).all()
     }
 
+    changed = False
     for item in ANNEX_I_REQUIREMENTS:
         code = item["code"]
         requirement = existing_by_code.get(code)
@@ -169,10 +177,22 @@ def sync_annex_i_requirements(db: Session) -> None:
                     is_active=True,
                 )
             )
+            changed = True
             continue
 
-        requirement.title = item["title"]
-        requirement.description = item["description"]
-        requirement.annex_part = item["annex_part"]
-        requirement.is_active = True
+        # Only touch the row when something genuinely differs — assigning equal
+        # values would still mark the instance dirty and trigger a needless UPDATE.
+        if (
+            requirement.title != item["title"]
+            or requirement.description != item["description"]
+            or requirement.annex_part != item["annex_part"]
+            or requirement.is_active is not True
+        ):
+            requirement.title = item["title"]
+            requirement.description = item["description"]
+            requirement.annex_part = item["annex_part"]
+            requirement.is_active = True
+            changed = True
+
+    return changed
 

@@ -8,6 +8,8 @@ import { apiClient } from "@/services/api";
 import type {
   ProductRequirementMatrixRowRead,
   ProductRequirementDecisionUpdate,
+  RequirementAssessmentRead,
+  RequirementImplementationStatusUpdate,
   RequirementMappingArtifactLinkRequest,
   RequirementMappingCreate,
   RequirementMappingRead,
@@ -66,6 +68,18 @@ export const requirementMappingService = {
     return data;
   },
 
+  /** Load a single matrix row, used to refresh just the affected requirement
+   *  after a trace-record mutation instead of reloading the whole matrix. */
+  async releaseRequirementRow(
+    releaseId: string,
+    annexRequirementId: string,
+  ): Promise<ProductRequirementMatrixRowRead> {
+    const { data } = await apiClient.get<ProductRequirementMatrixRowRead>(
+      `/product-releases/${releaseId}/requirement-matrix/${annexRequirementId}`,
+    );
+    return data;
+  },
+
   async attachArtifact(
     mappingId: string,
     payload: RequirementMappingArtifactLinkRequest,
@@ -87,15 +101,55 @@ export const requirementMappingService = {
     return data;
   },
 
-  /** Update the applicability decision for a requirement on a specific release. */
+  /** Get the release's requirement assessment status (for the approval banner). */
+  async getAssessment(releaseId: string): Promise<RequirementAssessmentRead> {
+    const { data } = await apiClient.get<RequirementAssessmentRead>(
+      `/product-releases/${releaseId}/requirement-assessment`,
+    );
+    return data;
+  },
+
+  /** Finalise (approve) the release's requirement assessment, locking the matrix. */
+  async approveAssessment(releaseId: string): Promise<RequirementAssessmentRead> {
+    const { data } = await apiClient.post<RequirementAssessmentRead>(
+      `/product-releases/${releaseId}/requirement-assessment/approve`,
+    );
+    return data;
+  },
+
+  /** Reopen an approved assessment for amendment (returns it to draft). */
+  async reopenAssessment(releaseId: string): Promise<RequirementAssessmentRead> {
+    const { data } = await apiClient.post<RequirementAssessmentRead>(
+      `/product-releases/${releaseId}/requirement-assessment/reopen`,
+    );
+    return data;
+  },
+
+  /** Update the applicability decision for a requirement on a specific release.
+   *  Returns the rebuilt matrix row so the caller can update state in place. */
   async updateReleaseRequirementDecision(
     releaseId: string,
     annexRequirementId: string,
     payload: ProductRequirementDecisionUpdate,
-  ): Promise<void> {
-    await apiClient.patch(
+  ): Promise<ProductRequirementMatrixRowRead> {
+    const { data } = await apiClient.patch<ProductRequirementMatrixRowRead>(
       `/product-releases/${releaseId}/requirement-matrix/${annexRequirementId}/decision`,
       payload,
     );
+    return data;
+  },
+
+  /** Update the per-requirement implementation status for a release.
+   *  Returns the rebuilt matrix row for in-place state updates. */
+  async updateReleaseRequirementStatus(
+    releaseId: string,
+    annexRequirementId: string,
+    payload: RequirementImplementationStatusUpdate,
+  ): Promise<ProductRequirementMatrixRowRead> {
+    const { data } = await apiClient.patch<ProductRequirementMatrixRowRead>(
+      `/product-releases/${releaseId}/requirement-matrix/${annexRequirementId}/status`,
+      payload,
+    );
+    return data;
   },
 };
