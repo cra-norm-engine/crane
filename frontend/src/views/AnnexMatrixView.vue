@@ -83,7 +83,7 @@
           <p class="muted">
             v{{ selectedRelease?.display_version }} ·
             {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
-            {{ stats.verified }} verified · {{ stats.needsDecision }} need decision
+            {{ stats.finalized }} finalized · {{ stats.notFinalized }} remaining
           </p>
         </div>
         <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
@@ -91,13 +91,72 @@
         </span>
       </div>
 
+      <!-- ── Assessment approval banner ───────────────────────── -->
+      <div
+        v-if="assessment"
+        class="assessment-banner"
+        :class="assessment.is_locked ? 'assessment-banner--approved' : 'assessment-banner--draft'"
+      >
+        <div class="assessment-banner-info">
+          <span class="badge" :class="assessment.is_locked ? 'badge-success' : 'badge-neutral'">
+            {{ assessment.is_locked ? `🔒 Approved · v${assessment.version}` : "Draft" }}
+          </span>
+          <span v-if="assessment.is_locked" class="assessment-meta">
+            Approved by <strong>{{ assessment.approved_by_name || "—" }}</strong>
+            <template v-if="assessment.approved_at"> on {{ formatDateTime(assessment.approved_at) }}</template>
+          </span>
+          <span v-else class="assessment-meta">
+            Finalise the assessment to lock it and allow the release gate to be approved.
+          </span>
+          <span
+            v-if="!assessment.is_locked && assessment.unfinalized_codes.length"
+            class="assessment-warn"
+          >
+            {{ assessment.unfinalized_codes.length }} requirement(s) not yet finalized.
+          </span>
+        </div>
+        <div class="assessment-banner-actions">
+          <AppButton
+            v-if="!assessment.is_locked"
+            variant="primary"
+            size="sm"
+            :disabled="!assessment.can_approve || assessmentBusy"
+            :title="approveButtonTitle"
+            @click="approveAssessment"
+          >
+            {{ assessmentBusy ? "Approving…" : "Approve assessment" }}
+          </AppButton>
+          <AppButton
+            v-else
+            variant="secondary"
+            size="sm"
+            :disabled="assessmentBusy"
+            title="Reopen for amendment (creates a new version on re-approval)"
+            @click="reopenAssessment"
+          >
+            {{ assessmentBusy ? "Reopening…" : "Amend" }}
+          </AppButton>
+        </div>
+      </div>
+
       <!-- Coverage bar -->
       <div class="release-coverage-bar">
         <div class="coverage-numbers">
-          <strong>{{ stats.verified }}</strong> / {{ filteredRows.length }} requirements verified
+          <strong>{{ stats.finalized }}</strong> / {{ filteredRows.length }} requirements finalized
           <span class="coverage-pct" :class="coveragePct >= 80 ? 'pct-good' : coveragePct >= 40 ? 'pct-partial' : 'pct-low'">
             {{ coveragePct }}%
           </span>
+          <button
+            v-if="stats.notFinalized > 0"
+            type="button"
+            class="needs-decision-chip"
+            :class="{ active: filters.finalization === 'not_finalized' }"
+            :title="filters.finalization === 'not_finalized' ? 'Show all requirements' : 'Show only requirements that are not finalized'"
+            @click="toggleNotFinalizedFilter"
+          >
+            <span class="pill-dot" aria-hidden="true" />
+            {{ stats.notFinalized }} not finalized
+          </button>
         </div>
         <div class="progress-track">
           <div
@@ -130,7 +189,10 @@
           <button
             class="matrix-row"
             type="button"
-            :class="{ active: selectedRequirementId === row.annex_requirement.id }"
+            :class="{
+              active: selectedRequirementId === row.annex_requirement.id,
+              'needs-decision': row.applicability === 'needs_decision',
+            }"
             @click="openDetail(row)"
           >
             <!-- Code + title -->
@@ -141,18 +203,28 @@
 
             <!-- Pills + expand button -->
             <div class="row-right">
-              <span class="meta-pill" :class="`app-${row.applicability}`">
+              <span
+                class="meta-pill applicability-pill"
+                :class="`app-${row.applicability}`"
+              >
+                <span v-if="row.applicability === 'needs_decision'" class="pill-dot" aria-hidden="true" />
                 {{ formatApplicability(row.applicability) }}
               </span>
               <span
+                v-if="row.applicability === 'applicable'"
                 class="meta-pill"
-                :class="row.overall_status ? `status-${row.overall_status}` : 'status-empty'"
+                :class="`progress-${row.implementation_status}`"
               >
-                {{ row.overall_status ? formatLabel(row.overall_status) : "Unmapped" }}
+                {{ formatLabel(row.implementation_status) }}
               </span>
-              <span class="mini-stat">{{ row.risk_items.length }} risks</span>
+              <span
+                class="meta-pill"
+                :class="row.finalized ? 'finalized-pill' : 'unfinalized-pill'"
+              >
+                {{ row.finalized ? "✓ Finalized" : "In progress" }}
+              </span>
+              <span class="mini-stat">{{ rowRiskCount(row) }} risks</span>
               <span class="mini-stat">{{ row.artifacts.length }} artifacts</span>
-              <span class="mini-stat">{{ row.trace_records.length }} traces</span>
 
               <!-- Expand-description toggle (does not open modal) -->
               <span
@@ -258,319 +330,362 @@
     >
       <div class="detail-modal-body">
 
-        <!-- Description -->
-        <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
+        <!-- Locked notice -->
+        <div v-if="isLocked" class="alert info detail-lock-note" role="status">
+          🔒 This assessment is approved (v{{ assessment?.version }}) and read-only.
+          Use <strong>Amend</strong> on the matrix to make changes.
+        </div>
 
-        <!-- Summary bar -->
-        <div class="summary-bar">
+        <!-- Compact status header -->
+        <div class="detail-status-head">
           <span class="meta-pill" :class="`app-${selectedRow.applicability}`">
             {{ formatApplicability(selectedRow.applicability) }}
           </span>
           <span
+            v-if="selectedRow.applicability === 'applicable'"
             class="meta-pill"
-            :class="selectedRow.overall_status ? `status-${selectedRow.overall_status}` : 'status-empty'"
+            :class="`progress-${selectedRow.implementation_status}`"
           >
-            {{ selectedRow.overall_status ? formatLabel(selectedRow.overall_status) : "Unmapped" }}
+            {{ formatLabel(selectedRow.implementation_status) }}
           </span>
-          <span class="mini-stat">Decision: {{ formatApplicabilityDecision(selectedRow.applicability_decision) }}</span>
-          <span class="mini-stat">{{ formatTraceability(selectedRow.traceability_strength) }}</span>
-          <span class="mini-stat">{{ selectedRow.risk_items.length }} risk links</span>
-          <span class="mini-stat">{{ selectedRow.artifacts.length }} artifacts</span>
+          <span
+            class="meta-pill"
+            :class="selectedRow.finalized ? 'finalized-pill' : 'unfinalized-pill'"
+          >
+            {{ selectedRow.finalized ? "✓ Finalized" : "In progress" }}
+          </span>
         </div>
 
-        <!-- Applicability decision form -->
-        <section class="detail-section">
-          <div class="section-heading tight">
-            <div>
-              <h3 class="section-title">Applicability decision</h3>
-              <p class="muted">Decide explicitly whether this requirement applies to the selected product.</p>
+        <!-- Tab strip -->
+        <div class="detail-tabs" role="tablist">
+          <button
+            v-for="tab in detailTabs"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            class="detail-tab"
+            :class="{ active: activeTab === tab.id }"
+            :aria-selected="activeTab === tab.id"
+            @click="activeTab = tab.id"
+          >
+            {{ tab.label }}
+            <span v-if="tab.count !== undefined" class="detail-tab-count">{{ tab.count }}</span>
+          </button>
+        </div>
+
+        <!-- ── TAB 1: Applicability assessment ───────────────── -->
+        <div v-show="activeTab === 'applicability'" class="detail-tab-panel" role="tabpanel">
+          <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
+
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3 class="section-title">Applicability decision</h3>
+                <p class="muted">Decide explicitly whether this requirement applies to the selected product.</p>
+              </div>
             </div>
-          </div>
-          <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
-            <label class="field">
-              <span>Decision</span>
-              <select v-model="applicabilityForm.applicability_decision" class="select">
-                <option v-for="option in applicabilityDecisions" :key="option" :value="option">
-                  {{ formatApplicabilityDecision(option) }}
-                </option>
-              </select>
-            </label>
+            <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
+              <label class="field">
+                <span>Decision</span>
+                <select v-model="applicabilityForm.applicability_decision" class="select" :disabled="isLocked">
+                  <option v-for="option in applicabilityDecisions" :key="option" :value="option">
+                    {{ formatApplicabilityDecision(option) }}
+                  </option>
+                </select>
+              </label>
 
-            <label class="field field-full">
-              <span>Rationale</span>
-              <textarea
-                v-model.trim="applicabilityForm.rationale"
-                class="textarea"
-                rows="3"
-                placeholder="Explain why this requirement applies or why it is not applicable for this product."
-              />
-            </label>
+              <label class="field field-full">
+                <span>Rationale</span>
+                <textarea
+                  v-model.trim="applicabilityForm.rationale"
+                  class="textarea"
+                  rows="3"
+                  :disabled="isLocked"
+                  placeholder="Explain why this requirement applies or why it is not applicable for this product."
+                />
+              </label>
 
-            <div class="editor-actions">
-              <AppButton variant="primary" type="submit" :disabled="busy">
-                {{ busy ? "Saving..." : "Save decision" }}
+              <div v-if="!isLocked" class="editor-actions">
+                <AppButton variant="primary" type="submit" :disabled="busy">
+                  {{ busy ? "Saving..." : "Save decision" }}
+                </AppButton>
+              </div>
+            </form>
+          </section>
+        </div>
+
+        <!-- ── TAB 2: Justification by risk ──────────────────── -->
+        <div v-show="activeTab === 'risk'" class="detail-tab-panel" role="tabpanel">
+          <section class="trace-section">
+            <div class="section-heading tight">
+              <div>
+                <h3 class="section-title">Justification by risk</h3>
+                <p class="muted">
+                  Link the risk item(s) this requirement addresses and justify how — this is the
+                  traceability record and the basis of the compliance report.
+                </p>
+              </div>
+              <AppButton v-if="!isLocked" variant="secondary" type="button" @click="startCreateTrace">
+                New justification
               </AppButton>
             </div>
-          </form>
-        </section>
 
-        <!-- Linked risks -->
-        <section class="detail-section">
-          <div class="section-heading tight">
-            <h3 class="section-title">Linked risks</h3>
-          </div>
-          <div v-if="selectedRow.risk_items.length === 0" class="state-block compact">
-            <p class="muted">No risk items linked yet.</p>
-          </div>
-          <div v-else class="compact-list">
-            <article v-for="risk in selectedRow.risk_items" :key="risk.id" class="compact-item">
-              <strong>{{ risk.title }}</strong>
-              <span class="muted">{{ formatLabel(risk.risk_level) }} · {{ formatLabel(risk.status) }}</span>
-            </article>
-          </div>
-        </section>
+            <!-- Report-style summary of all risk justifications -->
+            <div v-if="rowRisks(selectedRow).length" class="risk-trace-list risk-summary">
+              <article v-for="risk in rowRisks(selectedRow)" :key="`sum-${risk.id}`" class="risk-trace-card">
+                <div class="risk-trace-head">
+                  <strong>{{ risk.title }}</strong>
+                  <span class="badge" :class="riskLevelBadge(risk.risk_level)">
+                    {{ formatLabel(risk.risk_level) }}
+                  </span>
+                </div>
+                <div class="risk-trace-meta">
+                  <span class="mini-stat">Status: {{ formatLabel(risk.status) }}</span>
+                  <span v-if="risk.residual_risk_level" class="mini-stat">
+                    Residual: {{ formatLabel(risk.residual_risk_level) }}
+                  </span>
+                </div>
+                <ul class="risk-trace-vias">
+                  <li
+                    v-for="trace in tracesForRisk(selectedRow, risk.id)"
+                    :key="trace.id"
+                    class="risk-trace-via"
+                  >
+                    <template v-if="trace.evidence_summary">{{ trace.evidence_summary }}</template>
+                    <em v-else class="muted">No justification note</em>
+                  </li>
+                </ul>
+              </article>
+            </div>
 
-        <!-- Linked artifacts -->
-        <section class="detail-section">
-          <div class="section-heading tight">
-            <h3 class="section-title">Linked artifacts</h3>
-          </div>
-          <div v-if="selectedRow.artifacts.length === 0" class="state-block compact">
-            <p class="muted">No artifacts linked yet.</p>
-          </div>
-          <div v-else class="compact-list">
-            <article
-              v-for="artifact in selectedRow.artifacts"
-              :key="artifact.id"
-              class="compact-item compact-item-actions"
+            <div
+              v-if="!selectedRow.artifact_traceability_available"
+              class="alert warning"
+              role="status"
             >
-              <div class="artifact-info">
-                <strong>{{ artifact.title }}</strong>
-                <span class="muted">{{ formatLabel(artifact.artifact_type) }}</span>
-              </div>
-              <div class="artifact-actions-inline">
-                <AppButton
-                  v-if="artifact.latest_revision?.storage_path"
-                  variant="secondary"
-                  size="sm"
-                  @click="downloadArtifact(artifact)"
-                >
-                  Download
-                </AppButton>
-                <a
-                  v-else-if="artifact.latest_revision?.external_url"
-                  class="button secondary small-button link-button"
-                  :href="artifact.latest_revision.external_url"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open
-                </a>
-              </div>
-            </article>
-          </div>
-        </section>
+              Artifact linking is temporarily unavailable because the database migration for
+              requirement-to-artifact links has not been applied yet. The matrix still works for
+              risk-based trace records and justification notes.
+            </div>
 
-        <!-- Trace records -->
-        <section class="trace-section">
-          <div class="section-heading tight">
-            <div>
-              <h3 class="section-title">
-                Trace records
-                <span v-if="selectedReleaseId" class="release-scope-tag">
-                  — v{{ selectedRelease?.display_version }} only
-                </span>
-              </h3>
+            <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
+              <h4>No risk justification yet</h4>
               <p class="muted">
-                <template v-if="selectedReleaseId">
-                  Showing only records linked to risk items from this release's assessments.
-                  <button class="link-btn" type="button" @click="selectedReleaseId = ''">Show all</button>
-                </template>
-                <template v-else>
-                  One requirement can map to multiple risk items, justifications, and artifacts.
-                </template>
+                Link the risk(s) this requirement addresses and justify how. A risk justification
+                is required to finalize the requirement — even when it is not applicable.
               </p>
             </div>
-            <AppButton variant="secondary" type="button" @click="startCreateTrace">
-              New trace record
-            </AppButton>
-          </div>
 
-          <div
-            v-if="!selectedRow.artifact_traceability_available"
-            class="alert warning"
-            role="status"
-          >
-            Artifact linking is temporarily unavailable because the database migration for
-            requirement-to-artifact links has not been applied yet. The matrix still works for
-            risk-based trace records and justification notes.
-          </div>
+            <div v-else class="section-heading tight detail-subhead">
+              <h4 class="section-title">Justification records</h4>
+            </div>
+            <div v-if="selectedRow.trace_records.length" class="trace-list">
+              <article
+                v-for="trace in selectedRow.trace_records"
+                :key="trace.id"
+                class="trace-card"
+                :class="{ selected: selectedTraceId === trace.id }"
+              >
+                <button class="trace-top" type="button" :disabled="isLocked" @click="editTrace(trace)">
+                  <div>
+                    <strong>{{ trace.risk_item?.title || "Direct requirement rationale" }}</strong>
+                    <p class="trace-subline">
+                      {{ formatLabel(trace.sdl_activity) }}
+                      <span v-if="trace.engineering_requirement_ref">
+                        · {{ trace.engineering_requirement_ref }}
+                      </span>
+                    </p>
+                  </div>
+                </button>
 
-          <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
-            <h4>No trace record yet</h4>
-            <p class="muted">
-              Create a trace record to show fulfillment or justify why this requirement is not
-              applicable for the selected release.
-            </p>
-          </div>
+                <p v-if="trace.evidence_summary" class="trace-notes">{{ trace.evidence_summary }}</p>
 
-          <div v-else class="trace-list">
-            <article
-              v-for="trace in selectedRow.trace_records"
-              :key="trace.id"
-              class="trace-card"
-              :class="{ selected: selectedTraceId === trace.id }"
-            >
-              <button class="trace-top" type="button" @click="editTrace(trace)">
+                <div class="artifact-strip">
+                  <article
+                    v-for="artifact in trace.artifacts"
+                    :key="artifact.id"
+                    class="artifact-card"
+                  >
+                    <div class="artifact-info">
+                      <strong>{{ artifact.title }}</strong>
+                      <small>{{ formatLabel(artifact.artifact_type) }}</small>
+                    </div>
+                    <div class="artifact-actions-inline">
+                      <AppButton
+                        v-if="artifact.latest_revision?.storage_path"
+                        variant="secondary"
+                        size="sm"
+                        @click="downloadArtifact(artifact)"
+                      >
+                        Download
+                      </AppButton>
+                      <a
+                        v-else-if="artifact.latest_revision?.external_url"
+                        class="button secondary small-button link-button"
+                        :href="artifact.latest_revision.external_url"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open
+                      </a>
+                    </div>
+                  </article>
+                </div>
+
+                <div v-if="!isLocked" class="trace-actions">
+                  <AppButton variant="secondary" :disabled="busy" @click="editTrace(trace)">
+                    Edit
+                  </AppButton>
+                  <AppButton variant="danger" :disabled="busy" @click="removeTrace(trace.id)">
+                    Delete
+                  </AppButton>
+                </div>
+              </article>
+            </div>
+
+            <!-- Risk justification editor (hidden when locked) -->
+            <section v-if="!isLocked" class="editor-card">
+              <div class="section-heading tight">
                 <div>
-                  <strong>{{ trace.risk_item?.title || "Direct requirement rationale" }}</strong>
-                  <p class="trace-subline">
-                    {{ formatLabel(trace.implementation_status) }} ·
-                    {{ formatLabel(trace.sdl_activity) }}
-                    <span v-if="trace.engineering_requirement_ref">
-                      · {{ trace.engineering_requirement_ref }}
-                    </span>
+                  <h3 class="section-title">{{ editingExisting ? "Edit justification" : "New risk justification" }}</h3>
+                  <p class="muted">
+                    Pick the risk this requirement addresses and explain how it is addressed (or,
+                    for a non-applicable requirement, why the risk does not apply).
                   </p>
                 </div>
-              </button>
-
-              <p v-if="trace.evidence_summary" class="trace-notes">{{ trace.evidence_summary }}</p>
-
-              <div class="artifact-strip">
-                <article
-                  v-for="artifact in trace.artifacts"
-                  :key="artifact.id"
-                  class="artifact-card"
-                >
-                  <div class="artifact-info">
-                    <strong>{{ artifact.title }}</strong>
-                    <small>{{ formatLabel(artifact.artifact_type) }}</small>
-                  </div>
-                  <div class="artifact-actions-inline">
-                    <AppButton
-                      v-if="artifact.latest_revision?.storage_path"
-                      variant="secondary"
-                      size="sm"
-                      @click="downloadArtifact(artifact)"
-                    >
-                      Download
-                    </AppButton>
-                    <a
-                      v-else-if="artifact.latest_revision?.external_url"
-                      class="button secondary small-button link-button"
-                      :href="artifact.latest_revision.external_url"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open
-                    </a>
-                  </div>
-                </article>
               </div>
 
-              <div class="trace-actions">
-                <AppButton
-                  variant="secondary"
-                  :disabled="busy"
-                  @click="editTrace(trace)"
-                >
-                  Edit
-                </AppButton>
-                <AppButton
-                  variant="danger"
-                  :disabled="busy"
-                  @click="removeTrace(trace.id)"
-                >
-                  Delete
-                </AppButton>
-              </div>
-            </article>
-          </div>
-        </section>
+              <form class="editor-grid" @submit.prevent="saveTrace">
+                <label class="field">
+                  <span>Risk item <span class="field-hint">(required)</span></span>
+                  <select v-model="traceForm.risk_item_id" class="select" required>
+                    <option value="">Select a risk item…</option>
+                    <option v-for="risk in productRiskItems" :key="risk.id" :value="risk.id">
+                      {{ risk.title }} · {{ formatLabel(risk.risk_level) }}
+                    </option>
+                  </select>
+                </label>
 
-        <!-- Trace record editor -->
-        <section class="editor-card">
-          <div class="section-heading tight">
-            <div>
-              <h3 class="section-title">{{ editingExisting ? "Edit trace record" : "Create trace record" }}</h3>
-              <p class="muted">
-                Use notes to record implementation rationale or not-applicable justification.
-              </p>
+                <label class="field">
+                  <span>SDL activity</span>
+                  <select v-model="traceForm.sdl_activity" class="select">
+                    <option v-for="activity in sdlActivities" :key="activity" :value="activity">
+                      {{ formatLabel(activity) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Engineering reference <span class="field-hint">(optional)</span></span>
+                  <input
+                    v-model.trim="traceForm.engineering_requirement_ref"
+                    class="input"
+                    type="text"
+                    placeholder="e.g. ENG-SEC-014"
+                  />
+                </label>
+
+                <label class="field field-full">
+                  <span>Justification</span>
+                  <textarea
+                    v-model.trim="traceForm.evidence_summary"
+                    class="textarea"
+                    rows="4"
+                    placeholder="Explain how this requirement addresses the selected risk, or why the risk is not applicable."
+                  />
+                </label>
+
+                <div class="editor-actions">
+                  <AppButton variant="primary" type="submit" :disabled="busy || !selectedRow || !traceForm.risk_item_id">
+                    {{ busy ? "Saving..." : editingExisting ? "Save changes" : "Add justification" }}
+                  </AppButton>
+                  <AppButton variant="secondary" type="button" :disabled="busy" @click="resetEditor">
+                    Clear editor
+                  </AppButton>
+                </div>
+              </form>
+            </section>
+          </section>
+        </div>
+
+        <!-- ── TAB 3: Linked artifacts ───────────────────────── -->
+        <div v-show="activeTab === 'artifacts'" class="detail-tab-panel" role="tabpanel">
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3 class="section-title">Linked artifacts</h3>
+                <p class="muted">
+                  Evidence artifacts attached to this requirement. Applicable requirements need at
+                  least one linked artifact to be finalized.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <form class="editor-grid" @submit.prevent="saveTrace">
-            <label class="field">
-              <span>Risk item <span class="field-hint">(optional)</span></span>
-              <select v-model="traceForm.risk_item_id" class="select">
-                <option value="">No risk item linked</option>
-                <option v-for="risk in productRiskItems" :key="risk.id" :value="risk.id">
-                  {{ risk.title }} · {{ formatLabel(risk.risk_level) }}
-                </option>
-              </select>
-            </label>
+            <!-- Currently linked artifacts -->
+            <div v-if="selectedRow.artifacts.length === 0" class="state-block compact">
+              <p class="muted">No artifacts linked yet. Select one or more below.</p>
+            </div>
+            <div v-else class="compact-list">
+              <article
+                v-for="artifact in selectedRow.artifacts"
+                :key="artifact.id"
+                class="compact-item compact-item-actions"
+              >
+                <div class="artifact-info">
+                  <strong>{{ artifact.title }}</strong>
+                  <span class="muted">{{ formatLabel(artifact.artifact_type) }}</span>
+                </div>
+                <div class="artifact-actions-inline">
+                  <AppButton
+                    v-if="artifact.latest_revision?.storage_path"
+                    variant="secondary"
+                    size="sm"
+                    @click="downloadArtifact(artifact)"
+                  >
+                    Download
+                  </AppButton>
+                  <a
+                    v-else-if="artifact.latest_revision?.external_url"
+                    class="button secondary small-button link-button"
+                    :href="artifact.latest_revision.external_url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open
+                  </a>
+                </div>
+              </article>
+            </div>
 
-            <label class="field">
-              <span>Implementation status</span>
-              <select v-model="traceForm.implementation_status" class="select">
-                <option v-for="status in implementationStatuses" :key="status" :value="status">
-                  {{ formatLabel(status) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>SDL activity</span>
-              <select v-model="traceForm.sdl_activity" class="select">
-                <option v-for="activity in sdlActivities" :key="activity" :value="activity">
-                  {{ formatLabel(activity) }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Engineering reference</span>
-              <input
-                v-model.trim="traceForm.engineering_requirement_ref"
-                class="input"
-                type="text"
-                placeholder="e.g. ENG-SEC-014"
-              />
-            </label>
-
-            <label class="field field-full">
-              <span>Traceability notes / justification</span>
-              <textarea
-                v-model.trim="traceForm.evidence_summary"
-                class="textarea"
-                rows="5"
-                placeholder="Explain how this requirement is fulfilled, or justify why it is not applicable based on risk."
-              />
-            </label>
-
-            <div class="field field-full">
-              <span>Supporting artifacts</span>
+            <!-- Artifact selector (manage links here) -->
+            <div v-if="!isLocked" class="artifact-link-editor">
+              <div class="section-heading tight detail-subhead">
+                <h4 class="section-title">Select artifacts</h4>
+              </div>
               <div
                 v-if="!selectedRow.artifact_traceability_available"
                 class="artifact-selection-note"
               >
-                Apply the latest migration to select artifacts directly from the trace editor.
+                Artifact linking is unavailable until the latest database migration is applied.
+              </div>
+              <div v-else-if="selectedRow.applicability === 'needs_decision'" class="artifact-selection-note">
+                Decide applicability first (Applicability tab) before linking artifacts.
               </div>
               <div v-else-if="productArtifacts.length === 0" class="artifact-selection-note">
-                No product artifacts found yet. Attach artifacts in the release workflow first.
+                No product artifacts found yet. Upload artifacts in the release workflow first.
               </div>
               <div v-else class="artifact-selector-grid">
                 <label
                   v-for="artifact in productArtifacts"
-                  :key="`editor-${artifact.id}`"
+                  :key="`link-${artifact.id}`"
                   class="artifact-option"
-                  :class="{ selected: traceForm.artifact_ids.includes(artifact.id) }"
+                  :class="{ selected: isArtifactLinked(artifact.id) }"
                 >
                   <input
                     type="checkbox"
-                    :checked="traceForm.artifact_ids.includes(artifact.id)"
+                    :checked="isArtifactLinked(artifact.id)"
                     :disabled="busy"
-                    @change="toggleTraceArtifact(artifact.id)"
+                    @change="toggleRequirementArtifact(artifact.id)"
                   />
                   <div class="artifact-option-copy">
                     <strong>{{ artifact.title }}</strong>
@@ -579,17 +694,76 @@
                 </label>
               </div>
             </div>
+          </section>
+        </div>
 
-            <div class="editor-actions">
-              <AppButton variant="primary" type="submit" :disabled="busy || !selectedRow">
-                {{ busy ? "Saving..." : editingExisting ? "Save changes" : "Create trace record" }}
-              </AppButton>
-              <AppButton variant="secondary" type="button" :disabled="busy" @click="resetEditor">
-                Clear editor
-              </AppButton>
+        <!-- ── TAB 4: Implementation status ──────────────────── -->
+        <div v-show="activeTab === 'implementation'" class="detail-tab-panel" role="tabpanel">
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div>
+                <h3 class="section-title">Implementation status</h3>
+                <p class="muted">
+                  Track delivery of this requirement. An applicable requirement must reach
+                  <strong>Validated</strong> (with a risk justification and a linked artifact) to be
+                  finalized. Not-applicable requirements do not need an implementation status.
+                </p>
+              </div>
             </div>
-          </form>
-        </section>
+
+            <div v-if="selectedRow.applicability === 'not_applicable'" class="state-block compact">
+              <p class="muted">
+                This requirement is marked <strong>Not applicable</strong> — no implementation is
+                required. It is finalized once a risk justification is recorded.
+              </p>
+            </div>
+
+            <template v-else>
+              <div class="impl-status-picker">
+                <button
+                  v-for="opt in progressStatuses"
+                  :key="opt"
+                  type="button"
+                  class="impl-status-option"
+                  :class="{ active: selectedRow.implementation_status === opt }"
+                  :disabled="isLocked || busy || selectedRow.applicability === 'needs_decision'"
+                  @click="setImplementationStatus(opt)"
+                >
+                  <span class="impl-status-dot" :class="`progress-dot-${opt}`" />
+                  {{ formatLabel(opt) }}
+                </button>
+              </div>
+
+              <p v-if="selectedRow.applicability === 'needs_decision'" class="assessment-warn">
+                Decide applicability first (Applicability assessment tab).
+              </p>
+
+              <!-- Finalization checklist for applicable requirements -->
+              <ul class="finalize-checklist">
+                <li :class="{ done: selectedRow.applicability !== 'needs_decision' }">
+                  <span class="check-mark">{{ selectedRow.applicability !== 'needs_decision' ? '✓' : '○' }}</span>
+                  Applicability decided
+                </li>
+                <li :class="{ done: rowRisks(selectedRow).length > 0 }">
+                  <span class="check-mark">{{ rowRisks(selectedRow).length > 0 ? '✓' : '○' }}</span>
+                  At least one risk justification
+                </li>
+                <li :class="{ done: selectedRow.artifacts.length > 0 }">
+                  <span class="check-mark">{{ selectedRow.artifacts.length > 0 ? '✓' : '○' }}</span>
+                  At least one linked artifact
+                </li>
+                <li :class="{ done: selectedRow.implementation_status === 'validated' }">
+                  <span class="check-mark">{{ selectedRow.implementation_status === 'validated' ? '✓' : '○' }}</span>
+                  Implementation validated
+                </li>
+              </ul>
+            </template>
+
+            <div class="finalize-banner" :class="selectedRow.finalized ? 'is-final' : 'not-final'">
+              {{ selectedRow.finalized ? "✓ This requirement is finalized." : "Not finalized yet." }}
+            </div>
+          </section>
+        </div>
 
       </div>
     </AppModal>
@@ -616,7 +790,9 @@ import type {
   ProductRequirementDecisionUpdate,
   ProductRequirementMatrixRowRead,
   RequirementApplicabilityDecision,
+  RequirementAssessmentRead,
   RequirementImplementationStatus,
+  RequirementProgressStatus,
   RequirementMappingCreate,
   RequirementMappingMatrixRead,
   RequirementMappingUpdate,
@@ -630,6 +806,23 @@ const loading = ref(false);
 const busy = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+
+// Release-level requirement assessment approval state.
+const assessment = ref<RequirementAssessmentRead | null>(null);
+const assessmentBusy = ref(false);
+// Convenience: is the matrix locked (assessment approved) → forms become read-only.
+const isLocked = computed(() => assessment.value?.is_locked === true);
+
+// Tooltip explaining why the Approve button is enabled/disabled.
+const approveButtonTitle = computed(() => {
+  const a = assessment.value;
+  if (!a) return "";
+  if (a.can_approve) return "Approve and lock this assessment";
+  if (a.unfinalized_codes.length) {
+    return `Finalize all requirements first — ${a.unfinalized_codes.length} remaining`;
+  }
+  return "Finalize all requirements first";
+});
 
 const products = ref<ProductSummaryRead[]>([]);
 const matrixRows = ref<ProductRequirementMatrixRowRead[]>([]);
@@ -649,6 +842,10 @@ const productReleases = ref<ProductReleaseRead[]>([]);
 const showFilterModal = ref(false);
 const showDetailModal = ref(false);
 
+/* ── Detail modal tabs ────────────────────────────── */
+type DetailTabId = "applicability" | "risk" | "artifacts" | "implementation";
+const activeTab = ref<DetailTabId>("applicability");
+
 /* ── Expanded description rows ────────────────────── */
 const expandedRowIds = ref(new Set<string>());
 
@@ -656,6 +853,8 @@ const filters = reactive({
   annexPart: "" as AnnexPart | "",
   /* "unmapped" is a UI-only sentinel for rows with no trace record */
   status: "" as RequirementImplementationStatus | "unmapped" | "",
+  /* quick filter for the "not finalized" chip */
+  finalization: "" as "not_finalized" | "",
   search: "",
 });
 
@@ -666,7 +865,6 @@ const traceForm = reactive({
   sdl_activity: "requirements" as SdlActivity,
   engineering_requirement_ref: "",
   evidence_summary: "",
-  artifact_ids: [] as string[],
 });
 
 const applicabilityForm = reactive({
@@ -681,6 +879,9 @@ const implementationStatuses: RequirementImplementationStatus[] = [
   "verified",
   "not_applicable",
 ];
+
+// Per-requirement implementation progress (the new model).
+const progressStatuses: RequirementProgressStatus[] = ["planned", "implemented", "validated"];
 
 const applicabilityDecisions: RequirementApplicabilityDecision[] = [
   "undecided",
@@ -729,6 +930,9 @@ const filteredRows = computed(() => {
       } else if (filters.status && row.overall_status !== filters.status) {
         return false;
       }
+      if (filters.finalization === "not_finalized" && row.finalized) {
+        return false;
+      }
       if (!term) return true;
 
       const haystack = [
@@ -756,10 +960,31 @@ const selectedRow = computed(
 
 const editingExisting = computed(() => Boolean(traceForm.id));
 
+// Tabs for the requirement detail modal, with live counts on the relevant ones.
+const detailTabs = computed(() => {
+  const row = selectedRow.value;
+  return [
+    { id: "applicability" as DetailTabId, label: "Applicability", count: undefined as number | undefined },
+    {
+      id: "risk" as DetailTabId,
+      label: "Justification by risk",
+      count: row ? rowRiskCount(row) : 0,
+    },
+    {
+      id: "artifacts" as DetailTabId,
+      label: "Linked artifacts",
+      count: row?.artifacts.length ?? 0,
+    },
+    { id: "implementation" as DetailTabId, label: "Implementation", count: undefined as number | undefined },
+  ];
+});
+
 const stats = computed(() => ({
-  verified: filteredRows.value.filter((row: ProductRequirementMatrixRowRead) => row.overall_status === "verified").length,
-  needsDecision: filteredRows.value.filter((row: ProductRequirementMatrixRowRead) => row.applicability === "needs_decision").length,
-  traceGaps: filteredRows.value.filter((row: ProductRequirementMatrixRowRead) => row.traceability_strength !== "complete").length,
+  finalized: filteredRows.value.filter((row: ProductRequirementMatrixRowRead) => row.finalized).length,
+  // Count from the full set so the "not finalized" chip always reflects the true
+  // total even while the chip's own filter is active.
+  notFinalized: matrixRows.value.filter((row: ProductRequirementMatrixRowRead) => !row.finalized).length,
+  needsDecision: matrixRows.value.filter((row: ProductRequirementMatrixRowRead) => row.applicability === "needs_decision").length,
 }));
 
 /** Number of active non-empty filters — shown as a badge on the Filter button. */
@@ -767,23 +992,64 @@ const activeFilterCount = computed(() => {
   let count = 0;
   if (filters.annexPart) count++;
   if (filters.status) count++;
+  if (filters.finalization) count++;
   if (filters.search) count++;
   return count;
 });
+
+/** Toggle the "not finalized" quick filter from the coverage chip. */
+function toggleNotFinalizedFilter(): void {
+  filters.finalization = filters.finalization === "not_finalized" ? "" : "not_finalized";
+}
 
 /** The selected release object, used for display. */
 const selectedRelease = computed(
   () => productReleases.value.find((r: ProductReleaseRead) => r.id === selectedReleaseId.value) ?? null,
 );
 
-/** Percentage of visible requirements that are verified for the current release. */
+/** Percentage of visible requirements that are finalized for the current release. */
 const coveragePct = computed(() => {
   const total = filteredRows.value.length;
   if (total === 0) return 0;
-  return Math.round((stats.value.verified / total) * 100);
+  return Math.round((stats.value.finalized / total) * 100);
 });
 
 /* ── Helpers ──────────────────────────────────────── */
+
+/**
+ * Unique risks linked to a requirement. Primarily uses the row's `risk_items`,
+ * but falls back to risks carried on individual trace records so the count is
+ * never 0 when a trace is in fact linked to a risk.
+ */
+function rowRisks(row: ProductRequirementMatrixRowRead): RiskItemSummaryRead[] {
+  const byId = new Map<string, RiskItemSummaryRead>();
+  for (const risk of row.risk_items) byId.set(risk.id, risk);
+  for (const trace of row.trace_records) {
+    if (trace.risk_item) byId.set(trace.risk_item.id, trace.risk_item);
+  }
+  return [...byId.values()];
+}
+
+function rowRiskCount(row: ProductRequirementMatrixRowRead): number {
+  return rowRisks(row).length;
+}
+
+/** Trace records on a requirement that link to the given risk id. */
+function tracesForRisk(
+  row: ProductRequirementMatrixRowRead,
+  riskId: string,
+): RequirementMappingMatrixRead[] {
+  return row.trace_records.filter((trace) => trace.risk_item?.id === riskId);
+}
+
+/** Map a risk level to a semantic badge class. */
+function riskLevelBadge(level: string): string {
+  if (level === "critical") return "badge-danger";
+  if (level === "high") return "badge-danger";
+  if (level === "medium") return "badge-warning";
+  if (level === "low") return "badge-success";
+  return "badge-neutral";
+}
 
 function compareRequirementCodes(a: string, b: string): number {
   const aMatch = a.match(/PART-(I|II)-(\d+)/);
@@ -812,18 +1078,12 @@ function formatApplicabilityDecision(value: RequirementApplicabilityDecision): s
   return formatLabel(value);
 }
 
-function formatTraceability(value: ProductRequirementMatrixRowRead["traceability_strength"]): string {
-  if (value === "complete") return "Risk + artifact";
-  if (value === "partial") return "Partially traced";
-  if (value === "weak") return "Weak traceability";
-  return "No trace";
-}
-
 /* ── UI interaction ───────────────────────────────── */
 
 function resetFilters(): void {
   filters.annexPart = "";
   filters.status = "";
+  filters.finalization = "";
   filters.search = "";
 }
 
@@ -834,7 +1094,6 @@ function resetEditor(): void {
   traceForm.sdl_activity = "requirements";
   traceForm.engineering_requirement_ref = "";
   traceForm.evidence_summary = "";
-  traceForm.artifact_ids = [];
   applicabilityForm.applicability_decision = "undecided";
   applicabilityForm.rationale = "";
   selectedTraceId.value = "";
@@ -868,6 +1127,7 @@ function selectRow(row: ProductRequirementMatrixRowRead): void {
 /** Open the requirement detail modal for the given row. */
 function openDetail(row: ProductRequirementMatrixRowRead): void {
   selectRow(row);
+  activeTab.value = "applicability";
   showDetailModal.value = true;
 }
 
@@ -883,15 +1143,57 @@ function editTrace(trace: RequirementMappingMatrixRead): void {
   traceForm.sdl_activity = trace.sdl_activity;
   traceForm.engineering_requirement_ref = trace.engineering_requirement_ref ?? "";
   traceForm.evidence_summary = trace.evidence_summary ?? "";
-  traceForm.artifact_ids = trace.artifacts.map((artifact) => artifact.id);
 }
 
-function toggleTraceArtifact(artifactId: string): void {
-  if (traceForm.artifact_ids.includes(artifactId)) {
-    traceForm.artifact_ids = traceForm.artifact_ids.filter((id: string) => id !== artifactId);
-    return;
+/** Whether an artifact is currently linked to the selected requirement. */
+function isArtifactLinked(artifactId: string): boolean {
+  return selectedRow.value?.artifacts.some((a) => a.id === artifactId) ?? false;
+}
+
+/**
+ * Attach/detach an artifact at the requirement level (Linked artifacts tab).
+ *
+ * Artifacts are stored against a requirement's justification record. To keep the
+ * artifact concern fully separate from the risk UI, we resolve the underlying
+ * record(s) here:
+ *   - detach: remove the artifact from every justification record that carries it.
+ *   - attach: add it to the requirement's first justification record.
+ * A justification record always exists for any requirement that can have
+ * artifacts (applicable requirements require at least one risk justification).
+ */
+async function toggleRequirementArtifact(artifactId: string): Promise<void> {
+  const row = selectedRow.value;
+  if (!row || !selectedReleaseId.value) return;
+
+  const linkedTraces = row.trace_records.filter((t) =>
+    t.artifacts.some((a) => a.id === artifactId),
+  );
+
+  busy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    if (linkedTraces.length > 0) {
+      // Detach from every record that holds it.
+      for (const trace of linkedTraces) {
+        await requirementMappingService.detachArtifact(trace.id, artifactId);
+      }
+    } else {
+      const target = row.trace_records[0];
+      if (!target) {
+        errorMessage.value =
+          "Add a risk justification first (Justification by risk tab) before linking artifacts.";
+        return;
+      }
+      await requirementMappingService.attachArtifact(target.id, { artifact_id: artifactId });
+    }
+    await refreshRow(row.annex_requirement.id);
+    await loadAssessment(selectedReleaseId.value);
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to update linked artifacts.";
+  } finally {
+    busy.value = false;
   }
-  traceForm.artifact_ids = [...traceForm.artifact_ids, artifactId];
 }
 
 /* ── Data loading ─────────────────────────────────── */
@@ -904,23 +1206,28 @@ async function loadProductContext(productId: string): Promise<void> {
   const [artifacts, releases] = await Promise.all([
     artifactService.list({ product_id: productId }),
     productReleaseService.list(productId),
+    loadProductRiskItems(productId),
   ]);
   productArtifacts.value = artifacts;
   productReleases.value = releases;
 }
 
-async function loadReleaseMatrix(releaseId: string): Promise<void> {
-  const [rows, assessments] = await Promise.all([
-    requirementMappingService.releaseMatrix(releaseId),
-    riskAssessmentService.list({ product_id: selectedProductId.value }),
-  ]);
-
-  matrixRows.value = rows;
-
+/**
+ * Load the product's risk items (for the trace editor's risk-item dropdown).
+ * Tied to product selection rather than matrix loads, so it runs once per
+ * product instead of on every matrix refresh.
+ */
+async function loadProductRiskItems(productId: string): Promise<void> {
+  const assessments = await riskAssessmentService.list({ product_id: productId });
   const riskLists = await Promise.all(
     assessments.map((assessment: RiskAssessmentRead) => riskItemService.listByAssessment(assessment.id)),
   );
   productRiskItems.value = riskLists.flat();
+}
+
+async function loadReleaseMatrix(releaseId: string): Promise<void> {
+  const rows = await requirementMappingService.releaseMatrix(releaseId);
+  matrixRows.value = rows;
 
   const activeRow =
     rows.find((row: ProductRequirementMatrixRowRead) => row.annex_requirement.id === selectedRequirementId.value) ?? rows[0] ?? null;
@@ -937,6 +1244,7 @@ async function loadMatrix(): Promise<void> {
     matrixRows.value = [];
     productRiskItems.value = [];
     selectedRequirementId.value = "";
+    assessment.value = null;
     resetEditor();
     return;
   }
@@ -946,7 +1254,10 @@ async function loadMatrix(): Promise<void> {
   successMessage.value = "";
 
   try {
-    await loadReleaseMatrix(selectedReleaseId.value);
+    await Promise.all([
+      loadReleaseMatrix(selectedReleaseId.value),
+      loadAssessment(selectedReleaseId.value),
+    ]);
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to load Annex I matrix.";
   } finally {
@@ -954,37 +1265,100 @@ async function loadMatrix(): Promise<void> {
   }
 }
 
+/* ── Requirement assessment approval ───────────────── */
+
+async function loadAssessment(releaseId: string): Promise<void> {
+  assessment.value = await requirementMappingService.getAssessment(releaseId);
+}
+
+async function approveAssessment(): Promise<void> {
+  if (!selectedReleaseId.value) return;
+  assessmentBusy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    assessment.value = await requirementMappingService.approveAssessment(selectedReleaseId.value);
+    successMessage.value = `Assessment approved (v${assessment.value.version}). The matrix is now locked.`;
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to approve assessment.";
+  } finally {
+    assessmentBusy.value = false;
+  }
+}
+
+async function reopenAssessment(): Promise<void> {
+  if (!selectedReleaseId.value) return;
+  assessmentBusy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    assessment.value = await requirementMappingService.reopenAssessment(selectedReleaseId.value);
+    successMessage.value = "Assessment reopened for amendment. Re-approve when done.";
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to reopen assessment.";
+  } finally {
+    assessmentBusy.value = false;
+  }
+}
+
+/** Format an ISO timestamp for display (e.g. "Jun 27, 2026, 02:14 PM"). */
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
 /* ── Save / mutate ────────────────────────────────── */
+
+/**
+ * Replace a single row in the matrix in place, keyed by annex requirement id.
+ * Used after a save so we reflect the server's authoritative row without
+ * re-fetching the entire matrix (which previously timed out).
+ */
+function applyRow(row: ProductRequirementMatrixRowRead): void {
+  const index = matrixRows.value.findIndex(
+    (existing) => existing.annex_requirement.id === row.annex_requirement.id,
+  );
+  if (index === -1) {
+    matrixRows.value.push(row);
+  } else {
+    matrixRows.value[index] = row;
+  }
+}
+
+/** Refresh just the affected requirement row from the server. */
+async function refreshRow(annexRequirementId: string): Promise<void> {
+  const row = await requirementMappingService.releaseRequirementRow(
+    selectedReleaseId.value,
+    annexRequirementId,
+  );
+  applyRow(row);
+}
 
 async function saveTrace(): Promise<void> {
   if (!selectedRow.value) return;
-  // Linking a product risk item is recommended but optional: the backend stores
-  // risk_item_id as nullable, so a status change must be saveable on its own
-  // without forcing the user to also bind a risk item.
 
   busy.value = true;
   errorMessage.value = "";
   successMessage.value = "";
 
   try {
-    let savedTraceId = traceForm.id;
-    const existingArtifactIds = editingExisting.value
-      ? selectedRow.value.trace_records
-          .find((trace: RequirementMappingMatrixRead) => trace.id === traceForm.id)
-          ?.artifacts.map((artifact: ArtifactListRead) => artifact.id) ?? []
-      : [];
-
     if (editingExisting.value) {
       const payload: RequirementMappingUpdate = {
         risk_item_id: traceForm.risk_item_id || null,
         engineering_requirement_ref: traceForm.engineering_requirement_ref || null,
-        implementation_status: traceForm.implementation_status,
         sdl_activity: traceForm.sdl_activity,
         evidence_summary: traceForm.evidence_summary || null,
       };
-      const updated = await requirementMappingService.update(traceForm.id, payload);
-      savedTraceId = updated.id;
-      successMessage.value = "Trace record updated.";
+      await requirementMappingService.update(traceForm.id, payload);
+      successMessage.value = "Justification updated.";
     } else {
       const payload: RequirementMappingCreate = {
         product_release_id: selectedReleaseId.value,
@@ -995,56 +1369,42 @@ async function saveTrace(): Promise<void> {
         sdl_activity: traceForm.sdl_activity,
         evidence_summary: traceForm.evidence_summary || null,
       };
-      const created = await requirementMappingService.create(payload);
-      savedTraceId = created.id;
-      successMessage.value = "Trace record created.";
+      await requirementMappingService.create(payload);
+      successMessage.value = "Justification added.";
     }
 
-    if (selectedRow.value.artifact_traceability_available && savedTraceId) {
-      await syncTraceArtifacts(savedTraceId, existingArtifactIds, traceForm.artifact_ids);
-    }
-
-    await loadMatrix();
+    // Refresh only the affected requirement row instead of reloading the whole
+    // matrix, which previously caused request timeouts on large data sets.
+    await refreshRow(selectedRow.value.annex_requirement.id);
+    // Adding the first justification can flip the finalized state.
+    await loadAssessment(selectedReleaseId.value);
+    resetEditor();
   } catch (error: any) {
-    errorMessage.value = error?.message ?? "Failed to save trace record.";
+    errorMessage.value = error?.message ?? "Failed to save justification.";
   } finally {
     busy.value = false;
   }
 }
 
 async function removeTrace(traceId: string): Promise<void> {
+  // Capture the owning requirement before deletion so we can refresh that row.
+  const annexRequirementId = matrixRows.value.find((row) =>
+    row.trace_records.some((trace) => trace.id === traceId),
+  )?.annex_requirement.id;
+
   busy.value = true;
   errorMessage.value = "";
   successMessage.value = "";
   try {
     await requirementMappingService.remove(traceId);
     successMessage.value = "Trace record deleted.";
-    await loadMatrix();
+    if (annexRequirementId) {
+      await refreshRow(annexRequirementId);
+    }
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to delete trace record.";
   } finally {
     busy.value = false;
-  }
-}
-
-async function syncTraceArtifacts(
-  traceId: string,
-  existingArtifactIds: string[],
-  desiredArtifactIds: string[],
-): Promise<void> {
-  const existing = new Set(existingArtifactIds);
-  const desired = new Set(desiredArtifactIds);
-
-  for (const artifactId of desiredArtifactIds) {
-    if (!existing.has(artifactId)) {
-      await requirementMappingService.attachArtifact(traceId, { artifact_id: artifactId });
-    }
-  }
-
-  for (const artifactId of existingArtifactIds) {
-    if (!desired.has(artifactId)) {
-      await requirementMappingService.detachArtifact(traceId, artifactId);
-    }
   }
 }
 
@@ -1074,15 +1434,43 @@ async function saveApplicabilityDecision(): Promise<void> {
       applicability_decision: applicabilityForm.applicability_decision,
       rationale: applicabilityForm.rationale.trim() || null,
     };
-    await requirementMappingService.updateReleaseRequirementDecision(
+    const updatedRow = await requirementMappingService.updateReleaseRequirementDecision(
       selectedReleaseId.value,
       selectedRow.value.annex_requirement.id,
       payload,
     );
+    // Apply the server's authoritative row in place — no full matrix reload.
+    applyRow(updatedRow);
+    // Deciding a requirement can flip can_approve / undecided_codes, so refresh
+    // the assessment banner state.
+    await loadAssessment(selectedReleaseId.value);
     successMessage.value = "Applicability decision saved.";
-    await loadMatrix();
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to save applicability decision.";
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function setImplementationStatus(status: RequirementProgressStatus): Promise<void> {
+  if (!selectedRow.value || !selectedReleaseId.value) return;
+  if (selectedRow.value.implementation_status === status) return;
+
+  busy.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    const updatedRow = await requirementMappingService.updateReleaseRequirementStatus(
+      selectedReleaseId.value,
+      selectedRow.value.annex_requirement.id,
+      { implementation_status: status },
+    );
+    applyRow(updatedRow);
+    // Reaching/leaving "validated" can flip the finalized state, so refresh the banner.
+    await loadAssessment(selectedReleaseId.value);
+    successMessage.value = `Implementation status set to ${formatLabel(status)}.`;
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to update implementation status.";
   } finally {
     busy.value = false;
   }
@@ -1095,6 +1483,7 @@ watch(selectedProductId, async (productId) => {
   productReleases.value = [];
   matrixRows.value = [];
   productRiskItems.value = [];
+  assessment.value = null;
   resetEditor();
   if (productId) await loadProductContext(productId);
 });
@@ -1220,6 +1609,32 @@ onMounted(async () => {
 .pct-good    { color: #34d399; }
 .pct-partial { color: #fbbf24; }
 .pct-low     { color: #f87171; }
+
+/* Quick "needs decision" filter chip in the coverage bar. */
+.needs-decision-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast, 120ms), border-color var(--t-fast, 120ms);
+}
+.needs-decision-chip:hover { background: rgba(245, 158, 11, 0.2); }
+.needs-decision-chip.active {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: rgba(245, 158, 11, 0.7);
+}
+:root[data-theme="light"] .needs-decision-chip {
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.45);
+  background: rgba(217, 119, 6, 0.1);
+}
 
 .progress-track {
   height: 6px;
@@ -1441,6 +1856,144 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/* ── Assessment approval banner ───────────────────────── */
+.assessment-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+  flex-wrap: wrap;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border: 1px solid var(--color-border, #2a2a2a);
+  border-radius: var(--radius-md, 12px);
+  margin-bottom: var(--space-4, 1rem);
+}
+.assessment-banner--approved {
+  border-color: var(--color-success, #4f9c13);
+  background: color-mix(in srgb, var(--color-success, #4f9c13) 10%, transparent);
+}
+.assessment-banner--draft {
+  background: var(--color-surface-soft, rgba(255, 255, 255, 0.03));
+}
+.assessment-banner-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  flex-wrap: wrap;
+}
+.assessment-meta {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--color-text-muted, #9aa);
+}
+.assessment-warn {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--color-warning, #c98a00);
+}
+.assessment-banner-actions {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+}
+
+/* ── Detail modal: status head + tabs + lock ──────────── */
+.detail-lock-note {
+  margin-bottom: var(--space-3, 0.75rem);
+}
+.detail-status-head {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3, 0.75rem);
+}
+.detail-tabs {
+  display: flex;
+  gap: var(--space-1, 0.25rem);
+  border-bottom: 1px solid var(--color-border, #2a2a2a);
+  margin-bottom: var(--space-4, 1rem);
+}
+.detail-tab {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  color: var(--color-text-muted, #9aa);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  transition: color var(--t-fast, 120ms), border-color var(--t-fast, 120ms);
+}
+.detail-tab:hover {
+  color: var(--color-text, #eee);
+}
+.detail-tab.active {
+  color: var(--color-primary, #4f9c13);
+  border-bottom-color: var(--color-primary, #4f9c13);
+}
+.detail-tab-count {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  background: var(--color-surface-soft, rgba(255, 255, 255, 0.06));
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  min-width: 1.25rem;
+  text-align: center;
+}
+.detail-tab-panel {
+  display: flex;
+  flex-direction: column;
+  /* Fix the panel height so the dialog stays exactly the same size on every
+     tab. Each tab fills this box and scrolls internally, instead of letting
+     taller tabs (Traceability) grow the window and shorter ones (Overview)
+     shrink it. */
+  height: 56vh;
+  overflow-y: auto;
+  /* Room so the internal scrollbar doesn't sit flush against content. */
+  padding-right: 0.25rem;
+}
+
+/* ── Risk traceability tab ────────────────────────── */
+.risk-trace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.risk-trace-card {
+  border: 1px solid rgba(233, 238, 252, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+}
+.risk-trace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.risk-trace-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+}
+.risk-trace-vias {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.risk-trace-via {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+:root[data-theme="light"] .risk-trace-card {
+  border-color: rgba(28, 107, 39, 0.12);
+  background: rgba(28, 107, 39, 0.02);
 }
 
 .detail-description {
@@ -1682,8 +2235,47 @@ onMounted(async () => {
 /* ── Applicability pills ──────────────────────────── */
 .app-applicable     { background: rgba(96, 165, 250, 0.12);  border-color: rgba(96, 165, 250, 0.24); }
 .app-not_applicable { background: rgba(251, 191, 36, 0.12);  border-color: rgba(251, 191, 36, 0.26); }
-.app-needs_decision,
 .status-empty       { background: rgba(148, 163, 184, 0.14); border-color: rgba(148, 163, 184, 0.18); }
+
+/* "Needs decision" stands out: warm amber, bolder text, leading dot. */
+.app-needs_decision {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  font-weight: 700;
+}
+.applicability-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pill-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  animation: pulse-dot 2s ease-out infinite;
+}
+@keyframes pulse-dot {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill-dot { animation: none; }
+}
+
+/* Row accent when a requirement still needs a decision — makes remaining
+   items easy to spot while scanning the list. */
+.matrix-row.needs-decision {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+}
+.matrix-row.needs-decision:hover,
+.matrix-row.needs-decision.active {
+  border-left-color: #f59e0b;
+}
 
 /* ── Status pills ─────────────────────────────────── */
 .status-planned     { background: rgba(250, 204, 21, 0.12);  border-color: rgba(250, 204, 21, 0.22); }
@@ -1691,6 +2283,97 @@ onMounted(async () => {
 .status-implemented { background: rgba(96, 165, 250, 0.12);  border-color: rgba(96, 165, 250, 0.24); }
 .status-verified    { background: rgba(52, 211, 153, 0.12);  border-color: rgba(52, 211, 153, 0.26); }
 .status-not_applicable { background: rgba(217, 119, 6, 0.14); border-color: rgba(217, 119, 6, 0.24); }
+
+/* ── Implementation progress pills ────────────────── */
+.progress-planned     { background: rgba(148, 163, 184, 0.14); border-color: rgba(148, 163, 184, 0.22); }
+.progress-implemented { background: rgba(96, 165, 250, 0.12);  border-color: rgba(96, 165, 250, 0.26); }
+.progress-validated   { background: rgba(52, 211, 153, 0.14);  border-color: rgba(52, 211, 153, 0.3); }
+
+/* ── Finalized state pills ────────────────────────── */
+.finalized-pill   { background: rgba(52, 211, 153, 0.16); border-color: rgba(52, 211, 153, 0.4); color: #34d399; font-weight: 700; }
+.unfinalized-pill { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.22); }
+
+/* ── Implementation tab: status picker ────────────── */
+.impl-status-picker {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.impl-status-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 238, 252, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-fast, 120ms), background var(--t-fast, 120ms);
+}
+.impl-status-option:hover:not(:disabled) { border-color: rgba(110, 168, 254, 0.4); }
+.impl-status-option:disabled { opacity: 0.55; cursor: not-allowed; }
+.impl-status-option.active {
+  border-color: var(--color-primary, #4f9c13);
+  background: color-mix(in srgb, var(--color-primary, #4f9c13) 14%, transparent);
+}
+.impl-status-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.progress-dot-planned     { color: #94a3b8; }
+.progress-dot-implemented { color: #60a5fa; }
+.progress-dot-validated   { color: #34d399; }
+
+/* ── Finalization checklist ───────────────────────── */
+.finalize-checklist {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.finalize-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.finalize-checklist li.done { color: var(--color-text); }
+.finalize-checklist .check-mark {
+  display: inline-flex;
+  width: 1.25rem;
+  justify-content: center;
+  font-weight: 700;
+}
+.finalize-checklist li.done .check-mark { color: #34d399; }
+
+.finalize-banner {
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.finalize-banner.is-final {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+.finalize-banner.not-final {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: var(--color-text-muted);
+}
+
+.detail-subhead { margin-top: 0.5rem; }
+.risk-summary { margin-bottom: 1rem; }
 
 /* ── Button utilities ─────────────────────────────── */
 .small-button {
@@ -1786,8 +2469,16 @@ onMounted(async () => {
 }
 :root[data-theme="light"] .app-applicable     { background: rgba(37,99,235,0.08);   border-color: rgba(37,99,235,0.22); }
 :root[data-theme="light"] .app-not_applicable { background: rgba(184,155,18,0.08);  border-color: rgba(184,155,18,0.24); }
-:root[data-theme="light"] .app-needs_decision,
 :root[data-theme="light"] .status-empty       { background: rgba(71,85,105,0.08);   border-color: rgba(71,85,105,0.18); }
+:root[data-theme="light"] .app-needs_decision {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.45);
+  color: #b45309;
+}
+:root[data-theme="light"] .matrix-row.needs-decision {
+  background: rgba(217, 119, 6, 0.05);
+  border-left-color: #d97706;
+}
 :root[data-theme="light"] .status-planned     { background: rgba(184,155,18,0.08);  border-color: rgba(184,155,18,0.2); }
 :root[data-theme="light"] .status-in_progress { background: rgba(234,88,12,0.08);   border-color: rgba(234,88,12,0.22); }
 :root[data-theme="light"] .status-implemented { background: rgba(37,99,235,0.08);   border-color: rgba(37,99,235,0.22); }

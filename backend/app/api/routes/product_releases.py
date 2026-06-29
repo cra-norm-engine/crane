@@ -18,10 +18,16 @@ from app.api.deps import require_permissions_dependency
 from app.core.database import get_db
 from app.core.permissions import Permission
 from app.models.user import User
-from app.schemas.annex_matrix import ProductRequirementDecisionUpdate, ProductRequirementMatrixRowRead
+from app.schemas.annex_matrix import (
+    ProductRequirementDecisionUpdate,
+    ProductRequirementMatrixRowRead,
+    RequirementImplementationStatusUpdate,
+)
 from app.schemas.product_release import ProductReleaseCreate, ProductReleaseRead, ProductReleaseUpdate
+from app.schemas.requirement_assessment import RequirementAssessmentRead
 from app.services.product_release_service import ProductReleaseService
 from app.services.release_report_service import ReleaseReportService
+from app.services.requirement_assessment_service import RequirementAssessmentService
 from app.services.requirement_mapping_service import RequirementMappingService
 
 router = APIRouter()
@@ -83,20 +89,96 @@ def get_release_requirement_matrix(
     return RequirementMappingService(db).release_matrix(release_id)
 
 
-@router.patch("/{release_id}/requirement-matrix/{annex_requirement_id}/decision")
+@router.get(
+    "/{release_id}/requirement-matrix/{annex_requirement_id}",
+    response_model=ProductRequirementMatrixRowRead,
+)
+def get_release_requirement_row(
+    release_id: UUID,
+    annex_requirement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
+) -> ProductRequirementMatrixRowRead:
+    """Return a single matrix row so the client can refresh just the affected
+    requirement after a trace-record mutation, instead of reloading the whole matrix."""
+    return RequirementMappingService(db).release_requirement_row(release_id, annex_requirement_id)
+
+
+@router.patch(
+    "/{release_id}/requirement-matrix/{annex_requirement_id}/decision",
+    response_model=ProductRequirementMatrixRowRead,
+)
 def update_release_requirement_decision(
     release_id: UUID,
     annex_requirement_id: UUID,
     payload: ProductRequirementDecisionUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
-):
+) -> ProductRequirementMatrixRowRead:
     return RequirementMappingService(db).update_release_requirement_decision(
         release_id,
         annex_requirement_id,
         payload,
         actor_user_id=current_user.id,
     )
+
+
+@router.patch(
+    "/{release_id}/requirement-matrix/{annex_requirement_id}/status",
+    response_model=ProductRequirementMatrixRowRead,
+)
+def update_release_requirement_status(
+    release_id: UUID,
+    annex_requirement_id: UUID,
+    payload: RequirementImplementationStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+) -> ProductRequirementMatrixRowRead:
+    return RequirementMappingService(db).update_release_requirement_status(
+        release_id,
+        annex_requirement_id,
+        payload.implementation_status,
+        actor_user_id=current_user.id,
+    )
+
+
+@router.get(
+    "/{release_id}/requirement-assessment",
+    response_model=RequirementAssessmentRead,
+)
+def get_release_requirement_assessment(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_read)),
+) -> RequirementAssessmentRead:
+    """Status of the release's Annex I requirement assessment (for the matrix banner)."""
+    return RequirementAssessmentService(db).get_status(release_id)
+
+
+@router.post(
+    "/{release_id}/requirement-assessment/approve",
+    response_model=RequirementAssessmentRead,
+)
+def approve_release_requirement_assessment(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+) -> RequirementAssessmentRead:
+    """Finalise (approve) the requirement assessment, locking it for the release."""
+    return RequirementAssessmentService(db).approve(release_id, actor_user_id=current_user.id)
+
+
+@router.post(
+    "/{release_id}/requirement-assessment/reopen",
+    response_model=RequirementAssessmentRead,
+)
+def reopen_release_requirement_assessment(
+    release_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+) -> RequirementAssessmentRead:
+    """Reopen an approved assessment for amendment (returns it to draft)."""
+    return RequirementAssessmentService(db).reopen(release_id, actor_user_id=current_user.id)
 
 
 @router.get("/{release_id}/report", response_class=Response)

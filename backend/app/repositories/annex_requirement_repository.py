@@ -46,6 +46,12 @@ class AnnexRequirementRepository(BaseRepository[AnnexRequirement]):
     def list_active(self) -> list[AnnexRequirement]:
         return self.list_all(is_active=True)
 
+    def count_active(self) -> int:
+        stmt = select(func.count()).select_from(AnnexRequirement).where(
+            AnnexRequirement.is_active.is_(True)
+        )
+        return self.db.scalar(stmt) or 0
+
     def list_by_part(self, annex_part: AnnexPart) -> list[AnnexRequirement]:
         return self.list_all(annex_part=annex_part)
 

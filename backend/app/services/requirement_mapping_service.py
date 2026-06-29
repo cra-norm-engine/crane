@@ -15,14 +15,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.annex_i_catalog import sync_annex_i_requirements
-from app.core.exceptions import AppException
+from app.core.exceptions import AppException, ConflictException
 from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import (
     AuditActionType,
     AuditStatus,
     EntityType,
     RequirementApplicabilityDecision,
+    RequirementAssessmentStatus,
+    RequirementProgressStatus,
 )
+from app.models.requirement_assessment import ReleaseRequirementAssessment
 from app.models.requirement_mapping import (
     ProductRequirementDecision,
     RequirementMapping,
@@ -49,6 +52,35 @@ class RequirementMappingService:
     def _artifact_links_available(self) -> bool:
         return self.requirement_mapping_repository.artifact_links_available()
 
+    def _assert_not_locked(self, release_id: UUID) -> None:
+        """Block writes when the release's requirement assessment is approved.
+
+        After approval the assessment is immutable; the only way to change it is to
+        reopen it (amendment), which is an append-only re-approval. Queries the
+        assessment table directly to avoid a circular import with the assessment
+        service.
+        """
+        stmt = select(ReleaseRequirementAssessment.status).where(
+            ReleaseRequirementAssessment.product_release_id == release_id
+        )
+        status = self.db.scalar(stmt)
+        if status == RequirementAssessmentStatus.approved:
+            raise ConflictException(
+                "Requirement assessment is approved and locked. "
+                "Reopen it to make changes."
+            )
+
+    def _ensure_catalog_seeded(self) -> None:
+        """Lazily seed the Annex I catalog only when it is empty.
+
+        The catalog is normally synced once at application startup. Re-running the
+        full sync on every read issued redundant writes (and a flush) on the hot
+        path; here we only do work when the table has no active requirements.
+        """
+        if self.annex_requirement_repository.count_active() == 0:
+            if sync_annex_i_requirements(self.db):
+                self.db.commit()
+
     def list(
         self,
         *,
@@ -57,8 +89,7 @@ class RequirementMappingService:
         release_id: UUID | None = None,
         matrix: bool = False,
     ) -> list[RequirementMapping]:
-        sync_annex_i_requirements(self.db)
-        self.db.flush()
+        self._ensure_catalog_seeded()
         if release_id is not None:
             return list(self.requirement_mapping_repository.list_by_release(release_id))
         if matrix:
@@ -71,8 +102,7 @@ class RequirementMappingService:
 
     def release_matrix(self, release_id: UUID) -> list[ProductRequirementMatrixRowRead]:
         """Build the full requirement matrix for a specific product release."""
-        sync_annex_i_requirements(self.db)
-        self.db.flush()
+        self._ensure_catalog_seeded()
 
         artifact_traceability_available = self._artifact_links_available()
         requirements = list(self.annex_requirement_repository.list_active())
@@ -88,47 +118,123 @@ class RequirementMappingService:
 
         rows: list[ProductRequirementMatrixRowRead] = []
         for requirement in requirements:
-            grouped_mappings = mappings_by_requirement.get(requirement.id, [])
-            decision = decisions_by_requirement.get(requirement.id)
-            applicability_decision = (
-                decision.applicability_decision
-                if decision is not None
-                else RequirementApplicabilityDecision.undecided
-            )
             rows.append(
-                ProductRequirementMatrixRowRead(
-                    annex_requirement=requirement,
-                    artifact_traceability_available=artifact_traceability_available,
-                    applicability_decision=applicability_decision,
-                    applicability_rationale=decision.rationale if decision is not None else None,
-                    mapping_ids=[mapping.id for mapping in grouped_mappings],
-                    trace_records=[self._matrix_mapping_payload(mapping) for mapping in grouped_mappings],
-                    risk_items=self._unique_risk_items(grouped_mappings),
-                    artifacts=self._unique_artifacts(grouped_mappings),
-                    engineering_requirement_refs=sorted(
-                        {
-                            mapping.engineering_requirement_ref.strip()
-                            for mapping in grouped_mappings
-                            if mapping.engineering_requirement_ref and mapping.engineering_requirement_ref.strip()
-                        }
-                    ),
-                    sdl_activities=sorted(
-                        {mapping.sdl_activity for mapping in grouped_mappings},
-                        key=lambda value: value.value,
-                    ),
-                    notes=sorted(
-                        {
-                            mapping.evidence_summary.strip()
-                            for mapping in grouped_mappings
-                            if mapping.evidence_summary and mapping.evidence_summary.strip()
-                        }
-                    ),
-                    overall_status=self._aggregate_status(grouped_mappings),
-                    applicability=self._applicability(applicability_decision),
-                    traceability_strength=self._traceability_strength(grouped_mappings),
+                self._build_row(
+                    requirement,
+                    mappings_by_requirement.get(requirement.id, []),
+                    decisions_by_requirement.get(requirement.id),
+                    artifact_traceability_available,
                 )
             )
         return rows
+
+    def release_requirement_row(
+        self, release_id: UUID, annex_requirement_id: UUID
+    ) -> ProductRequirementMatrixRowRead:
+        """Build a single matrix row, so a mutation can return just the affected row.
+
+        This lets the client patch its local state in place after a save instead of
+        re-fetching the entire matrix (which previously caused request timeouts).
+        """
+        requirement = self.annex_requirement_repository.get_by_id(annex_requirement_id)
+        if requirement is None:
+            raise ValueError("Annex requirement not found.")
+
+        grouped_mappings = [
+            mapping
+            for mapping in self.requirement_mapping_repository.list_by_release(release_id)
+            if mapping.annex_requirement_id == annex_requirement_id
+        ]
+        decision = next(
+            (
+                d
+                for d in self.requirement_mapping_repository.list_release_decisions(release_id)
+                if d.annex_requirement_id == annex_requirement_id
+            ),
+            None,
+        )
+        return self._build_row(
+            requirement, grouped_mappings, decision, self._artifact_links_available()
+        )
+
+    def _build_row(
+        self,
+        requirement: Any,
+        grouped_mappings: list[RequirementMapping],
+        decision: ProductRequirementDecision | None,
+        artifact_traceability_available: bool,
+    ) -> ProductRequirementMatrixRowRead:
+        applicability_decision = (
+            decision.applicability_decision
+            if decision is not None
+            else RequirementApplicabilityDecision.undecided
+        )
+        implementation_status = (
+            decision.implementation_status
+            if decision is not None
+            else RequirementProgressStatus.planned
+        )
+        risk_items = self._unique_risk_items(grouped_mappings)
+        artifacts = self._unique_artifacts(grouped_mappings)
+        return ProductRequirementMatrixRowRead(
+            annex_requirement=requirement,
+            artifact_traceability_available=artifact_traceability_available,
+            applicability_decision=applicability_decision,
+            applicability_rationale=decision.rationale if decision is not None else None,
+            mapping_ids=[mapping.id for mapping in grouped_mappings],
+            trace_records=[self._matrix_mapping_payload(mapping) for mapping in grouped_mappings],
+            risk_items=risk_items,
+            artifacts=artifacts,
+            engineering_requirement_refs=sorted(
+                {
+                    mapping.engineering_requirement_ref.strip()
+                    for mapping in grouped_mappings
+                    if mapping.engineering_requirement_ref and mapping.engineering_requirement_ref.strip()
+                }
+            ),
+            sdl_activities=sorted(
+                {mapping.sdl_activity for mapping in grouped_mappings},
+                key=lambda value: value.value,
+            ),
+            notes=sorted(
+                {
+                    mapping.evidence_summary.strip()
+                    for mapping in grouped_mappings
+                    if mapping.evidence_summary and mapping.evidence_summary.strip()
+                }
+            ),
+            overall_status=self._aggregate_status(grouped_mappings),
+            applicability=self._applicability(applicability_decision),
+            traceability_strength=self._traceability_strength(grouped_mappings),
+            implementation_status=implementation_status,
+            finalized=self._is_finalized(
+                applicability_decision, implementation_status, risk_items, artifacts
+            ),
+        )
+
+    @staticmethod
+    def _is_finalized(
+        applicability_decision: RequirementApplicabilityDecision,
+        implementation_status: RequirementProgressStatus,
+        risk_items: list[Any],
+        artifacts: list[Any],
+    ) -> bool:
+        """Whether a requirement is fully handled for this release.
+
+        Rule:
+          * undecided                → never finalized.
+          * any decision             → requires at least one risk justification.
+          * additionally if APPLICABLE → requires ≥1 linked artifact and a
+            ``validated`` implementation status.
+          * NOT_APPLICABLE           → finalized once decided + risk-justified.
+        """
+        if applicability_decision == RequirementApplicabilityDecision.undecided:
+            return False
+        if not risk_items:
+            return False
+        if applicability_decision == RequirementApplicabilityDecision.applicable:
+            return bool(artifacts) and implementation_status == RequirementProgressStatus.validated
+        return True
 
     def update_release_requirement_decision(
         self,
@@ -137,7 +243,8 @@ class RequirementMappingService:
         payload: ProductRequirementDecisionUpdate,
         *,
         actor_user_id: UUID | None,
-    ) -> ProductRequirementDecision:
+    ) -> ProductRequirementMatrixRowRead:
+        self._assert_not_locked(release_id)
         requirement = self.annex_requirement_repository.get_by_id(annex_requirement_id)
         if requirement is None:
             raise ValueError("Annex requirement not found.")
@@ -176,8 +283,57 @@ class RequirementMappingService:
             },
         )
         self.db.commit()
-        self.db.refresh(existing)
-        return existing
+        # Return the freshly rebuilt matrix row so the client can update in place
+        # without re-fetching the entire matrix.
+        return self.release_requirement_row(release_id, annex_requirement_id)
+
+    def update_release_requirement_status(
+        self,
+        release_id: UUID,
+        annex_requirement_id: UUID,
+        implementation_status: RequirementProgressStatus,
+        *,
+        actor_user_id: UUID | None,
+    ) -> ProductRequirementMatrixRowRead:
+        """Set the per-requirement implementation progress status for a release."""
+        self._assert_not_locked(release_id)
+        requirement = self.annex_requirement_repository.get_by_id(annex_requirement_id)
+        if requirement is None:
+            raise ValueError("Annex requirement not found.")
+
+        existing = next(
+            (
+                decision
+                for decision in self.requirement_mapping_repository.list_release_decisions(release_id)
+                if decision.annex_requirement_id == annex_requirement_id
+            ),
+            None,
+        )
+        if existing is None:
+            existing = ProductRequirementDecision(
+                product_release_id=release_id,
+                annex_requirement_id=annex_requirement_id,
+            )
+            self.db.add(existing)
+
+        existing.implementation_status = implementation_status
+        self.db.flush()
+
+        self._write_audit_log(
+            actor_user_id=actor_user_id,
+            action_type=AuditActionType.update,
+            entity_type=EntityType.requirement_mapping,
+            entity_id=annex_requirement_id,
+            status=AuditStatus.success,
+            details_json={
+                "action": "update_release_requirement_status",
+                "release_id": str(release_id),
+                "annex_requirement_id": str(annex_requirement_id),
+                "implementation_status": implementation_status.value,
+            },
+        )
+        self.db.commit()
+        return self.release_requirement_row(release_id, annex_requirement_id)
 
     def copy_decisions_from_parent(
         self,
@@ -222,6 +378,7 @@ class RequirementMappingService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> RequirementMapping:
+        self._assert_not_locked(payload.product_release_id)
         annex_requirement = self.annex_requirement_repository.get_by_id(payload.annex_requirement_id)
         if annex_requirement is None:
             raise ValueError("Annex requirement not found.")
@@ -267,6 +424,7 @@ class RequirementMappingService:
         user_agent: str | None = None,
     ) -> RequirementMapping:
         mapping = self.get(mapping_id)
+        self._assert_not_locked(mapping.product_release_id)
         before = self._snapshot(mapping)
 
         update_data = payload.model_dump(exclude_unset=True)
@@ -315,6 +473,7 @@ class RequirementMappingService:
         user_agent: str | None = None,
     ) -> None:
         mapping = self.get(mapping_id)
+        self._assert_not_locked(mapping.product_release_id)
         before = self._snapshot(mapping)
 
         self.requirement_mapping_repository.delete(mapping)
@@ -344,6 +503,7 @@ class RequirementMappingService:
                 "Artifact traceability links are not available yet. Apply the latest database migration and retry."
             )
         mapping = self.get(mapping_id)
+        self._assert_not_locked(mapping.product_release_id)
         artifact = self.artifact_repository.get_or_404(artifact_id)
 
         existing = self.db.scalar(
@@ -388,6 +548,7 @@ class RequirementMappingService:
                 "Artifact traceability links are not available yet. Apply the latest database migration and retry."
             )
         mapping = self.get(mapping_id)
+        self._assert_not_locked(mapping.product_release_id)
         link = self.db.scalar(
             select(RequirementMappingArtifactLink).where(
                 RequirementMappingArtifactLink.requirement_mapping_id == mapping_id,

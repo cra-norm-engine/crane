@@ -16,6 +16,7 @@ from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import (
     RequirementApplicabilityDecision,
     RequirementImplementationStatus,
+    RequirementProgressStatus,
     SdlActivity,
 )
 
@@ -132,6 +133,13 @@ class ProductRequirementDecision(UUIDTimestampMixin, Base):
         index=True,
     )
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Per-requirement implementation progress (planned → implemented → validated).
+    implementation_status: Mapped[RequirementProgressStatus] = mapped_column(
+        nullable=False,
+        default=RequirementProgressStatus.planned,
+        server_default=RequirementProgressStatus.planned.value,
+        index=True,
+    )
 
     product_release: Mapped["ProductRelease"] = relationship("ProductRelease")
     annex_requirement: Mapped["AnnexRequirement"] = relationship("AnnexRequirement")

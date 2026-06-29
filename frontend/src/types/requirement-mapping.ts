@@ -73,6 +73,16 @@ export interface ProductRequirementMatrixRowRead {
   overall_status: RequirementImplementationStatus | null;
   applicability: "needs_decision" | "applicable" | "not_applicable";
   traceability_strength: "missing" | "weak" | "partial" | "complete";
+  /** Per-requirement implementation progress for this release. */
+  implementation_status: RequirementProgressStatus;
+  /** True when the requirement is fully handled for this release. */
+  finalized: boolean;
+}
+
+export type RequirementProgressStatus = "planned" | "implemented" | "validated";
+
+export interface RequirementImplementationStatusUpdate {
+  implementation_status: RequirementProgressStatus;
 }
 
 export interface ProductRequirementDecisionUpdate {
@@ -104,3 +114,21 @@ export interface RequirementMappingArtifactLinkRequest {
 }
 
 export type RequirementMapping = RequirementMappingRead;
+
+export type RequirementAssessmentStatus = "draft" | "approved";
+
+/** Status of a release's Annex I requirement assessment (matrix approval banner). */
+export interface RequirementAssessmentRead {
+  product_release_id: string;
+  status: RequirementAssessmentStatus;
+  /** Number of approvals so far (0 = never approved). */
+  version: number;
+  approved_at: string | null;
+  approved_by_name: string | null;
+  /** True when approved → the matrix is read-only. */
+  is_locked: boolean;
+  /** True when the assessment may be approved now (every requirement finalized). */
+  can_approve: boolean;
+  /** Codes of requirements not yet finalized (blocks approval). */
+  unfinalized_codes: string[];
+}

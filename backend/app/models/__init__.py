@@ -23,6 +23,10 @@ from app.models.product import (
     ProductScopeEvaluation,
     RemoteProcessingElement,
 )
+from app.models.requirement_assessment import (
+    ReleaseRequirementAssessment,
+    ReleaseRequirementAssessmentSnapshot,
+)
 from app.models.requirement_mapping import (
     ProductRequirementDecision,
     RequirementMapping,
@@ -68,6 +72,8 @@ __all__ = [
     "ReleaseGateItem",
     "RemoteProcessingElement",
     "ProductRequirementDecision",
+    "ReleaseRequirementAssessment",
+    "ReleaseRequirementAssessmentSnapshot",
     "RequirementMapping",
     "RequirementMappingArtifactLink",
     "RevokedToken",
