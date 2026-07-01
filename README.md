@@ -15,8 +15,27 @@
 - **Step1**: Initiate the server at https://cra-compliance-tool.onrender.com/ and wait for 2 minutes
 - **Step2**: Open CRANE at https://cra-compliance-tool-1.onrender.com and use the above credentials.
 
-
 **Remark**: Do not enter any sensitive or private information in the online demo.
+
+## Free Consultation
+
+I offer free consultations for my open-source tool and related support.
+
+# Book a 30-minute session
+
+Click the link below to schedule a time that works for you:
+
+👉 https://cal.com/crane-2027/30min
+
+---
+
+## What we can discuss
+- General CRA Q&A
+- Deep discussion on CRA requirements
+- Quick gap assessment
+- How CRANE can help
+
+---
 
 ## What is CRANE?
 
