@@ -17,11 +17,11 @@
 
 **Remark**: Do not enter any sensitive or private information in the online demo.
 
-## Free Consultation
+# Free Consultation
 
-I offer free consultations for my open-source tool and related support.
+I offer free consultations for CRA topic only on Fridays! connect with me on [LinkedIn](https://www.linkedin.com/in/ali-m-hosseini-216b24121/) and set your time
 
-# Book a 30-minute session
+## Book a 30-minute session
 
 Click the link below to schedule a time that works for you:
 
