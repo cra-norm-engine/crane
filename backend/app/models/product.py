@@ -19,6 +19,8 @@ from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import (
     ConformityRoute,
     ProductClassification,
+    ProductLifecycleStatus,
+    ProductType,
     ReleaseStatus,
     RemoteProcessingClassification,
     RemoteProcessingElementType,
@@ -58,6 +60,58 @@ class Product(UUIDTimestampMixin, Base):
     )
     scope_status: Mapped[str] = mapped_column(String(50), nullable=False, default="undecided", index=True)
 
+    # CRA obligation tier. "legacy" products (on the market pre-CRA, not
+    # substantially modified) carry reporting-only obligations; "active" products
+    # carry the full set. Distinct from is_pre_cra (a raw fact) — this is the
+    # decided obligation level.
+    lifecycle_status: Mapped[ProductLifecycleStatus] = mapped_column(
+        nullable=False,
+        default=ProductLifecycleStatus.active,
+        server_default=ProductLifecycleStatus.active.value,
+        index=True,
+    )
+
+    # Phase 3 — typed CRA product classification (software vs hardware+digital).
+    # Distinct from the free-text product_type label; used for filtering/logic.
+    product_type_class: Mapped[ProductType] = mapped_column(
+        nullable=False,
+        default=ProductType.undecided,
+        server_default=ProductType.undecided.value,
+        index=True,
+    )
+
+    # Phase 3 — product-level conformity assessment route. Distinct from the
+    # per-release conformity_route_snapshot: this is the decided route for the
+    # product line, seeded from the scope wizard's suggestion when still undecided.
+    conformity_route: Mapped[ConformityRoute] = mapped_column(
+        nullable=False,
+        default=ConformityRoute.undecided,
+        server_default=ConformityRoute.undecided.value,
+        index=True,
+    )
+
+    # Phase 2 — out-of-scope decision provenance (metamodel: OutOfScopeProduct).
+    # The scope wizard records the "why" in ProductScopeEvaluation; these fields
+    # capture the signed, accountable decision on the product itself so the
+    # inventory is an audit-ready register (who decided, when, signature).
+    out_of_scope_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scope_decided_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    scope_decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scope_decision_signature: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Phase 4 — additive JSON metadata (matches the annex_ii_json pattern).
+    # system_profile_json: {sold_as_product, who_integrates_system,
+    #   marketed_as_product, core_minimum_products_combination} — the
+    #   system-as-product vs component-by-component strategy.
+    # tailor_made_terms_json: {customized_support_period,
+    #   customized_security_config, specific_user, agreement_via_contractual_terms}
+    #   — B2B tailor-made product terms.
+    system_profile_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    tailor_made_terms_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Gap 2 — flags that this product combines physical hardware with software/firmware.
     # When True, per-release hardware_version and software_version fields are surfaced
     # so each HW+SW combination can be individually documented for CRA compliance.
@@ -87,6 +141,37 @@ class Product(UUIDTimestampMixin, Base):
     # Annex II "information and instructions to the user" checklist:
     # list of {ref, content, status, location}.
     annex_ii_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
+    # Phase 2 — the user who signed off the (out-of-)scope decision. Nullable so
+    # deleting the user does not erase the product's decision record.
+    scope_decided_by: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys=[scope_decided_by_user_id],
+    )
+
+    # Phase 4 — cheap boolean flags read by ProductSummaryRead for the inventory
+    # "flags" chips. has_remote_processing relies on remote_processing_elements
+    # being eager-loaded by the list query (selectinload) to avoid an N+1.
+    @property
+    def has_system_profile(self) -> bool:
+        return bool(self.system_profile_json)
+
+    @property
+    def has_tailor_made_terms(self) -> bool:
+        return bool(self.tailor_made_terms_json)
+
+    @property
+    def has_remote_processing(self) -> bool:
+        return len(self.remote_processing_elements) > 0
+
+    @property
+    def scope_decided_by_name(self) -> str | None:
+        # Display name of the user who signed the scope decision, for ProductRead.
+        # Relies on the scope_decided_by relationship being loaded (detail query).
+        user = self.scope_decided_by
+        if user is None:
+            return None
+        return getattr(user, "full_name", None) or getattr(user, "email", None)
 
     parent_product: Mapped["Product | None"] = relationship(
         "Product",

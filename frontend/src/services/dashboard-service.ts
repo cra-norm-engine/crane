@@ -5,11 +5,28 @@
 // See <https://www.gnu.org/licenses/>.
 
 import { apiClient } from "@/services/api";
-import type { DashboardRead, ReleaseJourney } from "@/types/dashboard";
+import type {
+  ConformanceSummary,
+  DashboardRead,
+  ProductReadinessRead,
+  ReleaseJourney,
+} from "@/types/dashboard";
 
 export const dashboardService = {
   async get(): Promise<DashboardRead> {
     const { data } = await apiClient.get<DashboardRead>("/dashboard");
+    return data;
+  },
+
+  /** Per-product compliance readiness (Annex I Part I coverage), sorted worst-first. */
+  async getProductReadiness(): Promise<ProductReadinessRead[]> {
+    const { data } = await apiClient.get<ProductReadinessRead[]>("/dashboard/product-readiness");
+    return data;
+  },
+
+  /** High-level portfolio conformance (% of in-scope products with an approved assessment). */
+  async getConformance(): Promise<ConformanceSummary> {
+    const { data } = await apiClient.get<ConformanceSummary>("/dashboard/conformance");
     return data;
   },
 

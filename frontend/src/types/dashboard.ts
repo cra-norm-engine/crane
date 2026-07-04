@@ -115,3 +115,57 @@ export interface ReleaseJourney {
   next_step_id: string | null;
   steps: JourneyStep[];
 }
+
+/** Annex I Part I coverage for a product's latest release. */
+export interface ReadinessCoverage {
+  total: number;
+  assessed: number;
+  met: number;
+  assessed_pct: number;
+  met_pct: number;
+}
+
+/** Readiness of one release (the honest per-release unit). */
+export interface ReleaseReadinessRead {
+  release_id: string;
+  version_label: string;
+  system_version: number;
+  release_status: string;
+  is_released: boolean;
+  coverage: ReadinessCoverage;
+  /** not_started | in_progress | substantially_ready | ready */
+  state: string;
+  /** This release's requirement assessment is formally approved. */
+  is_approved: boolean;
+}
+
+/** A product grouping its releases' readiness (anchored on Annex I Part I). */
+export interface ProductReadinessRead {
+  product_id: string;
+  product_code: string;
+  name: string;
+  scope_status: string;
+  /** Every release, newest first, each with its own readiness. */
+  releases: ReleaseReadinessRead[];
+  /** The latest-released release used for roll-ups (null when none). */
+  representative_release_id: string | null;
+  /** Latest released release's assessment is approved (drives conformance). */
+  is_conformant: boolean;
+  // Secondary operational signals — product-scoped, informational only.
+  has_open_critical_vuln: boolean;
+  open_critical_vuln_count: number;
+  risk_unapproved: boolean;
+  support_expired: boolean;
+  change_action_required: boolean;
+}
+
+/** High-level portfolio conformance summary (dashboard pie). */
+export interface ConformanceSummary {
+  total: number;
+  in_scope: number;
+  out_of_scope: number;
+  conformant: number;
+  not_conformant: number;
+  /** % of in-scope products that are conformant (0 when in_scope === 0). */
+  conformant_pct: number;
+}

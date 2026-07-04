@@ -7,12 +7,13 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
-from app.models.enums import AuditActionType, AuditStatus, EntityType
+from app.models.enums import AuditActionType, AuditStatus, ConformityRoute, EntityType
 from app.models.product import ProductScopeEvaluation
 from app.repositories.product_repository import ProductRepository
 from app.repositories.product_scope_evaluation_repository import ProductScopeEvaluationRepository
@@ -49,6 +50,22 @@ class ScopeEvaluationService:
 
         product.scope_status = "in_scope" if result.in_scope else "out_of_scope"
         product.current_classification = result.recommended_classification
+
+        # Phase 2 — stamp the decision provenance so the inventory record is
+        # audit-ready. Records who decided and when for every evaluation; for
+        # out-of-scope results also seed the justification from the rule rationale
+        # (the user can later refine the justification/signature via the edit form).
+        actor_id = getattr(actor, "id", None)
+        product.scope_decided_by_user_id = actor_id
+        product.scope_decided_at = datetime.now(UTC)
+        if not result.in_scope and not product.out_of_scope_justification:
+            product.out_of_scope_justification = result.rationale
+
+        # Phase 3 — seed the product-level conformity route from the wizard's
+        # suggestion while it is still undecided, so the inventory shows a route
+        # without overwriting a route the team has already chosen.
+        if product.conformity_route == ConformityRoute.undecided:
+            product.conformity_route = result.suggested_conformity_route
 
         create_audit_event(
             self.db,

@@ -49,7 +49,9 @@ from app.schemas.dashboard import (
     UpcomingRelease,
     VulnSeverityBreakdown,
 )
+from app.schemas.product_readiness import ConformanceSummary, ProductReadinessRead
 from app.schemas.release_journey import ReleaseJourney
+from app.services.product_readiness_service import ProductReadinessService
 from app.services.release_journey_service import list_journeys
 
 router = APIRouter()
@@ -60,6 +62,32 @@ _VULN_TERMINAL = {
     VulnerabilityLifecycleStatus.retired,
 }
 
+
+
+@router.get("/product-readiness", response_model=list[ProductReadinessRead])
+def get_product_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ProductReadinessRead]:
+    """
+    Per-product compliance readiness, anchored on Annex I Part I coverage.
+
+    Separate from the main dashboard payload so the heavier per-product,
+    per-release matrix computation can be lazy-loaded. Sorted worst-first.
+    """
+    return ProductReadinessService(db).list_product_readiness()
+
+
+@router.get("/conformance", response_model=ConformanceSummary)
+def get_conformance(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ConformanceSummary:
+    """
+    High-level portfolio conformance for the dashboard pie: how many in-scope
+    products have an approved requirement assessment (out-of-scope excluded).
+    """
+    return ProductReadinessService(db).conformance_summary()
 
 
 @router.get("", response_model=DashboardRead)

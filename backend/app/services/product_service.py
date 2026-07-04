@@ -12,7 +12,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import create_audit_event
+from app.core.audit import create_audit_event, snapshot_model
 from app.core.exceptions import ConflictException
 from app.models.enums import AuditStatus, EntityType
 from app.models.product import Product
@@ -104,19 +104,26 @@ class ProductService:
     def delete_product(self, product_id: UUID, actor: object) -> None:
         product = self.repository.get_or_404(product_id)
 
-        self.repository.delete(product)
+        # Snapshot the full record into the append-only audit ledger *before* the
+        # hard delete, so the deleted product remains recoverable and tamper-evident.
+        # Capture identity fields up front too (they are read again after the delete
+        # flush expires the instance).
+        product_uuid = product.id
+        snapshot = snapshot_model(product)
         create_audit_event(
             self.db,
             actor_user_id=getattr(actor, "id", None),
             action_type="product.deleted",
             entity_type=EntityType.product,
-            entity_id=product.id,
+            entity_id=product_uuid,
             status=AuditStatus.success,
             details_json={
-                "product_id": str(product.id),
-                "product_code": product.product_code,
-                "name": product.name,
-                "product_name": product.name,
+                "product_id": str(product_uuid),
+                "product_code": snapshot.get("product_code"),
+                "name": snapshot.get("name"),
+                "product_name": snapshot.get("name"),
+                "snapshot": snapshot,
             },
         )
+        self.repository.delete(product)
         self.db.commit()

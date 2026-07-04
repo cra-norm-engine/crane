@@ -18,6 +18,31 @@ export type ConformityRoute =
 
 export type ScopeStatus = "undecided" | "in_scope" | "out_of_scope";
 
+/** CRA obligation tier: legacy = reporting-only, active = full obligations. */
+export type ProductLifecycleStatus = "legacy" | "active";
+
+/** Typed CRA product classification (software-only vs hardware with digital elements). */
+export type ProductType =
+  | "type1_software"
+  | "type2_hardware_with_digital"
+  | "undecided";
+
+/** Phase 4 — system-as-product vs component-by-component strategy. */
+export interface SystemProfile {
+  sold_as_product: boolean | null;
+  who_integrates_system: string | null;
+  marketed_as_product: boolean | null;
+  core_minimum_products_combination: string | null;
+}
+
+/** Phase 4 — B2B tailor-made product contract terms. */
+export interface TailorMadeTerms {
+  customized_support_period: string | null;
+  customized_security_config: string | null;
+  specific_user: string | null;
+  agreement_via_contractual_terms: string | null;
+}
+
 export interface ProductSummaryRead {
   id: string;
   product_code: string;
@@ -26,6 +51,22 @@ export interface ProductSummaryRead {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** CRA obligation tier: legacy (reporting-only) vs active (full obligations). */
+  lifecycle_status: ProductLifecycleStatus;
+  /** Phase 3 — typed classification (software vs hardware+digital). */
+  product_type_class: ProductType;
+  /** Phase 3 — product-level conformity assessment route. */
+  conformity_route: ConformityRoute;
+  /** Phase 2 — when the (out-of-)scope decision was signed off; null = undecided. */
+  scope_decided_at: string | null;
+  /** Phase 2 — free-text signature of the scope decision; null = unsigned. */
+  scope_decision_signature: string | null;
+  /** Phase 4 — flag chip: product carries a SystemProfile. */
+  has_system_profile: boolean;
+  /** Phase 4 — flag chip: product has tailor-made B2B terms. */
+  has_tailor_made_terms: boolean;
+  /** Flag chip: product relies on a remote data processing element. */
+  has_remote_processing: boolean;
   created_at: string;
   updated_at: string;
   /** Gap 2 — true when this product combines hardware and software/firmware (embedded product). */
@@ -238,6 +279,23 @@ export interface ProductRead {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** CRA obligation tier: legacy (reporting-only) vs active (full obligations). */
+  lifecycle_status: ProductLifecycleStatus;
+  /** Phase 3 — typed classification (software vs hardware+digital). */
+  product_type_class: ProductType;
+  /** Phase 3 — product-level conformity assessment route. */
+  conformity_route: ConformityRoute;
+  /** Phase 2 — out-of-scope decision provenance. */
+  out_of_scope_justification: string | null;
+  scope_decided_by_user_id: string | null;
+  scope_decided_at: string | null;
+  scope_decision_signature: string | null;
+  /** Resolved display name of the user who signed the scope decision. */
+  scope_decided_by_name: string | null;
+  /** Phase 4 — system-as-product profile (null when not sold as a system). */
+  system_profile_json: SystemProfile | null;
+  /** Phase 4 — tailor-made B2B contract terms (null when not tailor-made). */
+  tailor_made_terms_json: TailorMadeTerms | null;
   /** Gap 2 — true when this product combines hardware and software/firmware. */
   is_embedded_product: boolean;
   /** Gap 4 — Art. 69(2): true for products on the market before CRA full applicability. */
@@ -269,6 +327,12 @@ export interface ProductCreate {
   product_type: string;
   current_classification: ProductClassification;
   scope_status: ScopeStatus | string;
+  /** CRA obligation tier: legacy (reporting-only) vs active (full obligations). */
+  lifecycle_status?: ProductLifecycleStatus;
+  /** Phase 3 — typed classification (software vs hardware+digital). */
+  product_type_class?: ProductType;
+  /** Phase 3 — product-level conformity assessment route. */
+  conformity_route?: ConformityRoute;
   /** Gap 2 — true when the product combines hardware and firmware/software. */
   is_embedded_product?: boolean;
   /** Gap 4 — Art. 69(2) flag; defaults to false for new products created after CRA. */
@@ -292,6 +356,18 @@ export interface ProductUpdate {
   product_type?: string;
   current_classification?: ProductClassification;
   scope_status?: ScopeStatus | string;
+  /** CRA obligation tier: legacy (reporting-only) vs active (full obligations). */
+  lifecycle_status?: ProductLifecycleStatus;
+  /** Phase 3 — typed classification (software vs hardware+digital). */
+  product_type_class?: ProductType;
+  /** Phase 3 — product-level conformity assessment route. */
+  conformity_route?: ConformityRoute;
+  /** Phase 2 — manual entry/refinement of the out-of-scope decision. */
+  out_of_scope_justification?: string | null;
+  scope_decision_signature?: string | null;
+  /** Phase 4 — system & tailor-made metadata. */
+  system_profile_json?: SystemProfile | null;
+  tailor_made_terms_json?: TailorMadeTerms | null;
   /** Gap 2 — update the embedded product flag when the product's hardware nature is confirmed. */
   is_embedded_product?: boolean;
   /** Gap 4 — update the pre-CRA flag when a product's status is clarified. */
@@ -814,6 +890,26 @@ export interface SbomScanResult {
   epss_enrichments: number;
   /** Per-scanner finding counts: {osv, trivy, both}. */
   per_scanner: Record<string, number>;
+}
+
+/** One recorded scan execution (manual / scheduled / on_upload). */
+export interface SbomScanRunRead {
+  id: string;
+  created_at: string;
+  sbom_record_id: string;
+  /** "manual" | "scheduled" | "on_upload". */
+  trigger: string;
+  /** "completed" | "degraded" | "failed". */
+  status: string;
+  findings_created: number;
+  reports_created: number;
+  components_scanned: number;
+  nvd_enrichments: number;
+  epss_enrichments: number;
+  osv_reachable: boolean;
+  trivy_available: boolean;
+  error: string | null;
+  duration_ms: number | null;
 }
 
 // ── Gap 10: SBOM Record ────────────────────────────────────────────────────

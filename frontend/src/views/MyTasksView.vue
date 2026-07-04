@@ -42,7 +42,8 @@
     <div v-if="!isLoading" class="summary-grid">
 
       <!-- Overdue -->
-      <div
+      <button
+        type="button"
         class="sum-card"
         :class="[overdueCount === 0 ? 'sum-overdue-ok' : 'sum-overdue', activeFilter === 'overdue' ? 'sum-active' : '']"
         @click="toggleFilter('overdue')"
@@ -61,10 +62,11 @@
           <div class="sum-label">{{ overdueCount === 0 ? "Overdue — you're caught up" : "Overdue" }}</div>
         </div>
         <svg v-if="overdueCount > 0" class="sum-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-      </div>
+      </button>
 
       <!-- Due this week -->
-      <div
+      <button
+        type="button"
         class="sum-card sum-week"
         :class="activeFilter === 'week' ? 'sum-active' : ''"
         @click="toggleFilter('week')"
@@ -79,10 +81,11 @@
           <div class="sum-label">Due this week</div>
         </div>
         <svg class="sum-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-      </div>
+      </button>
 
       <!-- Total open -->
-      <div
+      <button
+        type="button"
         class="sum-card sum-open"
         :class="activeFilter === 'all' ? 'sum-active' : ''"
         @click="toggleFilter('all')"
@@ -97,14 +100,43 @@
           <div class="sum-label">Total open</div>
         </div>
         <svg class="sum-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-      </div>
+      </button>
 
     </div>
 
-    <!-- ── Loading ────────────────────────────────────────────────────────── -->
-    <div v-if="isLoading" class="empty-panel">Loading your tasks…</div>
+    <!-- ── Search + active-filter chip ────────────────────────────────────── -->
+    <div v-if="!isLoading && tasks.length" class="tasks-toolbar">
+      <div class="task-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="15" height="15" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input v-model.trim="search" placeholder="Search tasks by title, product or release…" />
+        <button v-if="search" type="button" class="task-search-x" aria-label="Clear search" @click="search = ''">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+        </button>
+      </div>
 
-    <!-- ── Empty ──────────────────────────────────────────────────────────── -->
+      <!-- Removable chip mirroring the toggled summary card. -->
+      <button v-if="activeFilter" type="button" class="task-chip" @click="activeFilter = null">
+        <span class="task-chip-k">Showing:</span>
+        <span class="task-chip-v">{{ filterLabel }}</span>
+        <svg class="task-chip-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+      </button>
+    </div>
+
+    <!-- ── Loading skeleton ───────────────────────────────────────────────── -->
+    <div v-if="isLoading" class="task-list skel-list" aria-hidden="true">
+      <div v-for="n in 5" :key="n" class="skel-row">
+        <span class="skel skel-pill"></span>
+        <span class="skel skel-line skel-w60"></span>
+        <span class="skel skel-mark"></span>
+        <span class="skel skel-pill"></span>
+        <span class="skel skel-line skel-w40"></span>
+        <span></span>
+      </div>
+    </div>
+
+    <!-- ── Empty: no tasks at all ─────────────────────────────────────────── -->
     <div v-else-if="!tasks.length && !loadError" class="empty-panel">
       <div class="empty-ic">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20" stroke-linecap="round"><path d="M3 10.5l4.5 4.5 9.5-9"/></svg>
@@ -113,15 +145,23 @@
       <p class="empty-sub">No open tasks assigned to you right now.</p>
     </div>
 
-    <!-- ── Task groups ────────────────────────────────────────────────────── -->
+    <!-- ── Empty: filtered/searched to nothing ────────────────────────────── -->
+    <div v-else-if="!visibleGroups.length && !loadError" class="empty-panel">
+      <div class="empty-ic empty-ic-muted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="20" height="20" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </div>
+      <p class="empty-title">No matching tasks</p>
+      <p class="empty-sub">No tasks match your search or filter. Try clearing them.</p>
+      <button class="hbtn" @click="clearFilters">Clear search &amp; filters</button>
+    </div>
+
+    <!-- ── Task groups — single template, looped over the group model ─────── -->
     <template v-else>
-
-      <!-- Overdue -->
-      <div v-if="visibleOverdue.length" class="group">
+      <div v-for="group in visibleGroups" :key="group.key" class="group">
         <div class="group-head">
-          <span class="gdot gdot-overdue"></span>
-          <span class="gtitle">Overdue</span>
-          <span class="gcount gcount-overdue">{{ visibleOverdue.length }}</span>
+          <span class="gdot" :class="`gdot-${group.tone}`"></span>
+          <span class="gtitle">{{ group.title }}</span>
+          <span class="gcount" :class="group.tone === 'overdue' || group.tone === 'week' ? `gcount-${group.tone}` : ''">{{ group.tasks.length }}</span>
           <span class="gline"></span>
         </div>
         <div class="task-list">
@@ -129,94 +169,9 @@
             <div>Type</div><div>Title</div><div>Product / Release</div><div>Status</div><div>Due</div><div></div>
           </div>
           <div
-            v-for="task in visibleOverdue" :key="task.entity_id"
-            class="task-row prio-high"
-            tabindex="0"
-            @click="openDrawer(task)"
-            @keydown.enter="openDrawer(task)"
-          >
-            <div><span class="type-pill" :class="`tp-${task.entity_type}`">
-              <TypeIcon :type="task.entity_type" />
-              {{ formatEntityType(task.entity_type) }}
-            </span></div>
-            <div class="tt-wrap">
-              <div class="tt-main">{{ task.title }}</div>
-              <div v-if="task.product_name" class="tt-sub">{{ task.product_name }}<template v-if="task.release_version"> · {{ task.release_version }}</template></div>
-            </div>
-            <div class="prod-cell">
-              <div class="prod-mark">{{ productInitials(task.product_name) }}</div>
-              <div class="prod-name">{{ task.product_name || '—' }}</div>
-            </div>
-            <div><StatusPill :status="task.status" /></div>
-            <div class="due-cell">
-              <span class="due-date due-overdue">{{ formatDate(task.due_date) }}</span>
-              <span class="due-rel due-urgent">{{ relativeDue(task.due_date) }}</span>
-            </div>
-            <button class="row-go" aria-label="Open">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Due this week -->
-      <div v-if="visibleWeek.length" class="group">
-        <div class="group-head">
-          <span class="gdot gdot-week"></span>
-          <span class="gtitle">Due this week</span>
-          <span class="gcount gcount-week">{{ visibleWeek.length }}</span>
-          <span class="gline"></span>
-        </div>
-        <div class="task-list">
-          <div class="col-head">
-            <div>Type</div><div>Title</div><div>Product / Release</div><div>Status</div><div>Due</div><div></div>
-          </div>
-          <div
-            v-for="task in visibleWeek" :key="task.entity_id"
-            class="task-row prio-med"
-            tabindex="0"
-            @click="openDrawer(task)"
-            @keydown.enter="openDrawer(task)"
-          >
-            <div><span class="type-pill" :class="`tp-${task.entity_type}`">
-              <TypeIcon :type="task.entity_type" />
-              {{ formatEntityType(task.entity_type) }}
-            </span></div>
-            <div class="tt-wrap">
-              <div class="tt-main">{{ task.title }}</div>
-              <div v-if="task.product_name" class="tt-sub">{{ task.product_name }}<template v-if="task.release_version"> · {{ task.release_version }}</template></div>
-            </div>
-            <div class="prod-cell">
-              <div class="prod-mark">{{ productInitials(task.product_name) }}</div>
-              <div class="prod-name">{{ task.product_name || '—' }}</div>
-            </div>
-            <div><StatusPill :status="task.status" /></div>
-            <div class="due-cell">
-              <span class="due-date">{{ formatDate(task.due_date) }}</span>
-              <span class="due-rel" :class="urgencyClass(task.due_date)">{{ relativeDue(task.due_date) }}</span>
-            </div>
-            <button class="row-go" aria-label="Open">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Upcoming -->
-      <div v-if="visibleUpcoming.length" class="group">
-        <div class="group-head">
-          <span class="gdot gdot-upcoming"></span>
-          <span class="gtitle">Upcoming</span>
-          <span class="gcount">{{ visibleUpcoming.length }}</span>
-          <span class="gline"></span>
-        </div>
-        <div class="task-list">
-          <div class="col-head">
-            <div>Type</div><div>Title</div><div>Product / Release</div><div>Status</div><div>Due</div><div></div>
-          </div>
-          <div
-            v-for="task in visibleUpcoming" :key="task.entity_id"
+            v-for="task in group.tasks" :key="task.entity_id"
             class="task-row"
+            :class="group.rowClass"
             tabindex="0"
             @click="openDrawer(task)"
             @keydown.enter="openDrawer(task)"
@@ -235,8 +190,14 @@
             </div>
             <div><StatusPill :status="task.status" /></div>
             <div class="due-cell">
-              <span class="due-date">{{ formatDate(task.due_date) }}</span>
-              <span class="due-rel">{{ relativeDue(task.due_date) }}</span>
+              <template v-if="task.due_date">
+                <span class="due-date" :class="{ 'due-overdue': group.tone === 'overdue' }">{{ formatDate(task.due_date) }}</span>
+                <span class="due-rel" :class="group.tone === 'overdue' ? 'due-urgent' : urgencyClass(task.due_date)">{{ relativeDue(task.due_date) }}</span>
+              </template>
+              <template v-else>
+                <span class="due-date" style="opacity:0.4">—</span>
+                <span class="due-rel">No deadline</span>
+              </template>
             </div>
             <button class="row-go" aria-label="Open">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
@@ -244,50 +205,6 @@
           </div>
         </div>
       </div>
-
-      <!-- No due date -->
-      <div v-if="visibleNoDue.length" class="group">
-        <div class="group-head">
-          <span class="gdot gdot-none"></span>
-          <span class="gtitle">No due date</span>
-          <span class="gcount">{{ visibleNoDue.length }}</span>
-          <span class="gline"></span>
-        </div>
-        <div class="task-list">
-          <div class="col-head">
-            <div>Type</div><div>Title</div><div>Product / Release</div><div>Status</div><div>Due</div><div></div>
-          </div>
-          <div
-            v-for="task in visibleNoDue" :key="task.entity_id"
-            class="task-row"
-            tabindex="0"
-            @click="openDrawer(task)"
-            @keydown.enter="openDrawer(task)"
-          >
-            <div><span class="type-pill" :class="`tp-${task.entity_type}`">
-              <TypeIcon :type="task.entity_type" />
-              {{ formatEntityType(task.entity_type) }}
-            </span></div>
-            <div class="tt-wrap">
-              <div class="tt-main">{{ task.title }}</div>
-              <div v-if="task.product_name" class="tt-sub">{{ task.product_name }}<template v-if="task.release_version"> · {{ task.release_version }}</template></div>
-            </div>
-            <div class="prod-cell">
-              <div class="prod-mark">{{ productInitials(task.product_name) }}</div>
-              <div class="prod-name">{{ task.product_name || '—' }}</div>
-            </div>
-            <div><StatusPill :status="task.status" /></div>
-            <div class="due-cell">
-              <span class="due-date" style="opacity:0.4">—</span>
-              <span class="due-rel">No deadline</span>
-            </div>
-            <button class="row-go" aria-label="Open">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
     </template>
   </section>
 </template>
@@ -305,6 +222,7 @@ const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 const router = useRouter();
 const activeFilter = ref<"overdue" | "week" | "all" | null>(null);
+const search = ref("");
 
 // ── Inline sub-components ─────────────────────────────────────────────────────
 
@@ -364,7 +282,7 @@ function openDrawer(task: TaskItem): void {
 function onStatusUpdated(task: TaskItem, newStatus: string): void {
   const idx = tasks.value.findIndex((t) => t.entity_id === task.entity_id);
   if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], status: newStatus };
-  const terminal = new Set(["mitigated", "accepted", "closed", "disclosed", "retired"]);
+  const terminal = new Set(["mitigated", "accepted", "closed", "disclosed", "retired", "dismissed"]);
   if (terminal.has(newStatus)) {
     tasks.value.splice(idx, 1);
     drawerTask.value = null;
@@ -393,6 +311,21 @@ onMounted(load);
 // ── Filter toggle ─────────────────────────────────────────────────────────────
 function toggleFilter(f: "overdue" | "week" | "all"): void {
   activeFilter.value = activeFilter.value === f ? null : f;
+}
+
+/** Human label for the active summary-card filter (shown in the removable chip). */
+const filterLabel = computed(() => {
+  switch (activeFilter.value) {
+    case "overdue": return "Overdue";
+    case "week":    return "Due this week";
+    case "all":     return "All open";
+    default:        return "";
+  }
+});
+
+function clearFilters(): void {
+  activeFilter.value = null;
+  search.value = "";
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -445,15 +378,48 @@ const noDueDateTasks   = computed(() => tasks.value.filter((t) => !t.due_date &&
 const overdueCount     = computed(() => overdueTasks.value.length);
 const dueThisWeekCount = computed(() => dueThisWeekTasks.value.length);
 
-// Apply active filter — when a filter is active, only show its group
-const visibleOverdue  = computed(() =>
-  (!activeFilter.value || activeFilter.value === "overdue" || activeFilter.value === "all") ? overdueTasks.value : []);
-const visibleWeek     = computed(() =>
-  (!activeFilter.value || activeFilter.value === "week" || activeFilter.value === "all") ? dueThisWeekTasks.value : []);
-const visibleUpcoming = computed(() =>
-  (!activeFilter.value || activeFilter.value === "all") ? upcomingTasks.value : []);
-const visibleNoDue    = computed(() =>
-  (!activeFilter.value || activeFilter.value === "all") ? noDueDateTasks.value : []);
+/** Case-insensitive match of a task against the search box (title/product/release). */
+function matchesSearch(task: TaskItem): boolean {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return true;
+  return [task.title, task.product_name, task.release_version]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
+
+/**
+ * The single group model that drives the whole list. Each group carries its
+ * display tone + priority-strip row class, so the template renders one row
+ * markup for every group instead of four near-identical copies. The active
+ * summary-card filter hides non-matching groups; the search box filters the
+ * tasks within every group; empty groups drop out.
+ */
+interface TaskGroup {
+  key: string;
+  title: string;
+  tone: "overdue" | "week" | "upcoming" | "none";
+  rowClass: string;
+  tasks: TaskItem[];
+}
+const visibleGroups = computed<TaskGroup[]>(() => {
+  const f = activeFilter.value;
+  const wantOverdue  = !f || f === "overdue" || f === "all";
+  const wantWeek     = !f || f === "week" || f === "all";
+  const wantRest     = !f || f === "all";
+
+  const defs: TaskGroup[] = [
+    { key: "overdue",  title: "Overdue",       tone: "overdue",  rowClass: "prio-high", tasks: wantOverdue ? overdueTasks.value : [] },
+    { key: "week",     title: "Due this week", tone: "week",     rowClass: "prio-med",  tasks: wantWeek ? dueThisWeekTasks.value : [] },
+    { key: "upcoming", title: "Upcoming",      tone: "upcoming", rowClass: "",          tasks: wantRest ? upcomingTasks.value : [] },
+    { key: "nodue",    title: "No due date",   tone: "none",     rowClass: "",          tasks: wantRest ? noDueDateTasks.value : [] },
+  ];
+
+  return defs
+    .map((g) => ({ ...g, tasks: g.tasks.filter(matchesSearch) }))
+    .filter((g) => g.tasks.length > 0);
+});
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function navigateToTask(task: TaskItem): void {
@@ -586,14 +552,106 @@ function productInitials(name: string | null | undefined): string {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   cursor: pointer;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.08s;
   user-select: none;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
 }
 .sum-card:hover { border-color: var(--color-border-strong, var(--color-border)); }
+.sum-card:active { transform: translateY(1px); }
+.sum-card:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .sum-active {
   box-shadow: 0 0 0 2px var(--color-text);
   border-color: var(--color-text);
 }
+
+/* ── Search + active-filter chip toolbar ──────────────────────────────────── */
+.tasks-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.task-search {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text-muted);
+}
+.task-search:focus-within { border-color: var(--color-primary); }
+.task-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: 500 13px/1 'Inter', sans-serif;
+  color: var(--color-text);
+}
+.task-search input::placeholder { color: var(--color-text-muted); }
+.task-search-x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.task-search-x:hover { background: var(--color-surface-elevated); color: var(--color-text); }
+
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-text);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: 500 12.5px/1 'Inter', sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+.task-chip:hover { background: var(--color-surface-elevated); }
+.task-chip-k { color: var(--color-text-muted); }
+.task-chip-v { font-weight: 700; }
+.task-chip-x { color: var(--color-text-muted); }
+
+/* ── Skeleton loader ──────────────────────────────────────────────────────── */
+.skel-list { padding: 4px 0; }
+.skel-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 190px 130px 130px 28px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.skel-row:last-child { border-bottom: none; }
+.skel {
+  background: linear-gradient(90deg, var(--color-surface-elevated) 25%, var(--color-border) 37%, var(--color-surface-elevated) 63%);
+  background-size: 400% 100%;
+  border-radius: 6px;
+  animation: task-shimmer 1.4s ease-in-out infinite;
+}
+.skel-pill { height: 20px; border-radius: 999px; }
+.skel-line { height: 12px; }
+.skel-mark { width: 26px; height: 26px; border-radius: 6px; }
+.skel-w60 { width: 60%; }
+.skel-w40 { width: 55%; }
+@keyframes task-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+.empty-ic-muted { background: var(--color-surface-elevated); color: var(--color-text-muted); }
 
 .sum-ic {
   width: 42px;
@@ -665,6 +723,7 @@ function productInitials(name: string | null | undefined): string {
 }
 
 .empty-sub { font-size: 0.82rem; margin: 0; }
+.empty-panel .hbtn { margin-top: 0.9rem; }
 
 /* ── Group header ─────────────────────────────────────────────────────────── */
 .group { display: flex; flex-direction: column; gap: 0; }

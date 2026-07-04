@@ -22,6 +22,9 @@
       </div>
     </header>
 
+    <!-- ── Compliance readiness overview (all products) ───── -->
+    <ProductReadinessPanel @select="onReadinessSelect" />
+
     <!-- ── Alerts ─────────────────────────────────────────── -->
     <transition name="fade">
       <div v-if="errorMessage" class="alert error" role="alert">{{ errorMessage }}</div>
@@ -777,6 +780,7 @@ import { useRoute } from "vue-router";
 
 import AppModal from "@/components/AppModal.vue";
 import AppButton from "@/components/AppButton.vue";
+import ProductReadinessPanel from "@/components/ProductReadinessPanel.vue";
 import { artifactService } from "@/services/artifact-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
@@ -832,6 +836,24 @@ const productArtifacts = ref<ArtifactListRead[]>([]);
 const productQuery = ref("");
 const selectedProductId = ref("");
 const selectedReleaseId = ref("");
+
+/**
+ * Readiness panel release clicked → open that specific release's matrix.
+ * Sets the product (which loads its releases via the watcher), waits for the
+ * releases to arrive, then selects the requested release. Scrolls the matrix
+ * into view so the deep-dive is visible below the overview.
+ */
+async function onReadinessSelect(productId: string, releaseId: string): Promise<void> {
+  if (selectedProductId.value !== productId) {
+    selectedProductId.value = productId;
+    // The product watcher loads releases asynchronously; wait for it.
+    await nextTick();
+    await loadProductContext(productId);
+  }
+  selectedReleaseId.value = releaseId;
+  await nextTick();
+  document.querySelector(".matrix-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 const selectedRequirementId = ref("");
 const selectedTraceId = ref("");
 

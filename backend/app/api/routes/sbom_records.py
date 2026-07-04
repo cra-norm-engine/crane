@@ -7,22 +7,46 @@
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permissions_dependency
-from app.core.database import get_db
+from app.core.config import settings
+from app.core.database import SessionLocal, get_db
 from app.core.permissions import Permission
 from app.models.user import User
 from app.schemas.sbom_record import SbomRecordCreate, SbomRecordRead, SbomRecordUpdate
-from app.schemas.sbom_vulnerability_finding import SbomScanResult, SbomVulnerabilityFindingRead
+from app.schemas.sbom_vulnerability_finding import (
+    SbomScanResult,
+    SbomScanRunRead,
+    SbomVulnerabilityFindingRead,
+)
+from app.services.scan_orchestration_service import ScanOrchestrationService
 from app.services.sbom_record_service import SbomRecordService
 from app.services.sbom_vulnerability_scanner import SbomVulnerabilityScanner
+from app.repositories.sbom_scan_run_repository import SbomScanRunRepository
 from app.repositories.sbom_vulnerability_finding_repository import SbomVulnerabilityFindingRepository
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def _run_on_upload_scan(sbom_id: UUID) -> None:
+    """
+    Background task: scan a freshly-uploaded SBOM using its own DB session.
+
+    Best-effort — a scan failure must never surface to the upload request (which
+    has already returned). The orchestrator records a failed/degraded run row.
+    """
+    try:
+        with SessionLocal() as db:
+            ScanOrchestrationService(db).run_scan(sbom_id, trigger="on_upload", actor=None)
+    except Exception:  # noqa: BLE001 — background best-effort
+        logger.exception("On-upload scan failed for SBOM %s", sbom_id)
 
 
 @router.get("/", response_model=list[SbomRecordRead])
@@ -78,21 +102,40 @@ def import_sbom_from_artifact(
 
 @router.post("/upload", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
 async def upload_sbom_record(
+    background_tasks: BackgroundTasks,
     product_release_id: UUID = Form(...),
     file: UploadFile = File(...),
     notes: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
 ) -> SbomRecordRead:
-    """Upload a raw SBOM file, run sbom-tools analysis, and create a record."""
+    """Upload a raw SBOM file, run sbom-tools analysis, and create a record.
+
+    When scan_on_upload is enabled, a vulnerability scan is queued to run in the
+    background so the upload returns promptly (a full scan can take minutes).
+    """
     content = (await file.read()).decode("utf-8", errors="replace")
-    return SbomRecordService(db).upload_and_analyze(
+    record = SbomRecordService(db).upload_and_analyze(
         product_release_id=product_release_id,
         sbom_content=content,
         file_name=file.filename,
         notes=notes,
         actor=current_user,
     )
+    if settings.scan_on_upload:
+        background_tasks.add_task(_run_on_upload_scan, record.id)
+    return record
+
+
+@router.get("/{sbom_id}/scan-runs", response_model=list[SbomScanRunRead])
+def list_sbom_scan_runs(
+    sbom_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
+) -> list[SbomScanRunRead]:
+    """List the recorded scan executions (manual/scheduled/on-upload) for this SBOM."""
+    runs = SbomScanRunRepository(db).list_by_sbom(sbom_id)
+    return [SbomScanRunRead.model_validate(r) for r in runs]
 
 
 @router.post("/{sbom_id}/analyze", response_model=SbomRecordRead)
