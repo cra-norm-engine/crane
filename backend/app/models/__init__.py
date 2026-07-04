@@ -46,6 +46,7 @@ from app.models.user_preference import UserPreference
 from app.models.vulnerability_report import VulnerabilityReport
 from app.models.incident_report import IncidentReport
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
+from app.models.sbom_scan_run import SbomScanRun
 
 __all__ = [
     "AnnexRequirement",
@@ -92,4 +93,5 @@ __all__ = [
     "VulnerabilityReport",
     "IncidentReport",
     "SbomVulnerabilityFinding",
+    "SbomScanRun",
 ]

@@ -12,6 +12,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.audit import snapshot_model
 from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import AuditActionType, AuditStatus, EntityType
 from app.models.risk_item import RiskItem
@@ -125,9 +126,10 @@ class RiskItemService:
         user_agent: str | None = None,
     ) -> None:
         risk_item = self.get(risk_item_id)
-        before = self._snapshot(risk_item)
-
-        self.risk_item_repository.delete(risk_item)
+        # Full snapshot into the append-only ledger *before* the hard delete so the
+        # deleted risk item stays recoverable and tamper-evident. Uses the shared
+        # snapshot_model helper (consistent shape across all snapshot-on-delete sites).
+        snapshot = snapshot_model(risk_item)
 
         self._write_audit_log(
             actor_user_id=actor_user_id,
@@ -137,9 +139,10 @@ class RiskItemService:
             status=AuditStatus.success,
             ip_address=ip_address,
             user_agent=user_agent,
-            details_json={"deleted": before},
+            details_json={"snapshot": snapshot},
         )
 
+        self.risk_item_repository.delete(risk_item)
         self.db.commit()
 
     def _snapshot(self, risk_item: RiskItem) -> dict[str, Any]:

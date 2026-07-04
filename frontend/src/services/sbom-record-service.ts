@@ -10,6 +10,7 @@ import type {
   SbomRecordRead,
   SbomRecordUpdate,
   SbomScanResult,
+  SbomScanRunRead,
   SbomVulnerabilityFindingRead,
 } from "@/types/product";
 
@@ -58,6 +59,14 @@ export const sbomRecordService = {
   async listVulnerabilityFindings(sbomId: string): Promise<SbomVulnerabilityFindingRead[]> {
     const { data } = await apiClient.get<SbomVulnerabilityFindingRead[]>(
       `/sbom-records/${sbomId}/vulnerability-findings`,
+    );
+    return data;
+  },
+
+  /** List the recorded scan executions (manual/scheduled/on-upload) for this SBOM, newest first. */
+  async listScanRuns(sbomId: string): Promise<SbomScanRunRead[]> {
+    const { data } = await apiClient.get<SbomScanRunRead[]>(
+      `/sbom-records/${sbomId}/scan-runs`,
     );
     return data;
   },

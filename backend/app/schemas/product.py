@@ -15,10 +15,28 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from app.models.enums import (
     ConformityRoute,
     ProductClassification,
+    ProductLifecycleStatus,
+    ProductType,
     ReleaseStatus,
     RemoteProcessingClassification,
     RemoteProcessingElementType,
 )
+
+
+class SystemProfile(BaseModel):
+    # Phase 4 — system-as-product vs component-by-component strategy.
+    sold_as_product: bool | None = None
+    who_integrates_system: str | None = None
+    marketed_as_product: bool | None = None
+    core_minimum_products_combination: str | None = None
+
+
+class TailorMadeTerms(BaseModel):
+    # Phase 4 — B2B tailor-made product contract terms.
+    customized_support_period: str | None = None
+    customized_security_config: str | None = None
+    specific_user: str | None = None
+    agreement_via_contractual_terms: str | None = None
 
 
 class ProductBase(BaseModel):
@@ -31,6 +49,23 @@ class ProductBase(BaseModel):
     product_type: str = Field(min_length=1, max_length=150)
     current_classification: ProductClassification = ProductClassification.normal
     scope_status: str = "undecided"
+    # CRA obligation tier: legacy (reporting-only) vs active (full obligations).
+    lifecycle_status: ProductLifecycleStatus = ProductLifecycleStatus.active
+
+    # Phase 3 — typed CRA product classification (software vs hardware+digital).
+    product_type_class: ProductType = ProductType.undecided
+    # Phase 3 — product-level conformity assessment route.
+    conformity_route: ConformityRoute = ConformityRoute.undecided
+
+    # Phase 2 — out-of-scope decision provenance. The signature/justification are
+    # user-editable; scope_decided_by/at are stamped by the scope wizard.
+    out_of_scope_justification: str | None = None
+    scope_decision_signature: str | None = Field(default=None, max_length=255)
+
+    # Phase 4 — additive system & tailor-made metadata (nullable JSON). Field
+    # names match the model columns so create/update/read round-trip cleanly.
+    system_profile_json: SystemProfile | None = None
+    tailor_made_terms_json: TailorMadeTerms | None = None
 
     # Gap 2 — true when this product combines physical hardware with software/firmware
     # (e.g. embedded IoT devices). Enables per-release hardware_version and
@@ -75,6 +110,16 @@ class ProductUpdate(BaseModel):
     product_type: str | None = Field(default=None, min_length=1, max_length=150)
     current_classification: ProductClassification | None = None
     scope_status: str | None = None
+    lifecycle_status: ProductLifecycleStatus | None = None
+    # Phase 3 — typed product classification + product-level conformity route.
+    product_type_class: ProductType | None = None
+    conformity_route: ConformityRoute | None = None
+    # Phase 2 — allow manual entry/refinement of the out-of-scope decision.
+    out_of_scope_justification: str | None = None
+    scope_decision_signature: str | None = Field(default=None, max_length=255)
+    # Phase 4 — additive system & tailor-made metadata.
+    system_profile_json: SystemProfile | None = None
+    tailor_made_terms_json: TailorMadeTerms | None = None
     # Gap 2 — allow toggling the embedded product flag after creation
     is_embedded_product: bool | None = None
     # Allow updating the pre-CRA flag and first placement date independently
@@ -99,6 +144,10 @@ class ProductSummaryRead(BaseModel):
     product_type: str
     current_classification: ProductClassification
     scope_status: str
+    lifecycle_status: ProductLifecycleStatus
+    # Phase 3 — typed classification + product-level conformity route in list view.
+    product_type_class: ProductType
+    conformity_route: ConformityRoute
     # Gap 2 — exposed so list views can show the embedded product indicator
     is_embedded_product: bool
     # Gap 4 — exposed in list views so the product list can flag pre-CRA products
@@ -106,6 +155,14 @@ class ProductSummaryRead(BaseModel):
     first_placed_on_market_date: date | None
     security_contact_email: str | None
     security_contact_url: str | None
+    # Phase 2 — provenance surfaced so the list can flag unsigned out-of-scope rows.
+    scope_decided_at: datetime | None
+    scope_decision_signature: str | None
+    # Phase 4 — lightweight boolean flags for the inventory "flags" chips (S/T/R),
+    # resolved from model properties so the list need not ship the full JSON blobs.
+    has_system_profile: bool
+    has_tailor_made_terms: bool
+    has_remote_processing: bool
     created_at: datetime
     updated_at: datetime
 
@@ -182,6 +239,11 @@ class ProductRead(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    # Phase 2 — read-only decision provenance (stamped by the scope wizard).
+    scope_decided_by_user_id: UUID | None = None
+    scope_decided_at: datetime | None = None
+    # Resolved signer display name (model property scope_decided_by_name).
+    scope_decided_by_name: str | None = None
     created_at: datetime
     updated_at: datetime
 

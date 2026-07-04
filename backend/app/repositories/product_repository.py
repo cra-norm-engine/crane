@@ -55,6 +55,7 @@ class ProductRepository(BaseRepository[Product]):
                 selectinload(Product.releases),
                 selectinload(Product.remote_processing_elements),
                 selectinload(Product.scope_evaluations),
+                selectinload(Product.scope_decided_by),
             )
             .where(Product.id == product_id)
         )

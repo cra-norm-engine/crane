@@ -100,6 +100,17 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = Field(default="INFO", alias="BACKEND_LOG_LEVEL")
 
+    # --- Automated vulnerability scanning ---
+    # Recurring re-scan of stored SBOMs so newly-published CVEs surface without a
+    # manual click. Disabled by default so environments without outbound internet
+    # (e.g. the offline sandbox) are unaffected; scans still degrade gracefully when
+    # enabled but a source is unreachable.
+    scan_scheduler_enabled: bool = Field(default=False, alias="BACKEND_SCAN_SCHEDULER_ENABLED")
+    # Cron expression (5-field: min hour day month day-of-week). Default 02:00 daily.
+    scan_schedule_cron: str = Field(default="0 2 * * *", alias="BACKEND_SCAN_SCHEDULE_CRON")
+    # Automatically scan an SBOM in the background right after it is uploaded.
+    scan_on_upload: bool = Field(default=True, alias="BACKEND_SCAN_ON_UPLOAD")
+
     # --- Artifact Storage ---
     artifact_upload_dir: str = Field(
         default="/workspace/backend/uploads/artifacts",

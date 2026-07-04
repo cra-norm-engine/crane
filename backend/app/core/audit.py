@@ -7,14 +7,54 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from app.models.audit_log_event import AuditLogEvent
 from app.models.base import utc_now
+
+
+def _json_safe(value: Any) -> Any:
+    """Coerce a single column value into a JSON-serialisable form for the ledger."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Enum):
+        # StrEnum members serialise via .value for a stable, human-readable string.
+        return value.value
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    return str(value)
+
+
+def snapshot_model(obj: object) -> dict[str, Any]:
+    """
+    Serialise a SQLAlchemy model's mapped columns to a JSON-safe dict.
+
+    Used to capture a full snapshot of an entity into the append-only audit
+    ledger *before* it is hard-deleted, so the deleted record remains
+    recoverable and tamper-evident. Only mapped column attributes are included
+    (relationships are intentionally excluded to keep the snapshot self-contained
+    and avoid lazy-load surprises during a delete flush).
+    """
+    mapper = sa_inspect(obj).mapper
+    return {
+        attr.key: _json_safe(getattr(obj, attr.key))
+        for attr in mapper.column_attrs
+    }
 
 
 class AuditLogger:

@@ -197,6 +197,27 @@ class ProductClassification(StrEnum):
     critical = "critical"
 
 
+class ProductLifecycleStatus(StrEnum):
+    # Drives the CRA obligation tier for a product.
+    #   legacy — on the market before full CRA applicability and not substantially
+    #            modified; reporting-only obligations apply.
+    #   active — subject to the full set of CRA obligations.
+    legacy = "legacy"
+    active = "active"
+
+
+class ProductType(StrEnum):
+    # High-level CRA product typing, used for filtering and obligation logic.
+    #   type1_software              — software-only product (no hardware element).
+    #   type2_hardware_with_digital — hardware product with digital elements
+    #                                 (embedded firmware/software).
+    # The free-text Product.product_type field is kept as a human label; this enum
+    # is the typed classification. Defaults to undecided until set.
+    type1_software = "type1_software"
+    type2_hardware_with_digital = "type2_hardware_with_digital"
+    undecided = "undecided"
+
+
 class ConformityRoute(StrEnum):
     self_assessment = "self_assessment"
     third_party_assessment = "third_party_assessment"

@@ -631,6 +631,22 @@
 
             <div v-if="vulnScanError" class="feedback feedback-error" style="margin-bottom:0.75rem">{{ vulnScanError }}</div>
 
+            <!-- Scan history: last automated/manual run, its trigger + outcome -->
+            <div v-if="lastScanRun" class="scan-history">
+              <span class="scan-history-label">Last scan</span>
+              <span class="scan-run-trigger" :class="`srt-${lastScanRun.trigger}`">{{ formatTrigger(lastScanRun.trigger) }}</span>
+              <span class="scan-run-status" :class="`srs-${lastScanRun.status}`">
+                <span class="srs-dot"></span>{{ lastScanRun.status }}
+              </span>
+              <span class="scan-history-time">{{ formatRunTime(lastScanRun.created_at) }}</span>
+              <span v-if="lastScanRun.findings_created > 0" class="scan-history-new">
+                +{{ lastScanRun.findings_created }} new finding{{ lastScanRun.findings_created !== 1 ? "s" : "" }}
+              </span>
+              <span v-if="lastScanRun.status === 'degraded'" class="scan-history-degraded">
+                Some sources were unreachable — retried next cycle.
+              </span>
+            </div>
+
             <!-- Empty state -->
             <div v-if="!vulnFindings.length" class="empty-panel">
               No findings yet. Run a scan to check components against known CVEs.
@@ -880,6 +896,7 @@ import type {
   SbomFormat,
   SbomRecordCreate,
   SbomRecordRead,
+  SbomScanRunRead,
   SbomVulnerabilityFindingRead,
 } from "@/types/product";
 
@@ -900,6 +917,9 @@ const showDetailModal = ref(false);
 const detailItem = ref<SbomRecordRead | null>(null);
 const activeDetailTab = ref("overview");
 const vulnFindings = ref<SbomVulnerabilityFindingRead[]>([]);
+const scanRuns = ref<SbomScanRunRead[]>([]);
+/** Most recent recorded scan run (drives the scan-history strip). */
+const lastScanRun = computed<SbomScanRunRead | null>(() => scanRuns.value[0] ?? null);
 const vulnScanError = ref("");
 const expandedFindingId = ref<string | null>(null);
 const vulnSortKey = ref<"epss" | "cvss" | "severity" | "none">("none");
@@ -1291,6 +1311,31 @@ async function loadVulnFindings(sbomId: string): Promise<void> {
   } catch {
     vulnFindings.value = [];
   }
+  await loadScanRuns(sbomId);
+}
+
+async function loadScanRuns(sbomId: string): Promise<void> {
+  try {
+    scanRuns.value = await sbomRecordService.listScanRuns(sbomId);
+  } catch {
+    scanRuns.value = [];
+  }
+}
+
+/** Human label for a scan run's trigger. */
+function formatTrigger(trigger: string): string {
+  switch (trigger) {
+    case "scheduled": return "Scheduled";
+    case "on_upload": return "On upload";
+    default:          return "Manual";
+  }
+}
+
+/** Relative-ish timestamp for a scan run. */
+function formatRunTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 async function scanVulnerabilities(): Promise<void> {
@@ -2532,6 +2577,42 @@ input:focus, select:focus, textarea:focus {
   color: inherit;
 }
 .sort-arrow { font-size: 0.8em; }
+
+/* ── Scan history strip ── */
+.scan-history {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-elevated);
+  font-size: var(--text-xs);
+}
+.scan-history-label { font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.scan-run-trigger {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.srt-scheduled { background: rgba(37,99,168,0.12); color: #2563a8; border-color: transparent; }
+.srt-on_upload { background: rgba(124,58,237,0.12); color: #7c3aed; border-color: transparent; }
+.scan-run-status { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; text-transform: capitalize; }
+.srs-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-muted); }
+.srs-completed { color: var(--color-success-text); }
+.srs-completed .srs-dot { background: var(--color-success); }
+.srs-degraded { color: var(--color-warning-text); }
+.srs-degraded .srs-dot { background: var(--color-warning); }
+.srs-failed { color: var(--color-danger-text); }
+.srs-failed .srs-dot { background: var(--color-danger); }
+.scan-history-time { color: var(--color-text-muted); }
+.scan-history-new { font-weight: 700; color: var(--color-success-text); }
+.scan-history-degraded { color: var(--color-warning-text); }
 
 /* ── Scanner legend (shown in header below description) ── */
 .scanner-legend {

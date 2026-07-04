@@ -39,60 +39,43 @@
 
     <template v-if="data">
 
-      <!-- ── Posture hero ──────────────────────────────────────────────────── -->
-      <div class="posture-hero">
-
-        <!-- Ring gauge -->
-        <div class="posture-ring-wrap">
-          <svg class="posture-ring" viewBox="0 0 112 112" aria-label="Compliance readiness ring">
-            <circle cx="56" cy="56" r="45" fill="none" stroke="var(--ring-track)" stroke-width="8"/>
+      <!-- ── Conformance overview (high-level pie) ─────────────────────────── -->
+      <!-- % of in-scope products whose latest release has an APPROVED requirement
+           assessment. Out-of-scope products are excluded from the %. The detailed
+           per-product readiness lives on the CRA requirements page. -->
+      <div class="conformance-panel">
+        <div class="conf-pie-wrap" v-if="conformance">
+          <svg class="conf-pie" viewBox="0 0 42 42" role="img" aria-label="Conformant products">
+            <circle class="conf-pie-track" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"/>
             <circle
-              cx="56" cy="56" r="45" fill="none"
-              :stroke="ringColor"
-              stroke-width="8"
+              class="conf-pie-seg" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"
               stroke-linecap="round"
-              stroke-dasharray="282.74"
-              :stroke-dashoffset="ringOffset"
-              transform="rotate(-90 56 56)"
+              :stroke-dasharray="`${conformance.conformant_pct} ${100 - conformance.conformant_pct}`"
+              stroke-dashoffset="25"
             />
           </svg>
-          <div class="ring-center">
-            <div class="ring-pct" :style="{ color: ringColor }">{{ postureScore }}%</div>
-            <div class="ring-sub">Ready</div>
+          <div class="conf-pie-center">
+            <span class="conf-pct">{{ conformance.conformant_pct }}%</span>
+            <span class="conf-pct-sub">conformant</span>
           </div>
         </div>
 
-        <!-- Copy + status chips -->
-        <div class="posture-copy">
-          <h2 class="posture-title">Compliance Readiness</h2>
-          <p class="posture-desc">
-            Based on open vulnerabilities, approved risk assessments, active support periods, and outstanding compliance actions.
+        <div class="conf-copy">
+          <h2 class="conf-title">Product conformance</h2>
+          <p class="conf-desc">
+            Share of in-scope products whose <strong>latest released</strong> version has an
+            <strong>approved</strong> CRA requirement assessment. Products that are out of scope or
+            have nothing on the market yet carry no obligation and are excluded.
           </p>
-          <div class="posture-chips">
-            <span class="posture-chip" :class="data.vulnerability_summary.critical === 0 ? 'pchip-ok' : 'pchip-danger'">
-              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.vulnerability_summary.critical === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M2 2l8 8M10 2 2 10"/></svg>
-              Vulnerabilities
-            </span>
-            <span class="posture-chip" :class="data.risk_summary.approved > 0 ? 'pchip-ok' : 'pchip-warn'">
-              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.risk_summary.approved > 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M6 2v5M6 9v1"/></svg>
-              Risk Assessments
-            </span>
-            <span class="posture-chip" :class="data.lifecycle_summary.expired === 0 ? 'pchip-ok' : 'pchip-danger'">
-              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.lifecycle_summary.expired === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M2 2l8 8M10 2 2 10"/></svg>
-              Lifecycle
-            </span>
-            <span class="posture-chip" :class="data.change_summary.action_required === 0 ? 'pchip-ok' : 'pchip-warn'">
-              <svg viewBox="0 0 12 12" fill="currentColor" width="10" height="10"><path v-if="data.change_summary.action_required === 0" d="M1 6l3.5 3.5L11 2"/><path v-else d="M6 2v5M6 9v1"/></svg>
-              Pending Actions
-            </span>
+          <div class="conf-legend" v-if="conformance">
+            <span class="conf-lg"><span class="conf-dot conf-dot-ok"></span>Conformant <strong>{{ conformance.conformant }}</strong></span>
+            <span class="conf-lg"><span class="conf-dot conf-dot-pending"></span>Not yet <strong>{{ conformance.not_conformant }}</strong></span>
+            <span class="conf-lg"><span class="conf-dot conf-dot-oos"></span>Excluded <strong>{{ conformance.out_of_scope }}</strong></span>
           </div>
-          <!-- Plain-language posture summary -->
-          <p class="posture-summary" :class="postureScore === 100 ? 'posture-summary--ok' : 'posture-summary--warn'">
-            {{ postureSummary }}
-          </p>
+          <button class="link-btn conf-link" @click="$router.push({ name: 'annex-matrix' })">
+            View readiness by product →
+          </button>
         </div>
-
-
       </div>
 
       <!-- ── KPI strip ──────────────────────────────────────────────────────── -->
@@ -387,7 +370,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { dashboardService } from "@/services/dashboard-service";
 import { useAuthStore } from "@/stores/auth";
-import type { DashboardRead } from "@/types/dashboard";
+import type { ConformanceSummary, DashboardRead } from "@/types/dashboard";
 
 // ── Router + auth ─────────────────────────────────────────────────────────────
 const router    = useRouter();
@@ -410,7 +393,10 @@ async function load(): Promise<void> {
     loading.value = false;
   }
 }
-onMounted(load);
+onMounted(() => {
+  void load();
+  void loadConformance();
+});
 
 // ── Bar charts ────────────────────────────────────────────────────────────────
 const vulnRows = computed(() => {
@@ -438,17 +424,19 @@ const riskRows = computed(() => {
 const vulnMax = computed(() => Math.max(...vulnRows.value.map((r: { value: number }) => r.value), 1));
 const riskMax = computed(() => Math.max(...riskRows.value.map((r: { value: number }) => r.value), 1));
 
-// ── Posture ring ──────────────────────────────────────────────────────────────
-/** 0-100 compliance readiness score across 4 key pillars (25 pts each) */
-const postureScore = computed(() => {
-  if (!data.value) return 0;
-  let pts = 0;
-  if (data.value.vulnerability_summary.critical === 0) pts += 25;
-  if (data.value.risk_summary.approved > 0)           pts += 25;
-  if (data.value.lifecycle_summary.expired === 0)     pts += 25;
-  if (data.value.change_summary.action_required === 0) pts += 25;
-  return pts;
-});
+// ── Portfolio conformance (high-level pie) ──────────────────────────────────────
+// % of in-scope products whose latest release has an APPROVED requirement
+// assessment. Out-of-scope products are excluded. Detailed per-product readiness
+// lives on the CRA requirements page.
+const conformance = ref<ConformanceSummary | null>(null);
+
+async function loadConformance(): Promise<void> {
+  try {
+    conformance.value = await dashboardService.getConformance();
+  } catch {
+    conformance.value = null;
+  }
+}
 
 /** Calendar days between today and the CRA enforcement deadline (11 Dec 2027) */
 const daysToDeadline = computed(() => {
@@ -456,37 +444,6 @@ const daysToDeadline = computed(() => {
   const today    = new Date();
   return Math.ceil((deadline.getTime() - today.getTime()) / 86_400_000);
 });
-
-/** Plain-language summary of the current compliance posture */
-const postureSummary = computed(() => {
-  if (!data.value) return "";
-  const issues: string[] = [];
-  if (data.value.vulnerability_summary.critical > 0)
-    issues.push(`${data.value.vulnerability_summary.critical} critical vulnerability${data.value.vulnerability_summary.critical > 1 ? "ies" : ""} open`);
-  if (data.value.risk_summary.approved === 0)
-    issues.push("no approved risk assessments");
-  if (data.value.lifecycle_summary.expired > 0)
-    issues.push(`${data.value.lifecycle_summary.expired} support period${data.value.lifecycle_summary.expired > 1 ? "s" : ""} expired`);
-  if (data.value.change_summary.action_required > 0)
-    issues.push(`${data.value.change_summary.action_required} change${data.value.change_summary.action_required > 1 ? "s" : ""} awaiting compliance action`);
-
-  if (issues.length === 0)
-    return "All four compliance pillars are met. No critical vulnerabilities, risk assessments approved, all support periods active, and no outstanding change actions.";
-  const issueText = issues.length === 1
-    ? issues[0]
-    : issues.slice(0, -1).join(", ") + " and " + issues[issues.length - 1];
-  return `Score reduced by ${issues.length} issue${issues.length > 1 ? "s" : ""}: ${issueText}.`;
-});
-
-/** Ring stroke color driven by posture score */
-const ringColor = computed(() => {
-  if (postureScore.value >= 75) return "oklch(0.48 0.092 150)";
-  if (postureScore.value >= 50) return "oklch(0.74 0.135 75)";
-  return "oklch(0.58 0.175 25)";
-});
-
-/** SVG stroke-dashoffset for the posture ring (circumference = 2π × 45 ≈ 282.74) */
-const ringOffset = computed(() => 282.74 * (1 - postureScore.value / 100));
 
 function barWidth(val: number, max: number): number {
   return Math.round((val / max) * 100);
@@ -614,7 +571,8 @@ function timeAgo(iso: string): string {
 }
 
 /* ── Posture hero ─────────────────────────────────────────────────────────── */
-.posture-hero {
+/* ── Conformance overview (high-level pie) ── */
+.conformance-panel {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -624,121 +582,28 @@ function timeAgo(iso: string): string {
   border: 1px solid var(--color-border);
   border-radius: 14px;
 }
+.conf-pie-wrap { position: relative; width: 112px; height: 112px; flex-shrink: 0; }
+.conf-pie { width: 112px; height: 112px; transform: rotate(-90deg); display: block; }
+.conf-pie-track { stroke: var(--ring-track, #e8edea); }
+.conf-pie-seg { stroke: oklch(0.48 0.092 150); transition: stroke-dasharray 0.8s cubic-bezier(0.4,0,0.2,1); }
+.conf-pie-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+}
+.conf-pct { font-size: 1.5rem; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; color: oklch(0.44 0.092 150); }
+.conf-pct-sub { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-text-muted); }
 
-/* Ring gauge wrapper */
-.posture-ring-wrap {
-  position: relative;
-  width: 112px;
-  height: 112px;
-  flex-shrink: 0;
-}
-
-.posture-ring {
-  width: 112px;
-  height: 112px;
-  display: block;
-}
-
-.posture-ring circle {
-  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-              stroke 0.4s ease;
-}
-
-.ring-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.1rem;
-}
-
-.ring-pct {
-  font-size: 1.4rem;
-  font-weight: 800;
-  line-height: 1;
-  font-family: 'JetBrains Mono', monospace;
-  letter-spacing: -0.03em;
-  transition: color 0.4s ease;
-}
-
-.ring-sub {
-  font-size: 0.62rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-}
-
-/* Copy section */
-.posture-copy {
-  min-width: 0;
-}
-
-.posture-title {
-  margin: 0 0 0.3rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--color-text);
-  letter-spacing: -0.01em;
-}
-
-.posture-desc {
-  margin: 0 0 0.75rem;
-  font-size: 0.8rem;
-  line-height: 1.55;
-  color: var(--color-text-muted);
-}
-
-.posture-summary {
-  margin: 0.65rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.6;
-  border-radius: 6px;
-  padding: 0.45rem 0.7rem;
-}
-.posture-summary--ok {
-  background: var(--color-success-bg, oklch(0.955 0.024 150));
-  color: oklch(0.38 0.092 150);
-  border: 1px solid oklch(0.85 0.05 150);
-}
-.posture-summary--warn {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text, oklch(0.52 0.12 75));
-  border: 1px solid var(--color-warning-border);
-}
-
-.posture-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.posture-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.22rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-.pchip-ok {
-  background: var(--color-success-bg, oklch(0.955 0.024 150));
-  color: oklch(0.38 0.092 150);
-  border: 1px solid oklch(0.85 0.05 150);
-}
-.pchip-warn {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text, oklch(0.52 0.12 75));
-  border: 1px solid var(--color-warning-border);
-}
-.pchip-danger {
-  background: var(--color-danger-bg);
-  color: var(--color-danger-text);
-  border: 1px solid var(--color-danger-border);
-}
+.conf-copy { min-width: 0; }
+.conf-title { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--color-text); letter-spacing: -0.01em; }
+.conf-desc { margin: 0 0 0.7rem; font-size: 0.8rem; line-height: 1.55; color: var(--color-text-muted); max-width: 62ch; }
+.conf-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin-bottom: 0.65rem; }
+.conf-lg { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
+.conf-lg strong { color: var(--color-text); }
+.conf-dot { width: 9px; height: 9px; border-radius: 50%; }
+.conf-dot-ok { background: oklch(0.48 0.092 150); }
+.conf-dot-pending { background: var(--ring-track, #e8edea); border: 1px solid var(--color-border); }
+.conf-dot-oos { background: var(--color-text-muted); opacity: 0.5; }
+.conf-link { padding: 0; }
 
 /* Deadline countdown card */
 .deadline-eyebrow {
