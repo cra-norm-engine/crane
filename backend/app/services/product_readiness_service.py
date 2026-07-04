@@ -227,11 +227,40 @@ class ProductReadinessService:
         )
 
     def list_product_readiness(self) -> list[ProductReadinessRead]:
-        """Readiness for every product, grouped by product (name-sorted)."""
+        """
+        Readiness for every product, grouped by product (name-sorted).
+
+        Each product is computed defensively: a failure while assessing one
+        product (e.g. a release whose matrix can't be built) must not blank the
+        whole panel — that product falls back to an empty-coverage row and the
+        error is logged for diagnosis.
+        """
         products = self.product_repository.list_all()
-        rows = [self.compute_product_readiness(p) for p in products]
+        rows: list[ProductReadinessRead] = []
+        for product in products:
+            try:
+                rows.append(self.compute_product_readiness(product))
+            except Exception:
+                logger.exception(
+                    "Failed to compute readiness for product %s (%s); returning empty row",
+                    product.id,
+                    product.product_code,
+                )
+                rows.append(self._empty_product_row(product))
         rows.sort(key=lambda r: r.name.lower())
         return rows
+
+    def _empty_product_row(self, product: Product) -> ProductReadinessRead:
+        """A product row with no release coverage — used as a safe fallback."""
+        return ProductReadinessRead(
+            product_id=product.id,
+            product_code=product.product_code,
+            name=product.name,
+            scope_status=product.scope_status,
+            releases=[],
+            representative_release_id=None,
+            is_conformant=False,
+        )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
