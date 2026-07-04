@@ -17,6 +17,7 @@ from app.api.routes import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal, check_database_connection
 from app.core.exceptions import register_exception_handlers
+from app.core.scheduler import shutdown_scheduler, start_scheduler
 from app.core.seed import seed_initial_data
 
 LOGGER = logging.getLogger(__name__)
@@ -35,7 +36,10 @@ async def lifespan(_: FastAPI):
     LOGGER.info("Starting application: %s", settings.project_name)
     with SessionLocal() as db:
         seed_initial_data(db)
+    # Start the automated vulnerability re-scan scheduler (no-op unless enabled).
+    start_scheduler()
     yield
+    shutdown_scheduler()
     LOGGER.info("Shutting down application: %s", settings.project_name)
 
 

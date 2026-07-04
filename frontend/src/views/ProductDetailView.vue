@@ -52,6 +52,14 @@
               {{ formatScopeStatus(product.scope_status) }}
             </span>
             <span class="meta-chip">{{ formatClassification(product.current_classification) }}</span>
+            <!-- Obligation is derived from scope + lifecycle, not an independent axis -->
+            <span
+              class="badge"
+              :class="obligationClass(product.scope_status, product.lifecycle_status)"
+              :title="obligationHint(product.scope_status, product.lifecycle_status)"
+            >
+              {{ obligationLabel(product.scope_status, product.lifecycle_status) }}
+            </span>
             <span class="meta-chip">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
               {{ product.product_type }}
@@ -180,6 +188,36 @@
                 <span class="info-value">{{ formatDate(product.first_placed_on_market_date) }}</span>
               </div>
 
+              <!-- Phase 3 — typed CRA classification + product-level conformity route -->
+              <div class="info-item">
+                <span class="detail-label">CRA product type</span>
+                <span class="info-value">{{ formatProductType(product.product_type_class) }}</span>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">Conformity route</span>
+                <span class="info-value">{{ formatConformityRoute(product.conformity_route) }}</span>
+              </div>
+
+              <!-- Lifecycle (a fact) + derived CRA obligation level -->
+              <div class="info-item">
+                <span class="detail-label">Lifecycle</span>
+                <span class="badge" :class="lifecycleClass(product.lifecycle_status)" :title="lifecycleHint(product.lifecycle_status)">
+                  {{ formatLifecycle(product.lifecycle_status) }}
+                </span>
+              </div>
+
+              <div class="info-item">
+                <span class="detail-label">CRA obligations</span>
+                <span
+                  class="badge"
+                  :class="obligationClass(product.scope_status, product.lifecycle_status)"
+                  :title="obligationHint(product.scope_status, product.lifecycle_status)"
+                >
+                  {{ obligationLabel(product.scope_status, product.lifecycle_status) }}
+                </span>
+              </div>
+
               <!-- ── Prose fields — full width ── -->
               <div class="info-item info-item-span-2">
                 <span class="detail-label">Description</span>
@@ -191,6 +229,79 @@
                 <span class="info-value">{{ product.intended_use }}</span>
               </div>
 
+              <!-- Phase 2 — out-of-scope decision provenance (audit-ready record) -->
+              <div v-if="product.scope_status === 'out_of_scope'" class="info-item info-item-span-2 pd-scope-callout">
+                <span class="detail-label">Out-of-scope decision</span>
+                <p v-if="product.out_of_scope_justification" class="pd-scope-just">{{ product.out_of_scope_justification }}</p>
+                <div class="pd-scope-prov">
+                  <span class="pd-scope-by">
+                    Decided by <strong>{{ product.scope_decided_by_name || "—" }}</strong>
+                    <template v-if="product.scope_decided_at"> · {{ formatDate(product.scope_decided_at) }}</template>
+                  </span>
+                  <span v-if="product.scope_decision_signature" class="badge badge-success">Signed: {{ product.scope_decision_signature }}</span>
+                  <span v-else class="badge badge-warning">Unsigned — sign off in Edit</span>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- Phase 4 — System profile & tailor-made terms (shown only when set) -->
+          <section
+            v-if="product.system_profile_json || product.tailor_made_terms_json"
+            class="card"
+          >
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">System &amp; tailor-made</h2>
+                <p class="muted section-sub">How this product is placed on the market.</p>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <template v-if="product.system_profile_json">
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">System profile — sold as a system</span>
+                </div>
+                <div class="info-item">
+                  <span class="detail-label">Sold as a single product</span>
+                  <span class="info-value">{{ formatBool(product.system_profile_json.sold_as_product) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="detail-label">Marketed as a product</span>
+                  <span class="info-value">{{ formatBool(product.system_profile_json.marketed_as_product) }}</span>
+                </div>
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">Who integrates the system</span>
+                  <span class="info-value">{{ product.system_profile_json.who_integrates_system || "—" }}</span>
+                </div>
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">Core minimum combination</span>
+                  <span class="info-value">{{ product.system_profile_json.core_minimum_products_combination || "—" }}</span>
+                </div>
+              </template>
+
+              <template v-if="product.tailor_made_terms_json">
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">Tailor-made terms — custom B2B contract</span>
+                </div>
+                <div class="info-item">
+                  <span class="detail-label">Specific user</span>
+                  <span class="info-value">{{ product.tailor_made_terms_json.specific_user || "—" }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="detail-label">Customized support period</span>
+                  <span class="info-value">{{ product.tailor_made_terms_json.customized_support_period || "—" }}</span>
+                </div>
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">Customized security config</span>
+                  <span class="info-value">{{ product.tailor_made_terms_json.customized_security_config || "—" }}</span>
+                </div>
+                <div class="info-item info-item-span-2">
+                  <span class="detail-label">Agreement via contractual terms</span>
+                  <span class="info-value">{{ product.tailor_made_terms_json.agreement_via_contractual_terms || "—" }}</span>
+                </div>
+              </template>
             </div>
           </section>
 
@@ -592,6 +703,57 @@
             </select>
           </label>
 
+          <label class="field">
+            <span class="field-label">
+              Lifecycle
+              <span class="field-label-hint">(with scope, determines the CRA obligation level)</span>
+            </span>
+            <select v-model="editForm.lifecycle_status">
+              <option value="active">Active — subject to full obligations when in scope</option>
+              <option value="legacy">Legacy — reporting-only when in scope</option>
+            </select>
+          </label>
+
+          <!-- Phase 3 — typed CRA product classification -->
+          <label class="field">
+            <span class="field-label">CRA product type</span>
+            <select v-model="editForm.product_type_class">
+              <option value="undecided">Undecided</option>
+              <option value="type1_software">SW — software only</option>
+              <option value="type2_hardware_with_digital">SW + HW — hardware with digital elements</option>
+            </select>
+          </label>
+
+          <!-- Phase 3 — product-level conformity route -->
+          <label class="field">
+            <span class="field-label">Conformity route</span>
+            <select v-model="editForm.conformity_route">
+              <option value="undecided">Undecided</option>
+              <option value="self_assessment">Self-assessment</option>
+              <option value="third_party_assessment">Third-party</option>
+              <option value="not_applicable">Not applicable</option>
+            </select>
+          </label>
+
+          <!-- Phase 2 — out-of-scope decision provenance (shown when out of scope) -->
+          <template v-if="editForm.scope_status === 'out_of_scope'">
+            <label class="field modal-field-span-2">
+              <span class="field-label">
+                Out-of-scope justification
+                <span class="field-label-hint">(why this product falls outside CRA scope)</span>
+              </span>
+              <textarea v-model.trim="editForm.out_of_scope_justification" rows="3" placeholder="Explain the reasoning for the out-of-scope decision" />
+            </label>
+
+            <label class="field modal-field-span-2">
+              <span class="field-label">
+                Decision signature
+                <span class="field-label-hint">(name of the accountable signer — required to sign off)</span>
+              </span>
+              <input v-model.trim="editForm.scope_decision_signature" type="text" maxlength="255" placeholder="e.g. M. Reiter, Head of Product Compliance" />
+            </label>
+          </template>
+
           <!-- Gap 4 — Article 69(2): flag products already on market before CRA -->
           <label class="field">
             <span class="field-label">Pre-CRA product (Art. 69(2))</span>
@@ -641,6 +803,68 @@
             </span>
             <input v-model.trim="editForm.single_point_of_contact" type="text" placeholder="Not applicable" />
           </label>
+
+          <!-- Phase 4 — System profile (sold as a system) -->
+          <div class="modal-field-span-2 pd-subgroup">
+            <label class="pd-toggle-row">
+              <input type="checkbox" v-model="editForm.hasSystemProfile" />
+              <span><strong>Sold as a system</strong>
+                <span class="field-label-hint"> — this product is an integrated system of other products</span></span>
+            </label>
+            <div v-if="editForm.hasSystemProfile" class="pd-subgrid">
+              <label class="field">
+                <span class="field-label">Sold as a single product</span>
+                <select v-model="editForm.system_sold_as_product">
+                  <option :value="null">—</option>
+                  <option :value="true">Yes — system-as-product</option>
+                  <option :value="false">No — component-by-component</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field-label">Marketed as a product</span>
+                <select v-model="editForm.system_marketed_as_product">
+                  <option :value="null">—</option>
+                  <option :value="true">Yes</option>
+                  <option :value="false">No</option>
+                </select>
+              </label>
+              <label class="field modal-field-span-2">
+                <span class="field-label">Who integrates the system</span>
+                <input v-model.trim="editForm.system_who_integrates" type="text" placeholder="e.g. In-house system engineering" />
+              </label>
+              <label class="field modal-field-span-2">
+                <span class="field-label">Core minimum products combination</span>
+                <input v-model.trim="editForm.system_core_combination" type="text" placeholder="e.g. Sensors + evaluator + power supply" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Phase 4 — Tailor-made terms (custom B2B contract) -->
+          <div class="modal-field-span-2 pd-subgroup">
+            <label class="pd-toggle-row">
+              <input type="checkbox" v-model="editForm.hasTailorMade" />
+              <span><strong>Tailor-made product</strong>
+                <span class="field-label-hint"> — custom B2B product with contractual terms</span></span>
+            </label>
+            <div v-if="editForm.hasTailorMade" class="pd-subgrid">
+              <label class="field">
+                <span class="field-label">Specific user</span>
+                <input v-model.trim="editForm.terms_specific_user" type="text" placeholder="e.g. National Rail Authority" />
+              </label>
+              <label class="field">
+                <span class="field-label">Customized support period</span>
+                <input v-model.trim="editForm.terms_support_period" type="text" placeholder="e.g. until 2040-03-15" />
+              </label>
+              <label class="field modal-field-span-2">
+                <span class="field-label">Customized security config</span>
+                <input v-model.trim="editForm.terms_security_config" type="text" placeholder="e.g. Hardened build, customer PKI" />
+              </label>
+              <label class="field modal-field-span-2">
+                <span class="field-label">Agreement via contractual terms</span>
+                <input v-model.trim="editForm.terms_agreement" type="text" placeholder="e.g. Framework agreement FA-2026-118" />
+              </label>
+            </div>
+          </div>
         </form>
 
         <!-- Footer slot — Cancel and Save actions -->
@@ -1531,6 +1755,8 @@ import type { AuditEventRead } from "@/types/audit";
 import type {
   ConformityRoute,
   ProductClassification,
+  ProductLifecycleStatus,
+  ProductType,
   ProductDetailRead,
   ProductReleaseCreate,
   ProductScopeEvaluationRead,
@@ -1888,6 +2114,25 @@ const editForm = reactive({
   parent_product_id:          "",
   current_classification:     "normal" as ProductClassification,
   scope_status:               "undecided",
+  lifecycle_status:           "active" as ProductLifecycleStatus,
+  // Phase 3 — typed classification + product-level conformity route
+  product_type_class:         "undecided" as ProductType,
+  conformity_route:           "undecided" as ConformityRoute,
+  // Phase 2 — out-of-scope decision provenance (editable)
+  out_of_scope_justification:      "" as string,
+  scope_decision_signature:        "" as string,
+  // Phase 4 — system profile (sold as a system)
+  hasSystemProfile:                false as boolean,
+  system_sold_as_product:          null as boolean | null,
+  system_marketed_as_product:      null as boolean | null,
+  system_who_integrates:           "" as string,
+  system_core_combination:         "" as string,
+  // Phase 4 — tailor-made terms (custom B2B contract)
+  hasTailorMade:                   false as boolean,
+  terms_specific_user:             "" as string,
+  terms_support_period:            "" as string,
+  terms_security_config:           "" as string,
+  terms_agreement:                 "" as string,
   // Gap 4 — Article 69(2): pre-CRA flag and first placement date
   is_pre_cra:                      false as boolean,
   first_placed_on_market_date:     "" as string,
@@ -2011,6 +2256,25 @@ function syncEditForm(): void {
   editForm.parent_product_id       = product.value.parent_product_id ?? "";
   editForm.current_classification  = product.value.current_classification;
   editForm.scope_status            = product.value.scope_status;
+  editForm.lifecycle_status        = product.value.lifecycle_status;
+  // Phase 3 — typed classification + product-level conformity route
+  editForm.product_type_class      = product.value.product_type_class;
+  editForm.conformity_route        = product.value.conformity_route;
+  // Phase 2 — out-of-scope decision provenance
+  editForm.out_of_scope_justification = product.value.out_of_scope_justification ?? "";
+  editForm.scope_decision_signature   = product.value.scope_decision_signature ?? "";
+  // Phase 4 — system profile
+  editForm.hasSystemProfile            = product.value.system_profile_json != null;
+  editForm.system_sold_as_product      = product.value.system_profile_json?.sold_as_product ?? null;
+  editForm.system_marketed_as_product  = product.value.system_profile_json?.marketed_as_product ?? null;
+  editForm.system_who_integrates       = product.value.system_profile_json?.who_integrates_system ?? "";
+  editForm.system_core_combination     = product.value.system_profile_json?.core_minimum_products_combination ?? "";
+  // Phase 4 — tailor-made terms
+  editForm.hasTailorMade               = product.value.tailor_made_terms_json != null;
+  editForm.terms_specific_user         = product.value.tailor_made_terms_json?.specific_user ?? "";
+  editForm.terms_support_period        = product.value.tailor_made_terms_json?.customized_support_period ?? "";
+  editForm.terms_security_config       = product.value.tailor_made_terms_json?.customized_security_config ?? "";
+  editForm.terms_agreement             = product.value.tailor_made_terms_json?.agreement_via_contractual_terms ?? "";
   // Gap 4 — sync pre-CRA flag and first placement date
   editForm.is_pre_cra                  = product.value.is_pre_cra ?? false;
   editForm.first_placed_on_market_date = product.value.first_placed_on_market_date ?? "";
@@ -2173,6 +2437,57 @@ function formatConformityRoute(value: ConformityRoute): string {
     case "not_applicable":        return "Not applicable";
     default:                      return "Undecided";
   }
+}
+
+/** Phase 3 — label for the typed CRA product classification. */
+function formatProductType(value: ProductType | string): string {
+  switch (value) {
+    case "type1_software":              return "SW — software only";
+    case "type2_hardware_with_digital": return "SW + HW — hardware with digital elements";
+    default:                            return "Untyped";
+  }
+}
+
+/** Yes/No/— for nullable booleans in the system/tailor-made read-only view. */
+function formatBool(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return value ? "Yes" : "No";
+}
+
+function formatLifecycle(value: ProductLifecycleStatus): string {
+  return value === "legacy" ? "Legacy" : "Active";
+}
+
+function lifecycleClass(value: ProductLifecycleStatus): string {
+  return value === "legacy" ? "badge-warning" : "badge-success";
+}
+
+function lifecycleHint(value: ProductLifecycleStatus): string {
+  return value === "legacy"
+    ? "Legacy — on the market pre-CRA, not substantially modified: reporting-only obligations"
+    : "Active — subject to the full set of CRA obligations";
+}
+
+/**
+ * Derives the CRA obligation level from scope + lifecycle (they are not
+ * independent): out of scope → none; in scope + legacy → reporting only;
+ * in scope + active → full CRA; scope undecided → not assessed.
+ */
+function obligationLabel(scope: string, lifecycle: ProductLifecycleStatus): string {
+  if (scope === "out_of_scope") return "No obligations";
+  if (scope !== "in_scope") return "Not assessed";
+  return lifecycle === "legacy" ? "Reporting only" : "Full CRA obligations";
+}
+function obligationClass(scope: string, lifecycle: ProductLifecycleStatus): string {
+  if (scope === "out_of_scope" || scope !== "in_scope") return "badge-neutral";
+  return lifecycle === "legacy" ? "badge-warning" : "badge-success";
+}
+function obligationHint(scope: string, lifecycle: ProductLifecycleStatus): string {
+  if (scope === "out_of_scope") return "Out of scope — no CRA obligations apply.";
+  if (scope !== "in_scope") return "Scope not yet decided — run the scope wizard.";
+  return lifecycle === "legacy"
+    ? "In scope + legacy — only the reporting obligations apply."
+    : "In scope + active — subject to the full set of CRA obligations.";
 }
 
 function formatReleaseStatus(value: string): string {
@@ -2426,6 +2741,32 @@ async function saveProduct(): Promise<void> {
       parent_product_id:           editForm.parent_product_id.trim() || null,
       current_classification:      editForm.current_classification,
       scope_status:                editForm.scope_status,
+      lifecycle_status:            editForm.lifecycle_status,
+      // Phase 3 — typed classification + product-level conformity route
+      product_type_class:          editForm.product_type_class,
+      conformity_route:            editForm.conformity_route,
+      // Phase 2 — out-of-scope decision (only meaningful when out of scope, but
+      // safe to send: the backend keeps the fields regardless of scope_status)
+      out_of_scope_justification:  editForm.out_of_scope_justification.trim() || null,
+      scope_decision_signature:    editForm.scope_decision_signature.trim() || null,
+      // Phase 4 — system profile & tailor-made terms: send the object when the
+      // toggle is on, otherwise null it out to clear the flag.
+      system_profile_json: editForm.hasSystemProfile
+        ? {
+            sold_as_product:                   editForm.system_sold_as_product,
+            marketed_as_product:               editForm.system_marketed_as_product,
+            who_integrates_system:             editForm.system_who_integrates.trim() || null,
+            core_minimum_products_combination: editForm.system_core_combination.trim() || null,
+          }
+        : null,
+      tailor_made_terms_json: editForm.hasTailorMade
+        ? {
+            specific_user:                   editForm.terms_specific_user.trim() || null,
+            customized_support_period:       editForm.terms_support_period.trim() || null,
+            customized_security_config:      editForm.terms_security_config.trim() || null,
+            agreement_via_contractual_terms: editForm.terms_agreement.trim() || null,
+          }
+        : null,
       // Gap 4 — include pre-CRA flag and first placement date in every product save
       is_pre_cra:                      editForm.is_pre_cra,
       first_placed_on_market_date:     editForm.first_placed_on_market_date || null,
@@ -3497,6 +3838,38 @@ onBeforeUnmount(() => {
 .modal-field-span-2 {
   grid-column: span 2;
 }
+
+/* ── Phase 4 — collapsible sub-groups in the edit modal ── */
+.pd-subgroup {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pd-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.pd-toggle-row input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; }
+.pd-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* ── Phase 2 — out-of-scope provenance callout ── */
+.pd-scope-callout {
+  background: var(--color-warning-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.pd-scope-just { margin: 6px 0 10px; font-size: 13px; line-height: 1.5; color: var(--color-text); }
+.pd-scope-prov { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--color-text-muted); }
 
 /* ── Support period alert preview ─────────────────── */
 .support-preview {

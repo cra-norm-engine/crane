@@ -17,7 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.audit import create_audit_event
+from app.core.audit import create_audit_event, snapshot_model
 from app.core.config import settings
 from app.core.exceptions import ConflictException, NotFoundException
 from app.models.artifact import ArtifactProductLink
@@ -503,7 +503,10 @@ class ReleaseGateService:
         if gate_item is None:
             raise NotFoundException("Gate checklist item not found for this release.")
 
+        # Full snapshot into the append-only ledger *before* the hard delete so the
+        # removed gate item stays recoverable and tamper-evident.
         item_title = gate_item.title
+        snapshot = snapshot_model(gate_item)
         self.db.delete(gate_item)
         self.db.flush()
         self.db.refresh(gate)
@@ -520,6 +523,7 @@ class ReleaseGateService:
                 "product_release_id": str(release.id),
                 "gate_item_id": str(gate_item_id),
                 "item_title": item_title,
+                "snapshot": snapshot,
             },
         )
         self.db.commit()

@@ -16,13 +16,15 @@
     <Transition name="drawer">
       <aside
         v-if="task"
+        ref="panelRef"
         class="dw-panel"
+        :class="{ 'dw-panel-overdue': task.is_overdue }"
         role="dialog"
         aria-modal="true"
         :aria-label="task.title"
       >
         <!-- ── Head ────────────────────────────────────────────────────── -->
-        <div class="dw-head">
+        <div class="dw-head" :class="{ 'dw-head-overdue': task.is_overdue }">
           <div class="dw-topline">
             <!-- Type pill with icon -->
             <span class="dw-type-pill" :class="`dtp-${task.entity_type}`">
@@ -65,6 +67,14 @@
           </div>
 
           <h2 class="dw-title">{{ task.title }}</h2>
+
+          <!-- Overdue banner — makes the most urgent signal impossible to miss. -->
+          <div v-if="task.is_overdue && task.due_date" class="dw-overdue-banner">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="10" cy="10" r="7.5"/><path d="M10 6v4.5l2.5 1.5"/>
+            </svg>
+            Overdue by {{ relativeDue(task.due_date).replace(' overdue', '') }} — due {{ formatDate(task.due_date) }}
+          </div>
         </div>
 
         <!-- ── Body ────────────────────────────────────────────────────── -->
@@ -72,14 +82,22 @@
 
           <!-- Meta cells grid -->
           <div class="dw-meta">
-            <!-- Status -->
-            <div class="dw-cell">
-              <div class="dw-k">Status</div>
+            <!-- Status — editable entities get an inline "Update status" action -->
+            <div class="dw-cell" :class="{ 'dw-cell-action': canEditStatus }">
+              <div class="dw-k">
+                {{ canEditStatus ? 'Update status' : 'Status' }}
+                <span v-if="isSaving" class="dw-saving">Saving…</span>
+                <span v-else-if="savedFlash" class="dw-saved">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" width="11" height="11" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l3.5 3.5 8.5-8.5"/></svg>
+                  Saved
+                </span>
+              </div>
               <div class="dw-v">
                 <template v-if="canEditStatus">
                   <select
                     v-model="localStatus"
                     class="dw-select"
+                    :class="{ 'dw-select-saved': savedFlash }"
                     :disabled="isSaving"
                     @change="saveStatus"
                   >
@@ -87,7 +105,6 @@
                       {{ opt.label }}
                     </option>
                   </select>
-                  <span v-if="isSaving" class="dw-saving">Saving…</span>
                 </template>
                 <span v-else class="dw-readonly">{{ formatLabel(task.status) }}</span>
               </div>
@@ -162,7 +179,30 @@
         </div>
 
         <!-- ── Footer ──────────────────────────────────────────────────── -->
-        <div class="dw-foot">
+        <!-- Inline dismiss confirmation — a lightweight two-step guard, mirroring
+             the status-edit flow, so a task is never closed by a single click. -->
+        <div v-if="confirmingDismiss && dismissAction" class="dw-foot dw-foot-confirm">
+          <span class="dw-confirm-q">{{ dismissAction.confirmLabel }}</span>
+          <div class="dw-confirm-actions">
+            <AppButton :disabled="isDismissing" @click="cancelDismiss">Cancel</AppButton>
+            <AppButton variant="danger" :disabled="isDismissing" @click="runDismiss">
+              {{ isDismissing ? 'Working…' : dismissAction.label }}
+            </AppButton>
+          </div>
+        </div>
+
+        <div v-else class="dw-foot">
+          <!-- Secondary dismiss/close action (left), distinct from the primary CTA. -->
+          <button
+            v-if="dismissAction"
+            type="button"
+            class="dw-dismiss-btn"
+            @click="confirmingDismiss = true"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+            {{ dismissAction.label }}
+          </button>
+          <span class="dw-foot-spacer"></span>
           <AppButton @click="$emit('close')">Close</AppButton>
           <AppButton variant="primary" @click="$emit('navigate', task)">
             Open full record
@@ -176,10 +216,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import AppButton from "@/components/AppButton.vue";
 import CommentThread from "@/components/CommentThread.vue";
+import { changeService } from "@/services/change-service";
+import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
 import { riskItemService } from "@/services/risk-item-service";
 import { vulnerabilityReportService } from "@/services/vulnerability-report-service";
 import type { TaskItem } from "@/types/task";
@@ -195,11 +237,81 @@ const emit  = defineEmits<{
 const localStatus = ref("");
 const isSaving    = ref(false);
 const saveError   = ref<string | null>(null);
+// Brief "Saved ✓" confirmation flash after a successful status change.
+const savedFlash  = ref(false);
+let savedFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(() => props.task, (t) => {
   localStatus.value = t?.status ?? "";
   saveError.value   = null;
+  savedFlash.value  = false;
 }, { immediate: true });
+
+// ── Accessibility: panel ref, focus management, scroll lock, Esc-to-close ───────
+// The drawer is a modal dialog, so per WCAG it must: trap focus while open, move
+// focus into itself on open, restore focus to the invoking element on close, lock
+// the background scroll, and close on Escape.
+const panelRef = ref<HTMLElement | null>(null);
+let lastFocused: HTMLElement | null = null;
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    emit("close");
+    return;
+  }
+  if (event.key === "Tab") trapFocus(event);
+}
+
+/** Keep Tab focus cycling within the drawer's focusable elements. */
+function trapFocus(event: KeyboardEvent): void {
+  const panel = panelRef.value;
+  if (!panel) return;
+  const focusable = panel.querySelectorAll<HTMLElement>(
+    'a[href], button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last  = focusable[focusable.length - 1];
+  const active = document.activeElement as HTMLElement | null;
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+// Open/close side-effects driven by the presence of a task.
+watch(() => props.task, (t) => {
+  if (t) {
+    lastFocused = document.activeElement as HTMLElement | null;
+    document.addEventListener("keydown", onKeydown);
+    document.body.style.overflow = "hidden";
+    void nextTick(() => {
+      // Focus the close button so keyboard users land inside the dialog.
+      panelRef.value?.querySelector<HTMLElement>(".dw-close")?.focus();
+    });
+  } else {
+    teardown();
+    // Return focus to the row/control that opened the drawer.
+    lastFocused?.focus?.();
+    lastFocused = null;
+  }
+});
+
+/** Remove the global listener and release the scroll lock. */
+function teardown(): void {
+  document.removeEventListener("keydown", onKeydown);
+  document.body.style.overflow = "";
+}
+
+onBeforeUnmount(() => {
+  teardown();
+  if (savedFlashTimer) clearTimeout(savedFlashTimer);
+});
 
 const canEditStatus = computed(() =>
   props.task?.entity_type === "risk_item" ||
@@ -242,6 +354,10 @@ async function saveStatus(): Promise<void> {
       await vulnerabilityReportService.update(props.task.entity_id, { status: localStatus.value as any });
     }
     emit("statusUpdated", props.task, localStatus.value);
+    // Flash a brief success confirmation (cleared after 2s).
+    savedFlash.value = true;
+    if (savedFlashTimer) clearTimeout(savedFlashTimer);
+    savedFlashTimer = setTimeout(() => (savedFlash.value = false), 2000);
   } catch {
     saveError.value   = "Failed to save status.";
     localStatus.value = props.task.status;
@@ -249,6 +365,70 @@ async function saveStatus(): Promise<void> {
     isSaving.value = false;
   }
 }
+
+// ── Dismiss / close a task ──────────────────────────────────────────────────────
+// Some task types can be closed straight from the drawer by reusing the existing,
+// already-audited entity endpoints. Each action moves the underlying entity to its
+// terminal status, which removes it from My Tasks. Types without a clean one-click
+// transition (risk item / vuln report use the inline status select above; gate items
+// are closed via evidence review on their full record) return null.
+interface DismissAction {
+  label: string;
+  confirmLabel: string;
+  terminalStatus: string;
+  run: (id: string) => Promise<unknown>;
+}
+const dismissAction = computed<DismissAction | null>(() => {
+  switch (props.task?.entity_type) {
+    case "eos_alert":
+      return {
+        label: "Dismiss alert",
+        confirmLabel: "Dismiss this end-of-support alert?",
+        terminalStatus: "dismissed",
+        run: (id) => lifecycleNotificationService.dismiss(id),
+      };
+    case "change":
+      return {
+        label: "Close change",
+        confirmLabel: "Close this change request?",
+        terminalStatus: "closed",
+        run: (id) => changeService.close(id),
+      };
+    default:
+      return null;
+  }
+});
+
+const confirmingDismiss = ref(false);
+const isDismissing = ref(false);
+
+function cancelDismiss(): void {
+  confirmingDismiss.value = false;
+}
+
+async function runDismiss(): Promise<void> {
+  const action = dismissAction.value;
+  const task = props.task;
+  if (!action || !task) return;
+  isDismissing.value = true;
+  saveError.value = null;
+  try {
+    await action.run(task.entity_id);
+    // Reuse the existing status-update path: MyTasksView prunes the row and closes
+    // the drawer when the new status is terminal.
+    emit("statusUpdated", task, action.terminalStatus);
+  } catch {
+    saveError.value = "Failed to update this task. Please try again.";
+  } finally {
+    isDismissing.value = false;
+    confirmingDismiss.value = false;
+  }
+}
+
+// Reset the inline confirm whenever a different task is loaded into the drawer.
+watch(() => props.task, () => {
+  confirmingDismiss.value = false;
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const createdByLabel = computed(() => {
@@ -338,11 +518,33 @@ function formatDate(iso: string): string {
   box-shadow: -12px 0 40px -16px rgba(0, 0, 0, 0.28);
 }
 
+/* Overdue accent — a thin danger bar down the left edge of the panel. */
+.dw-panel-overdue { border-left: 3px solid var(--color-danger); }
+
 /* ── Head ─────────────────────────────────────────────────────────────────── */
 .dw-head {
   padding: 1.25rem 1.5rem 1.1rem;
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+}
+/* Subtle tinted head when the task is overdue. */
+.dw-head-overdue {
+  background: linear-gradient(180deg, var(--color-danger-bg) 0%, transparent 100%);
+}
+
+/* Overdue banner under the title */
+.dw-overdue-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 7px;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .dw-topline {
@@ -414,6 +616,7 @@ function formatDate(iso: string): string {
   transition: background 0.12s, color 0.12s;
 }
 .dw-close:hover { background: var(--color-surface-elevated); color: var(--color-text); }
+.dw-close:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .dw-title {
   margin: 0;
@@ -524,7 +727,27 @@ function formatDate(iso: string): string {
   text-transform: capitalize;
   color: var(--color-text-muted);
 }
-.dw-saving { font-size: 0.72rem; color: var(--color-text-muted); margin-left: 0.4rem; }
+.dw-saving { font-size: 0.66rem; font-weight: 600; color: var(--color-text-muted); text-transform: none; letter-spacing: 0; }
+
+/* Editable-status cell reads as the primary inline action of the drawer. */
+.dw-cell-action { background: var(--color-surface-elevated); }
+.dw-cell-action .dw-k { display: flex; align-items: center; gap: 0.4rem; }
+.dw-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-success-text);
+}
+/* Green confirmation ring flashed on the select after a successful save. */
+.dw-select-saved {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 3px var(--color-success-bg);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
 
 /* Due date relative label */
 .dw-rel       { font-size: 0.78rem; font-weight: 500; color: var(--color-text-muted); }
@@ -592,6 +815,31 @@ function formatDate(iso: string): string {
   background: var(--color-surface);
 }
 
+.dw-foot-spacer { flex: 1; }
+
+/* Secondary dismiss/close action */
+.dw-dismiss-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: 600 12.5px/1 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.dw-dismiss-btn:hover { background: var(--color-success-bg); color: var(--color-success-text); border-color: var(--color-success-border); }
+.dw-dismiss-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Inline confirm strip */
+.dw-foot-confirm { justify-content: space-between; gap: 0.75rem; }
+.dw-confirm-q { font-size: 0.82rem; font-weight: 600; color: var(--color-text); }
+.dw-confirm-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
 /* Footer buttons rendered by AppButton component */
 
 /* ── Transitions ──────────────────────────────────────────────────────────── */
@@ -611,5 +859,13 @@ function formatDate(iso: string): string {
 .drawer-enter-from,
 .drawer-leave-to {
   transform: translateX(100%);
+}
+
+/* Respect reduced-motion: fade instead of slide, no scrim blur transition churn. */
+@media (prefers-reduced-motion: reduce) {
+  .drawer-enter-active,
+  .drawer-leave-active { transition: opacity 0.15s ease; }
+  .drawer-enter-from,
+  .drawer-leave-to { transform: none; opacity: 0; }
 }
 </style>
