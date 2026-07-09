@@ -47,6 +47,7 @@ from app.models.vulnerability_report import VulnerabilityReport
 from app.models.incident_report import IncidentReport
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
 from app.models.sbom_scan_run import SbomScanRun
+from app.models.advisory_release import AdvisoryRelease
 
 __all__ = [
     "AnnexRequirement",
@@ -94,4 +95,5 @@ __all__ = [
     "IncidentReport",
     "SbomVulnerabilityFinding",
     "SbomScanRun",
+    "AdvisoryRelease",
 ]

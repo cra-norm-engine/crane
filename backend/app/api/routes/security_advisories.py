@@ -28,12 +28,13 @@ router = APIRouter()
 
 @router.get("/", response_model=list[SecurityAdvisoryRead])
 def list_security_advisories(
-    product_release_id: UUID | None = Query(default=None),
+    product_id: UUID | None = Query(default=None),
+    release_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
 ) -> list[SecurityAdvisoryRead]:
     return SecurityAdvisoryService(db).list_security_advisories(
-        product_release_id=product_release_id
+        product_id=product_id, release_id=release_id
     )
 
 

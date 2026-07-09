@@ -28,8 +28,12 @@ class SecurityAdvisory(UUIDTimestampMixin, Base):
 
     __tablename__ = "security_advisories"
 
-    product_release_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("product_releases.id", ondelete="CASCADE"),
+    # An advisory is scoped to a PRODUCT and affects a set of that product's
+    # releases (linked via the advisory_releases join table). Deleting the
+    # product cascades the advisory away; deleting a single release only removes
+    # the corresponding join row (the advisory survives).
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -65,7 +69,15 @@ class SecurityAdvisory(UUIDTimestampMixin, Base):
     # Date/time the advisory was made publicly available.
     published_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    product_release: Mapped["ProductRelease"] = relationship(
-        "ProductRelease",
+    product: Mapped["Product"] = relationship(
+        "Product",
         back_populates="security_advisories",
+    )
+    # The affected-release links (join rows). Cascade so removing an advisory
+    # removes its links; the linked releases themselves are untouched.
+    release_links: Mapped[list["AdvisoryRelease"]] = relationship(
+        "AdvisoryRelease",
+        back_populates="security_advisory",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

@@ -12,9 +12,12 @@ import type {
 } from "@/types/product";
 
 export const securityAdvisoryService = {
-  async list(productReleaseId?: string): Promise<SecurityAdvisoryRead[]> {
+  async list(opts?: { productId?: string; releaseId?: string }): Promise<SecurityAdvisoryRead[]> {
+    const params: Record<string, string> = {};
+    if (opts?.productId) params.product_id = opts.productId;
+    if (opts?.releaseId) params.release_id = opts.releaseId;
     const { data } = await apiClient.get<SecurityAdvisoryRead[]>("/security-advisories/", {
-      params: productReleaseId ? { product_release_id: productReleaseId } : undefined,
+      params: Object.keys(params).length ? params : undefined,
     });
     return data;
   },

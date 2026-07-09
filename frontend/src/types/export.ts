@@ -40,7 +40,6 @@ export interface ExportMeta {
 export interface ExportedRelease extends ProductReleaseRead {
   /* All per-release entities keyed by old release ID (preserved for re-linking on import). */
   vulnerability_reports: VulnerabilityReportRead[];
-  security_advisories: SecurityAdvisoryRead[];
   security_updates: SecurityUpdateRead[];
   sbom_records: SbomRecordRead[];
 }
@@ -62,6 +61,8 @@ export interface ProductExportBundle {
 
   /* Product-level entities. */
   risk_assessments: ExportedRiskAssessment[];
+  /* Security advisories are product-scoped (each carries its affected release ids). */
+  security_advisories: SecurityAdvisoryRead[];
   cvd_policies: CvdPolicyRead[];
   support_periods: SupportPeriodRecordRead[];
   certification_records: CertificationRecord[];

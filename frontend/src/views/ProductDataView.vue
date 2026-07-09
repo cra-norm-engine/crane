@@ -308,7 +308,7 @@ const schemaSections = [
   { key: "product",              label: "Product record",        hint: "Core product fields — name, code, classification, scope status, manufacturer." },
   { key: "releases[]",           label: "Product releases",      hint: "All releases with their status, dates, conformity route, and four nested entity types below." },
   { key: "releases[].vulnerability_reports", label: "Vulnerability reports", hint: "Per-release PSIRT intake records with lifecycle status and severity." },
-  { key: "releases[].security_advisories",  label: "Security advisories",   hint: "Published advisories with CVE IDs, affected versions, and remediation steps." },
+  { key: "security_advisories",  label: "Security advisories",   hint: "Product-scoped advisories (each lists its affected releases) with CVE IDs, affected versions, and remediation steps." },
   { key: "releases[].security_updates",     label: "Security updates",      hint: "Patch records with CVSS scores, distribution mechanism, and CVE links." },
   { key: "releases[].sbom_records",         label: "SBOM records",          hint: "Software bill-of-materials in CycloneDX, SPDX, or SWID format." },
   { key: "risk_assessments[]",   label: "Risk assessments",     hint: "Assessment records with nested risk items (threats, likelihood, impact, mitigation)." },

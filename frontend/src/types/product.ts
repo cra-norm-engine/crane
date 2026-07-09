@@ -658,9 +658,18 @@ export interface CvdPolicyUpdate {
 // ── Gaps 3 & 7: Security Advisory ─────────────────────────────────────────
 export type AdvisoryStatus = "draft" | "embargo" | "published" | "archived";
 
+/** A release an advisory affects (for display). */
+export interface AdvisoryReleaseRef {
+  id: string;
+  display_version: string;
+  release_status: string;
+}
+
 export interface SecurityAdvisoryRead {
   id: string;
-  product_release_id: string;
+  product_id: string;
+  product_name: string | null;
+  releases: AdvisoryReleaseRef[];
   advisory_id: string;
   title: string;
   summary: string | null;
@@ -673,13 +682,16 @@ export interface SecurityAdvisoryRead {
   remediation_steps: string | null;
   embargo_until: string | null;
   published_at: string | null;
-  linked_security_update_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface SecurityAdvisoryCreate {
-  product_release_id: string;
+  product_id: string;
+  /** Affected release ids. Ignored when all_releases is true. */
+  release_ids?: string[];
+  /** Snapshot every current release of the product at creation time. */
+  all_releases?: boolean;
   advisory_id: string;
   title: string;
   summary?: string | null;
@@ -692,7 +704,6 @@ export interface SecurityAdvisoryCreate {
   remediation_steps?: string | null;
   embargo_until?: string | null;
   published_at?: string | null;
-  linked_security_update_id?: string | null;
 }
 
 export interface SecurityAdvisoryUpdate {
@@ -707,7 +718,8 @@ export interface SecurityAdvisoryUpdate {
   remediation_steps?: string | null;
   embargo_until?: string | null;
   published_at?: string | null;
-  linked_security_update_id?: string | null;
+  /** When provided, replaces the advisory's affected-release set. */
+  release_ids?: string[];
 }
 
 // ── Gap 6: Vulnerability Report lifecycle ─────────────────────────────────

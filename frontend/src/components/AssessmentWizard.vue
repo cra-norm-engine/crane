@@ -219,6 +219,11 @@
         />
       </label>
 
+      <!-- Submit error shown at the point of action, not just at the top of the wizard. -->
+      <div v-if="errorMessage" class="error-banner">
+        <p>{{ errorMessage }}</p>
+      </div>
+
       <div class="wizard-actions">
         <button class="btn-secondary" type="button" @click="previousStep">
           ← Back
@@ -364,14 +369,20 @@ async function submitAssessment() {
       enables_new_attack_scenarios: derivedCriteria.value.enables_new_attack_scenarios,
       changes_attack_likelihood: derivedCriteria.value.changes_attack_likelihood,
       changes_attack_impact: derivedCriteria.value.changes_attack_impact,
-      reasoning: reasoning.value || null,
+      // Reasoning is optional; the backend field is a plain string (not nullable),
+      // so send an empty string rather than null when the assessor leaves it blank.
+      reasoning: reasoning.value ?? '',
       decision_date: new Date().toISOString().split('T')[0],
     };
 
+    errorMessage.value = '';
     await apiClient.post(`/changes/${props.changeId}/assess`, payload);
     emit('submitted');
   } catch (error) {
+    // Surface the failure to the assessor instead of failing silently in the console.
+    const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Error submitting assessment:', error);
+    errorMessage.value = `Could not submit assessment: ${errorMsg}`;
   } finally {
     submitting.value = false;
   }

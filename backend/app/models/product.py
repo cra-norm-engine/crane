@@ -208,6 +208,15 @@ class Product(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(ProductScopeEvaluation.created_at)",
     )
+    # Security advisories are product-scoped; each advisory links to the affected
+    # releases via the advisory_releases join table.
+    security_advisories: Mapped[list["SecurityAdvisory"]] = relationship(
+        "SecurityAdvisory",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="desc(SecurityAdvisory.created_at)",
+    )
     risk_assessments: Mapped[list["RiskAssessment"]] = relationship(
         "RiskAssessment",
         back_populates="product",
@@ -417,13 +426,6 @@ class ProductRelease(UUIDTimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="desc(SecurityUpdate.created_at)",
-    )
-    security_advisories: Mapped[list["SecurityAdvisory"]] = relationship(
-        "SecurityAdvisory",
-        back_populates="product_release",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        order_by="desc(SecurityAdvisory.created_at)",
     )
     vulnerability_reports: Mapped[list["VulnerabilityReport"]] = relationship(
         "VulnerabilityReport",
