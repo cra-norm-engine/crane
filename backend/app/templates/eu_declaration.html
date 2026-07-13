@@ -1,0 +1,180 @@
+{#-
+  CRANE — CRA Norm Engine
+  Copyright (C) 2026 Ali Mohammad Hosseini
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  This file is part of CRANE, free software under the GNU AGPL v3.0 or later.
+
+  EU Declaration of Conformity (CRA Art. 28 / Annex V), rendered to PDF via
+  WeasyPrint. WeasyPrint-safe CSS only — tables / blocks / inline-block, no
+  flexbox or grid. Numbered items follow Annex V's required content. Missing
+  fields render an honest "Not recorded in CRANE" placeholder via v()/ph().
+  Until the DoC is signed the page carries a DRAFT watermark.
+-#}
+{%- macro ph() -%}<span class="ph">Not recorded in CRANE</span>{%- endmacro -%}
+{%- macro v(x) -%}{% if x is none or x == PLACEHOLDER or x == '' %}{{ ph() }}{% else %}{{ x }}{% endif %}{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EU Declaration of Conformity — {{ product.name }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 24mm 20mm 18mm 20mm;
+    @top-right { content: "CRANE · EU Declaration of Conformity"; font-family: monospace; font-size: 8pt; color: #9a9a9a; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #9a9a9a; }
+  }
+  *{ box-sizing: border-box; }
+  body{ font-family: 'Helvetica Neue', Arial, sans-serif; color:#1C1F1E; font-size:11pt; line-height:1.55; margin:0; }
+  h1{ font-family: Georgia, 'Times New Roman', serif; font-size:22pt; color:#0E332D; margin:0 0 2px; }
+  .mark{ font-family:monospace; font-size:9.5pt; letter-spacing:.14em; text-transform:uppercase; color:#1F5C52; }
+  .sub{ color:#5B6260; font-size:10.5pt; margin-bottom:4px; }
+  .basis{ font-size:9.5pt; color:#5B6260; margin-bottom:18px; }
+  .rule{ border:0; border-top:2px solid #0E332D; margin:10px 0 18px; }
+
+  /* Numbered Annex V items. */
+  .item{ margin:0 0 15px; }
+  .item .n{ font-family:monospace; font-size:8.5pt; letter-spacing:.06em; text-transform:uppercase; color:#8B9290; margin-bottom:3px; }
+  .item .body{ font-size:11pt; }
+  .addr{ white-space:pre-line; }
+
+  table.kv{ width:100%; border-collapse:collapse; margin:4px 0 4px; }
+  table.kv td{ padding:6px 10px; border:1px solid #E7E1D2; vertical-align:top; font-size:10pt; }
+  table.kv td.k{ width:34%; background:#F7F4EC; color:#5B6260; font-family:monospace; font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; }
+
+  .statement{ background:#F2EEE3; border-left:3px solid #1F5C52; padding:10px 14px; font-size:10.5pt; margin:6px 0 16px; }
+  .ph{ font-family:monospace; font-size:8.5pt; color:#9C6A14; background:#F9F1DE; border:1px dashed #D8B873; border-radius:3px; padding:1px 6px; }
+
+  .sig{ margin-top:26px; }
+  .sig table{ width:100%; border-collapse:collapse; }
+  .sig td{ width:50%; padding:0 10px; vertical-align:bottom; }
+  .sig .line{ border-top:1px solid #1C1F1E; margin-top:34px; padding-top:4px; font-size:9pt; color:#5B6260; }
+  .sig .val{ font-size:11pt; }
+
+  .ce-row{ width:100%; border-collapse:collapse; margin:2px 0 8px; }
+  .ce-cell{ width:32mm; vertical-align:middle; padding-right:6mm; }
+  .ce-mark{ width:26mm; height:auto; }
+  .ce-note{ vertical-align:middle; font-size:9.5pt; color:#5B6260; }
+
+  .footnote{ margin-top:22px; font-size:8.5pt; color:#8B9290; }
+
+  /* DRAFT watermark shown until the DoC is signed. */
+  .watermark{ position:fixed; top:44%; left:14%; font-family:Georgia,serif; font-size:80pt;
+    color:#92332C; opacity:0.08; transform:rotate(-28deg); letter-spacing:.05em; }
+</style>
+</head>
+<body>
+
+{% if not meta.is_signed %}<div class="watermark">DRAFT</div>{% endif %}
+
+<div class="mark">CRANE · CRA Norm Engine</div>
+<h1>EU Declaration of Conformity</h1>
+<div class="sub">{{ product.name }} — {{ v(product.model) }}</div>
+<div class="basis">Drawn up pursuant to Regulation (EU) 2024/2847 (Cyber Resilience Act), Article 28 and Annex V.</div>
+<hr class="rule">
+
+{# 1 — DoC reference number (Annex V(1)). #}
+<div class="item">
+  <div class="n">1 · Declaration reference number</div>
+  <div class="body">{{ v(reference_no) }}</div>
+</div>
+
+{# 2 — Manufacturer name + registered trade address (Annex V(2)). #}
+<div class="item">
+  <div class="n">2 · Manufacturer</div>
+  <div class="body">
+    <strong>{{ v(manufacturer.name) }}</strong>
+    <div class="addr">{{ v(manufacturer.address) }}</div>
+    <table class="kv">
+      <tr><td class="k">Contact e-mail</td><td>{{ v(manufacturer.contact_email) }}</td></tr>
+      <tr><td class="k">Contact URL</td><td>{{ v(manufacturer.contact_url) }}</td></tr>
+      <tr><td class="k">Authorised representative</td><td>{{ v(authorised_rep) }}</td></tr>
+    </table>
+  </div>
+</div>
+
+{# 3 — Sole-responsibility statement (Annex V(3)). #}
+<div class="item">
+  <div class="n">3 · Statement</div>
+  <div class="statement">{{ sole_responsibility }}</div>
+</div>
+
+{# 4 — Object of the declaration: product identification (Annex V(4)). #}
+<div class="item">
+  <div class="n">4 · Object of the declaration</div>
+  <table class="kv">
+    <tr><td class="k">Product name</td><td>{{ v(product.name) }}</td></tr>
+    <tr><td class="k">Model / identifier</td><td>{{ v(product.model) }}</td></tr>
+    <tr><td class="k">Type</td><td>{{ v(product.type) }}</td></tr>
+    <tr><td class="k">Version</td><td>{{ v(product.version) }}</td></tr>
+    <tr><td class="k">Hardware version</td><td>{{ v(product.hardware_version) }}</td></tr>
+    <tr><td class="k">Description</td><td>{{ v(product.description) }}</td></tr>
+  </table>
+</div>
+
+{# 5 — Conformity: statement, route, module, standards, notified body (Annex V(5/6)). #}
+<div class="item">
+  <div class="n">5 · Conformity with the Cyber Resilience Act</div>
+  <div class="body statement">The object of the declaration described above is in conformity with the
+    relevant Union harmonisation legislation: Regulation (EU) 2024/2847 (Cyber Resilience Act).</div>
+  <table class="kv">
+    <tr><td class="k">Conformity assessment route</td><td>{{ v(conformity.route) }}</td></tr>
+    <tr><td class="k">Assessment module</td><td>{{ v(conformity.module) }}</td></tr>
+    <tr><td class="k">Standards / specifications applied</td><td>{{ v(conformity.standards) }}</td></tr>
+    <tr><td class="k">Notified body</td><td>{{ v(conformity.notified_body) }}</td></tr>
+    <tr><td class="k">Notified body number</td><td>{{ v(conformity.nb_number) }}</td></tr>
+  </table>
+</div>
+
+{# 7 — Additional information + CE marking (Annex V(7)). #}
+<div class="item">
+  <div class="n">6 · CE marking &amp; additional information</div>
+  {% if ce_eligible %}
+  <table class="ce-row">
+    <tr>
+      <td class="ce-cell"><img class="ce-mark" src="{{ ce_mark_uri }}" alt="CE marking"></td>
+      <td class="ce-note">The CE marking is affixed to this product, indicating conformity with the
+        applicable Union harmonisation legislation including the Cyber Resilience Act.</td>
+    </tr>
+  </table>
+  {% endif %}
+  <table class="kv">
+    <tr><td class="k">CE marking details</td><td>{{ v(ce_marking) }}</td></tr>
+    <tr><td class="k">Simplified DoC URL</td><td>{{ v(simplified_url) }}</td></tr>
+  </table>
+</div>
+
+{# Signature block — signatory, place, date (Annex V(6)). #}
+<div class="sig">
+  <div class="n" style="font-family:monospace;font-size:8.5pt;letter-spacing:.06em;text-transform:uppercase;color:#8B9290;">
+    Signed for and on behalf of the manufacturer
+  </div>
+  <table>
+    <tr>
+      <td>
+        <div class="val">{{ v(signature.signatory) }}</div>
+        <div class="line">Name &amp; function of signatory</div>
+      </td>
+      <td>
+        <div class="val">{{ v(signature.date) }}</div>
+        <div class="line">Date of issue</div>
+      </td>
+    </tr>
+  </table>
+  {% if meta.is_signed %}
+  <table style="margin-top:12px;">
+    <tr>
+      <td><div class="line" style="margin-top:0;">Internally approved by: {{ v(signature.approved_by) }} ({{ v(signature.approved_at) }})</div></td>
+      <td><div class="line" style="margin-top:0;">Formally signed: {{ v(signature.signed_at) }}</div></td>
+    </tr>
+  </table>
+  {% endif %}
+</div>
+
+<div class="footnote">Status: {{ meta.status }}. Generated {{ meta.generated_at }} by {{ meta.tool_name }}
+({{ v(meta.generated_by) }}). This document is generated from data recorded in CRANE and does not
+constitute legal advice. The manufacturer remains responsible for the accuracy and completeness of
+this declaration.</div>
+
+</body>
+</html>

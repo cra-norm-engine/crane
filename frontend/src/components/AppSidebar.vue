@@ -178,6 +178,21 @@
           <span>Certifications</span>
         </RouterLink>
 
+        <!-- EU Declarations of Conformity — CRA Art. 28, permission-gated -->
+        <RouterLink
+          v-if="canViewDeclarations"
+          :to="{ name: 'declarations' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Signed document icon -->
+            <svg viewBox="0 0 20 20"><path d="M5 2h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm6 1v3h3zM6 9h8v1.5H6zm0 3h8v1.5H6z" fill="currentColor"/></svg>
+          </span>
+          <span>Declarations</span>
+        </RouterLink>
+
         <!-- Substantial changes — CRA Art. 3(4), permission-gated -->
         <RouterLink
           v-if="canViewChanges"
@@ -564,6 +579,8 @@ const canViewAnnexMatrix            = computed(
     authStore.hasPermission("requirement_mapping_read"),
 );
 const canViewCertificationRecords  = computed(() => authStore.hasPermission("certification_record_read"));
+// EU Declarations of Conformity are release-scoped, so gate on release read.
+const canViewDeclarations          = computed(() => authStore.hasPermission("release_read"));
 const canViewChanges               = computed(() => authStore.hasPermission("change_read"));
 const canManageAdmin               = computed(() => authStore.hasPermission("admin_manage_users"));
 const canViewAudit                 = computed(() => authStore.hasPermission("audit_read"));

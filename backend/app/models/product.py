@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import (
     ConformityRoute,
+    DocStatus,
     ProductClassification,
     ProductLifecycleStatus,
     ProductType,
@@ -51,6 +52,10 @@ class Product(UUIDTimestampMixin, Base):
     )
 
     manufacturer_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # CRA Annex V(2) — the EU Declaration of Conformity must state the manufacturer's
+    # name AND registered trade address. Stored as free text (multi-line address)
+    # so it can flow straight onto the generated DoC.
+    manufacturer_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     intended_use: Mapped[str] = mapped_column(Text, nullable=False)
     product_type: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
 
@@ -346,7 +351,18 @@ class ProductRelease(UUIDTimestampMixin, Base):
     # CRA Art. 28/30 — fuller DoC + CE marking metadata.
     eu_doc_signatory: Mapped[str | None] = mapped_column(String(255), nullable=True)
     eu_doc_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    eu_doc_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # DoC document lifecycle (see DocStatus): draft -> approved -> signed. Kept as a
+    # plain string column (holds DocStatus values) for backward compatibility with
+    # the free-text status this field previously carried. Defaults to "draft".
+    eu_doc_status: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default=DocStatus.draft.value, server_default=DocStatus.draft.value
+    )
+    # Who approved the DoC internally and when (recorded on the approve step).
+    eu_doc_approved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    eu_doc_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Timestamp the DoC was formally signed (drawn up). Set on the sign step, after
+    # which the document is locked from further edits.
+    eu_doc_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ce_marking_info: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # CRA Art. 32 — conformity assessment detail (module, NB number, standards).

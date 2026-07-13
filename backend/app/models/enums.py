@@ -225,6 +225,16 @@ class ConformityRoute(StrEnum):
     undecided = "undecided"
 
 
+# CRA Art. 28 / Annex V — lifecycle of the EU Declaration of Conformity document.
+# draft:    editable working copy; the manufacturer is still assembling content.
+# approved: reviewed and approved internally; signatory recorded, ready to sign.
+# signed:   formally signed and drawn up; the DoC is locked from further edits.
+class DocStatus(StrEnum):
+    draft = "draft"
+    approved = "approved"
+    signed = "signed"
+
+
 class AssessmentMethodology(StrEnum):
     stride = "stride"
     tara = "tara"

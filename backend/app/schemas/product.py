@@ -45,6 +45,8 @@ class ProductBase(BaseModel):
     description: str | None = None
     parent_product_id: UUID | None = None
     manufacturer_name: str = Field(min_length=1, max_length=255)
+    # CRA Annex V(2) — manufacturer's registered trade address for the DoC (free text).
+    manufacturer_address: str | None = None
     intended_use: str = Field(min_length=1)
     product_type: str = Field(min_length=1, max_length=150)
     current_classification: ProductClassification = ProductClassification.normal
@@ -106,6 +108,8 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     parent_product_id: UUID | None = None
     manufacturer_name: str | None = Field(default=None, min_length=1, max_length=255)
+    # CRA Annex V(2) — manufacturer's registered trade address for the DoC (free text).
+    manufacturer_address: str | None = None
     intended_use: str | None = Field(default=None, min_length=1)
     product_type: str | None = Field(default=None, min_length=1, max_length=150)
     current_classification: ProductClassification | None = None

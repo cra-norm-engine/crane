@@ -664,6 +664,16 @@
             <input v-model.trim="editForm.manufacturer_name" type="text" maxlength="255" />
           </label>
 
+          <!-- CRA Annex V(2): registered trade address, required on the DoC. -->
+          <label class="field modal-field-span-2">
+            <span class="field-label">Manufacturer address</span>
+            <textarea
+              v-model.trim="editForm.manufacturer_address"
+              rows="2"
+              placeholder="Registered trade address (street, postal code, city, country)"
+            />
+          </label>
+
           <label class="field">
             <span class="field-label">Type</span>
             <input v-model.trim="editForm.product_type" type="text" maxlength="100" />
@@ -2108,6 +2118,7 @@ const editForm = reactive({
   name:                       "",
   product_code:               "",
   manufacturer_name:          "",
+  manufacturer_address:       "",
   product_type:               "",
   description:                "",
   intended_use:               "",
@@ -2250,6 +2261,7 @@ function syncEditForm(): void {
   editForm.name                    = product.value.name ?? "";
   editForm.product_code            = product.value.product_code ?? "";
   editForm.manufacturer_name       = product.value.manufacturer_name ?? "";
+  editForm.manufacturer_address    = product.value.manufacturer_address ?? "";
   editForm.product_type            = product.value.product_type ?? "";
   editForm.description             = product.value.description ?? "";
   editForm.intended_use            = product.value.intended_use ?? "";
@@ -2735,6 +2747,7 @@ async function saveProduct(): Promise<void> {
       name:                        editForm.name.trim(),
       product_code:                editForm.product_code.trim(),
       manufacturer_name:           editForm.manufacturer_name.trim(),
+      manufacturer_address:        editForm.manufacturer_address.trim() || null,
       product_type:                editForm.product_type.trim(),
       description:                 editForm.description.trim() || null,
       intended_use:                editForm.intended_use.trim(),

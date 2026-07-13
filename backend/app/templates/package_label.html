@@ -1,0 +1,85 @@
+{#-
+  CRANE — CRA Norm Engine
+  Copyright (C) 2026 Ali Mohammad Hosseini
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  This file is part of CRANE, free software under the GNU AGPL v3.0 or later.
+
+  Printable product package label (PDF via WeasyPrint). Small fixed page size so
+  it can be printed and affixed to packaging. WeasyPrint-safe CSS only — tables /
+  blocks / inline-block, no flexbox or grid. Carries CE marking, product/
+  manufacturer identification, DoC reference, support-until date and the
+  security-disclosure contact, plus a QR linking to the DoC/security page.
+-#}
+{%- macro ph() -%}<span class="ph">Not recorded</span>{%- endmacro -%}
+{%- macro v(x) -%}{% if x is none or x == PLACEHOLDER or x == '' %}{{ ph() }}{% else %}{{ x }}{% endif %}{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Package label — {{ product.name }}</title>
+<style>
+  /* Compact label sheet: 90mm x 60mm, a common self-adhesive label size. */
+  @page { size: 90mm 60mm; margin: 0; }
+  *{ box-sizing: border-box; }
+  body{ font-family: 'Helvetica Neue', Arial, sans-serif; color:#1C1F1E; margin:0; }
+  .label{ width:90mm; height:60mm; padding:4mm 4.5mm; border:0.4mm solid #1C1F1E; }
+
+  table.top{ width:100%; border-collapse:collapse; }
+  table.top td{ vertical-align:top; }
+  td.info{ width:64%; padding-right:3mm; }
+  td.qr{ width:36%; text-align:right; }
+
+  /* CE marking image — shown only when conformity has been declared. */
+  .ce-mark{ height:8mm; width:auto; }
+  .ce-none{ font-size:7.5pt; color:#8B9290; font-family:monospace; }
+
+  .pname{ font-size:11pt; font-weight:bold; line-height:1.15; margin:1mm 0 0; }
+  .pmeta{ font-size:7.5pt; color:#5B6260; line-height:1.35; margin-top:0.6mm; }
+  .pmeta .k{ font-family:monospace; text-transform:uppercase; letter-spacing:.03em; color:#8B9290; }
+
+  .qr img{ width:26mm; height:26mm; }
+  .qr .cap{ font-size:5.5pt; color:#8B9290; font-family:monospace; text-transform:uppercase; letter-spacing:.04em; margin-top:0.5mm; }
+
+  hr.sep{ border:0; border-top:0.3mm solid #E7E1D2; margin:2mm 0; }
+
+  table.foot{ width:100%; border-collapse:collapse; font-size:7.5pt; }
+  table.foot td{ vertical-align:top; padding:0.4mm 0; }
+  table.foot td.k{ width:32%; font-family:monospace; text-transform:uppercase; letter-spacing:.03em; color:#8B9290; }
+
+  .ph{ font-family:monospace; font-size:7pt; color:#9C6A14; }
+</style>
+</head>
+<body>
+<div class="label">
+  <table class="top">
+    <tr>
+      <td class="info">
+        {% if ce_marking %}<img class="ce-mark" src="{{ ce_mark_uri }}" alt="CE marking">{% else %}<div class="ce-none">Conformity not yet declared</div>{% endif %}
+        <div class="pname">{{ v(product.name) }}</div>
+        <div class="pmeta">
+          <span class="k">Model</span> {{ v(product.model) }} &nbsp;·&nbsp;
+          <span class="k">Ver</span> {{ v(product.version) }}<br>
+          <span class="k">Mfr</span> {{ v(product.manufacturer) }}
+        </div>
+      </td>
+      <td class="qr">
+        {% if qr_data_uri %}
+          <img src="{{ qr_data_uri }}" alt="QR to declaration of conformity">
+          <div class="cap">Scan for DoC</div>
+        {% else %}
+          <div class="ph">No DoC / security URL</div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <hr class="sep">
+
+  <table class="foot">
+    <tr><td class="k">DoC ref.</td><td>{{ v(doc_reference) }}</td></tr>
+    <tr><td class="k">Support until</td><td>{{ v(support_until) }}</td></tr>
+    <tr><td class="k">Security</td><td>{{ v(security_contact.url) }}{% if security_contact.email != PLACEHOLDER %} · {{ v(security_contact.email) }}{% endif %}</td></tr>
+  </table>
+</div>
+</body>
+</html>

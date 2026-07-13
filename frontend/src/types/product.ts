@@ -275,6 +275,8 @@ export interface ProductRead {
   description: string | null;
   parent_product_id: string | null;
   manufacturer_name: string;
+  /** CRA Annex V(2) — manufacturer's registered trade address (for the DoC). */
+  manufacturer_address?: string | null;
   intended_use: string;
   product_type: string;
   current_classification: ProductClassification;
@@ -323,6 +325,8 @@ export interface ProductCreate {
   description?: string | null;
   parent_product_id?: string | null;
   manufacturer_name: string;
+  /** CRA Annex V(2) — manufacturer's registered trade address (for the DoC). */
+  manufacturer_address?: string | null;
   intended_use: string;
   product_type: string;
   current_classification: ProductClassification;
@@ -352,6 +356,8 @@ export interface ProductUpdate {
   description?: string | null;
   parent_product_id?: string | null;
   manufacturer_name?: string;
+  /** CRA Annex V(2) — manufacturer's registered trade address (for the DoC). */
+  manufacturer_address?: string | null;
   intended_use?: string;
   product_type?: string;
   current_classification?: ProductClassification;

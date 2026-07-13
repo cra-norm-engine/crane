@@ -99,6 +99,25 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        // Top-level Declarations of Conformity page (lists all releases + DoC status).
+        path: "declarations",
+        name: "declarations",
+        component: () => import("@/views/DeclarationsListView.vue"),
+        meta: {
+          permissions: ["release_read"],
+        },
+      },
+      {
+        // Per-release EU Declaration of Conformity (preview, workflow, downloads).
+        path: "releases/:releaseId/declaration",
+        name: "release-declaration",
+        component: () => import("@/views/DeclarationView.vue"),
+        props: true,
+        meta: {
+          permissions: ["release_read"],
+        },
+      },
+      {
         path: "security-updates",
         name: "security-updates",
         component: SecurityUpdateHistoryView,
