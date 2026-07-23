@@ -8,12 +8,9 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/cra-norm-engine/crane/ci.yml?branch=main)
 
 ## Online Demo
-- To see the online demo of the latest version of CRANE, use the credentials below:
+- **Open CRANE at https://cra-compliance-tool-1.onrender.com and use the credentials.**
 - Email: demo@crane.com
 - Password: Hca@U~8%dZ!iNT
-
-- **Step1**: Initiate the server at https://cra-compliance-tool.onrender.com/ and wait for 2 minutes
-- **Step2**: Open CRANE at https://cra-compliance-tool-1.onrender.com and use the above credentials.
 
 **Remark**: Do not enter any sensitive or private information in the online demo.
 
