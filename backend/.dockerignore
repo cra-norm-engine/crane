@@ -1,0 +1,27 @@
+# Keep the Docker build context small and prevent secrets/caches from being
+# baked into the image via `COPY . /workspace/backend`.
+
+# Local virtualenvs
+.venv/
+venv/
+
+# Secrets — never ship real env files into the image (.env.example is at the
+# repo root and outside this build context, so it is unaffected).
+.env
+.env.*
+
+# Python caches / bytecode
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime artifact directory — created by the app at run time, not needed at build.
+uploads/
+
+# Docs and VCS metadata
+*.md
+.git/
+.gitignore

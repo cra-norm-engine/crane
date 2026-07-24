@@ -621,10 +621,14 @@
                     <span class="source-badge source-badge-nvd">NVD</span>
                     <span class="scanner-legend-label">NIST NVD — CVSS enrichment</span>
                   </span>
+                  <span class="scanner-legend-item">
+                    <span class="source-badge source-badge-kev">CISA KEV</span>
+                    <span class="scanner-legend-label">Known exploited in the wild</span>
+                  </span>
                 </div>
               </div>
               <button class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities"
-                title="Runs OSV + Trivy (if installed) and enriches via NVD">
+                title="Runs OSV + Trivy (if installed), and enriches with NVD, EPSS, and CISA KEV">
                 {{ isScanningVulns ? "Scanning…" : "Scan for vulnerabilities" }}
               </button>
             </div>
@@ -663,6 +667,15 @@
                   :class="{ 'sort-btn-active': vulnSourceFilter === src.key }"
                   @click="vulnSourceFilter = src.key as 'all' | 'osv' | 'trivy'"
                 >{{ src.label }}</button>
+
+                <span class="vuln-sort-divider" />
+
+                <button
+                  class="sort-btn"
+                  :class="{ 'sort-btn-active': knownExploitedOnly }"
+                  @click="knownExploitedOnly = !knownExploitedOnly"
+                  title="Show only CVEs listed in CISA's Known Exploited Vulnerabilities catalog"
+                >Known exploited only</button>
 
                 <span class="vuln-sort-divider" />
 
@@ -753,6 +766,15 @@
                         :class="epssClass(f.epss_score)"
                         :title="`EPSS: ${(f.epss_score * 100).toFixed(2)}% exploit probability (${f.epss_percentile !== null && f.epss_percentile !== undefined ? (f.epss_percentile * 100).toFixed(0) + 'th percentile' : 'percentile n/a'})`"
                       >EPSS&nbsp;{{ (f.epss_score * 100).toFixed(1) }}%</span>
+                      <a
+                        v-if="f.is_known_exploited"
+                        href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="kev-badge"
+                        :title="kevTitle(f)"
+                        @click.stop
+                      >CISA KEV</a>
                       <!-- Expand/collapse chevron -->
                       <svg
                         class="vuln-chevron"
@@ -807,6 +829,17 @@
                       <div class="vuln-detail-value">
                         <span v-if="f.cvss_score !== null" class="vuln-cvss-score-large">{{ f.cvss_score.toFixed(1) }}</span>
                         <code v-if="f.cvss_vector" class="vuln-cvss-vector">{{ f.cvss_vector }}</code>
+                      </div>
+                    </div>
+
+                    <!-- CISA KEV evidence of active exploitation -->
+                    <div v-if="f.is_known_exploited" class="vuln-detail-row">
+                      <span class="vuln-detail-label">Exploited in the wild</span>
+                      <div class="vuln-detail-value">
+                        <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener noreferrer" @click.stop>CISA KEV catalog match ↗</a>
+                        <span v-if="f.kev_date_added"> · Added {{ formatDate(f.kev_date_added) }}</span>
+                        <span v-if="f.kev_due_date"> · Due {{ formatDate(f.kev_due_date) }}</span>
+                        <p v-if="f.kev_required_action" class="muted" style="margin:0.25rem 0 0">{{ f.kev_required_action }}</p>
                       </div>
                     </div>
 
@@ -925,6 +958,7 @@ const expandedFindingId = ref<string | null>(null);
 const vulnSortKey = ref<"epss" | "cvss" | "severity" | "none">("none");
 const vulnSortDir = ref<"asc" | "desc">("desc");
 const vulnSourceFilter = ref<"all" | "osv" | "trivy">("all");
+const knownExploitedOnly = ref(false);
 
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseSummaryRead[]>([]);
@@ -1360,13 +1394,14 @@ async function scanVulnerabilities(): Promise<void> {
       if ((ps.both ?? 0) > 0)  scannerParts.push(`Both: ${ps.both}`);
       const scannerDetail = scannerParts.length ? ` (${scannerParts.join(" · ")})` : "";
       const nvdDetail = (result.nvd_enrichments ?? 0) > 0 ? ` · NVD enriched ${result.nvd_enrichments}` : "";
+      const kevDetail = (result.kev_matches ?? 0) > 0 ? ` · ${result.kev_matches} CISA KEV match${result.kev_matches !== 1 ? "es" : ""}` : "";
       const trivyNote = result.trivy_available === false ? " · Trivy not installed" : "";
 
       successMessage.value =
         `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ` +
         `${result.findings_created} new finding${result.findings_created !== 1 ? "s" : ""}, ` +
         `${result.reports_created} report${result.reports_created !== 1 ? "s" : ""} created.` +
-        scannerDetail + nvdDetail + trivyNote;
+        scannerDetail + nvdDetail + kevDetail + trivyNote;
     }
   } catch {
     vulnScanError.value = "Scan request failed. Check that the backend is running and try again.";
@@ -1385,6 +1420,9 @@ const sortedVulnFindings = computed(() => {
   /* Source filter */
   if (vulnSourceFilter.value !== "all") {
     list = list.filter((f) => (f.sources_json ?? ["osv"]).includes(vulnSourceFilter.value));
+  }
+  if (knownExploitedOnly.value) {
+    list = list.filter((f) => f.is_known_exploited);
   }
 
   /* Sort */
@@ -1446,6 +1484,14 @@ function epssClass(score: number): string {
   if (score >= 0.10) return "epss-high";
   if (score >= 0.01) return "epss-medium";
   return "epss-low";
+}
+
+function kevTitle(finding: SbomVulnerabilityFindingRead): string {
+  const details = ["CISA Known Exploited Vulnerabilities catalog match"];
+  if (finding.kev_date_added) details.push(`Added: ${formatDate(finding.kev_date_added)}`);
+  if (finding.kev_due_date) details.push(`Due: ${formatDate(finding.kev_due_date)}`);
+  if (finding.kev_known_ransomware_campaign_use) details.push(`Ransomware use: ${finding.kev_known_ransomware_campaign_use}`);
+  return details.join(" · ");
 }
 
 function nvdUrl(vulnId: string): string {
@@ -2489,6 +2535,7 @@ input:focus, select:focus, textarea:focus {
 .source-badge-trivy  { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
 /* NVD — green */
 .source-badge-nvd    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.source-badge-kev    { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 
 /* ── EPSS attribution link ── */
 .epss-attribution {
@@ -2519,6 +2566,21 @@ input:focus, select:focus, textarea:focus {
 .epss-medium { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 /* < 1% — low exploit probability */
 .epss-low    { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+
+.kev-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.kev-badge:hover { text-decoration: underline; }
 
 :root[data-theme="light"] .epss-high   { background: #fee2e2; color: #7f1d1d; border-color: #f87171; }
 :root[data-theme="light"] .epss-medium { background: #fef9c3; color: #713f12; border-color: #fde047; }

@@ -195,6 +195,10 @@ class ProductClassification(StrEnum):
     important_class_1 = "important_class_1"
     important_class_2 = "important_class_2"
     critical = "critical"
+    # Free & open-source software. Under the CRA, FOSS made available in the course
+    # of a commercial activity follows the self-assessment route unless it is itself
+    # categorised as a critical product. See _derive_conformity_route.
+    foss = "foss"
 
 
 class ProductLifecycleStatus(StrEnum):

@@ -168,6 +168,7 @@
               <option value="important_class_1">Important Class I</option>
               <option value="important_class_2">Important Class II</option>
               <option value="critical">Critical</option>
+              <option value="foss">FOSS</option>
             </select>
           </label>
 
@@ -332,6 +333,7 @@
             <option value="important_class_1">Important Class I</option>
             <option value="important_class_2">Important Class II</option>
             <option value="critical">Critical</option>
+            <option value="foss">FOSS</option>
           </select>
         </label>
 
@@ -1043,6 +1045,7 @@ function formatClassification(value: ProductClassification | string): string {
     case "important_class_1": return "Important Class I";
     case "important_class_2": return "Important Class II";
     case "critical":          return "Critical";
+    case "foss":              return "FOSS";
     default:                  return "Default";
   }
 }

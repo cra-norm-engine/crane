@@ -81,6 +81,9 @@ class CRARuleService:
         if classification in {
             ProductClassification.normal,
             ProductClassification.important_class_1,
+            # FOSS follows self-assessment unless categorised as a critical product,
+            # which is already handled by the third-party branch above.
+            ProductClassification.foss,
         }:
             return ConformityRoute.self_assessment
 

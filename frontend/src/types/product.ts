@@ -8,7 +8,8 @@ export type ProductClassification =
   | "normal"
   | "important_class_1"
   | "important_class_2"
-  | "critical";
+  | "critical"
+  | "foss";
 
 export type ConformityRoute =
   | "self_assessment"
@@ -777,6 +778,12 @@ export interface VulnerabilityReportRead {
   epss_score: number | null;
   /** EPSS percentile rank [0.0–1.0] among all scored CVEs. */
   epss_percentile: number | null;
+  /** True if CISA's Known Exploited Vulnerabilities catalog lists this CVE. */
+  is_known_exploited: boolean;
+  kev_date_added: string | null;
+  kev_due_date: string | null;
+  kev_required_action: string | null;
+  kev_known_ransomware_campaign_use: string | null;
   // ENISA SRP vulnerability-specific fields (v14–v26)
   /** v14 — ENISA European Vulnerability Database ID (separate from CVE). */
   euvd_id: string | null;
@@ -890,6 +897,13 @@ export interface SbomVulnerabilityFindingRead {
   epss_percentile: number | null;
   /** ISO timestamp of when the EPSS score was last fetched. */
   epss_fetched_at: string | null;
+  /** CISA KEV match: public evidence that this CVE is exploited in the wild. */
+  is_known_exploited: boolean;
+  kev_date_added: string | null;
+  kev_due_date: string | null;
+  kev_required_action: string | null;
+  kev_known_ransomware_campaign_use: string | null;
+  kev_fetched_at: string | null;
 }
 
 /** Result returned by the SBOM vulnerability scan endpoint. */
@@ -906,6 +920,8 @@ export interface SbomScanResult {
   nvd_enrichments: number;
   /** Number of findings that received EPSS scores from api.first.org. */
   epss_enrichments: number;
+  /** Number of scanned CVEs present in CISA's KEV catalog. */
+  kev_matches: number;
   /** Per-scanner finding counts: {osv, trivy, both}. */
   per_scanner: Record<string, number>;
 }

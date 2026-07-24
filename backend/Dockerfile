@@ -1,7 +1,44 @@
+# syntax=docker/dockerfile:1
+# ============================================================================
+# Multi-stage build for the CRANE backend.
+#
+# Stage 1 (builder) installs all Python dependencies into an isolated
+# virtualenv. Stage 2 (final) starts from a fresh slim image and copies only
+# that venv, so pip, its build metadata and download cache never ship in the
+# runtime image. Runtime-only assets (WeasyPrint's Pango/Cairo libraries, the
+# sbom-tools and Trivy binaries, and Trivy's pre-warmed vulnerability DB) are
+# installed directly in the final stage because they are needed at run time.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1 — builder: resolve and install Python dependencies into /opt/venv
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Build everything inside a self-contained virtualenv so the whole dependency
+# tree can be copied to the final stage as a single directory.
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# All third-party wheels are prebuilt (psycopg[binary], weasyprint, …), so no
+# compilers / -dev headers are required here.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ---------------------------------------------------------------------------
+# Stage 2 — final: slim runtime image with only what the app needs to run
+# ---------------------------------------------------------------------------
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Put the copied virtualenv first on PATH so `python`/`uvicorn`/`alembic`
+# resolve to the installed dependencies.
+ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /workspace/backend
 
@@ -33,12 +70,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Pre-warm the Trivy vulnerability DB at image build time so first scan is fast.
 RUN trivy image --download-db-only --no-progress || true
 
-COPY requirements.txt /workspace/backend/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Bring in the fully-installed Python environment from the builder stage.
+COPY --from=builder /opt/venv /opt/venv
 
 COPY . /workspace/backend
 
-WORKDIR /workspace/backend
 RUN chmod +x start.sh
+
+# Document the port the server listens on. EXPOSE cannot read a runtime env var,
+# so it is driven by a build ARG (default 8000). The actual listen port is set
+# at run time by start.sh from ${BACKEND_PORT}; keep this ARG in sync via the
+# compose build args for accurate image metadata.
+ARG BACKEND_PORT=8000
+EXPOSE ${BACKEND_PORT}
+
 CMD ["./start.sh"]
