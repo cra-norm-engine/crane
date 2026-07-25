@@ -15,6 +15,7 @@ from app.models.cvd_policy import CvdPolicy
 from app.models.evidence_item import EvidenceItem
 from app.models.lifecycle_notification import LifecycleNotification
 from app.models.market_action import MarketAction
+from app.models.maturity import MaturityAssessment, MaturityEvidenceLink, MaturityImprovementAction, MaturityModelVersion, MaturityResponse
 from app.models.permission import Permission
 from app.models.placeholders import DomainPlaceholder
 from app.models.product import (
@@ -64,6 +65,11 @@ __all__ = [
     "EvidenceItem",
     "LifecycleNotification",
     "MarketAction",
+    "MaturityAssessment",
+    "MaturityEvidenceLink",
+    "MaturityImprovementAction",
+    "MaturityModelVersion",
+    "MaturityResponse",
     "Permission",
     "DomainPlaceholder",
     "Product",

@@ -10,7 +10,7 @@ My Tasks endpoint — aggregates open items assigned to the current user
 across all entity types that support task assignment:
 
   • vulnerability_reports      (assigned_to_user_id)
-  • changes                    (assigned_to_user_id)
+  • changes and their compliance actions (assigned_to_user_id)
   • release_gate_items         (assigned_to_user_id)
   • risk_items                 (owner_user_id)
   • lifecycle_notifications    (recipient_user_id, EOS alerts only)
@@ -27,10 +27,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.models.change import Change
+from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
 from app.models.enums import (
     ArtifactReviewDecision,
     ChangeStatus,
+    ComplianceActionStatus,
     LifecycleNotificationStatus,
     LifecycleNotificationType,
     RiskItemStatus,
@@ -143,6 +144,37 @@ def list_my_tasks(
             release_version=getattr(release, "version", None),
             severity=None,
             created_by_name=initiator_map.get(str(ch.initiator_user_id)) if ch.initiator_user_id else None,
+        ))
+
+    # ── Substantial-change compliance actions ────────────────────────────────
+    action_stmt = (
+        select(ChangeComplianceAction)
+        .where(
+            ChangeComplianceAction.assigned_to_user_id == current_user.id,
+            ChangeComplianceAction.action_status != ComplianceActionStatus.completed,
+        )
+        .options(
+            joinedload(ChangeComplianceAction.assessment)
+            .joinedload(SubstantialModificationAssessment.change)
+            .joinedload(Change.product_version)
+        )
+    )
+    for action in db.scalars(action_stmt).unique().all():
+        change = action.assessment.change
+        release = change.product_version
+        product_name = getattr(getattr(release, "product", None), "name", None)
+        tasks.append(TaskItem(
+            entity_type="change_compliance_action",
+            entity_id=action.id,
+            title=action.action_type.value.replace("_", " ").title(),
+            status=action.action_status,
+            due_date=action.due_date,
+            is_overdue=_is_overdue(action.due_date),
+            product_name=product_name,
+            release_version=getattr(release, "version", None),
+            severity=None,
+            parent_id=change.id,
+            created_by_name=None,
         ))
 
     # ── Release gate items ────────────────────────────────────────────────────

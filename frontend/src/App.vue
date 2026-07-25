@@ -21,10 +21,13 @@ import { RouterView } from "vue-router";
 
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
+import { useAsyncState } from "@/composables/useAsyncState";
+import { fetchCurrentUser } from "@/services/auth-service";
 import AppToast from "@/components/AppToast.vue";
 
 const appStore = useAppStore();
 const authStore = useAuthStore();
+const { execute } = useAsyncState();
 
 /*
   Apply the persisted theme (dark / light) as early as possible so
@@ -35,6 +38,14 @@ const authStore = useAuthStore();
 onMounted(() => {
   if (!authStore.isInitialized) {
     authStore.initializeFromStorage();
+  }
+
+  // Permissions can change while a session is persisted (for example after a
+  // migration adds a new module). Refresh the cached user once on startup.
+  if (authStore.accessToken) {
+    void execute(() => fetchCurrentUser(authStore.accessToken!))
+      .then((user) => authStore.updateUser(user))
+      .catch(() => undefined); // useAsyncState and the API interceptor already report the error.
   }
   appStore.initializeTheme();
 

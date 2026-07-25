@@ -46,6 +46,7 @@ class ComplianceActionRead(TimestampedRead):
     action_type: ComplianceActionType
     action_status: ComplianceActionStatus
     due_date: date | None
+    assigned_to_user_id: UUID | None
     notes: str | None
     completed_by_user_id: UUID | None
 
@@ -58,6 +59,7 @@ class ComplianceActionUpdate(BaseModel):
     action_status: ComplianceActionStatus | None = None
     due_date: date | None = None
     notes: str | None = None
+    assigned_to_user_id: UUID | None = None
 
 
 # ---------------------------------------------------------------------------

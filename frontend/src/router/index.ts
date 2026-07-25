@@ -251,6 +251,12 @@ const routes: RouteRecordRaw[] = [
         name: "settings",
         component: () => import("@/views/SettingsView.vue"),
       },
+      {
+        path: "maturity",
+        name: "maturity",
+        component: () => import("@/views/MaturityView.vue"),
+        meta: { permissions: ["maturity_read"] },
+      },
     ],
   },
   {

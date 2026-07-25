@@ -39,6 +39,7 @@ from app.models.enums import (
 )
 from app.repositories.change_repository import ChangeRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.change import (
     AssessmentCreate,
     AssessmentRead,
@@ -170,7 +171,7 @@ class ChangeService:
 
         # Serialize dates to ISO strings for the JSON audit payload
         audit_details = {
-            k: v.isoformat() if isinstance(v, date) else v
+            k: v.isoformat() if isinstance(v, date) else str(v) if isinstance(v, UUID) else v
             for k, v in payload.model_dump(exclude_unset=True).items()
         }
 
@@ -322,6 +323,10 @@ class ChangeService:
                         assessment_id=assessment.id,
                         action_type=action_type,
                         action_status=ComplianceActionStatus.pending,
+                        assigned_to_user_id=(
+                            change.assigned_to_user_id or getattr(actor, "id", None)
+                        ),
+                        due_date=change.due_date,
                     )
                 )
 
@@ -410,6 +415,11 @@ class ChangeService:
         """
         action = self.repo.get_compliance_action_or_404(action_id)
 
+        if payload.assigned_to_user_id is not None:
+            assignee = UserRepository(self.db).get_by_id(payload.assigned_to_user_id)
+            if assignee is None or not assignee.is_active:
+                raise NotFoundException("Assigned user not found or inactive")
+
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(action, field, value)
 
@@ -417,10 +427,9 @@ class ChangeService:
         if payload.action_status == ComplianceActionStatus.completed:
             action.completed_by_user_id = getattr(actor, "id", None)
 
-        # Convert date objects to ISO strings so json.dumps in the audit layer
-        # can serialize the payload (Python's json encoder rejects date objects).
+        # Convert date/UUID values before storing the JSON audit payload.
         audit_details = {
-            k: v.isoformat() if isinstance(v, date) else v
+            k: v.isoformat() if isinstance(v, date) else str(v) if isinstance(v, UUID) else v
             for k, v in payload.model_dump(exclude_unset=True).items()
         }
 

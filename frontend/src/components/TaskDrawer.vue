@@ -38,6 +38,9 @@
                 <template v-else-if="task.entity_type === 'change'">
                   <path d="M3 5h14M3 9h14M3 13h9"/>
                 </template>
+                <template v-else-if="task.entity_type === 'change_compliance_action'">
+                  <rect x="3" y="3" width="14" height="14" rx="2"/><path d="M6.5 8h7M6.5 11h5"/>
+                </template>
                 <template v-else-if="task.entity_type === 'eos_alert'">
                   <circle cx="10" cy="10" r="7"/><path d="M10 6.5v3.5l2.5 1.5"/>
                 </template>
@@ -315,7 +318,8 @@ onBeforeUnmount(() => {
 
 const canEditStatus = computed(() =>
   props.task?.entity_type === "risk_item" ||
-  props.task?.entity_type === "vulnerability_report"
+  props.task?.entity_type === "vulnerability_report" ||
+  props.task?.entity_type === "change_compliance_action"
 );
 
 const statusOptions = computed(() => {
@@ -340,6 +344,13 @@ const statusOptions = computed(() => {
       { value: "retired",         label: "Retired" },
     ];
   }
+  if (props.task.entity_type === "change_compliance_action") {
+    return [
+      { value: "pending", label: "Pending" },
+      { value: "in_progress", label: "In progress" },
+      { value: "completed", label: "Completed" },
+    ];
+  }
   return [];
 });
 
@@ -352,6 +363,8 @@ async function saveStatus(): Promise<void> {
       await riskItemService.update(props.task.entity_id, { status: localStatus.value as any });
     } else if (props.task.entity_type === "vulnerability_report") {
       await vulnerabilityReportService.update(props.task.entity_id, { status: localStatus.value as any });
+    } else if (props.task.entity_type === "change_compliance_action") {
+      await changeService.updateComplianceAction(props.task.entity_id, { action_status: localStatus.value as any });
     }
     emit("statusUpdated", props.task, localStatus.value);
     // Flash a brief success confirmation (cleared after 2s).
@@ -476,6 +489,7 @@ function formatEntityType(type: string): string {
   const map: Record<string, string> = {
     vulnerability_report: "Vulnerability",
     change:              "Change",
+    change_compliance_action: "Change action",
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
@@ -569,6 +583,7 @@ function formatDate(iso: string): string {
 }
 .dtp-vulnerability_report { background: var(--color-danger-bg);  color: var(--color-danger-text); }
 .dtp-change               { background: var(--color-info-bg);    color: var(--color-info-text); }
+.dtp-change_compliance_action { background: var(--color-purple-bg); color: var(--color-purple-text); }
 .dtp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .dtp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .dtp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }

@@ -39,42 +39,42 @@
 
     <template v-if="data">
 
-      <!-- ── Conformance overview (high-level pie) ─────────────────────────── -->
-      <!-- % of in-scope products whose latest release has an APPROVED requirement
-           assessment. Out-of-scope products are excluded from the %. The detailed
-           per-product readiness lives on the CRA requirements page. -->
-      <div class="conformance-panel">
-        <div class="conf-pie-wrap" v-if="conformance">
-          <svg class="conf-pie" viewBox="0 0 42 42" role="img" aria-label="Conformant products">
+      <!-- ── SME maturity overview ────────────────────────────────────────── -->
+      <div v-if="canViewMaturity" class="conformance-panel">
+        <div class="conf-pie-wrap">
+          <svg class="conf-pie" viewBox="0 0 42 42" role="img" aria-label="Overall SME cybersecurity maturity">
             <circle class="conf-pie-track" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"/>
             <circle
               class="conf-pie-seg" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"
               stroke-linecap="round"
-              :stroke-dasharray="`${conformance.conformant_pct} ${100 - conformance.conformant_pct}`"
+              :stroke-dasharray="`${maturityPercent} ${100 - maturityPercent}`"
               stroke-dashoffset="25"
             />
           </svg>
           <div class="conf-pie-center">
-            <span class="conf-pct">{{ conformance.conformant_pct }}%</span>
-            <span class="conf-pct-sub">conformant</span>
+            <span class="conf-pct">{{ maturity?.results.overall_score?.toFixed(1) ?? "—" }}</span>
+            <span class="conf-pct-sub">out of 5</span>
           </div>
         </div>
 
         <div class="conf-copy">
-          <h2 class="conf-title">Product conformance</h2>
-          <p class="conf-desc">
-            Share of in-scope products whose <strong>latest released</strong> version has an
-            <strong>approved</strong> CRA requirement assessment. Products that are out of scope or
-            have nothing on the market yet carry no obligation and are excluded.
-          </p>
-          <div class="conf-legend" v-if="conformance">
-            <span class="conf-lg"><span class="conf-dot conf-dot-ok"></span>Conformant <strong>{{ conformance.conformant }}</strong></span>
-            <span class="conf-lg"><span class="conf-dot conf-dot-pending"></span>Not yet <strong>{{ conformance.not_conformant }}</strong></span>
-            <span class="conf-lg"><span class="conf-dot conf-dot-oos"></span>Excluded <strong>{{ conformance.out_of_scope }}</strong></span>
+          <h2 class="conf-title">SME Cybersecurity Maturity</h2>
+          <p class="conf-desc">Latest ENISA assessment across governance, protection, detection, response, and recovery.</p>
+          <div v-if="maturity" class="conf-legend">
+            <span class="conf-lg">Profile <strong>{{ maturity.results.profile ?? "In progress" }}</strong></span>
+            <span class="conf-lg">Evidence <strong>{{ maturity.results.evidence_coverage }}%</strong></span>
+            <span class="conf-lg">Status <strong class="capitalize">{{ formatStatus(maturity.status) }}</strong></span>
           </div>
-          <button class="link-btn conf-link" @click="$router.push({ name: 'annex-matrix' })">
-            View readiness by product →
-          </button>
+          <div v-if="maturity" class="maturity-domains">
+            <div v-for="domain in maturityDomains" :key="domain.code" class="maturity-domain">
+              <div><span>{{ domain.name }}</span><strong>{{ domain.score?.toFixed(1) ?? "—" }}</strong></div>
+              <div class="maturity-track"><span :style="{ width: `${(domain.score ?? 0) * 20}%` }"></span></div>
+            </div>
+          </div>
+          <p v-else class="conf-desc">No maturity assessment has been created yet.</p>
+          <AppButton variant="primary" @click="router.push({ name: 'maturity', query: maturity ? { assessment: maturity.id } : {} })">
+            {{ maturity ? "Open detailed assessment" : "Start assessment" }}
+          </AppButton>
         </div>
       </div>
 
@@ -369,8 +369,11 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { dashboardService } from "@/services/dashboard-service";
+import { maturityService } from "@/services/maturity-service";
 import { useAuthStore } from "@/stores/auth";
-import type { ConformanceSummary, DashboardRead } from "@/types/dashboard";
+import type { DashboardRead } from "@/types/dashboard";
+import type { MaturityDetail } from "@/types/maturity";
+import AppButton from "@/components/AppButton.vue";
 
 // ── Router + auth ─────────────────────────────────────────────────────────────
 const router    = useRouter();
@@ -380,6 +383,8 @@ const authStore = useAuthStore();
 const data    = ref<DashboardRead | null>(null);
 const loading = ref(false);
 const error   = ref<string | null>(null);
+const maturity = ref<MaturityDetail | null>(null);
+const canViewMaturity = computed(() => authStore.hasPermission("maturity_read"));
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function load(): Promise<void> {
@@ -395,8 +400,24 @@ async function load(): Promise<void> {
 }
 onMounted(() => {
   void load();
-  void loadConformance();
+  if (canViewMaturity.value) void loadMaturity();
 });
+
+async function loadMaturity(): Promise<void> {
+  try {
+    const [latest] = await maturityService.list();
+    maturity.value = latest ? await maturityService.get(latest.id) : null;
+  } catch {
+    maturity.value = null;
+  }
+}
+
+const maturityDomains = computed(() => {
+  if (!maturity.value) return [];
+  const names = new Map(maturity.value.catalog.map((question) => [question.domain_code, question.domain]));
+  return Object.entries(maturity.value.results.domain_scores).map(([code, score]) => ({ code, score, name: names.get(code) ?? `Domain ${code}` }));
+});
+const maturityPercent = computed(() => Math.min(100, Math.max(0, (maturity.value?.results.overall_score ?? 0) * 20)));
 
 // ── Bar charts ────────────────────────────────────────────────────────────────
 const vulnRows = computed(() => {
@@ -423,20 +444,6 @@ const riskRows = computed(() => {
 
 const vulnMax = computed(() => Math.max(...vulnRows.value.map((r: { value: number }) => r.value), 1));
 const riskMax = computed(() => Math.max(...riskRows.value.map((r: { value: number }) => r.value), 1));
-
-// ── Portfolio conformance (high-level pie) ──────────────────────────────────────
-// % of in-scope products whose latest release has an APPROVED requirement
-// assessment. Out-of-scope products are excluded. Detailed per-product readiness
-// lives on the CRA requirements page.
-const conformance = ref<ConformanceSummary | null>(null);
-
-async function loadConformance(): Promise<void> {
-  try {
-    conformance.value = await dashboardService.getConformance();
-  } catch {
-    conformance.value = null;
-  }
-}
 
 /** Calendar days between today and the CRA enforcement deadline (11 Dec 2027) */
 const daysToDeadline = computed(() => {
@@ -570,12 +577,11 @@ function timeAgo(iso: string): string {
   100% { background-position: -200% 0; }
 }
 
-/* ── Posture hero ─────────────────────────────────────────────────────────── */
-/* ── Conformance overview (high-level pie) ── */
+/* ── SME maturity overview ───────────────────────────────────────────────── */
 .conformance-panel {
   display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
   gap: 1.75rem;
   padding: 1.5rem 1.75rem;
   background: var(--color-surface);
@@ -593,17 +599,12 @@ function timeAgo(iso: string): string {
 .conf-pct { font-size: 1.5rem; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; color: oklch(0.44 0.092 150); }
 .conf-pct-sub { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-text-muted); }
 
-.conf-copy { min-width: 0; }
-.conf-title { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--color-text); letter-spacing: -0.01em; }
-.conf-desc { margin: 0 0 0.7rem; font-size: 0.8rem; line-height: 1.55; color: var(--color-text-muted); max-width: 62ch; }
-.conf-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin-bottom: 0.65rem; }
+.conf-copy { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+.conf-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--color-text); letter-spacing: -0.01em; }
+.conf-desc { margin: 0; font-size: 0.8rem; line-height: 1.55; color: var(--color-text-muted); max-width: 62ch; }
+.conf-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; }
 .conf-lg { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
 .conf-lg strong { color: var(--color-text); }
-.conf-dot { width: 9px; height: 9px; border-radius: 50%; }
-.conf-dot-ok { background: oklch(0.48 0.092 150); }
-.conf-dot-pending { background: var(--ring-track, #e8edea); border: 1px solid var(--color-border); }
-.conf-dot-oos { background: var(--color-text-muted); opacity: 0.5; }
-.conf-link { padding: 0; }
 
 /* Deadline countdown card */
 .deadline-eyebrow {
@@ -718,6 +719,13 @@ function timeAgo(iso: string): string {
 .kpi-sub { font-size: 0.73rem; }
 .sub-danger { color: var(--color-danger); }
 .sub-warn   { color: var(--color-warning); }
+
+.maturity-domains { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem 1rem; width: 100%; }
+.maturity-domain { min-width: 0; }
+.maturity-domain > div:first-child { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.72rem; }
+.maturity-domain > div:first-child span { overflow: hidden; color: var(--color-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.maturity-track { height: 6px; overflow: hidden; border-radius: 999px; background: var(--color-surface-elevated); }
+.maturity-track span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); }
 
 /* ── Main grid ────────────────────────────────────────────────────────────── */
 .hub-grid {
@@ -1056,6 +1064,10 @@ function timeAgo(iso: string): string {
 
 @media (max-width: 680px) {
   .kpi-strip           { grid-template-columns: 1fr 1fr; }
+  .conformance-panel { grid-template-columns: 1fr; padding: 1.25rem; }
+  .maturity-domains { grid-template-columns: 1fr; }
+  .conf-pie-wrap { margin: 0 auto; }
+  .conf-copy { align-items: stretch; }
   .posture-hero        { grid-template-columns: 1fr; }
   .posture-ring-wrap   { margin: 0 auto; }
   .deadline-banner     { flex-direction: column; align-items: flex-start; gap: 0.4rem; }

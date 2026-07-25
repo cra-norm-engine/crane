@@ -89,6 +89,9 @@ class Permission(StrEnum):
     # Threaded comments — attached to any entity in the system
     comment_read = "comment_read"
     comment_write = "comment_write"
+    maturity_read = "maturity_read"
+    maturity_write = "maturity_write"
+    maturity_approve = "maturity_approve"
 
 def get_permissions_from_user(current_user: object) -> set[Permission]:
     permissions: set[Permission] = set()

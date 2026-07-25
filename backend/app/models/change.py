@@ -238,6 +238,13 @@ class ChangeComplianceAction(UUIDTimestampMixin, Base):
     # Optional target date for completing this action
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # User responsible for completing this specific follow-up action.
+    assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Free-text notes from whoever is handling this action
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -251,4 +258,7 @@ class ChangeComplianceAction(UUIDTimestampMixin, Base):
     assessment: Mapped["SubstantialModificationAssessment"] = relationship(
         "SubstantialModificationAssessment",
         back_populates="compliance_actions",
+    )
+    assigned_to_user: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[assigned_to_user_id]
     )

@@ -234,6 +234,7 @@ const TypeIcon = defineComponent({
       const paths: Record<string, string> = {
         vulnerability_report: "M10 3l7.5 13H2.5L10 3zM10 8v3.5M10 13.5v.5",
         change:               "M4 5h12M4 9h12M4 13h8",
+        change_compliance_action: "M4 4h12v12H4zM7 8h6M7 11h4",
         release_gate_item:    "M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
         risk_item:            "M4 4h12v12H4zM8 8h4M8 11h4M8 14h2",
         eos_alert:            "M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3M10 6.5v3.5l2.5 1.5",
@@ -282,7 +283,7 @@ function openDrawer(task: TaskItem): void {
 function onStatusUpdated(task: TaskItem, newStatus: string): void {
   const idx = tasks.value.findIndex((t) => t.entity_id === task.entity_id);
   if (idx !== -1) tasks.value[idx] = { ...tasks.value[idx], status: newStatus };
-  const terminal = new Set(["mitigated", "accepted", "closed", "disclosed", "retired", "dismissed"]);
+  const terminal = new Set(["mitigated", "accepted", "closed", "completed", "disclosed", "retired", "dismissed"]);
   if (terminal.has(newStatus)) {
     tasks.value.splice(idx, 1);
     drawerTask.value = null;
@@ -430,6 +431,11 @@ function navigateToTask(task: TaskItem): void {
     case "change":
       router.push({ name: "change-detail", params: { id: task.entity_id } });
       break;
+    case "change_compliance_action":
+      router.push(task.parent_id
+        ? { name: "change-detail", params: { id: task.parent_id }, hash: "#compliance-actions" }
+        : { name: "changes" });
+      break;
     case "release_gate_item":
       router.push(task.parent_id
         ? { name: "release-gate", params: { releaseId: task.parent_id } }
@@ -453,6 +459,7 @@ function formatEntityType(type: string): string {
   const map: Record<string, string> = {
     vulnerability_report: "Vulnerability",
     change:              "Change",
+    change_compliance_action: "Change action",
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
@@ -838,6 +845,7 @@ function productInitials(name: string | null | undefined): string {
 }
 .tp-vulnerability_report { background: var(--color-danger-bg);  color: var(--color-danger-text); }
 .tp-change               { background: var(--color-info-bg);    color: var(--color-info-text); }
+.tp-change_compliance_action { background: var(--color-purple-bg); color: var(--color-purple-text); }
 .tp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .tp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .tp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }

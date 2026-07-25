@@ -66,6 +66,7 @@ export interface ComplianceActionRead {
   action_type: ComplianceActionType;
   action_status: ComplianceActionStatus;
   due_date: string | null;       // ISO date string
+  assigned_to_user_id: string | null;
   notes: string | null;
   completed_by_user_id: string | null;
 }
@@ -78,6 +79,7 @@ export interface ComplianceActionUpdate {
   action_status?: ComplianceActionStatus;
   due_date?: string | null;      // ISO date string
   notes?: string | null;
+  assigned_to_user_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------

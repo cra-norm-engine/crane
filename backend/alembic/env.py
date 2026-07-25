@@ -14,6 +14,7 @@ from app.models import (  # noqa: F401
     comment,
     evidence_item,
     market_action,
+    maturity,
     placeholders,
     product,
     release_gate,

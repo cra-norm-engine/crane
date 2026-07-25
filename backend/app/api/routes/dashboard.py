@@ -20,10 +20,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, get_db
 from app.models.audit_log_event import AuditLogEvent
-from app.models.change import Change, SubstantialModificationAssessment
+from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
 from app.models.enums import (
     ArtifactReviewDecision,
     ChangeStatus,
+    ComplianceActionStatus,
     LifecycleNotificationStatus,
     RiskAssessmentStatus,
     RiskItemStatus,
@@ -200,7 +201,7 @@ def get_dashboard(
 
     # ──────────────────────────────────────────────────────────────────────────
     # TASK SUMMARY (current user only)
-    # Matches the My Tasks page: aggregates open items across four entity types:
+    # Matches the My Tasks page: aggregates open items across assignable entity types.
     #   • VulnerabilityReport  (assigned_to_user_id, status not terminal)
     #   • Change               (assigned_to_user_id, status != 'closed')
     #   • ReleaseGateItem      (assigned_to_user_id, status != 'accepted')
@@ -229,6 +230,16 @@ def get_dashboard(
         )
     ).scalars().all()
     task_due_dates.extend(change_task_rows)
+
+    change_action_task_rows = db.execute(
+        select(ChangeComplianceAction.due_date).where(
+            and_(
+                ChangeComplianceAction.assigned_to_user_id == current_user.id,
+                ChangeComplianceAction.action_status != ComplianceActionStatus.completed,
+            )
+        )
+    ).scalars().all()
+    task_due_dates.extend(change_action_task_rows)
 
     # Release gate items assigned to this user (not yet accepted).
     gate_task_rows = db.execute(

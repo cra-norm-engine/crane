@@ -8,6 +8,7 @@
 <template>
   <button
     :type="type"
+    :form="form"
     :disabled="disabled"
     class="app-btn"
     :class="[`app-btn--${variant}`, `app-btn--${size}`]"
@@ -25,6 +26,8 @@ withDefaults(
     size?: "sm" | "md";
     /** Native button type attribute. */
     type?: "button" | "submit" | "reset";
+    /** Optional id of an associated form (useful when rendered in a modal footer). */
+    form?: string;
     /** Disables the button and dims it. */
     disabled?: boolean;
   }>(),
@@ -33,6 +36,7 @@ withDefaults(
     size: "md",
     type: "button",
     disabled: false,
+    form: undefined,
   },
 );
 </script>

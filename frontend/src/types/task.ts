@@ -7,6 +7,7 @@
 export type TaskEntityType =
   | "vulnerability_report"
   | "change"
+  | "change_compliance_action"
   | "release_gate_item"
   | "risk_item"
   | "eos_alert";

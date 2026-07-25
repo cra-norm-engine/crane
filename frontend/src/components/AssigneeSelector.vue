@@ -29,10 +29,10 @@
             {{ u.full_name || u.email }}
           </option>
         </select>
-        <button class="btn btn-primary btn-xs" :disabled="isSaving" @click="save">
+        <AppButton variant="primary" size="sm" :disabled="isSaving" @click="save">
           {{ isSaving ? "…" : "Save" }}
-        </button>
-        <button class="btn btn-ghost btn-xs" :disabled="isSaving" @click="cancel">Cancel</button>
+        </AppButton>
+        <AppButton variant="ghost" size="sm" :disabled="isSaving" @click="cancel">Cancel</AppButton>
       </template>
     </div>
 
@@ -50,10 +50,10 @@
 
       <template v-else>
         <input v-model="dueInput" type="date" class="assignee-date-input" :disabled="isSavingDue" />
-        <button class="btn btn-primary btn-xs" :disabled="isSavingDue" @click="saveDue">
+        <AppButton variant="primary" size="sm" :disabled="isSavingDue" @click="saveDue">
           {{ isSavingDue ? "…" : "Save" }}
-        </button>
-        <button class="btn btn-ghost btn-xs" :disabled="isSavingDue" @click="cancelDue">Cancel</button>
+        </AppButton>
+        <AppButton variant="ghost" size="sm" :disabled="isSavingDue" @click="cancelDue">Cancel</AppButton>
       </template>
     </div>
 
@@ -64,6 +64,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 
+import AppButton from "@/components/AppButton.vue";
 import { userService, type UserSummary } from "@/services/user-service";
 
 // ── Props & emits ─────────────────────────────────────────────────────────────

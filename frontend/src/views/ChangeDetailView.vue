@@ -107,7 +107,7 @@
       <div class="detail-left">
 
         <!-- Basic info card -->
-        <section class="card">
+        <section id="compliance-actions" class="card">
           <h2 class="section-title">Details</h2>
           <dl class="kv-list">
             <div class="kv-row">
@@ -266,11 +266,12 @@
                 </div>
               </div>
 
-              <!-- Due date display -->
-              <div class="action-meta muted">
-                <span v-if="action.due_date">Due: {{ formatDate(action.due_date) }}</span>
-                <span v-else>No due date set</span>
-              </div>
+              <AssigneeSelector
+                :assigned-to-user-id="action.assigned_to_user_id"
+                :model-due-date="action.due_date"
+                @update:assigned-to-user-id="(id) => updateActionAssignment(action.id, { assigned_to_user_id: id })"
+                @update:model-due-date="(dueDate) => updateActionAssignment(action.id, { due_date: dueDate })"
+              />
 
               <!-- Notes display -->
               <div class="action-notes" v-if="action.notes">
@@ -280,19 +281,11 @@
 
               <!-- Inline edit form — always available regardless of status -->
               <details class="action-edit-details">
-                <summary class="action-edit-trigger muted">Edit due date / notes</summary>
+                <summary class="action-edit-trigger muted">Edit notes</summary>
                 <form
                   class="action-edit-form"
                   @submit.prevent="saveActionEdit(action.id)"
                 >
-                  <label class="field">
-                    <span class="field-label">Due date</span>
-                    <input
-                      type="date"
-                      :value="actionEdits[action.id]?.due_date ?? action.due_date ?? ''"
-                      @change="setActionEdit(action.id, 'due_date', ($event.target as HTMLInputElement).value)"
-                    />
-                  </label>
                   <label class="field">
                     <span class="field-label">Notes</span>
                     <textarea
@@ -700,6 +693,22 @@ async function markAction(actionId: string, status: "completed" | "in_progress" 
     await loadChange();
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : "Failed to update action.";
+  } finally {
+    isActing.value = false;
+  }
+}
+
+async function updateActionAssignment(
+  actionId: string,
+  patch: { assigned_to_user_id?: string | null; due_date?: string | null },
+): Promise<void> {
+  isActing.value = true;
+  try {
+    await changeService.updateComplianceAction(actionId, patch);
+    await loadChange();
+    successMessage.value = "Action assignment updated.";
+  } catch {
+    errorMessage.value = "Failed to update action assignment.";
   } finally {
     isActing.value = false;
   }

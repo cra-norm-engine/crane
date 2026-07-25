@@ -1,0 +1,7 @@
+export interface MaturitySummary { id: string; title: string; scope: string; status: string; created_at: string }
+export interface CraneSupport { level: "strong" | "partial" | "gap"; summary: string; gap?: string; links: Array<{ label: string; route: string }> }
+export interface MaturityQuestion { code: string; domain_code: string; domain: string; question: string; levels: Record<string, string>; crane_support?: CraneSupport }
+export interface MaturityResponse { id: string; question_code: string; score: number | null; rationale: string | null; confidence: string | null; assessor_notes: string | null; evidence: Array<{ id: string; entity_type: string; entity_id: string; label: string }> }
+export interface MaturityAction { id: string; question_code: string | null; domain_code: string; title: string; priority: string; status: string; owner_user_id: string | null; due_date: string | null; comments: string | null; completion_evidence: string | null }
+export interface MaturityResult { domain_scores: Record<string, number>; overall_score: number | null; profile: string | null; complete: boolean; weak_domains: string[]; evidence_coverage: number; contradictions: string[]; disclaimer: string }
+export interface MaturityDetail extends MaturitySummary { catalog: MaturityQuestion[]; responses: MaturityResponse[]; actions: MaturityAction[]; results: MaturityResult; evidence_suggestions: Record<string, Array<{ entity_type: string; entity_id: string; label: string }>>; history: Array<MaturityResult & { id: string; title: string; approved_at: string | null }> }
