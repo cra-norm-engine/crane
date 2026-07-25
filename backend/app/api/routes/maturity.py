@@ -80,5 +80,6 @@ def export_pdf(assessment_id: UUID, db: Session = Depends(get_db), current_user:
     data = MaturityService(db).detail(assessment_id)
     results = data["results"]
     domains = "".join(f"<li>Domain {code}: {score:.2f}</li>" for code, score in results["domain_scores"].items())
-    html = f"<h1>{data['title']}</h1><p>Scope: {data['scope']}</p><h2>{(results['profile'] or 'Incomplete').title()}</h2><p>Overall: {results['overall_score'] or 'Incomplete'}</p><ul>{domains}</ul><p><strong>{results['disclaimer']}</strong></p><small>ENISA SME Cyber Resilience Maturity Assessment Model (2026), CC BY 4.0.</small>"
+    attribution = data["attribution"]
+    html = f"<h1>{data['title']}</h1><p>Scope: {data['scope']}</p><h2>{(results['profile'] or 'Incomplete').title()}</h2><p>Overall: {results['overall_score'] or 'Incomplete'}</p><ul>{domains}</ul><p><strong>{results['disclaimer']}</strong></p><hr><small>Based on <a href='{attribution['source_url']}'>{attribution['title']}</a>, {attribution['copyright']}, licensed under <a href='{attribution['license_url']}'>CC BY 4.0</a>. {attribution['changes']} {attribution['endorsement']}</small>"
     return Response(HTML(string=html).write_pdf(), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="maturity-{assessment_id}.pdf"'})

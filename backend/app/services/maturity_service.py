@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, NotFoundException, ValidationException
-from app.core.maturity_catalog import CATALOG, CRANE_SUPPORT, MODEL, RECOMMENDATIONS
+from app.core.maturity_catalog import ATTRIBUTION, CATALOG, CRANE_SUPPORT, MODEL, RECOMMENDATIONS
 from app.models import Artifact, AuditLogEvent, CertificationRecord, CvdPolicy, IncidentReport, MaturityAssessment, MaturityEvidenceLink, MaturityImprovementAction, MaturityModelVersion, MaturityResponse, Product, ReleaseGate, RequirementMapping, RiskAssessment, SbomRecord, SecurityAdvisory, SecurityUpdate, SupportPeriodRecord, User, VulnerabilityReport
 from app.models.base import utc_now
 from app.schemas.maturity import ActionUpdate, EvidenceCreate, MaturityCreate, ResponseUpdate
@@ -169,6 +169,7 @@ class MaturityService:
             "responses": [{"id": r.id, "question_code": r.question_code, "score": r.score, "rationale": r.rationale, "confidence": r.confidence, "assessor_notes": r.assessor_notes, "evidence": [{"id": e.id, "entity_type": e.entity_type, "entity_id": e.entity_id, "label": e.label} for e in r.evidence_links]} for r in assessment.responses],
             "actions": assessment.actions,
             "results": current_results,
+            "attribution": ATTRIBUTION,
             "evidence_suggestions": self.suggestions(),
             "history": [{"id": item.id, "title": item.title, "approved_at": item.approved_at, **self.results(item)} for item in previous] + ([{"id": assessment.id, "title": assessment.title, "approved_at": assessment.approved_at, **current_results}] if current_results["overall_score"] is not None else []),
         }

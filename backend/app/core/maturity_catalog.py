@@ -22,7 +22,18 @@ MODEL = {
     "title": "SME Cyber Resilience Maturity Assessment Model",
     "source": "European Union Agency for Cybersecurity (ENISA)",
     "published_on": date(2026, 7, 1),
-    "attribution": "© European Union Agency for Cybersecurity (ENISA), 2026. Reused under CC BY 4.0.",
+    "attribution": "© European Union Agency for Cybersecurity (ENISA), 2026. Adapted by CRANE under CC BY 4.0.",
+}
+
+ATTRIBUTION = {
+    "title": "SME Cyber Resilience Maturity Assessment Model",
+    "creator": "European Union Agency for Cybersecurity (ENISA)",
+    "copyright": "© European Union Agency for Cybersecurity (ENISA), 2026",
+    "source_url": "https://www.enisa.europa.eu/publications/sme-cyber-resilience-maturity-assessment-model",
+    "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "changes": "Adapted and supplemented by CRANE for interactive assessment, evidence linking, improvement planning, and CRA workflow guidance.",
+    "endorsement": "ENISA has not endorsed, certified, or granted official status to CRANE.",
 }
 
 RECOMMENDATIONS = {

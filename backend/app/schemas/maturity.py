@@ -77,5 +77,6 @@ class MaturityDetail(MaturityRead):
     responses: list[dict[str, Any]]
     actions: list[ActionRead]
     results: dict[str, Any]
+    attribution: dict[str, str]
     evidence_suggestions: dict[str, list[dict[str, Any]]]
     history: list[dict[str, Any]]
