@@ -11,13 +11,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.core.password_policy import StrongPassword
 from app.schemas.common import ORMBaseModel
 
 
 class AdminUserCreate(BaseModel):
     email: EmailStr
     full_name: str
-    password: str = Field(min_length=8, max_length=255)
+    password: StrongPassword
     role_ids: list[UUID] = []
 
 

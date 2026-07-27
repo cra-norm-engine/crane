@@ -51,11 +51,12 @@
             class="input"
             type="password"
             required
-            minlength="8"
+            minlength="12"
             autocomplete="new-password"
             :aria-invalid="!!error"
           />
         </label>
+        <p class="password-hint">{{ PASSWORD_HINT }}</p>
 
         <label class="field">
           <span class="field-label">Confirm new password</span>
@@ -64,7 +65,7 @@
             class="input"
             type="password"
             required
-            minlength="8"
+            minlength="12"
             autocomplete="new-password"
             :aria-invalid="!!error"
           />
@@ -124,6 +125,7 @@ import { RouterLink, useRouter } from "vue-router";
 import { changePasswordRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
 import AppLogo from "@/components/AppLogo.vue";
+import { PASSWORD_HINT, passwordPolicyError } from "@/utils/passwordPolicy";
 
 const authStore = useAuthStore();
 const router    = useRouter();
@@ -145,8 +147,9 @@ async function handleSubmit(): Promise<void> {
     return;
   }
 
-  if (newPassword.value.length < 8) {
-    error.value = "New password must be at least 8 characters.";
+  const policyError = passwordPolicyError(newPassword.value);
+  if (policyError) {
+    error.value = policyError;
     return;
   }
 
@@ -211,6 +214,13 @@ async function handleSubmit(): Promise<void> {
 .change-form {
   display: grid;
   gap: 0.9rem;
+}
+
+.password-hint {
+  margin: -0.4rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
 }
 
 .change-btn {

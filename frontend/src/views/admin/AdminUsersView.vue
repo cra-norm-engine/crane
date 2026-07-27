@@ -244,16 +244,17 @@
                   v-model="newPassword"
                   class="input"
                   type="password"
-                  minlength="8"
+                  minlength="12"
                   maxlength="255"
                   autocomplete="new-password"
-                  placeholder="Min. 8 characters"
+                  :placeholder="PASSWORD_HINT"
                 />
+                <small class="muted">{{ PASSWORD_HINT }}</small>
               </label>
               <button
                 class="btn btn-secondary pwd-btn"
                 type="button"
-                :disabled="isResetting || newPassword.length < 8"
+                :disabled="isResetting || !!passwordPolicyError(newPassword)"
                 @click="submitResetPassword"
               >
                 {{ isResetting ? "Saving…" : "Set password" }}
@@ -337,12 +338,13 @@
                 class="input"
                 type="password"
                 required
-                minlength="8"
+                minlength="12"
                 maxlength="255"
-                placeholder="Min. 8 characters"
+                :placeholder="PASSWORD_HINT"
                 autocomplete="new-password"
               />
             </label>
+            <p class="field-hint">{{ PASSWORD_HINT }}</p>
 
             <div class="field">
               <span class="field-label">Roles</span>
@@ -384,6 +386,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import { adminService } from "@/services/admin-service";
 import type { AdminUserCreate, AdminUserRead, RoleRead } from "@/types/admin";
+import { PASSWORD_HINT, passwordPolicyError } from "@/utils/passwordPolicy";
 
 /* ─── State ─────────────────────────────────────────── */
 type StatusFilter = "all" | "active" | "inactive";
@@ -558,6 +561,8 @@ async function loadData(): Promise<void> {
 
 /* ─── Mutations ─────────────────────────────────────── */
 async function createUser(): Promise<void> {
+  const policyError = passwordPolicyError(form.password);
+  if (policyError) { formError.value = policyError; return; }
   isSubmitting.value = true;
   formError.value = "";
   try {
@@ -602,8 +607,10 @@ async function toggleUserStatus(user: AdminUserRead): Promise<void> {
 }
 
 async function submitResetPassword(): Promise<void> {
-  if (!selectedUser.value || newPassword.value.length < 8) return;
+  if (!selectedUser.value) return;
   resetError.value = "";
+  const policyError = passwordPolicyError(newPassword.value);
+  if (policyError) { resetError.value = policyError; return; }
   isResetting.value = true;
   try {
     await adminService.resetUserPassword(selectedUser.value.id, { new_password: newPassword.value });

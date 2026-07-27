@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.core.password_policy import StrongPassword
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -67,9 +69,9 @@ class CurrentUserRead(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=255)
-    new_password: str = Field(min_length=8, max_length=255)
+    new_password: StrongPassword
 
 
 class AdminPasswordResetRequest(BaseModel):
     """Admin sets a new temporary password for a local user."""
-    new_password: str = Field(min_length=8, max_length=255)
+    new_password: StrongPassword
