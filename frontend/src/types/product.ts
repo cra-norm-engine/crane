@@ -744,6 +744,9 @@ export type VexStatus = "not_affected" | "affected" | "fixed" | "under_investiga
 
 /** Whether a vulnerability report was filed manually or discovered via SBOM CVE scan. */
 export type VulnerabilitySource = "manual" | "sbom_scan";
+export type VulnerabilityPriority = "critical" | "high" | "medium" | "low" | "informational" | "needs_review";
+export type VulnerabilityExposure = "external" | "internal" | "unknown";
+export type AssetCriticality = "critical" | "high" | "medium" | "low" | "unknown";
 
 export interface VulnerabilityReportRead {
   id: string;
@@ -754,6 +757,17 @@ export interface VulnerabilityReportRead {
   reporter_email: string | null;
   status: VulnerabilityLifecycleStatus;
   severity: SecurityUpdateSeverity | null;
+  cvss_score: number | null;
+  exposure: VulnerabilityExposure;
+  asset_criticality: AssetCriticality;
+  impact_level: SecurityUpdateSeverity | null;
+  priority: VulnerabilityPriority;
+  priority_rule_id: string | null;
+  priority_rule_name: string | null;
+  priority_policy_id: string | null;
+  priority_policy_version: number | null;
+  priority_reason: string | null;
+  priority_evaluated_at: string | null;
   cve_ids_json: string[];
   discovered_at: string | null;
   remediation_deadline: string | null;
@@ -762,7 +776,18 @@ export interface VulnerabilityReportRead {
   linked_security_update_id: string | null;
   linked_advisory_id: string | null;
   assigned_to_user_id: string | null;
+  assigned_to_user_name: string | null;
   due_date: string | null;
+  responsible_team: string | null;
+  remediation_plan: string | null;
+  resolution_summary: string | null;
+  external_ticket_system: string | null;
+  external_ticket_id: string | null;
+  external_ticket_url: string | null;
+  external_ticket_status: string | null;
+  remediation_started_at: string | null;
+  escalation_level: number;
+  last_escalated_at: string | null;
   created_at: string;
   updated_at: string;
   // Exploitability assessment fields (CRA Art. 13(2))
@@ -820,6 +845,10 @@ export interface VulnerabilityReportCreate {
   reporter_email?: string | null;
   status?: VulnerabilityLifecycleStatus;
   severity?: SecurityUpdateSeverity | null;
+  cvss_score?: number | null;
+  exposure?: VulnerabilityExposure;
+  asset_criticality?: AssetCriticality;
+  impact_level?: SecurityUpdateSeverity | null;
   cve_ids_json?: string[];
   discovered_at?: string | null;
   remediation_deadline?: string | null;
@@ -836,6 +865,10 @@ export interface VulnerabilityReportUpdate {
   reporter_email?: string | null;
   status?: VulnerabilityLifecycleStatus;
   severity?: SecurityUpdateSeverity | null;
+  cvss_score?: number | null;
+  exposure?: VulnerabilityExposure;
+  asset_criticality?: AssetCriticality;
+  impact_level?: SecurityUpdateSeverity | null;
   cve_ids_json?: string[];
   discovered_at?: string | null;
   remediation_deadline?: string | null;
@@ -855,6 +888,26 @@ export interface VulnerabilityReportUpdate {
   enisa_reference_number?: string | null;
 }
 
+export interface VulnerabilityRemediationUpdate {
+  assigned_to_user_id?: string | null;
+  responsible_team?: string | null;
+  due_date?: string | null;
+  remediation_plan?: string | null;
+  resolution_summary?: string | null;
+  external_ticket_system?: string | null;
+  external_ticket_id?: string | null;
+  external_ticket_url?: string | null;
+  external_ticket_status?: string | null;
+  status?: VulnerabilityLifecycleStatus;
+}
+
+export interface VulnerabilityRemediationBulkUpdate {
+  report_ids: string[];
+  assigned_to_user_id?: string | null;
+  responsible_team?: string | null;
+  due_date?: string | null;
+}
+
 /** Payload to record an exploitability assessment for a vulnerability (CRA Art. 13(2)). */
 export interface ExploitabilityAssessmentUpdate {
   vex_status: VexStatus;
@@ -868,6 +921,64 @@ export interface EnisaMarkSentRequest {
   sent_at?: string | null;
   /** SRP reference number issued by the national CSIRT/ENISA platform. */
   reference_number?: string | null;
+}
+
+export type PriorityField = "severity" | "cvss_score" | "epss_score" | "is_known_exploited" | "exposure" | "asset_criticality" | "impact_level" | "is_exploitable" | "source" | "status";
+export type PriorityOperator = "eq" | "neq" | "gte" | "gt" | "lte" | "lt";
+
+export interface PriorityCondition {
+  field: PriorityField;
+  operator: PriorityOperator;
+  value: string | number | boolean;
+}
+
+export interface PriorityRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  priority: VulnerabilityPriority;
+  conditions: PriorityCondition[];
+}
+
+export interface PriorityPolicyRead {
+  id: string;
+  name: string;
+  description: string | null;
+  change_reason: string | null;
+  version: number;
+  is_active: boolean;
+  rules: PriorityRule[];
+  created_by_user_id: string | null;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+export interface PriorityPolicyPublish {
+  name: string;
+  description?: string | null;
+  change_reason?: string | null;
+  rules: PriorityRule[];
+}
+
+export interface PriorityEvaluationRead {
+  id: string;
+  vulnerability_report_id: string;
+  policy_id: string | null;
+  policy_version: number;
+  priority: VulnerabilityPriority;
+  rule_id: string | null;
+  rule_name: string | null;
+  reason: string;
+  inputs_json: Record<string, unknown>;
+  trigger: string;
+  actor_user_id: string | null;
+  actor_user_name: string | null;
+  evaluated_at: string;
+}
+
+export interface PriorityPreviewRead {
+  counts: Record<VulnerabilityPriority, number>;
+  total: number;
 }
 
 // ── Gap 10: SBOM Vulnerability Findings ──────────────────────────────────

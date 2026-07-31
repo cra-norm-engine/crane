@@ -49,7 +49,11 @@ from app.repositories.user_repository import UserRepository
 router = APIRouter()
 
 # Terminal statuses excluded from My Tasks — records in these states are done.
-_VULN_TERMINAL = {VulnerabilityLifecycleStatus.disclosed, VulnerabilityLifecycleStatus.retired}
+_VULN_TERMINAL = {
+    VulnerabilityLifecycleStatus.fixed,
+    VulnerabilityLifecycleStatus.disclosed,
+    VulnerabilityLifecycleStatus.retired,
+}
 _CHANGE_TERMINAL = {ChangeStatus.closed}
 _GATE_TERMINAL = {ArtifactReviewDecision.accepted}
 _RISK_TERMINAL = {RiskItemStatus.mitigated, RiskItemStatus.accepted, RiskItemStatus.closed}

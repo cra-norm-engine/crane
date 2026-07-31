@@ -45,6 +45,8 @@ from app.models.support_period_record import SupportPeriodNotificationRecipient,
 from app.models.user import Role, User, UserRole
 from app.models.user_preference import UserPreference
 from app.models.vulnerability_report import VulnerabilityReport
+from app.models.vulnerability_priority_policy import VulnerabilityPriorityPolicy
+from app.models.vulnerability_priority_evaluation import VulnerabilityPriorityEvaluation
 from app.models.incident_report import IncidentReport
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
 from app.models.sbom_scan_run import SbomScanRun
@@ -98,6 +100,8 @@ __all__ = [
     "UserRole",
     "UserPreference",
     "VulnerabilityReport",
+    "VulnerabilityPriorityPolicy",
+    "VulnerabilityPriorityEvaluation",
     "IncidentReport",
     "SbomVulnerabilityFinding",
     "SbomScanRun",

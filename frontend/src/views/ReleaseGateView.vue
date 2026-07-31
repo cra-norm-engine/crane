@@ -146,7 +146,7 @@
         </svg>
         <div class="kev-banner-body">
           <strong>Known exploitable vulnerabilities detected</strong>
-          <p>This release contains known exploitable vulnerabilities (CRA Art. 13(2)). Gate approval is blocked until all exploitable findings are resolved in the Vulnerability Reports section.</p>
+          <p>This release contains known exploitable vulnerabilities (CRA Art. 13(2)). Gate approval is blocked until all exploitable findings are resolved in Vulnerability Intake.</p>
           <p v-if="releaseDetail.release.kev_notes" class="kev-notes">{{ releaseDetail.release.kev_notes }}</p>
         </div>
       </div>

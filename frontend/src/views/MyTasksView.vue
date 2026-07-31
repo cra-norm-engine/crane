@@ -426,7 +426,7 @@ const visibleGroups = computed<TaskGroup[]>(() => {
 function navigateToTask(task: TaskItem): void {
   switch (task.entity_type) {
     case "vulnerability_report":
-      router.push({ name: "vulnerability-handling", query: { tab: "enisa", report: task.entity_id } });
+      router.push({ name: "vulnerability-handling", query: { tab: "remediation", report: task.entity_id } });
       break;
     case "change":
       router.push({ name: "change-detail", params: { id: task.entity_id } });

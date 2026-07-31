@@ -425,6 +425,29 @@ class VulnerabilitySource(StrEnum):
     sbom_scan = "sbom_scan" # Auto-created from an SBOM component scan via OSV API
 
 
+class VulnerabilityPriority(StrEnum):
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
+    informational = "informational"
+    needs_review = "needs_review"
+
+
+class VulnerabilityExposure(StrEnum):
+    external = "external"
+    internal = "internal"
+    unknown = "unknown"
+
+
+class AssetCriticality(StrEnum):
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
+    unknown = "unknown"
+
+
 class IncidentReportStatus(StrEnum):
     """
     Lifecycle of a severe incident report (CRA Art. 14 — incident branch).
@@ -475,6 +498,7 @@ class EntityType(StrEnum):
     cvd_policy = "cvd_policy"
     security_advisory = "security_advisory"
     vulnerability_report = "vulnerability_report"
+    vulnerability_priority_policy = "vulnerability_priority_policy"
     sbom_record = "sbom_record"
     market_action = "market_action"
     comment = "comment"
