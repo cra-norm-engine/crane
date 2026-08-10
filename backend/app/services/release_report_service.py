@@ -53,6 +53,7 @@ from app.models.security_update import SecurityUpdate
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
+from app.models.supplier_assessment import ProductComponentLink, SupplierAssessment, ThirdPartyComponent
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,7 @@ class ReleaseReportService:
             "annex_part2": annex["part2"],
             "coverage": coverage,
             "sbom": self._sbom_section(release_id),
+            "supplier_assurance": self._supplier_assurance_section(release_id),
             "vuln": self._vuln_section(release_id, release),
             "conformity": self._conformity_section(release, product.id),
             "doc": self._doc_section(release),
@@ -496,6 +498,28 @@ class ReleaseReportService:
             "legal_holds": sum(1 for a in artifacts.values() if a.legal_hold),
             "earliest_retention": _fmt_date(min(retention_dates)) if retention_dates else "—",
         }
+
+    def _supplier_assurance_section(self, release_id: UUID) -> dict:
+        links = self.db.scalars(
+            select(ProductComponentLink)
+            .where(ProductComponentLink.product_release_id == release_id)
+            .options(selectinload(ProductComponentLink.component).selectinload(ThirdPartyComponent.supplier))
+        ).all()
+        rows = []
+        today = date.today()
+        for link in links:
+            component = link.component
+            assessment = self.db.scalar(select(SupplierAssessment).where(
+                SupplierAssessment.supplier_id == component.supplier_id,
+                (SupplierAssessment.component_id.is_(None)) | (SupplierAssessment.component_id == component.id),
+            ).order_by(SupplierAssessment.system_version.desc()))
+            current = bool(assessment and assessment.status in {"approved", "approved_with_conditions"}
+                and not assessment.reassessment_required and (assessment.valid_until is None or assessment.valid_until >= today))
+            rows.append({"supplier":component.supplier.name,"component":component.name,"version":component.version,
+                "criticality":link.criticality,"assessment_status":assessment.status if assessment else "missing",
+                "assessment_version":assessment.system_version if assessment else None,"valid_until":_fmt_date(assessment.valid_until) if assessment else None,
+                "current":current})
+        return {"available":bool(rows),"complete":all(r["current"] or r["criticality"]=="low" for r in rows),"items":rows}
 
     def _support_section(self, release_id: UUID, product_id: UUID) -> dict:
         records = self._get_support_periods(release_id, product_id)

@@ -19,6 +19,7 @@ class EvidenceItemCreate(BaseModel):
     product_release_id: UUID | None = None
     risk_assessment_id: UUID | None = None
     requirement_mapping_id: UUID | None = None
+    supplier_assessment_id: UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
     evidence_type: EvidenceType
@@ -31,6 +32,7 @@ class EvidenceItemUpdate(BaseModel):
     product_release_id: UUID | None = None
     risk_assessment_id: UUID | None = None
     requirement_mapping_id: UUID | None = None
+    supplier_assessment_id: UUID | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     evidence_type: EvidenceType | None = None
@@ -43,6 +45,7 @@ class EvidenceItemRead(TimestampedRead):
     product_release_id: UUID | None
     risk_assessment_id: UUID | None
     requirement_mapping_id: UUID | None
+    supplier_assessment_id: UUID | None
     title: str
     description: str | None
     evidence_type: EvidenceType
@@ -58,3 +61,4 @@ class EvidenceItemSummaryRead(ORMBaseModel):
     product_release_id: UUID | None
     risk_assessment_id: UUID | None
     requirement_mapping_id: UUID | None
+    supplier_assessment_id: UUID | None

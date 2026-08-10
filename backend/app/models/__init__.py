@@ -51,6 +51,7 @@ from app.models.incident_report import IncidentReport
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
 from app.models.sbom_scan_run import SbomScanRun
 from app.models.advisory_release import AdvisoryRelease
+from app.models.supplier_assessment import (AssessmentEvidenceLink, AssessmentResponse, ComponentMaintainerNotification, ProductComponentLink, Supplier, SupplierAssessment, SupplierFinding, ThirdPartyComponent)
 
 __all__ = [
     "AnnexRequirement",
@@ -106,4 +107,7 @@ __all__ = [
     "SbomVulnerabilityFinding",
     "SbomScanRun",
     "AdvisoryRelease",
+    "Supplier", "ThirdPartyComponent", "ProductComponentLink", "SupplierAssessment",
+    "AssessmentResponse", "AssessmentEvidenceLink", "SupplierFinding",
+    "ComponentMaintainerNotification",
 ]

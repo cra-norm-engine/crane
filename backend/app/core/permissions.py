@@ -41,6 +41,10 @@ class Permission(StrEnum):
     risk_item_read = "risk_item_read"
     risk_item_write = "risk_item_write"
 
+    supplier_assessment_read = "supplier_assessment_read"
+    supplier_assessment_write = "supplier_assessment_write"
+    supplier_assessment_approve = "supplier_assessment_approve"
+
     annex_requirement_read = "annex_requirement_read"
     annex_requirement_write = "annex_requirement_write"
 

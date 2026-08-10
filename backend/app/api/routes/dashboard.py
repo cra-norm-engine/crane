@@ -39,6 +39,7 @@ from app.models.risk_assessment import RiskAssessment
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
+from app.models.supplier_assessment import ComponentMaintainerNotification, SupplierAssessment
 from app.schemas.dashboard import (
     ActivityItem,
     ChangeSummary,
@@ -263,6 +264,16 @@ def get_dashboard(
         )
     ).scalars().all()
     task_due_dates.extend(risk_task_rows)
+
+    # Supplier assurance work owned by this user.
+    task_due_dates.extend(db.scalars(select(SupplierAssessment.reassessment_due_date).where(
+        SupplierAssessment.owner_user_id == current_user.id,
+        SupplierAssessment.reassessment_required.is_(True),
+    )).all())
+    task_due_dates.extend(db.scalars(select(ComponentMaintainerNotification.due_date).where(
+        ComponentMaintainerNotification.assigned_to_user_id == current_user.id,
+        ComponentMaintainerNotification.status.notin_(["acknowledged", "closed"]),
+    )).all())
 
     task_total_open = len(task_due_dates)
     task_overdue = 0

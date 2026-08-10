@@ -75,6 +75,7 @@ class ProductReadinessRead(BaseModel):
     risk_unapproved: bool = False
     support_expired: bool = False
     change_action_required: bool = False
+    supplier_due_diligence_gap: bool = False
 
 
 class ConformanceSummary(BaseModel):

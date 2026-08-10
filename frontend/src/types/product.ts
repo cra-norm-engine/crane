@@ -793,6 +793,11 @@ export interface VulnerabilityReportRead {
   // Exploitability assessment fields (CRA Art. 13(2))
   source: VulnerabilitySource;
   sbom_finding_id: string | null;
+  supplier_component_id: string | null;
+  supplier_component_name: string | null;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  affected_supplier_releases: Array<{ product_id:string; product_name:string; release_id:string; release_version:string }>;
   vex_status: VexStatus | null;
   is_exploitable: boolean | null;
   exploitability_rationale: string | null;

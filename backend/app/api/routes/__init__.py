@@ -36,6 +36,7 @@ from app.api.routes.market_actions import router as market_actions_router
 from app.api.routes.maturity import router as maturity_router
 from app.api.routes.my_tasks import router as my_tasks_router
 from app.api.routes.dashboard import router as dashboard_router
+from app.api.routes.supplier_assessments import router as supplier_assessments_router
 
 api_router = APIRouter()
 
@@ -153,3 +154,4 @@ api_router.include_router(admin_router)
 
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(maturity_router, prefix="/maturity-assessments", tags=["maturity"])
+api_router.include_router(supplier_assessments_router, prefix="/supplier-assurance", tags=["supplier-assurance"])

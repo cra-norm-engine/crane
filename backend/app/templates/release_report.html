@@ -138,6 +138,7 @@
     <li><a href="#annex1-p1"><span class="num">05</span> Annex I · Part I</a></li>
     <li><a href="#annex1-p2"><span class="num">06</span> Annex I · Part II</a></li>
     <li><a href="#sbom"><span class="num">07</span> Software bill of materials</a></li>
+    <li><a href="#supplier-assurance"><span class="num">07A</span> Supplier assurance</a></li>
     <li><a href="#vuln"><span class="num">08</span> Vulnerability &amp; incident management</a></li>
     <li class="g">Conformity</li>
     <li><a href="#conformity"><span class="num">09</span> Conformity assessment route</a></li>
@@ -406,6 +407,23 @@
   </table>
   {% endif %}
   {% else %}<p class="intro">No SBOM recorded for this release.</p>{% endif %}
+</div>
+
+{# ============================ 07A SUPPLIER ASSURANCE ============================ #}
+<div class="page-break" id="supplier-assurance">
+  <div class="eyebrow">07A · Supply-chain due diligence</div>
+  <h2>Supplier &amp; component assurance</h2>
+  <p class="intro">Current due-diligence coverage for medium- and high-criticality third-party components included in this release.</p>
+  {% if supplier_assurance.available %}
+  <table class="req">
+    <thead><tr><th>Supplier</th><th>Component</th><th>Criticality</th><th>Assessment</th><th>Status</th></tr></thead>
+    <tbody>{% for row in supplier_assurance['items'] %}<tr>
+      <td>{{ row.supplier }}</td><td><strong>{{ row.component }}</strong> <span class="muted">{{ row.version or '' }}</span></td>
+      <td>{{ row.criticality }}</td><td>{% if row.assessment_version %}Version {{ row.assessment_version }} · {{ row.assessment_status }}{% else %}No assessment{% endif %}</td>
+      <td>{{ pill('Current' if row.current else 'Gap', 'ok' if row.current else 'bad') }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="intro">No medium- or high-criticality third-party components are linked to this release.</p>{% endif %}
 </div>
 
 {# ============================ 08 VULNERABILITY ============================ #}

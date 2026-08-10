@@ -43,6 +43,7 @@ from app.models.risk_item import RiskItem
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
+from app.models.supplier_assessment import ComponentMaintainerNotification, SupplierAssessment
 from app.schemas.my_tasks import TaskItem
 from app.repositories.user_repository import UserRepository
 
@@ -234,6 +235,24 @@ def list_my_tasks(
             parent_id=getattr(assessment, "id", None),
             created_by_name=None,
         ))
+
+    for assessment in db.scalars(select(SupplierAssessment).where(
+        SupplierAssessment.owner_user_id == current_user.id,
+        SupplierAssessment.reassessment_required.is_(True),
+    )).all():
+        tasks.append(TaskItem(entity_type="supplier_reassessment",entity_id=assessment.id,
+            title=f"Reassess {assessment.title}",status="reassessment_required",due_date=assessment.reassessment_due_date,
+            is_overdue=_is_overdue(assessment.reassessment_due_date),product_name=None,release_version=None,
+            severity=assessment.assessment_tier,parent_id=assessment.id,created_by_name=None))
+
+    for notification in db.scalars(select(ComponentMaintainerNotification).where(
+        ComponentMaintainerNotification.assigned_to_user_id == current_user.id,
+        ComponentMaintainerNotification.status.notin_(["acknowledged", "closed"]),
+    )).all():
+        tasks.append(TaskItem(entity_type="maintainer_notification",entity_id=notification.id,
+            title="Notify component maintainer",status=notification.status,due_date=notification.due_date,
+            is_overdue=_is_overdue(notification.due_date),product_name=None,release_version=None,severity=None,
+            parent_id=notification.vulnerability_report_id,created_by_name=None))
 
     # ── EOS alerts (lifecycle notifications) ─────────────────────────────────
     # Surface pending end-of-support alerts where the current user is a recipient.

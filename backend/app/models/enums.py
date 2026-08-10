@@ -60,6 +60,65 @@ class RiskItemStatus(StrEnum):
     closed = "closed"
 
 
+class SupplierType(StrEnum):
+    commercial = "commercial"
+    open_source = "open_source"
+    service_provider = "service_provider"
+    manufacturer = "manufacturer"
+
+
+class SupplierStatus(StrEnum):
+    active = "active"
+    inactive = "inactive"
+    blocked = "blocked"
+
+
+class ComponentType(StrEnum):
+    software = "software"
+    firmware = "firmware"
+    hardware = "hardware"
+    service = "service"
+
+
+class ComponentCriticality(StrEnum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class SupplierAssessmentStatus(StrEnum):
+    draft = "draft"
+    in_review = "in_review"
+    approved = "approved"
+    approved_with_conditions = "approved_with_conditions"
+    rejected = "rejected"
+    expired = "expired"
+    superseded = "superseded"
+
+
+class AssessmentResponseDecision(StrEnum):
+    satisfied = "satisfied"
+    partially_satisfied = "partially_satisfied"
+    not_satisfied = "not_satisfied"
+    not_applicable = "not_applicable"
+    unknown = "unknown"
+
+
+class SupplierFindingStatus(StrEnum):
+    open = "open"
+    in_progress = "in_progress"
+    mitigated = "mitigated"
+    accepted = "accepted"
+    closed = "closed"
+
+
+class EvidenceReviewStatus(StrEnum):
+    pending = "pending"
+    accepted = "accepted"
+    rejected = "rejected"
+    needs_update = "needs_update"
+
+
 class RequirementImplementationStatus(StrEnum):
     planned = "planned"
     in_progress = "in_progress"
@@ -504,3 +563,8 @@ class EntityType(StrEnum):
     comment = "comment"
     sbom_vulnerability_finding = "sbom_vulnerability_finding"
     incident_report = "incident_report"
+    supplier = "supplier"
+    third_party_component = "third_party_component"
+    supplier_assessment = "supplier_assessment"
+    supplier_finding = "supplier_finding"
+    component_maintainer_notification = "component_maintainer_notification"

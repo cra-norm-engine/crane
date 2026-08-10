@@ -451,6 +451,12 @@ function navigateToTask(task: TaskItem): void {
         ? { name: "product-detail", params: { productId: task.parent_id } }
         : { name: "products" });
       break;
+    case "supplier_reassessment":
+      router.push({ name: "supplier-assessment-detail", params: { assessmentId: task.entity_id } });
+      break;
+    case "maintainer_notification":
+      router.push({ name: "vulnerability-handling", query: { tab: "remediation", report: task.parent_id } });
+      break;
   }
 }
 
@@ -463,6 +469,8 @@ function formatEntityType(type: string): string {
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
+    supplier_reassessment: "Supplier reassessment",
+    maintainer_notification: "Maintainer notice",
   };
   return map[type] ?? type;
 }

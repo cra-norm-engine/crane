@@ -36,6 +36,8 @@
          ══════════════════════════════════════════ -->
     <nav class="sidebar-nav" aria-label="Main navigation">
 
+      <div class="nav-section-label">Workspace</div>
+
       <!-- Overview group — single Dashboard link -->
       <div class="nav-group">
         <RouterLink
@@ -87,21 +89,21 @@
 
       <div class="nav-divider" role="separator" />
 
-      <!-- Main workspace links -->
+      <!-- Products and supply-chain workspace -->
       <div class="nav-group">
         <button
           type="button"
           class="nav-group-header"
-          :aria-expanded="isExpanded('menu')"
-          aria-controls="nav-group-body-menu"
-          @click="toggleGroup('menu')"
+          :aria-expanded="isExpanded('portfolio')"
+          aria-controls="nav-group-body-portfolio"
+          @click="toggleGroup('portfolio')"
         >
-          <span class="nav-group-label">Menu</span>
-          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('menu') }" viewBox="0 0 16 16" aria-hidden="true">
+          <span class="nav-group-label">Products &amp; supply chain</span>
+          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('portfolio') }" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M4 6l4 4 4-4" fill="currentColor"/>
           </svg>
         </button>
-        <div id="nav-group-body-menu" class="nav-group-body" :class="{ 'is-expanded': isExpanded('menu') }">
+        <div id="nav-group-body-portfolio" class="nav-group-body" :class="{ 'is-expanded': isExpanded('portfolio') }">
         <div class="nav-group-links">
 
         <!-- Product inventory — always visible -->
@@ -117,6 +119,54 @@
           </span>
           <span>Product inventory</span>
         </RouterLink>
+
+        <!-- Supplier assurance — permission-gated -->
+        <RouterLink
+          v-if="canViewSupplierAssurance"
+          :to="{ name: 'supplier-assurance' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 4h14v12H3zm2 2v2h10V6zm0 4v4h4v-4zm6 0v4h4v-4z" fill="currentColor"/></svg></span>
+          <span>Supplier assurance</span>
+        </RouterLink>
+
+        <RouterLink
+          v-if="canViewSecurityUpdates"
+          :to="{ name: 'sbom-records' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><path d="M10 2 2 6l8 4 8-4zm-8 6 8 4 8-4v4l-8 4-8-4zm0 6 8 4 8-4v2l-8 4-8-4z" fill="currentColor"/></svg>
+          </span>
+          <span>SBOM &amp; component scan</span>
+        </RouterLink>
+
+        </div>
+        </div>
+      </div>
+
+      <div class="nav-divider" role="separator" />
+
+      <!-- Compliance and conformity workspace -->
+      <div class="nav-group">
+        <button
+          type="button"
+          class="nav-group-header"
+          :aria-expanded="isExpanded('compliance')"
+          aria-controls="nav-group-body-compliance"
+          @click="toggleGroup('compliance')"
+        >
+          <span class="nav-group-label">Assurance &amp; conformity</span>
+          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('compliance') }" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" fill="currentColor"/>
+          </svg>
+        </button>
+        <div id="nav-group-body-compliance" class="nav-group-body" :class="{ 'is-expanded': isExpanded('compliance') }">
+        <div class="nav-group-links">
 
         <!-- Risk assessments — permission-gated -->
         <RouterLink
@@ -148,21 +198,6 @@
           <span>CRA requirements</span>
         </RouterLink>
 
-        <!-- Lifecycle alerts — permission-gated -->
-        <RouterLink
-          v-if="canViewLifecycleNotifications"
-          :to="{ name: 'lifecycle-notifications' }"
-          class="nav-link"
-          active-class="nav-link-active"
-          @click="handleNavClick"
-        >
-          <span class="nav-icon" aria-hidden="true">
-            <!-- Bell icon -->
-            <svg viewBox="0 0 20 20"><path d="M10 2a5 5 0 0 0-5 5v2.2c0 .5-.2.9-.5 1.3L3 12v1h14v-1l-1.5-1.5c-.3-.4-.5-.8-.5-1.3V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z" fill="currentColor"/></svg>
-          </span>
-          <span>Lifecycle alerts</span>
-        </RouterLink>
-
         <!-- Certifications — permission-gated -->
         <RouterLink
           v-if="canViewCertificationRecords"
@@ -191,6 +226,44 @@
             <svg viewBox="0 0 20 20"><path d="M5 2h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm6 1v3h3zM6 9h8v1.5H6zm0 3h8v1.5H6z" fill="currentColor"/></svg>
           </span>
           <span>Declarations</span>
+        </RouterLink>
+
+        </div>
+        </div>
+      </div>
+
+      <div class="nav-divider" role="separator" />
+
+      <!-- Product lifecycle workspace -->
+      <div class="nav-group">
+        <button
+          type="button"
+          class="nav-group-header"
+          :aria-expanded="isExpanded('lifecycle')"
+          aria-controls="nav-group-body-lifecycle"
+          @click="toggleGroup('lifecycle')"
+        >
+          <span class="nav-group-label">Product lifecycle</span>
+          <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('lifecycle') }" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" fill="currentColor"/>
+          </svg>
+        </button>
+        <div id="nav-group-body-lifecycle" class="nav-group-body" :class="{ 'is-expanded': isExpanded('lifecycle') }">
+        <div class="nav-group-links">
+
+        <!-- Lifecycle alerts — permission-gated -->
+        <RouterLink
+          v-if="canViewLifecycleNotifications"
+          :to="{ name: 'lifecycle-notifications' }"
+          class="nav-link"
+          active-class="nav-link-active"
+          @click="handleNavClick"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <!-- Bell icon -->
+            <svg viewBox="0 0 20 20"><path d="M10 2a5 5 0 0 0-5 5v2.2c0 .5-.2.9-.5 1.3L3 12v1h14v-1l-1.5-1.5c-.3-.4-.5-.8-.5-1.3V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z" fill="currentColor"/></svg>
+          </span>
+          <span>Lifecycle alerts</span>
         </RouterLink>
 
         <!-- Substantial changes — CRA Art. 3(4), permission-gated -->
@@ -238,7 +311,7 @@
             aria-controls="nav-group-body-vulnerability"
             @click="toggleGroup('vulnerability')"
           >
-            <span class="nav-group-label">Vulnerability handling</span>
+            <span class="nav-group-label">Vulnerability management</span>
             <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('vulnerability') }" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M4 6l4 4 4-4" fill="currentColor"/>
             </svg>
@@ -255,7 +328,7 @@
             <span class="nav-icon" aria-hidden="true">
               <svg viewBox="0 0 20 20"><path d="M10 2 4 5v4c0 4.1 2.4 7.8 6 9 3.6-1.2 6-4.9 6-9V5zm0 3.2a2.3 2.3 0 0 1 1.3 4.2v2.9H8.7V9.4A2.3 2.3 0 0 1 10 5.2z" fill="currentColor"/></svg>
             </span>
-            <span>PSIRT workflow</span>
+            <span>Vulnerability reports</span>
           </RouterLink>
 
           <RouterLink
@@ -270,20 +343,6 @@
             <span>Security updates</span>
           </RouterLink>
 
-          <!-- SBOM Analyzer — Annex I Part II §1 -->
-          <RouterLink
-            :to="{ name: 'sbom-records' }"
-            class="nav-link"
-            active-class="nav-link-active"
-            @click="handleNavClick"
-          >
-            <span class="nav-icon" aria-hidden="true">
-              <!-- Layers / SBOM icon -->
-              <svg viewBox="0 0 20 20"><path d="M10 2 2 6l8 4 8-4zm-8 6 8 4 8-4v4l-8 4-8-4zm0 6 8 4 8-4v2l-8 4-8-4z" fill="currentColor"/></svg>
-            </span>
-            <span>SBOM analyzer</span>
-          </RouterLink>
-
           </div>
           </div>
         </div>
@@ -291,7 +350,7 @@
 
       <div class="nav-divider" role="separator" />
 
-      <!-- Governance group -->
+      <!-- Records and data governance group -->
       <div class="nav-group">
         <button
           type="button"
@@ -300,7 +359,7 @@
           aria-controls="nav-group-body-governance"
           @click="toggleGroup('governance')"
         >
-          <span class="nav-group-label">Governance</span>
+          <span class="nav-group-label">Records &amp; data</span>
           <svg class="nav-group-chevron" :class="{ 'is-expanded': isExpanded('governance') }" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M4 6l4 4 4-4" fill="currentColor"/>
           </svg>
@@ -510,17 +569,26 @@ const NAV_GROUP_STORAGE_KEY = "sidebar-nav-group-state";
 /** Maps route names to the nav group that contains them, so the
  *  group holding the active route auto-expands on navigation. */
 const ROUTE_GROUP_MAP: Record<string, string> = {
-  products: "menu",
-  "risk-assessments": "menu",
-  "annex-matrix": "menu",
-  "lifecycle-notifications": "menu",
-  "certification-records": "menu",
-  changes: "menu",
-  "support-hub": "menu",
+  products: "portfolio",
+  "product-detail": "portfolio",
+  "supplier-assurance": "portfolio",
+  "supplier-assessment-detail": "portfolio",
+  "third-party-component-detail": "portfolio",
+  "sbom-records": "portfolio",
+  "release-gate": "portfolio",
+
+  "risk-assessments": "compliance",
+  "risk-assessment-detail": "compliance",
+  "annex-matrix": "compliance",
+  "certification-records": "compliance",
+  declarations: "compliance",
+
+  "lifecycle-notifications": "lifecycle",
+  changes: "lifecycle",
+  "support-hub": "lifecycle",
 
   "vulnerability-handling": "vulnerability",
   "security-updates": "vulnerability",
-  "sbom-records": "vulnerability",
 
   "audit-history": "governance",
   "product-data": "governance",
@@ -573,6 +641,7 @@ function toggleGroup(groupId: string): void {
 const canViewSecurityUpdates       = computed(() => authStore.hasPermission("security_update_read"));
 const canViewLifecycleNotifications = computed(() => authStore.hasPermission("lifecycle_notification_read"));
 const canViewRiskAssessments        = computed(() => authStore.hasPermission("risk_assessment_read"));
+const canViewSupplierAssurance      = computed(() => authStore.hasPermission("supplier_assessment_read"));
 const canViewAnnexMatrix            = computed(
   () =>
     authStore.hasPermission("annex_requirement_read") ||
@@ -710,6 +779,16 @@ async function logout(): Promise<void> {
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.35rem 0;
+}
+
+.nav-section-label {
+  margin: 0.2rem 0 0;
+  padding: 0.25rem 0.5rem 0.05rem;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(220, 233, 214, 0.35);
 }
 
 /* Small all-caps label above a group of links */
@@ -987,7 +1066,8 @@ async function logout(): Promise<void> {
   elements outside the component's own DOM.
 -->
 <style>
-:root[data-theme="light"] .nav-group-label {
+:root[data-theme="light"] .nav-group-label,
+:root[data-theme="light"] .nav-section-label {
   /* CRANE Dashboard reference: muted forest green for section labels */
   color: oklch(0.48 0.07 150 / 0.5);
 }

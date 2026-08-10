@@ -45,6 +45,10 @@ class EvidenceItemRepository(BaseRepository[EvidenceItem]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def list_by_supplier_assessment(self, supplier_assessment_id: UUID) -> list[EvidenceItem]:
+        stmt = select(EvidenceItem).where(EvidenceItem.supplier_assessment_id == supplier_assessment_id).order_by(EvidenceItem.created_at.desc())
+        return list(self.db.scalars(stmt).all())
+
     def get_or_404(self, evidence_item_id: UUID) -> EvidenceItem:
         evidence_item = self.get_by_id(evidence_item_id)
         if evidence_item is None:

@@ -125,6 +125,12 @@
         </article>
       </div>
 
+      <section v-if="authStore.hasPermission('supplier_assessment_read')" id="supply-chain" class="card supply-chain-card">
+        <div class="section-header"><div><h2 class="section-title">Supply-chain traceability</h2><p class="muted section-sub">Suppliers and third-party components included across this product's releases.</p></div><RouterLink :to="{name:'supplier-assurance'}" class="btn btn-secondary btn-compact">Open supplier assurance</RouterLink></div>
+        <div v-if="!productTraceability.length" class="muted">No supplied components are linked to this product.</div>
+        <div v-else class="supply-chain-list"><div v-for="row in productTraceability" :key="row.id" class="supply-chain-row"><div><RouterLink :to="{name:'supplier-assurance',query:{supplierId:row.supplier_id,tab:'traceability'}}" class="supply-chain-supplier">{{ row.supplier_name }}</RouterLink><RouterLink :to="{name:'third-party-component-detail',params:{componentId:row.component_id}}"><strong>{{ row.component_name }} {{ row.component_version||'' }}</strong></RouterLink></div><div><RouterLink :to="{name:'release-gate',params:{releaseId:row.product_release_id}}">{{ row.release_version }}</RouterLink><span>{{ row.is_direct?'Direct':'Transitive' }} · {{ row.criticality }} criticality</span></div><div><span>{{ row.sbom_file_name||'Manual link' }}</span><RouterLink v-if="row.assessment_id" :to="{name:'supplier-assessment-detail',params:{assessmentId:row.assessment_id}}" :class="{'trace-gap':row.reassessment_required}">{{ row.reassessment_required?'Reassessment required':formatReleaseStatus(row.assessment_status||'') }}</RouterLink><span v-else class="trace-gap">Assessment missing</span></div></div></div>
+      </section>
+
       <!-- ── Two-column workspace ──────────────────────── -->
       <div class="workspace">
 
@@ -1761,6 +1767,8 @@ import { productReleaseService } from "@/services/product-release-service";
 import { supportPeriodService } from "@/services/support-period-service";
 import { changeService } from "@/services/change-service";
 import { remoteProcessingElementService } from "@/services/remote-processing-element-service";
+import { supplierAssessmentService } from "@/services/supplier-assessment-service";
+import type { ComponentTraceability } from "@/types/supplier-assessment";
 import type { ChangeSummary } from "@/types/change";
 import { useAuthStore } from "@/stores/auth";
 import type { AuditEventRead } from "@/types/audit";
@@ -1804,6 +1812,7 @@ const recipientDropdownRef         = ref<HTMLElement | null>(null);
 const isRecipientDropdownOpen      = ref(false);
 const auditEvents                  = ref<AuditEventRead[]>([]);
 const substantialChanges           = ref<ChangeSummary[]>([]);
+const productTraceability          = ref<ComponentTraceability[]>([]);
 // All assessed changes (any outcome) — used to populate the substantiality analysis picker
 const assessedChanges              = ref<ChangeSummary[]>([]);
 const scopeResult                  = ref<ProductScopeEvaluationRead | null>(null);
@@ -2728,6 +2737,8 @@ async function loadProduct(): Promise<void> {
     product.value = await productService.get(props.productId);
     syncEditForm();
     await Promise.all([loadSupportPeriod(), loadNotificationRecipients(), loadAuditEvents(), loadRpe()]);
+    productTraceability.value = authStore.hasPermission("supplier_assessment_read")
+      ? await supplierAssessmentService.traceability({product_id:props.productId}) : [];
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to load product.";
@@ -3052,6 +3063,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.supply-chain-card{display:grid;gap:14px}.supply-chain-list{overflow:hidden;border:1px solid var(--color-border);border-radius:10px}.supply-chain-row{display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:18px;padding:12px 14px;border-bottom:1px solid var(--color-border);font-size:12px}.supply-chain-row:last-child{border-bottom:0}.supply-chain-row>div{display:grid;gap:3px}.supply-chain-row a{color:var(--color-primary);text-decoration:none}.supply-chain-supplier{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}.supply-chain-row span{color:var(--color-text-muted)}.supply-chain-row .trace-gap{color:var(--color-danger-text)}
 /* ── Page layout ───────────────────────────────────── */
 .page {
   display: grid;

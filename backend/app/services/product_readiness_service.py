@@ -69,6 +69,7 @@ from app.models.requirement_mapping import (
 from app.models.risk_assessment import RiskAssessment
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.vulnerability_report import VulnerabilityReport
+from app.models.supplier_assessment import ProductComponentLink, SupplierAssessment, ThirdPartyComponent
 from app.repositories.product_repository import ProductRepository
 from app.schemas.product_readiness import (
     ConformanceSummary,
@@ -303,6 +304,24 @@ class ProductReadinessService:
         ).all()
         change_action_products = {row[0] for row in change_rows}
 
+        supplier_gap_products: set[UUID] = set()
+        due_rows = self.db.execute(
+            select(ProductRelease.product_id, ProductRelease.id, ProductComponentLink.component_id, ThirdPartyComponent.supplier_id)
+            .join(ProductComponentLink, ProductComponentLink.product_release_id == ProductRelease.id)
+            .join(ThirdPartyComponent, ThirdPartyComponent.id == ProductComponentLink.component_id)
+            .where(ProductComponentLink.criticality.in_(["medium", "high"]))
+        ).all()
+        today = date.today()
+        for product_id, release_id, component_id, supplier_id in due_rows:
+            approved = self.db.scalar(select(SupplierAssessment.id).where(
+                SupplierAssessment.supplier_id == supplier_id,
+                (SupplierAssessment.component_id.is_(None)) | (SupplierAssessment.component_id == component_id),
+                SupplierAssessment.status.in_(["approved", "approved_with_conditions"]),
+                SupplierAssessment.reassessment_required.is_(False),
+                (SupplierAssessment.valid_until.is_(None)) | (SupplierAssessment.valid_until >= today),
+            ).limit(1))
+            if approved is None: supplier_gap_products.add(product_id)
+
         # Union of every product id that appears in any signal, so callers can
         # fetch a complete flag dict by product id.
         product_ids: set[UUID] = (
@@ -310,6 +329,7 @@ class ProductReadinessService:
             | risk_unapproved_products
             | support_expired_products
             | change_action_products
+            | supplier_gap_products
         )
         flags: dict[UUID, dict[str, object]] = {}
         for product_id in product_ids:
@@ -320,6 +340,7 @@ class ProductReadinessService:
                 "risk_unapproved": product_id in risk_unapproved_products,
                 "support_expired": product_id in support_expired_products,
                 "change_action_required": product_id in change_action_products,
+                "supplier_due_diligence_gap": product_id in supplier_gap_products,
             }
         return flags
 
@@ -332,6 +353,7 @@ class ProductReadinessService:
             "risk_unapproved": False,
             "support_expired": False,
             "change_action_required": False,
+            "supplier_due_diligence_gap": False,
         }
 
     # ── Coverage (from batched inputs) ────────────────────────────────────────

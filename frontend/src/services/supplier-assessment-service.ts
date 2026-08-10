@@ -1,0 +1,30 @@
+import { apiClient } from "./api"
+import type { ComponentLink, ComponentTraceability, ComponentVulnerabilityTrace, MaintainerNotification, SbomMatchResult, Supplier, SupplierAssessment, ThirdPartyComponent } from "@/types/supplier-assessment"
+
+export const supplierAssessmentService = {
+  suppliers: (): Promise<Supplier[]> => apiClient.get("/supplier-assurance/suppliers").then(r => r.data),
+  createSupplier: (p:object): Promise<Supplier> => apiClient.post("/supplier-assurance/suppliers", p).then(r => r.data),
+  updateSupplier: (id:string,p:object): Promise<Supplier> => apiClient.patch(`/supplier-assurance/suppliers/${id}`, p).then(r => r.data),
+  components: (supplierId?:string): Promise<ThirdPartyComponent[]> => apiClient.get("/supplier-assurance/components", { params: { supplier_id:supplierId } }).then(r => r.data),
+  createComponent: (p:object): Promise<ThirdPartyComponent> => apiClient.post("/supplier-assurance/components", p).then(r => r.data),
+  updateComponent: (id:string,p:object): Promise<ThirdPartyComponent> => apiClient.patch(`/supplier-assurance/components/${id}`, p).then(r => r.data),
+  matchSbom: (id:string): Promise<SbomMatchResult> => apiClient.post(`/supplier-assurance/sboms/${id}/match-components`).then(r=>r.data),
+  notifications: (): Promise<MaintainerNotification[]> => apiClient.get("/supplier-assurance/maintainer-notifications").then(r=>r.data),
+  createNotification: (p:object): Promise<MaintainerNotification> => apiClient.post("/supplier-assurance/maintainer-notifications",p).then(r=>r.data),
+  updateNotification: (id:string,p:object): Promise<MaintainerNotification> => apiClient.patch(`/supplier-assurance/maintainer-notifications/${id}`,p).then(r=>r.data),
+  traceability: (params?:Record<string,string>): Promise<ComponentTraceability[]> => apiClient.get("/supplier-assurance/traceability",{params}).then(r=>r.data),
+  createLink: (p:object): Promise<ComponentLink> => apiClient.post("/supplier-assurance/component-links",p).then(r=>r.data),
+  updateLink: (id:string,p:object): Promise<ComponentLink> => apiClient.patch(`/supplier-assurance/component-links/${id}`,p).then(r=>r.data),
+  deleteLink: (id:string): Promise<void> => apiClient.delete(`/supplier-assurance/component-links/${id}`).then(()=>undefined),
+  componentVulnerabilities: (id:string): Promise<ComponentVulnerabilityTrace[]> => apiClient.get(`/supplier-assurance/components/${id}/vulnerabilities`).then(r=>r.data),
+  assessments: (): Promise<SupplierAssessment[]> => apiClient.get("/supplier-assurance/assessments").then(r => r.data),
+  assessment: (id:string): Promise<SupplierAssessment> => apiClient.get(`/supplier-assurance/assessments/${id}`).then(r => r.data),
+  createAssessment: (p:object): Promise<SupplierAssessment> => apiClient.post("/supplier-assurance/assessments", p).then(r => r.data),
+  upsertResponse: (id:string,p:object) => apiClient.put(`/supplier-assurance/assessments/${id}/responses`,p).then(r=>r.data),
+  addFinding: (id:string,p:object) => apiClient.post(`/supplier-assurance/assessments/${id}/findings`,p).then(r=>r.data),
+  linkEvidence: (id:string,p:object) => apiClient.post(`/supplier-assurance/assessments/${id}/evidence`,p).then(r=>r.data),
+  createEvidence: (p:object) => apiClient.post("/evidence-items", p).then(r=>r.data),
+  reviewEvidence: (id:string,linkId:string,p:object) => apiClient.patch(`/supplier-assurance/assessments/${id}/evidence/${linkId}`,p).then(r=>r.data),
+  submit: (id:string): Promise<SupplierAssessment> => apiClient.post(`/supplier-assurance/assessments/${id}/submit`).then(r=>r.data),
+  decide: (id:string,p:object): Promise<SupplierAssessment> => apiClient.post(`/supplier-assurance/assessments/${id}/decision`,p).then(r=>r.data),
+}

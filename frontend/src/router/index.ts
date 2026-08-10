@@ -151,6 +151,25 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: "supplier-assurance",
+        name: "supplier-assurance",
+        component: () => import("@/views/SupplierAssuranceView.vue"),
+        meta: { permissions: ["supplier_assessment_read"] },
+      },
+      {
+        path: "supplier-assurance/assessments/:assessmentId",
+        name: "supplier-assessment-detail",
+        component: () => import("@/views/SupplierAssessmentDetailView.vue"),
+        meta: { permissions: ["supplier_assessment_read"] },
+      },
+      {
+        path: "supplier-assurance/components/:componentId",
+        name: "third-party-component-detail",
+        component: () => import("@/views/ThirdPartyComponentDetailView.vue"),
+        props: true,
+        meta: { permissions: ["supplier_assessment_read"] },
+      },
+      {
         path: "annex-matrix",
         name: "annex-matrix",
         component: AnnexMatrixView,

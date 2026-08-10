@@ -168,6 +168,14 @@ class ReleaseGateService:
                 "assessment first."
             )
 
+        from app.services.supplier_assessment_service import release_due_diligence_status
+        supplier_status = release_due_diligence_status(self.db, product_release_id)
+        if not supplier_status["complete"]:
+            names = ", ".join(gap["component_name"] for gap in supplier_status["gaps"])
+            raise ConflictException(
+                "Release cannot be approved: supplier due diligence is incomplete for " + names
+            )
+
         gate.status = ReleaseGateWorkflowStatus.approved
         gate.approved_at = datetime.now(UTC)
         gate.approved_by_user_id = actor_user_id
@@ -899,6 +907,7 @@ class ReleaseGateService:
         return self._detail_payload(release, gate)
 
     def _detail_payload(self, release: ProductRelease, gate: ReleaseGate) -> dict:
+        from app.services.supplier_assessment_service import release_due_diligence_status
         required_items = [item for item in gate.items if item.is_required]
         accepted_items = [
             item for item in required_items if item.status in {ArtifactReviewDecision.accepted, ArtifactReviewDecision.waived}
@@ -908,6 +917,7 @@ class ReleaseGateService:
         ]
         return {
             "release": ProductReleaseRead.model_validate(release),
+            "supplier_due_diligence": release_due_diligence_status(self.db, release.id),
             "gate": {
                 "id": gate.id,
                 "product_release_id": gate.product_release_id,

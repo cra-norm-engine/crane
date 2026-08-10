@@ -32,12 +32,13 @@ def list_evidence_items(
     product_release_id: UUID | None = Query(default=None),
     risk_assessment_id: UUID | None = Query(default=None),
     requirement_mapping_id: UUID | None = Query(default=None),
+    supplier_assessment_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EvidenceItemRead]:
     require_permissions(current_user, {Permission.evidence_item_read})
 
-    if not any([product_release_id, risk_assessment_id, requirement_mapping_id]):
+    if not any([product_release_id, risk_assessment_id, requirement_mapping_id, supplier_assessment_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="One of product_release_id, risk_assessment_id, or requirement_mapping_id must be provided.",
@@ -48,6 +49,7 @@ def list_evidence_items(
         product_release_id=product_release_id,
         risk_assessment_id=risk_assessment_id,
         requirement_mapping_id=requirement_mapping_id,
+        supplier_assessment_id=supplier_assessment_id,
     )
 
 

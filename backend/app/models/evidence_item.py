@@ -34,6 +34,9 @@ class EvidenceItem(UUIDTimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    supplier_assessment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("supplier_assessments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

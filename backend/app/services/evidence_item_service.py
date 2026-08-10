@@ -30,6 +30,7 @@ class EvidenceItemService:
         product_release_id: UUID | None = None,
         risk_assessment_id: UUID | None = None,
         requirement_mapping_id: UUID | None = None,
+        supplier_assessment_id: UUID | None = None,
     ) -> list[EvidenceItem]:
         if requirement_mapping_id is not None:
             return list(self.evidence_item_repository.list_by_requirement_mapping(requirement_mapping_id))
@@ -37,6 +38,8 @@ class EvidenceItemService:
             return list(self.evidence_item_repository.list_by_risk_assessment(risk_assessment_id))
         if product_release_id is not None:
             return list(self.evidence_item_repository.list_by_product_release(product_release_id))
+        if supplier_assessment_id is not None:
+            return list(self.evidence_item_repository.list_by_supplier_assessment(supplier_assessment_id))
         raise ValueError(
             "One of product_release_id, risk_assessment_id, or requirement_mapping_id must be provided."
         )
@@ -59,6 +62,7 @@ class EvidenceItemService:
             product_release_id=payload.product_release_id,
             risk_assessment_id=payload.risk_assessment_id,
             requirement_mapping_id=payload.requirement_mapping_id,
+            supplier_assessment_id=payload.supplier_assessment_id,
             title=payload.title,
             description=payload.description,
             evidence_type=payload.evidence_type,
@@ -104,6 +108,7 @@ class EvidenceItemService:
                 evidence_item.product_release_id,
                 evidence_item.risk_assessment_id,
                 evidence_item.requirement_mapping_id,
+                evidence_item.supplier_assessment_id,
             ]
         ):
             raise ValueError(
@@ -166,6 +171,7 @@ class EvidenceItemService:
             "requirement_mapping_id": (
                 str(evidence_item.requirement_mapping_id) if evidence_item.requirement_mapping_id else None
             ),
+            "supplier_assessment_id": str(evidence_item.supplier_assessment_id) if evidence_item.supplier_assessment_id else None,
             "title": evidence_item.title,
             "description": evidence_item.description,
             "evidence_type": evidence_item.evidence_type.value,

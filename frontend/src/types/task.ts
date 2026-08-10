@@ -10,6 +10,8 @@ export type TaskEntityType =
   | "change_compliance_action"
   | "release_gate_item"
   | "risk_item"
+  | "supplier_reassessment"
+  | "maintainer_notification"
   | "eos_alert";
 
 export interface TaskItem {
