@@ -145,8 +145,8 @@ Try CRANE instantly without installing anything.
 
 | Demo Account | |
 |--------------|----------------|
-| Email | `demo@crane.com` |
-| Password | `Hca@U~8%dZ!iNT` |
+| Email | `crane@cra-norm-engine.com` |
+| Password | `8hARz]9$]>r3Tn` |
 
 > ⚠️ **Please do not upload confidential or sensitive information into the public demo.**
 
