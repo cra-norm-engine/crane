@@ -190,6 +190,9 @@
           <div class="overview-actions">
             <span class="count-badge">{{ assessment.display_version }}</span>
             <button class="button secondary" @click="showEditModal = true">Edit Assessment</button>
+            <button class="button danger" type="button" :disabled="deletingAssessment" @click="deleteAssessment">
+              {{ deletingAssessment ? "Deleting..." : "Delete Assessment" }}
+            </button>
           </div>
         </div>
 
@@ -386,7 +389,17 @@
                   Asset: {{ item.asset_affected }} · Status: {{ item.status }}
                 </p>
               </div>
-              <span class="risk-level-pill">{{ item.risk_level }}</span>
+              <div class="risk-card-actions">
+                <span class="risk-level-pill">{{ item.risk_level }}</span>
+                <button
+                  class="button danger"
+                  type="button"
+                  :disabled="deletingRiskItemId === item.id"
+                  @click="deleteRiskItem(item)"
+                >
+                  {{ deletingRiskItemId === item.id ? "Deleting..." : "Delete" }}
+                </button>
+              </div>
             </div>
 
             <div class="risk-copy">
@@ -451,6 +464,8 @@ const savingAssessment = ref(false);
 const approvingAssessment = ref(false);
 const duplicatingAssessment = ref(false);
 const creatingRiskItem = ref(false);
+const deletingAssessment = ref(false);
+const deletingRiskItemId = ref<string | null>(null);
 const showRiskItemForm = ref(false);
 const showDuplicateModal = ref(false);
 const showEditModal = ref(false);
@@ -714,6 +729,40 @@ async function createRiskItem(): Promise<void> {
     errorMessage.value = error?.message ?? "Failed to create risk item.";
   } finally {
     creatingRiskItem.value = false;
+  }
+}
+
+async function deleteAssessment(): Promise<void> {
+  if (!assessment.value) return;
+  if (!window.confirm(`Delete the risk assessment "${assessment.value.title}" and all of its risk items? This cannot be undone.`)) return;
+
+  deletingAssessment.value = true;
+  errorMessage.value = "";
+
+  try {
+    await riskAssessmentService.remove(assessmentId.value);
+    router.push({ name: "risk-assessments" });
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to delete assessment.";
+    deletingAssessment.value = false;
+  }
+}
+
+async function deleteRiskItem(item: RiskItemRead): Promise<void> {
+  if (!window.confirm(`Delete the risk item "${item.title}"? This cannot be undone.`)) return;
+
+  deletingRiskItemId.value = item.id;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    await riskItemService.remove(item.id);
+    riskItems.value = riskItems.value.filter((riskItem) => riskItem.id !== item.id);
+    successMessage.value = "Risk item deleted.";
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to delete risk item.";
+  } finally {
+    deletingRiskItemId.value = null;
   }
 }
 
@@ -1237,6 +1286,12 @@ onMounted(async () => {
   background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
   color: var(--color-text);
   box-shadow: inset 0 1px 0 var(--color-surface-elevated);
+}
+
+.risk-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .risk-meta {

@@ -1032,6 +1032,10 @@ export interface SbomScanResult {
   osv_reachable: boolean;
   /** Whether the Trivy CLI was installed and ran during this scan. */
   trivy_available: boolean;
+  /** False when no scanner could meaningfully process the supplied SBOM. */
+  scan_successful: boolean;
+  /** Actionable remediation for failed or coverage-limited scans. */
+  guidance: string | null;
   /** Number of findings that received CVSS data from NVD (were missing it from OSV/Trivy). */
   nvd_enrichments: number;
   /** Number of findings that received EPSS scores from api.first.org. */

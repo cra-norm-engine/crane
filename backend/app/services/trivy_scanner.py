@@ -33,6 +33,36 @@ logger = logging.getLogger(__name__)
 
 _TRIVY_TIMEOUT = 180  # seconds — large SBOMs can take 60–90 s to scan
 
+# Trivy accepts only a subset of CycloneDX component types. Normalize a copy
+# used for scanning; the original SBOM remains stored and downloadable verbatim.
+_TRIVY_CYCLONEDX_TYPES = {"application", "container", "library", "operating-system"}
+
+
+def _trivy_compatible_content(sbom_content: str) -> str:
+    """Return a Trivy-compatible SBOM copy without changing stored evidence."""
+    try:
+        document = json.loads(sbom_content)
+    except (json.JSONDecodeError, TypeError):
+        return sbom_content
+
+    if document.get("bomFormat") != "CycloneDX":
+        return sbom_content
+
+    def normalize(component: Any, *, root: bool = False) -> None:
+        if not isinstance(component, dict):
+            return
+        component_type = component.get("type")
+        if component_type and component_type not in _TRIVY_CYCLONEDX_TYPES:
+            component["type"] = "application" if root else "library"
+        for child in component.get("components") or []:
+            normalize(child)
+
+    metadata = document.get("metadata") or {}
+    normalize(metadata.get("component"), root=True)
+    for component in document.get("components") or []:
+        normalize(component)
+    return json.dumps(document)
+
 
 @dataclass
 class TrivyFinding:
@@ -148,13 +178,14 @@ def scan_sbom_content(sbom_content: str) -> list[TrivyFinding] | None:
 
     Returns:
         list[TrivyFinding]  — findings found (may be empty for a clean SBOM)
-        None                — Trivy is not installed; caller should log and skip
+        None                — Trivy was unavailable or failed to complete
     """
     if not is_trivy_available():
         logger.warning("trivy not found in PATH — Trivy scanner skipped")
         return None
 
-    distro = _detect_distro(sbom_content)
+    scan_content = _trivy_compatible_content(sbom_content)
+    distro = _detect_distro(scan_content)
     if distro:
         logger.debug("Detected OS distro from SBOM purls: %s", distro)
     else:
@@ -165,7 +196,7 @@ def scan_sbom_content(sbom_content: str) -> list[TrivyFinding] | None:
     with tempfile.TemporaryDirectory() as tmpdir:
         sbom_path = os.path.join(tmpdir, "sbom.json")
         with open(sbom_path, "w", encoding="utf-8") as f:
-            f.write(sbom_content)
+            f.write(scan_content)
 
         cmd = [
             "trivy", "sbom",
@@ -189,8 +220,8 @@ def scan_sbom_content(sbom_content: str) -> list[TrivyFinding] | None:
             logger.error("trivy binary not found despite shutil.which() check")
             return None
         except subprocess.TimeoutExpired:
-            logger.warning("Trivy scan timed out after %ds — returning empty findings", _TRIVY_TIMEOUT)
-            return []
+            logger.warning("Trivy scan timed out after %ds", _TRIVY_TIMEOUT)
+            return None
 
         if proc.returncode not in (0, 1):
             # 0 = no vulns, 1 = vulns found; anything else is an error
@@ -199,17 +230,17 @@ def scan_sbom_content(sbom_content: str) -> list[TrivyFinding] | None:
                 proc.returncode,
                 proc.stderr[:500] if proc.stderr else "(none)",
             )
-            return []
+            return None
 
         if not proc.stdout.strip():
-            logger.debug("Trivy returned empty output")
-            return []
+            logger.warning("Trivy returned empty output")
+            return None
 
         try:
             output = json.loads(proc.stdout)
         except json.JSONDecodeError as exc:
             logger.warning("Trivy JSON parse error: %s", exc)
-            return []
+            return None
 
     # Parse Results[*].Vulnerabilities[*]
     for result in output.get("Results", []):

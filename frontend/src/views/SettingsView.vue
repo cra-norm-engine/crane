@@ -534,7 +534,7 @@ async function logoutEverywhere(): Promise<void> {
 }
 
 /* ── About ───────────────────────────────────── */
-const appVersion = "0.1.0";
+const appVersion = "1.0.0";
 const environment = import.meta.env.MODE === "production" ? "Production" : "Development";
 const currentYear = new Date().getFullYear();
 const copyrightHolder = "Ali Mohammad Hosseini";

@@ -90,7 +90,7 @@
               <th>Generated</th>
               <th>File</th>
               <th>Added</th>
-              <th></th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -132,7 +132,17 @@
                 <span v-else class="muted">—</span>
               </td>
               <td class="nowrap">{{ formatDate(r.created_at) }}</td>
-              <td class="row-arrow">›</td>
+              <td class="row-actions">
+                <button
+                  class="btn btn-secondary btn-xs"
+                  :disabled="!r.sbom_content"
+                  :title="r.sbom_content ? `Download ${r.file_name || 'SBOM'}` : 'No original SBOM file is stored for this record'"
+                  @click.stop="downloadSbom(r)"
+                >
+                  Download
+                </button>
+                <span class="row-arrow" aria-hidden="true">›</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -258,54 +268,40 @@
   <AppModal v-if="detailItem" v-model="showDetailModal" :title="detailItem.file_name || 'SBOM record'" size="xl">
     <div class="sbom-detail-layout">
 
-      <!-- ── Top bar: score ring + metadata + compliance pills ── -->
-      <header class="sbom-topbar">
-        <!-- Quality score — circular ring -->
-        <div class="topbar-score-card">
-          <div class="score-ring-wrap">
-            <svg viewBox="0 0 40 40" class="score-ring" aria-hidden="true">
-              <circle class="ring-track" cx="20" cy="20" r="16" />
-              <circle
-                v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined"
-                class="ring-value"
-                :class="qualityClass(detailItem.quality_score)"
-                cx="20" cy="20" r="16"
-                pathLength="100"
-                :stroke-dasharray="`${Math.round(detailItem.quality_score)} 100`"
-                transform="rotate(-90 20 20)"
-              />
-            </svg>
-            <div class="ring-number">
-              <template v-if="detailItem.quality_score !== null && detailItem.quality_score !== undefined">
-                <span :class="qualityClass(detailItem.quality_score)">{{ Math.round(detailItem.quality_score) }}</span><small>/100</small>
-              </template>
-              <span v-else class="muted">—</span>
-            </div>
-          </div>
-          <div class="topbar-score-meta">
-            <span class="topbar-score-label">Quality score</span>
-            <div v-if="qualityReport?.grade" class="topbar-grade-row">
-              <span class="topbar-grade-pill" :class="qualityClass(detailItem.quality_score ?? 0)">Grade {{ qualityReport.grade }}</span>
-              <span
-                class="grade-info-icon"
-                tabindex="0"
-                role="img"
-                aria-label="Grading scale: A is 80 to 100, B is 60 to 79, C is 40 to 59, D is 20 to 39, F is 0 to 19"
-                title="Grading scale — A: 80–100 · B: 60–79 · C: 40–59 · D: 20–39 · F: 0–19"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" />
-                  <line x1="12" y1="11" x2="12" y2="16.5" />
-                  <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
-                </svg>
-              </span>
-            </div>
-          </div>
+      <!-- Answer the user's first question before exposing technical detail. -->
+      <section
+        class="cra-readiness"
+        :class="craValidation ? (craValidation.is_compliant ? 'cra-ready' : 'cra-action') : 'cra-unknown'"
+      >
+        <div class="cra-readiness-copy">
+          <span class="cra-readiness-eyebrow">CRA readiness</span>
+          <h2>{{ craValidation ? (craValidation.is_compliant ? "This SBOM is CRA compliant" : "This SBOM needs attention") : "CRA compliance has not been analyzed" }}</h2>
+          <p>{{ craStatusMessage }}</p>
+          <button v-if="craRequiredFixCount" class="btn btn-primary btn-sm" type="button" @click="activeDetailTab = 'compliance'">
+            Review {{ craRequiredFixCount }} required fix{{ craRequiredFixCount !== 1 ? "es" : "" }}
+          </button>
         </div>
+        <div class="review-snapshot" aria-label="SBOM review summary">
+          <button type="button" class="snapshot-item" @click="activeDetailTab = 'quality'">
+            <span>Quality</span>
+            <strong>{{ detailItem.quality_score ?? "—" }}<small v-if="detailItem.quality_score !== null">/100</small></strong>
+            <small>View improvements</small>
+          </button>
+          <div class="snapshot-item snapshot-static">
+            <span>Components</span>
+            <strong>{{ detailItem.component_count ?? "—" }}</strong>
+            <small>In this SBOM</small>
+          </div>
+          <button type="button" class="snapshot-item" @click="activeDetailTab = 'vulnerabilities'">
+            <span>Vulnerabilities</span>
+            <strong>{{ vulnFindings.length }}</strong>
+            <small>View scan results</small>
+          </button>
+        </div>
+      </section>
 
-        <div class="topbar-divider" />
-
-        <!-- Key-value metadata -->
+      <details class="sbom-metadata">
+        <summary>SBOM details</summary>
         <dl class="topbar-meta-grid">
           <div class="topbar-meta-item">
             <dt>Format</dt>
@@ -335,35 +331,7 @@
             <dd>{{ formatDate(detailItem.created_at) }}</dd>
           </div>
         </dl>
-
-        <div class="topbar-divider" />
-
-        <!-- Compliance status pills (one per standard) -->
-        <div v-if="validateList.length" class="topbar-compliance-pills">
-          <span class="topbar-pills-label">Compliance</span>
-          <span v-for="(std, i) in validateList" :key="i" class="compliance-pill-group">
-            <span
-              class="compliance-pill"
-              :class="std.is_compliant ? 'pill-pass' : 'pill-fail'"
-            >
-              {{ std.level ?? `STD ${i + 1}` }}&nbsp;{{ std.is_compliant ? "✓" : "✗" }}
-            </span>
-            <span
-              class="grade-info-icon"
-              tabindex="0"
-              role="img"
-              :aria-label="`${standardName(std.level)} — ${std.is_compliant ? 'compliant' : 'not compliant'}.${standardDescription(std.level) ? ' ' + standardDescription(std.level) : ''}`"
-              :title="`${standardName(std.level)} — ${std.is_compliant ? 'PASS' : 'FAIL'}${standardDescription(std.level) ? '\n\n' + standardDescription(std.level) : ''}`"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <line x1="12" y1="11" x2="12" y2="16.5" />
-                <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
-          </span>
-        </div>
-      </header>
+      </details>
 
       <!-- Notes — shown as a slim banner below the top bar when present -->
       <div v-if="detailItem.notes" class="topbar-notes">
@@ -373,15 +341,19 @@
 
       <!-- ── Tabbed analysis pane ── -->
       <div class="sbom-analysis-pane">
-        <div class="detail-tabs">
+        <div class="detail-tabs" role="tablist" aria-label="SBOM detail sections">
           <button
-            v-for="tab in detailTabs"
+            v-for="(tab, index) in detailTabs"
             :key="tab.id"
             class="detail-tab"
             :class="{ active: activeDetailTab === tab.id }"
+            type="button"
+            role="tab"
+            :aria-selected="activeDetailTab === tab.id"
             @click="activeDetailTab = tab.id"
           >
-            {{ tab.label }}
+            <span class="detail-tab-number">{{ index + 1 }}</span>
+            <span class="detail-tab-copy"><strong>{{ tab.label }}</strong><small>{{ tab.description }}</small></span>
           </button>
         </div>
 
@@ -394,40 +366,39 @@
               <span v-if="detailItem.sbom_content">Click "Re-analyze" to run sbom-tools.</span>
               <span v-else>Upload the SBOM file using "Upload &amp; Analyze" to enable analysis.</span>
             </div>
-            <div v-else-if="validateList.length" class="standards-list">
-              <div v-for="(std, idx) in validateList" :key="idx" class="standard-block">
+            <div v-else-if="craValidation" class="standards-list">
+              <div class="standard-block">
                 <!-- Verdict banner: icon + name + description + PASS/FAIL pill + meta tags -->
-                <div class="standard-verdict" :class="std.is_compliant ? 'verdict-card-pass' : 'verdict-card-fail'">
+                <div class="standard-verdict" :class="craValidation.is_compliant ? 'verdict-card-pass' : 'verdict-card-fail'">
                   <span class="standard-verdict-icon">
-                    <svg v-if="std.is_compliant" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    <svg v-if="craValidation.is_compliant" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                     <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                   </span>
                   <div class="standard-verdict-body">
                     <div class="standard-verdict-top">
-                      <span class="standard-name">{{ standardName(std.level) }}</span>
-                      <span class="compliance-verdict" :class="std.is_compliant ? 'verdict-pass' : 'verdict-fail'">
-                        {{ std.is_compliant ? "PASS" : "FAIL" }}
+                      <span class="standard-name">CRA compliance</span>
+                      <span class="compliance-verdict" :class="craValidation.is_compliant ? 'verdict-pass' : 'verdict-fail'">
+                        {{ craValidation.is_compliant ? "Compliant" : "Needs attention" }}
                       </span>
                     </div>
-                    <p v-if="standardDescription(std.level)" class="standard-desc">{{ standardDescription(std.level) }}</p>
+                    <p class="standard-desc">Checks whether this SBOM contains the information required for CRA technical documentation.</p>
                     <div class="standard-tags">
-                      <span class="tag-chip">{{ std.level ?? `Standard ${idx + 1}` }}</span>
-                      <span v-if="(std.violations as unknown[])?.length" class="tag-chip">
-                        {{ (std.violations as unknown[]).length }} finding{{ (std.violations as unknown[]).length !== 1 ? "s" : "" }}
+                      <span v-if="(craValidation.violations as unknown[])?.length" class="tag-chip">
+                        {{ (craValidation.violations as unknown[]).length }} issue{{ (craValidation.violations as unknown[]).length !== 1 ? "s" : "" }} to review
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <template v-if="(std.violations as unknown[])?.length">
+                <template v-if="(craValidation.violations as unknown[])?.length">
                   <!-- Errors section -->
-                  <div v-if="violationErrors(std.violations as Record<string,unknown>[]).length" class="violation-group">
+                  <div v-if="violationErrors(craValidation.violations as Record<string,unknown>[]).length" class="violation-group">
                     <span class="violation-group-label violation-group-error">
-                      Errors ({{ violationErrors(std.violations as Record<string,unknown>[]).length }})
+                      Required fixes ({{ violationErrors(craValidation.violations as Record<string,unknown>[]).length }})
                     </span>
                     <ul class="findings-list">
                       <li
-                        v-for="(v, i) in violationErrors(std.violations as Record<string,unknown>[])"
+                        v-for="(v, i) in violationErrors(craValidation.violations as Record<string,unknown>[])"
                         :key="`e-${i}`"
                         class="finding-item finding-fail"
                       >
@@ -441,13 +412,13 @@
                   </div>
 
                   <!-- Warnings section -->
-                  <div v-if="violationWarnings(std.violations as Record<string,unknown>[]).length" class="violation-group">
+                  <div v-if="violationWarnings(craValidation.violations as Record<string,unknown>[]).length" class="violation-group">
                     <span class="violation-group-label violation-group-warn">
-                      Warnings ({{ violationWarnings(std.violations as Record<string,unknown>[]).length }})
+                      Recommended improvements ({{ violationWarnings(craValidation.violations as Record<string,unknown>[]).length }})
                     </span>
                     <ul class="findings-list">
                       <li
-                        v-for="(v, i) in violationWarnings(std.violations as Record<string,unknown>[])"
+                        v-for="(v, i) in violationWarnings(craValidation.violations as Record<string,unknown>[])"
                         :key="`w-${i}`"
                         class="finding-item finding-warn"
                       >
@@ -948,7 +919,7 @@ const showCreateModal = ref(false);
 const showUploadModal = ref(false);
 const showDetailModal = ref(false);
 const detailItem = ref<SbomRecordRead | null>(null);
-const activeDetailTab = ref("overview");
+const activeDetailTab = ref("compliance");
 const vulnFindings = ref<SbomVulnerabilityFindingRead[]>([]);
 const scanRuns = ref<SbomScanRunRead[]>([]);
 /** Most recent recorded scan run (drives the scan-history strip). */
@@ -971,12 +942,12 @@ const selectedReleaseId = ref("");
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// Detail tabs — Overview is replaced by the permanent sidebar
+// Plain-language sections shown in the order users typically review an SBOM.
 const detailTabs = [
-  { id: "compliance", label: "CRA" },
-  { id: "quality", label: "Quality" },
-  { id: "diff", label: "Differential analysis" },
-  { id: "vulnerabilities", label: "Vulnerabilities" },
+  { id: "compliance", label: "CRA compliance", description: "Readiness and required fixes" },
+  { id: "quality", label: "Quality & fixes", description: "Completeness improvements" },
+  { id: "diff", label: "Changes", description: "What changed since last SBOM" },
+  { id: "vulnerabilities", label: "Vulnerabilities", description: "Scan findings and risk" },
 ];
 
 const createForm = reactive({
@@ -1007,6 +978,26 @@ const validateList = computed((): Record<string, unknown>[] => {
   const v = f.validate;
   if (Array.isArray(v)) return v as Record<string, unknown>[];
   return [];
+});
+
+const craValidation = computed((): Record<string, unknown> | null =>
+  validateList.value.find((result) => result.level === "CraPhase2") ?? null,
+);
+
+const craViolations = computed((): Record<string, unknown>[] => {
+  const violations = craValidation.value?.violations;
+  return Array.isArray(violations) ? violations as Record<string, unknown>[] : [];
+});
+
+const craRequiredFixCount = computed(() => violationErrors(craViolations.value).length);
+
+const craStatusMessage = computed(() => {
+  if (!craValidation.value) return "Run the analysis to check whether this SBOM contains the information required by the Cyber Resilience Act.";
+  if (craValidation.value.is_compliant) return "The required CRA SBOM information is present. Review vulnerabilities before using it for a release decision.";
+  const count = craRequiredFixCount.value;
+  return count
+    ? `${count} required ${count === 1 ? "field is" : "fields are"} missing or invalid. Resolve these before relying on this SBOM as CRA evidence.`
+    : "The SBOM does not yet pass the CRA checks. Review the recommendations below before using it as compliance evidence.";
 });
 
 const qualityReport = computed((): Record<string, unknown> | null => {
@@ -1100,32 +1091,6 @@ function qualityClass(score: number): string {
   return "quality-low";
 }
 
-// Maps sbom-tools internal standard identifiers to human-readable names + descriptions.
-const STANDARD_META: Record<string, { name: string; description: string }> = {
-  CraPhase2: {
-    name: "EU Cyber Resilience Act — Phase 2",
-    description:
-      "Checks SBOM completeness against the requirements of the EU Cyber Resilience Act (CRA), " +
-      "Annex I Part II §1. Phase 2 corresponds to the obligations that apply to manufacturers " +
-      "of products with digital elements from August 2027.",
-  },
-  NtiaMinimum: {
-    name: "NTIA Minimum Elements",
-    description:
-      "Checks the seven minimum data fields defined by the US National Telecommunications and " +
-      "Information Administration (NTIA): supplier name, component name, component display_version, " +
-      "other unique identifiers, dependency relationships, author of SBOM data, and timestamp.",
-  },
-};
-
-function standardName(level: unknown): string {
-  return STANDARD_META[String(level)]?.name ?? String(level);
-}
-
-function standardDescription(level: unknown): string {
-  return STANDARD_META[String(level)]?.description ?? "";
-}
-
 function violationErrors(violations: Record<string, unknown>[]): Record<string, unknown>[] {
   return violations.filter((v) => v.severity === "Error");
 }
@@ -1137,6 +1102,19 @@ function violationWarnings(violations: Record<string, unknown>[]): Record<string
 function formatDate(val: string | null | undefined): string {
   if (!val) return "—";
   return new Date(val).toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+function downloadSbom(record: SbomRecordRead): void {
+  if (!record.sbom_content) return;
+
+  const extension = record.format === "spdx" ? "spdx.json" : record.format === "cyclonedx" ? "cdx.json" : "json";
+  const fileName = record.file_name?.trim() || `sbom-${record.id}.${extension}`;
+  const url = URL.createObjectURL(new Blob([record.sbom_content], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function toIsoOrNull(val: string): string | null {
@@ -1283,6 +1261,8 @@ async function uploadRecord(): Promise<void> {
 function openDetail(item: SbomRecordRead): void {
   detailItem.value = item;
   activeDetailTab.value = "compliance";
+  vulnFindings.value = [];
+  void loadVulnFindings(item.id);
   showDetailModal.value = true;
 }
 
@@ -1381,10 +1361,10 @@ async function scanVulnerabilities(): Promise<void> {
     const result = await sbomRecordService.scanVulnerabilities(detailItem.value.id);
     await loadVulnFindings(detailItem.value.id);
 
-    if (!result.osv_reachable) {
-      vulnScanError.value = "OSV vulnerability database unreachable — check backend internet connectivity. No findings were recorded.";
-    } else if (result.components_scanned === 0) {
-      vulnScanError.value = "No components with a recognised ecosystem PURL found. Upload a CycloneDX or SPDX SBOM with package URLs to enable scanning.";
+    if (!result.scan_successful) {
+      vulnScanError.value = result.guidance ?? "The vulnerability scan could not process this SBOM. Check its component identifiers and scanner availability.";
+    } else if (!result.osv_reachable) {
+      vulnScanError.value = result.guidance ?? "OSV was unreachable. Check backend internet connectivity and scan again for complete coverage.";
     } else {
       // Build a human-readable per-scanner breakdown
       const ps = result.per_scanner ?? {};
@@ -1401,7 +1381,8 @@ async function scanVulnerabilities(): Promise<void> {
         `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ` +
         `${result.findings_created} new finding${result.findings_created !== 1 ? "s" : ""}, ` +
         `${result.reports_created} report${result.reports_created !== 1 ? "s" : ""} created.` +
-        scannerDetail + nvdDetail + kevDetail + trivyNote;
+        scannerDetail + nvdDetail + kevDetail + trivyNote +
+        (result.guidance ? ` Guidance: ${result.guidance}` : "");
     }
   } catch {
     vulnScanError.value = "Scan request failed. Check that the backend is running and try again.";
@@ -1652,6 +1633,7 @@ input:focus, select:focus, textarea:focus {
 .table-row-clickable { cursor: pointer; transition: background 0.12s; }
 .table-row-clickable:hover { background: var(--color-surface-elevated); }
 .table-row-clickable:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; white-space: nowrap; }
 
 /* ── Product / release cell ── */
 .sbom-release-cell { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -1695,9 +1677,61 @@ input:focus, select:focus, textarea:focus {
 .sbom-detail-layout {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  height: 640px; /* fixed — modal never resizes when switching tabs */
+  gap: 0.8rem;
+  height: min(720px, calc(100vh - 11rem));
+  min-height: 560px;
 }
+
+.cra-readiness {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: 0.9rem;
+  background: var(--color-surface-soft);
+  flex-shrink: 0;
+}
+
+.cra-ready { border-left-color: var(--color-success-text); }
+.cra-action { border-left-color: var(--color-danger-text); }
+.cra-unknown { border-left-color: var(--color-text-muted); }
+
+.cra-readiness-copy { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.4rem; }
+.cra-readiness-eyebrow { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.cra-readiness h2 { margin: 0; font-size: 1.25rem; line-height: 1.25; }
+.cra-ready h2 { color: var(--color-success-text); }
+.cra-action h2 { color: var(--color-danger-text); }
+.cra-readiness p { max-width: 68ch; margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.5; }
+.cra-readiness .btn { margin-top: 0.3rem; }
+
+.review-snapshot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; }
+.snapshot-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  background: var(--color-surface);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.snapshot-item:not(.snapshot-static):hover { border-color: var(--color-primary); background: var(--color-surface-elevated); }
+.snapshot-static { cursor: default; }
+.snapshot-item > span { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 600; }
+.snapshot-item strong { font-size: 1.25rem; line-height: 1.1; }
+.snapshot-item strong small { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 500; }
+.snapshot-item > small { overflow: hidden; color: var(--color-text-muted); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.sbom-metadata { flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 0.7rem; background: var(--color-surface-soft); }
+.sbom-metadata summary { padding: 0.55rem 0.75rem; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.sbom-metadata .topbar-meta-grid { padding: 0 0.75rem 0.75rem; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
 /* ── Top bar: score ring + metadata + compliance pills ── */
 .sbom-topbar {
@@ -1851,12 +1885,6 @@ input:focus, select:focus, textarea:focus {
   margin-right: 0.15rem;
 }
 
-.compliance-pill-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
 .compliance-pill {
   display: inline-block;
   padding: 0.18rem 0.55rem;
@@ -1870,6 +1898,7 @@ input:focus, select:focus, textarea:focus {
 
 .pill-pass { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border); }
 .pill-fail { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid var(--color-danger-border); }
+.pill-unknown { background: var(--color-surface-elevated); color: var(--color-text-muted); border: 1px solid var(--color-border); }
 
 /* Notes banner below the top bar */
 .topbar-notes {
@@ -1912,27 +1941,38 @@ input:focus, select:focus, textarea:focus {
 /* Tab bar */
 .detail-tabs {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: 0.45rem;
   flex-shrink: 0;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
 }
 
 .detail-tab {
   background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 0.55rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 180px;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  padding: 0.6rem 0.7rem;
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-muted);
   cursor: pointer;
-  margin-bottom: -1px;
-  transition: color 0.12s, border-color 0.12s;
+  text-align: left;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  white-space: nowrap;
 }
 
-.detail-tab:hover { color: inherit; }
-.detail-tab.active { color: inherit; border-bottom-color: rgba(175, 214, 46, 0.9); }
+.detail-tab:hover { color: inherit; background: var(--color-surface-elevated); }
+.detail-tab.active { color: inherit; border-color: var(--color-primary); background: var(--color-surface-elevated); }
+.detail-tab-number { display: grid; width: 1.65rem; height: 1.65rem; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--color-surface); color: var(--color-text-muted); font-size: var(--text-xs); }
+.detail-tab.active .detail-tab-number { background: var(--color-primary); color: white; }
+.detail-tab-copy { display: flex; flex-direction: column; gap: 0.1rem; }
+.detail-tab-copy strong { font-size: var(--text-xs); }
+.detail-tab-copy small { color: var(--color-text-muted); font-size: 0.66rem; font-weight: 500; }
 
 /* Scrollable tab content — fills remaining height, never changes size */
 .tab-scroll-area {
@@ -2819,5 +2859,17 @@ input:focus, select:focus, textarea:focus {
   padding: 0.25rem 0.65rem;
   font-size: var(--text-xs);
   text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .sbom-detail-layout { height: calc(100vh - 9rem); min-height: 0; }
+  .cra-readiness { grid-template-columns: 1fr; }
+  .sbom-metadata .topbar-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .review-snapshot { grid-template-columns: 1fr; }
+  .snapshot-item { padding: 0.55rem 0.7rem; }
+  .detail-tab { min-width: 165px; }
 }
 </style>

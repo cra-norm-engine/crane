@@ -135,6 +135,7 @@
               <th>Release</th>
               <th>Approved</th>
               <th>Updated</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -154,6 +155,16 @@
               <td>{{ getReleaseName(assessment.product_release_id) }}</td>
               <td>{{ formatDate(assessment.approved_at) }}</td>
               <td>{{ formatDate(assessment.updated_at) }}</td>
+              <td>
+                <AppButton
+                  variant="danger"
+                  size="sm"
+                  :disabled="deletingAssessmentId === assessment.id"
+                  @click.stop="deleteAssessment(assessment)"
+                >
+                  {{ deletingAssessmentId === assessment.id ? "Deleting..." : "Delete" }}
+                </AppButton>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -184,6 +195,7 @@ const authStore = useAuthStore();
 
 const loading = ref(false);
 const creating = ref(false);
+const deletingAssessmentId = ref<string | null>(null);
 const openCreateForm = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -383,6 +395,24 @@ async function createAssessment(): Promise<void> {
     errorMessage.value = error?.message ?? "Failed to create risk assessment.";
   } finally {
     creating.value = false;
+  }
+}
+
+async function deleteAssessment(assessment: RiskAssessmentRead): Promise<void> {
+  if (!window.confirm(`Delete the risk assessment "${assessment.title}" and all of its risk items? This cannot be undone.`)) return;
+
+  deletingAssessmentId.value = assessment.id;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    await riskAssessmentService.remove(assessment.id);
+    assessments.value = assessments.value.filter((item) => item.id !== assessment.id);
+    successMessage.value = "Risk assessment deleted.";
+  } catch (error: any) {
+    errorMessage.value = error?.message ?? "Failed to delete risk assessment.";
+  } finally {
+    deletingAssessmentId.value = null;
   }
 }
 

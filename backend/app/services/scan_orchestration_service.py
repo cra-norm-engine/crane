@@ -79,12 +79,13 @@ class ScanOrchestrationService:
             return run
 
         osv_reachable = bool(result.get("osv_reachable", True))
+        scan_successful = bool(result.get("scan_successful", True))
         run = SbomScanRun(
             sbom_record_id=sbom_record_id,
             trigger=trigger,
             # "degraded" when the primary source could not be reached, so the run
             # is visibly incomplete and gets retried next cycle.
-            status="completed" if osv_reachable else "degraded",
+            status="failed" if not scan_successful else ("completed" if osv_reachable else "degraded"),
             findings_created=int(result.get("findings_created", 0)),
             reports_created=int(result.get("reports_created", 0)),
             components_scanned=int(result.get("components_scanned", 0)),
@@ -92,6 +93,7 @@ class ScanOrchestrationService:
             epss_enrichments=int(result.get("epss_enrichments", 0)),
             osv_reachable=osv_reachable,
             trivy_available=bool(result.get("trivy_available", False)),
+            error=result.get("guidance") if not scan_successful else None,
             duration_ms=int((time.monotonic() - started) * 1000),
         )
         self.db.add(run)
