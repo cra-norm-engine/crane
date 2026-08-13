@@ -21,6 +21,7 @@ recorded as ``failed``/``degraded`` and the next cycle retries.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from uuid import UUID
 
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
 # EPSS) are not hammered. The scanner already paces its own per-request calls;
 # this just adds breathing room between whole SBOMs.
 _INTER_SBOM_DELAY_SECONDS = 2.0
+_SCAN_LOCK = threading.Lock()
 
 
 class ScanOrchestrationService:
@@ -50,6 +52,7 @@ class ScanOrchestrationService:
         *,
         trigger: str,
         actor: object = None,
+        run: SbomScanRun | None = None,
     ) -> SbomScanRun:
         """
         Run one scan and record an SbomScanRun row.
@@ -60,43 +63,41 @@ class ScanOrchestrationService:
         sweep keeps going).
         """
         started = time.monotonic()
+        run = run or SbomScanRun(sbom_record_id=sbom_record_id, trigger=trigger, status="queued")
+        if run not in self.db:
+            self.db.add(run)
+        self.db.commit()
+
         try:
-            result = SbomVulnerabilityScanner(self.db).scan(
-                sbom_record_id, actor=actor, trigger=trigger
-            )
+            # Trivy is memory intensive. Serialize scans within an instance so
+            # on-upload and manual jobs cannot exhaust small hosted workers.
+            with _SCAN_LOCK:
+                run.status = "running"
+                self.db.commit()
+                result = SbomVulnerabilityScanner(self.db).scan(
+                    sbom_record_id, actor=actor, trigger=trigger
+                )
         except Exception as exc:  # noqa: BLE001 — a bad scan must not break the sweep
             logger.exception("Scan failed for SBOM %s (trigger=%s)", sbom_record_id, trigger)
-            run = SbomScanRun(
-                sbom_record_id=sbom_record_id,
-                trigger=trigger,
-                status="failed",
-                error=str(exc)[:2000],
-                duration_ms=int((time.monotonic() - started) * 1000),
-            )
-            self.db.add(run)
+            run.status = "failed"
+            run.error = str(exc)[:2000]
+            run.duration_ms = int((time.monotonic() - started) * 1000)
             self.db.commit()
             self.db.refresh(run)
             return run
 
         osv_reachable = bool(result.get("osv_reachable", True))
         scan_successful = bool(result.get("scan_successful", True))
-        run = SbomScanRun(
-            sbom_record_id=sbom_record_id,
-            trigger=trigger,
-            # "degraded" when the primary source could not be reached, so the run
-            # is visibly incomplete and gets retried next cycle.
-            status="failed" if not scan_successful else ("completed" if osv_reachable else "degraded"),
-            findings_created=int(result.get("findings_created", 0)),
-            reports_created=int(result.get("reports_created", 0)),
-            components_scanned=int(result.get("components_scanned", 0)),
-            nvd_enrichments=int(result.get("nvd_enrichments", 0)),
-            epss_enrichments=int(result.get("epss_enrichments", 0)),
-            osv_reachable=osv_reachable,
-            trivy_available=bool(result.get("trivy_available", False)),
-            error=result.get("guidance") if not scan_successful else None,
-            duration_ms=int((time.monotonic() - started) * 1000),
-        )
-        self.db.add(run)
+        run.status = "failed" if not scan_successful else ("completed" if osv_reachable else "degraded")
+        run.findings_created = int(result.get("findings_created", 0))
+        run.reports_created = int(result.get("reports_created", 0))
+        run.components_scanned = int(result.get("components_scanned", 0))
+        run.nvd_enrichments = int(result.get("nvd_enrichments", 0))
+        run.epss_enrichments = int(result.get("epss_enrichments", 0))
+        run.osv_reachable = osv_reachable
+        run.trivy_available = bool(result.get("trivy_available", False))
+        run.error = result.get("guidance") if not scan_successful else None
+        run.duration_ms = int((time.monotonic() - started) * 1000)
         self.db.commit()
         self.db.refresh(run)
         return run

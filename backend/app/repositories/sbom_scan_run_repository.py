@@ -28,3 +28,15 @@ class SbomScanRunRepository(BaseRepository[SbomScanRun]):
             .order_by(SbomScanRun.created_at.desc())
         )
         return list(self.db.scalars(stmt).all())
+
+    def active_for_sbom(self, sbom_record_id: UUID) -> SbomScanRun | None:
+        stmt = (
+            select(SbomScanRun)
+            .where(
+                SbomScanRun.sbom_record_id == sbom_record_id,
+                SbomScanRun.status.in_(("queued", "running")),
+            )
+            .order_by(SbomScanRun.created_at.desc())
+            .limit(1)
+        )
+        return self.db.scalar(stmt)

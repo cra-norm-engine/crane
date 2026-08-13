@@ -1053,7 +1053,7 @@ export interface SbomScanRunRead {
   sbom_record_id: string;
   /** "manual" | "scheduled" | "on_upload". */
   trigger: string;
-  /** "completed" | "degraded" | "failed". */
+  /** "queued" | "running" | "completed" | "degraded" | "failed". */
   status: string;
   findings_created: number;
   reports_created: number;

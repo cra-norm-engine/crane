@@ -9,7 +9,6 @@ import type {
   SbomRecordCreate,
   SbomRecordRead,
   SbomRecordUpdate,
-  SbomScanResult,
   SbomScanRunRead,
   SbomVulnerabilityFindingRead,
 } from "@/types/product";
@@ -44,13 +43,11 @@ export const sbomRecordService = {
     await apiClient.delete(`/sbom-records/${sbomId}`);
   },
 
-  /** Trigger a multi-scanner vulnerability scan (OSV + Trivy + NVD) for this SBOM (CRA Art. 13(2)).
-   *  Extended timeout: Trivy downloads its DB on first cold run; NVD enrichment adds latency. */
-  async scanVulnerabilities(sbomId: string): Promise<SbomScanResult> {
-    const { data } = await apiClient.post<SbomScanResult>(
+  /** Queue a multi-scanner scan and return immediately. */
+  async scanVulnerabilities(sbomId: string): Promise<SbomScanRunRead> {
+    const { data } = await apiClient.post<SbomScanRunRead>(
       `/sbom-records/${sbomId}/scan-vulnerabilities`,
       null,
-      { timeout: 300_000 },  // 5 minutes — Trivy + NVD enrichment can take 2–3 min cold
     );
     return data;
   },

@@ -1354,38 +1354,44 @@ function formatRunTime(iso: string): string {
 
 async function scanVulnerabilities(): Promise<void> {
   if (!detailItem.value) return;
+  const sbomId = detailItem.value.id;
   isScanningVulns.value = true;
   vulnScanError.value = "";
   errorMessage.value = "";
   try {
-    const result = await sbomRecordService.scanVulnerabilities(detailItem.value.id);
-    await loadVulnFindings(detailItem.value.id);
+    let run = await sbomRecordService.scanVulnerabilities(sbomId);
+    successMessage.value = run.status === "running" ? "Vulnerability scan is running…" : "Vulnerability scan queued…";
 
-    if (!result.scan_successful) {
-      vulnScanError.value = result.guidance ?? "The vulnerability scan could not process this SBOM. Check its component identifiers and scanner availability.";
-    } else if (!result.osv_reachable) {
-      vulnScanError.value = result.guidance ?? "OSV was unreachable. Check backend internet connectivity and scan again for complete coverage.";
-    } else {
-      // Build a human-readable per-scanner breakdown
-      const ps = result.per_scanner ?? {};
-      const scannerParts: string[] = [];
-      if ((ps.osv ?? 0) > 0)   scannerParts.push(`OSV: ${ps.osv}`);
-      if ((ps.trivy ?? 0) > 0) scannerParts.push(`Trivy: ${ps.trivy}`);
-      if ((ps.both ?? 0) > 0)  scannerParts.push(`Both: ${ps.both}`);
-      const scannerDetail = scannerParts.length ? ` (${scannerParts.join(" · ")})` : "";
-      const nvdDetail = (result.nvd_enrichments ?? 0) > 0 ? ` · NVD enriched ${result.nvd_enrichments}` : "";
-      const kevDetail = (result.kev_matches ?? 0) > 0 ? ` · ${result.kev_matches} CISA KEV match${result.kev_matches !== 1 ? "es" : ""}` : "";
-      const trivyNote = result.trivy_available === false ? " · Trivy not installed" : "";
-
-      successMessage.value =
-        `Scanned ${result.components_scanned} component${result.components_scanned !== 1 ? "s" : ""} — ` +
-        `${result.findings_created} new finding${result.findings_created !== 1 ? "s" : ""}, ` +
-        `${result.reports_created} report${result.reports_created !== 1 ? "s" : ""} created.` +
-        scannerDetail + nvdDetail + kevDetail + trivyNote +
-        (result.guidance ? ` Guidance: ${result.guidance}` : "");
+    for (let attempt = 0; attempt < 150 && ["queued", "running"].includes(run.status); attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+      const runs = await sbomRecordService.listScanRuns(sbomId);
+      run = runs.find((item) => item.id === run.id) ?? run;
+      scanRuns.value = runs;
+      successMessage.value = run.status === "running"
+        ? "Scanning SBOM components for vulnerabilities…"
+        : "Vulnerability scan queued…";
     }
-  } catch {
-    vulnScanError.value = "Scan request failed. Check that the backend is running and try again.";
+
+    if (["queued", "running"].includes(run.status)) {
+      successMessage.value = "The scan is still running in the background. You can close this window and return later.";
+      return;
+    }
+
+    await loadVulnFindings(sbomId);
+    if (run.status === "failed") {
+      successMessage.value = "";
+      vulnScanError.value = run.error ?? "The vulnerability scan failed. Review the latest scan status and try again.";
+    } else {
+      const coverageNote = run.status === "degraded"
+        ? " Some vulnerability sources were unavailable; retry later for full coverage."
+        : "";
+      successMessage.value =
+        `Scanned ${run.components_scanned} component${run.components_scanned !== 1 ? "s" : ""} — ` +
+        `${run.findings_created} new finding${run.findings_created !== 1 ? "s" : ""}, ` +
+        `${run.reports_created} report${run.reports_created !== 1 ? "s" : ""} created.${coverageNote}`;
+    }
+  } catch (error: any) {
+    vulnScanError.value = error?.userMessage ?? error?.message ?? "The scan could not be queued. Try again shortly.";
   } finally {
     isScanningVulns.value = false;
   }

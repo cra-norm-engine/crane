@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Response, UploadFile, status
@@ -20,14 +21,13 @@ from app.core.permissions import Permission
 from app.models.user import User
 from app.schemas.sbom_record import SbomRecordCreate, SbomRecordRead, SbomRecordUpdate
 from app.schemas.sbom_vulnerability_finding import (
-    SbomScanResult,
     SbomScanRunRead,
     SbomVulnerabilityFindingRead,
 )
 from app.services.scan_orchestration_service import ScanOrchestrationService
 from app.services.sbom_record_service import SbomRecordService
-from app.services.sbom_vulnerability_scanner import SbomVulnerabilityScanner
 from app.repositories.sbom_scan_run_repository import SbomScanRunRepository
+from app.models.sbom_scan_run import SbomScanRun
 from app.repositories.sbom_vulnerability_finding_repository import SbomVulnerabilityFindingRepository
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,18 @@ def _run_on_upload_scan(sbom_id: UUID) -> None:
             ScanOrchestrationService(db).run_scan(sbom_id, trigger="on_upload", actor=None)
     except Exception:  # noqa: BLE001 — background best-effort
         logger.exception("On-upload scan failed for SBOM %s", sbom_id)
+
+
+def _run_queued_scan(run_id: UUID, actor_user_id: UUID) -> None:
+    with SessionLocal() as db:
+        run = db.get(SbomScanRun, run_id)
+        if run is not None:
+            ScanOrchestrationService(db).run_scan(
+                run.sbom_record_id,
+                trigger=run.trigger,
+                actor=SimpleNamespace(id=actor_user_id),
+                run=run,
+            )
 
 
 @router.get("/", response_model=list[SbomRecordRead])
@@ -148,12 +160,13 @@ def reanalyze_sbom_record(
     return SbomRecordService(db).reanalyze(sbom_id, actor=current_user)
 
 
-@router.post("/{sbom_id}/scan-vulnerabilities", response_model=SbomScanResult)
+@router.post("/{sbom_id}/scan-vulnerabilities", response_model=SbomScanRunRead, status_code=status.HTTP_202_ACCEPTED)
 def scan_sbom_vulnerabilities(
     sbom_id: UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.security_update_write)),
-) -> SbomScanResult:
+) -> SbomScanRunRead:
     """
     Scan an SBOM's components against the OSV vulnerability database.
 
@@ -161,8 +174,16 @@ def scan_sbom_vulnerabilities(
     auto-creates a VulnerabilityReport for each finding so it enters the
     exploitability assessment workflow (CRA Art. 13(2)).
     """
-    result = SbomVulnerabilityScanner(db).scan(sbom_id, actor=current_user)
-    return SbomScanResult(**result)
+    SbomRecordService(db).get_sbom_record(sbom_id)
+    repository = SbomScanRunRepository(db)
+    run = repository.active_for_sbom(sbom_id)
+    if run is None:
+        run = SbomScanRun(sbom_record_id=sbom_id, trigger="manual", status="queued")
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        background_tasks.add_task(_run_queued_scan, run.id, current_user.id)
+    return SbomScanRunRead.model_validate(run)
 
 
 @router.get("/{sbom_id}/vulnerability-findings", response_model=list[SbomVulnerabilityFindingRead])
