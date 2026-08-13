@@ -12,17 +12,19 @@
     draft -> approved -> signed workflow, and offers PDF downloads for both the
     DoC and the package label.
   -->
-  <section class="doc-page">
-    <div v-if="isLoading && !doc" class="doc-loading">Loading declaration…</div>
+  <section class="page declaration-page">
+    <div v-if="isLoading && !doc" class="panel doc-loading">Loading declaration…</div>
 
     <template v-else-if="doc">
-      <header class="doc-head">
+      <RouterLink class="back-link" :to="{ name: 'declarations' }">← Back to declarations</RouterLink>
+
+      <header class="page-header">
         <div>
-          <div class="doc-eyebrow">Cyber Resilience Act · EU Declaration of Conformity</div>
-          <h1 class="doc-title">{{ doc.product.name }} <span class="muted">{{ disp(doc.product.model) }}</span></h1>
-          <div class="doc-meta">Manufacturer <b>{{ disp(doc.manufacturer.name) }}</b> · {{ doc.meta.generated_at }}</div>
+          <span class="eyebrow">Cyber Resilience Act · EU Declaration of Conformity</span>
+          <h1 class="page-title">{{ doc.product.name }} <span class="muted">{{ disp(doc.product.model) }}</span></h1>
+          <p class="muted page-subtitle">Manufacturer <b>{{ disp(doc.manufacturer.name) }}</b> · {{ doc.meta.generated_at }}</p>
         </div>
-        <div class="doc-actions">
+        <div class="page-actions">
           <StatusBadge :label="statusLabel" :variant="statusVariant" />
           <AppButton
             v-if="canWrite && status === 'draft' && !editing"
@@ -41,7 +43,7 @@
       </header>
 
       <!-- Workflow controls (draft -> approved -> signed). Gated by release_write. -->
-      <div v-if="canWrite" class="doc-flow">
+      <section v-if="canWrite" class="panel doc-flow">
         <div class="doc-flow-steps">
           <span :class="['flow-step', { on: order(doc.meta) >= 0 }]">Draft</span>
           <span class="flow-arrow">→</span>
@@ -73,11 +75,14 @@
           >Return to draft</AppButton>
           <span v-if="status === 'signed'" class="doc-locked">Signed and locked — this declaration cannot be edited.</span>
         </div>
-      </div>
+      </section>
 
       <!-- Editable DoC form (draft only). Only the manufacturer-supplied Annex V
            fields are editable here; product identity comes from the product record. -->
-      <form v-if="editing" class="doc-edit" @submit.prevent="saveEdit">
+      <form v-if="editing" class="panel doc-edit" @submit.prevent="saveEdit">
+        <div class="panel-header">
+          <div><h2 class="section-title">Edit declaration details</h2><p class="muted section-subtitle">Complete the manufacturer-supplied fields used in the Annex V document.</p></div>
+        </div>
         <div class="doc-edit-grid">
           <label class="field">
             <span>Declaration reference number</span>
@@ -125,7 +130,11 @@
       </form>
 
       <!-- Annex V preview: mirrors the generated PDF. -->
-      <article v-else class="doc-body">
+      <article v-else class="panel doc-body">
+        <div class="panel-header doc-preview-header">
+          <div><h2 class="section-title">Annex V preview</h2><p class="muted section-subtitle">This content mirrors the generated Declaration of Conformity PDF.</p></div>
+          <StatusBadge :label="statusLabel" :variant="statusVariant" />
+        </div>
         <section class="doc-item">
           <div class="doc-n">1 · Declaration reference number</div>
           <div>{{ disp(doc.reference_no) }}</div>
@@ -193,6 +202,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { RouterLink } from "vue-router";
 import AppButton from "@/components/AppButton.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import type { BadgeVariant } from "@/components/StatusBadge.vue";
@@ -396,60 +406,50 @@ onMounted(load);
 </script>
 
 <style scoped>
-.doc-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 24px 20px 60px;
-}
+.declaration-page { gap: var(--space-5); }
 .doc-loading {
   color: var(--color-text-muted);
-  padding: 40px 0;
+  padding: var(--space-8);
+  text-align: center;
 }
-.doc-head {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
 }
-.doc-eyebrow {
-  font-family: monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-muted, #8b9290);
+.back-link { align-self: flex-start; color: var(--color-primary); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.page-title { margin: var(--space-1) 0 0; }
+.page-subtitle, .section-subtitle { margin: var(--space-1) 0 0; }
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
-.doc-title {
-  font-size: 22px;
-  margin: 4px 0 2px;
-}
-.doc-title .muted,
+.page-title .muted,
 .muted {
   color: var(--color-text-muted, #8b9290);
   font-weight: 400;
 }
-.doc-meta {
-  font-size: 13px;
-  color: var(--color-text-muted, #5b6260);
-}
-.doc-actions {
+.panel { background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end)); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-lg); }
+.panel-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
+.section-title { margin: 0; font-size: var(--text-xl); }
 .doc-flow {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 12px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface-elevated);
-  margin-bottom: 20px;
+  padding: var(--space-4) var(--space-5);
 }
 .doc-flow-steps {
   display: flex;
@@ -528,11 +528,7 @@ dl.kv dd {
 
 /* Editable DoC form (draft only). */
 .doc-edit {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface-elevated);
-  padding: 16px;
-  margin-bottom: 20px;
+  padding: var(--space-5);
 }
 .doc-edit-grid {
   display: grid;
@@ -573,7 +569,10 @@ dl.kv dd {
   gap: 8px;
   margin-top: 14px;
 }
+.doc-preview-header { border-bottom: 1px solid var(--color-divider); padding-bottom: var(--space-4); }
 @media (max-width: 640px) {
+  .page-header, .panel-header, .doc-flow { align-items: stretch; }
+  .page-actions { width: 100%; }
   .doc-edit-grid {
     grid-template-columns: 1fr;
   }

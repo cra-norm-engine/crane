@@ -1,10 +1,10 @@
 <template>
-  <section class="assurance-page">
-    <header class="hero">
+  <section class="page assurance-page">
+    <header class="page-header hero">
       <div>
         <p class="eyebrow">Supply chain assurance</p>
-        <h1>Supplier due diligence</h1>
-        <p class="hero-copy">Assess third-party cybersecurity risk, connect evidence, and maintain an audit-ready record for CRA Article 13.</p>
+        <h1 class="page-title">Supplier due diligence</h1>
+        <p class="muted page-subtitle hero-copy">Assess third-party cybersecurity risk, connect evidence, and maintain an audit-ready record for CRA Article 13.</p>
       </div>
       <AppButton v-if="canWrite" variant="primary" @click="openSupplierCreate">
         <span aria-hidden="true">＋</span> Add supplier
@@ -188,4 +188,10 @@ onMounted(load);
 .trace-list{display:grid;gap:10px}.trace-row{padding:15px;border:1px solid var(--color-border);border-radius:11px;background:var(--color-surface)}.trace-path{display:flex;align-items:center;gap:8px;font-size:13px}.trace-path a{color:var(--color-primary);font-weight:650;text-decoration:none}.trace-path span{color:var(--color-text-muted)}.trace-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.trace-meta>*{padding:3px 7px;border-radius:6px;background:var(--color-surface-elevated);color:var(--color-text-muted);font-size:10.5px;text-decoration:none}.trace-meta .criticality-high,.trace-meta .gap-text{background:var(--color-danger-bg);color:var(--color-danger-text)}.trace-meta .criticality-medium{background:rgba(245,158,11,.13);color:#b87506}.trace-row p{margin:10px 0 0;color:var(--color-text-muted);font-size:12px}
 .row-actions,.trace-head{display:flex;align-items:center;justify-content:space-between;gap:6px}.checkbox-field{grid-template-columns:auto 1fr!important;align-items:center;align-self:end;min-height:39px}.checkbox-field input{width:16px;height:16px}.checkbox-field span{font-weight:600!important}
 .component-link{display:block;color:var(--color-primary);font-size:12.5px;font-weight:700;text-decoration:none}.component-link:hover{text-decoration:underline}
+
+/* Match the shared application frame instead of constraining this view to a custom width. */
+.assurance-page{max-width:none;margin:0;display:flex;gap:var(--space-5)}
+.hero{padding:0;gap:var(--space-4)}
+.hero .page-title{font-size:var(--text-3xl);line-height:1.2;letter-spacing:normal}
+.hero-copy{margin:var(--space-2) 0 0;font-size:var(--text-sm)}
 </style>

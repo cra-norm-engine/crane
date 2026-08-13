@@ -12,28 +12,36 @@
     per-release DeclarationView where the DoC can be previewed, signed and
     downloaded.
   -->
-  <section class="dl-page">
-    <header class="dl-head">
+  <section class="page declarations-page">
+    <header class="page-header">
       <div>
-        <div class="dl-eyebrow">Cyber Resilience Act · Article 28</div>
-        <h1 class="dl-title">Declarations of Conformity</h1>
-        <p class="dl-sub">
+        <span class="eyebrow">Cyber Resilience Act · Article 28</span>
+        <h1 class="page-title">Declarations of Conformity</h1>
+        <p class="muted page-subtitle">
           Draw up and sign the EU Declaration of Conformity for each product release, and
           generate the matching package label.
         </p>
       </div>
     </header>
 
-    <div v-if="isLoading" class="dl-loading">Loading declarations…</div>
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="section-title">Release declarations</h2>
+          <p class="muted section-subtitle">{{ rows.length }} declaration{{ rows.length === 1 ? "" : "s" }} across all product releases</p>
+        </div>
+      </div>
 
-    <EmptyState
-      v-else-if="rows.length === 0"
-      title="No releases yet"
-      description="Create a product release to draw up its Declaration of Conformity."
-    />
+      <div v-if="isLoading" class="empty-panel muted">Loading declarations…</div>
 
-    <div v-else class="dl-table-wrap">
-      <table class="dl-table">
+      <EmptyState
+        v-else-if="rows.length === 0"
+        title="No releases yet"
+        description="Create a product release to draw up its Declaration of Conformity."
+      />
+
+      <div v-else class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
             <th>Product</th>
@@ -41,35 +49,39 @@
             <th>DoC ref.</th>
             <th>Status</th>
             <th>Signatory</th>
-            <th class="right">Actions</th>
+            <th aria-label="Open declaration"></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in rows" :key="row.release_id">
+          <tr
+            v-for="row in rows"
+            :key="row.release_id"
+            class="table-row-clickable"
+            tabindex="0"
+            @click="openDeclaration(row.release_id)"
+            @keydown.enter="openDeclaration(row.release_id)"
+            @keydown.space.prevent="openDeclaration(row.release_id)"
+          >
             <td>
-              <div class="dl-pname">{{ row.product_name }}</div>
-              <div class="dl-pcode">{{ row.product_code }}</div>
+              <div class="cell-primary">{{ row.product_name }}</div>
+              <div class="product-code">{{ row.product_code }}</div>
             </td>
             <td>{{ row.version_label }}</td>
             <td>{{ row.doc_number ?? "—" }}</td>
             <td><StatusBadge :label="statusLabel(row.doc_status)" :variant="statusVariant(row.doc_status)" /></td>
             <td>{{ row.signatory ?? "—" }}</td>
-            <td class="right">
-              <RouterLink
-                class="dl-link"
-                :to="{ name: 'release-declaration', params: { releaseId: row.release_id } }"
-              >Open</RouterLink>
-            </td>
+            <td class="row-arrow" aria-hidden="true">›</td>
           </tr>
         </tbody>
       </table>
-    </div>
+      </div>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
 import EmptyState from "@/components/EmptyState.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import type { BadgeVariant } from "@/components/StatusBadge.vue";
@@ -78,9 +90,14 @@ import { euDeclarationService } from "@/services/eu-declaration-service";
 import type { DeclarationSummary, DocStatus } from "@/types/declaration";
 
 const { showToast } = useToast();
+const router = useRouter();
 
 const rows = ref<DeclarationSummary[]>([]);
 const isLoading = ref(false);
+
+function openDeclaration(releaseId: string): void {
+  void router.push({ name: "release-declaration", params: { releaseId } });
+}
 
 // Title-case the status for display.
 function statusLabel(s: DocStatus): string {
@@ -114,78 +131,24 @@ onMounted(load);
 </script>
 
 <style scoped>
-.dl-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 20px 60px;
-}
-.dl-eyebrow {
+.declarations-page { gap: var(--space-5); }
+.page-title { margin: var(--space-1) 0 0; }
+.page-subtitle, .section-subtitle { margin: var(--space-1) 0 0; }
+.panel { background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end)); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-lg); }
+.panel-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.section-title { margin: 0; font-size: var(--text-xl); }
+.empty-panel { padding: var(--space-8); text-align: center; }
+.table-wrapper { overflow-x: auto; }
+.data-table { width: 100%; min-width: 640px; border-collapse: collapse; }
+.data-table th, .data-table td { padding: .8rem .75rem; border-top: 1px solid var(--color-divider); text-align: left; }
+.data-table th { color: var(--color-text-muted); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; }
+.table-row-clickable { cursor: pointer; }
+.table-row-clickable:hover, .table-row-clickable:focus-visible { background: var(--color-surface-soft); outline: none; }
+.cell-primary { font-weight: 600; }
+.product-code {
   font-family: monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-muted, #8b9290);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
-.dl-title {
-  font-size: 24px;
-  margin: 4px 0 4px;
-}
-.dl-sub {
-  color: var(--color-text-muted, #5b6260);
-  font-size: 14px;
-  max-width: 640px;
-  margin: 0 0 20px;
-}
-.dl-loading {
-  color: var(--color-text-muted, #5b6260);
-  padding: 40px 0;
-}
-.dl-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--color-border, #e7e1d2);
-  border-radius: 8px;
-}
-.dl-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  min-width: 640px;
-}
-.dl-table th {
-  text-align: left;
-  font-family: monospace;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-muted, #8b9290);
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border, #dcd6c6);
-  font-weight: 400;
-  background: var(--color-surface-elevated);
-}
-.dl-table td {
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--color-border, #efeadf);
-  vertical-align: top;
-}
-.dl-table th.right,
-.dl-table td.right {
-  text-align: right;
-}
-.dl-pname {
-  font-weight: 600;
-}
-.dl-pcode {
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--color-text-muted, #8b9290);
-}
-.dl-link {
-  color: var(--color-primary);
-  font-weight: 600;
-  text-decoration: none;
-}
-.dl-link:hover {
-  text-decoration: underline;
-}
+.row-arrow { width: 2rem; text-align: right !important; color: var(--color-text-muted); font-size: var(--text-xl); }
 </style>
