@@ -41,7 +41,7 @@
 
           <div class="s-card-body">
             <div class="identity">
-              <div class="avatar">{{ userInitial }}</div>
+              <div class="avatar" aria-hidden="true">{{ userEmoji }}</div>
               <div class="who">
                 <span class="who-name">{{ authStore.userFullName || "—" }}</span>
                 <span class="who-email">{{ authStore.userEmail }}</span>
@@ -389,9 +389,15 @@ const prefsState = useAsyncState();
 const logoutState = useAsyncState();
 
 const isLocalUser = computed(() => authStore.user?.auth_provider === "local");
-const userInitial = computed(() =>
-  (authStore.userFullName || authStore.userEmail || "?").trim().charAt(0).toUpperCase(),
-);
+const userEmoji = computed(() => ({
+  admin: "🛡️",
+  product_owner: "🧭",
+  cybersecurity_engineer: "🔐",
+  legal_team: "⚖️",
+  development_team: "🧑‍💻",
+  product_management: "📊",
+  lifecycle_manager: "♻️",
+}[authStore.roles?.[0] ?? ""] ?? "👤"));
 
 /* ── Section nav / scrollspy ─────────────────── */
 const navItems = [
@@ -736,9 +742,7 @@ function flash(flag: { value: boolean }): void {
   border-radius: var(--radius-md);
   display: grid;
   place-items: center;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: #fff;
+  font-size: 1.55rem;
   background: linear-gradient(140deg, var(--color-primary), var(--color-primary-3));
 }
 

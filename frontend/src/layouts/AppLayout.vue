@@ -21,7 +21,7 @@
     tapped.  A semi-transparent backdrop sits between the overlay
     and the main content, and clicking it closes the sidebar.
   -->
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'sidebar-is-collapsed': sidebarCollapsed }">
 
     <!-- ── Mobile backdrop — closes the sidebar when clicked ── -->
     <Transition name="backdrop">
@@ -37,6 +37,7 @@
     <AppSidebar
       :open="sidebarOpen"
       @close="sidebarOpen = false"
+      @collapse-change="sidebarCollapsed = $event"
     />
 
     <!-- ── Main column: header + page content ── -->
@@ -62,6 +63,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
    On desktop this value is irrelevant — the sidebar is
    always visible via CSS. */
 const sidebarOpen = ref(false);
+const sidebarCollapsed = ref(false);
 </script>
 
 <style scoped>
@@ -73,6 +75,10 @@ const sidebarOpen = ref(false);
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   background: transparent;
   position: relative; /* needed for the fixed backdrop stacking context */
+}
+
+.app-shell.sidebar-is-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 /* ── Right-hand column ────────────────────────── */
@@ -114,6 +120,10 @@ const sidebarOpen = ref(false);
 @media (max-width: 960px) {
   /* Collapse the sidebar column — the sidebar becomes a fixed overlay */
   .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell.sidebar-is-collapsed {
     grid-template-columns: 1fr;
   }
 

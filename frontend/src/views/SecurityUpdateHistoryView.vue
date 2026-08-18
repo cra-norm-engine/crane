@@ -833,8 +833,8 @@ watch(selectedReleaseId, async (releaseId: string) => {
   await loadUpdates();
 });
 
-onMounted(() => {
-  void loadProducts();
+onMounted(async () => {
+  await loadProducts();
   void loadUpdates();
 });
 </script>
