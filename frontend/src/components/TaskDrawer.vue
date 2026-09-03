@@ -380,7 +380,7 @@ async function exportToJira(): Promise<void> {
   jiraBusy.value = true;
   saveError.value = null;
   try { jiraLink.value = await jiraService.exportTask(props.task.entity_id, selectedJiraConnection.value); }
-  catch { saveError.value = "Failed to create the Jira issue."; }
+  catch (error: unknown) { saveError.value = jiraErrorMessage(error, "Failed to create the Jira issue."); }
   finally { jiraBusy.value = false; }
 }
 
@@ -395,8 +395,14 @@ async function syncJira(direction: "push" | "pull"): Promise<void> {
         .find((item) => item.entity_id === props.task?.entity_id);
       if (refreshed) emit("taskUpdated", refreshed);
     }
-  } catch { saveError.value = `Failed to ${direction} the Jira issue.`; }
+  } catch (error: unknown) { saveError.value = jiraErrorMessage(error, `Failed to ${direction} the Jira issue.`); }
   finally { jiraBusy.value = false; }
+}
+
+function jiraErrorMessage(error: unknown, fallback: string): string {
+  const message = (error as { response?: { data?: { error?: { message?: string } } } })
+    .response?.data?.error?.message;
+  return message || fallback;
 }
 
 // ── Accessibility: panel ref, focus management, scroll lock, Esc-to-close ───────
