@@ -4,14 +4,15 @@ from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from jose import jwt
-
+import httpx
 from app.core.config import settings
 from app.services.jira_integration_service import (
     JiraIntegrationService,
     adf_to_text,
+    jira_error_detail,
     text_to_adf,
 )
+from jose import jwt
 
 
 def test_adf_plain_text_round_trip() -> None:
@@ -45,3 +46,11 @@ def test_adf_reader_ignores_formatting_nodes() -> None:
         ]}],
     }
     assert adf_to_text(document) == "CRANE task"
+
+
+def test_jira_error_detail_exposes_field_validation_without_request_data() -> None:
+    response = httpx.Response(
+        400,
+        json={"errorMessages": ["Project is required"], "errors": {"assignee": "Cannot assign"}},
+    )
+    assert jira_error_detail(response) == "Project is required; assignee: Cannot assign"

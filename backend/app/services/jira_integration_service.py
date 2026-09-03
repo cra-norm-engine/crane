@@ -9,11 +9,6 @@ from urllib.parse import urlencode
 from uuid import UUID
 
 import httpx
-from cryptography.fernet import Fernet, InvalidToken
-from jose import JWTError, jwt
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
-
 from app.core.audit import create_audit_event
 from app.core.config import settings
 from app.core.exceptions import (
@@ -35,6 +30,10 @@ from app.models.user import User
 from app.schemas.jira_integration import JiraConnectionUpdate, JiraUserMappingWrite
 from app.schemas.my_tasks import ManualTaskUpdate
 from app.services.manual_task_service import ManualTaskService
+from cryptography.fernet import Fernet, InvalidToken
+from jose import JWTError, jwt
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 _ATLASSIAN_AUTHORIZE = "https://auth.atlassian.com/authorize"
 _ATLASSIAN_TOKEN = "https://auth.atlassian.com/oauth/token"
@@ -317,6 +316,7 @@ class JiraIntegrationService:
             "duedate": task.due_date.isoformat() if task.due_date else None,
             "labels": ["crane-compliance"],
         }
+        fields = {key: value for key, value in fields.items() if value is not None}
         if include_project:
             fields.update({"project": {"key": connection.project_key}, "issuetype": {"name": connection.issue_type}})
         priority = connection.priority_mapping_json.get(task.priority)
@@ -427,7 +427,9 @@ class JiraClient:
                 token = self._refresh()
                 continue
             if response.is_error:
-                raise AppException(f"Jira API request failed ({response.status_code})", 502, "JIRA_API_ERROR")
+                detail = jira_error_detail(response)
+                suffix = f": {detail}" if detail else ""
+                raise AppException(f"Jira API request failed ({response.status_code}){suffix}", 502, "JIRA_API_ERROR")
             return response.json() if response.content else {}
         raise AppException("Jira API rate limit retry exhausted", 503, "JIRA_RATE_LIMIT")
 
@@ -464,6 +466,17 @@ class JiraClient:
 def text_to_adf(value: str) -> dict:
     paragraphs = value.splitlines() or [""]
     return {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": ([{"type": "text", "text": line}] if line else [])} for line in paragraphs]}
+
+
+def jira_error_detail(response: httpx.Response) -> str:
+    """Extract Jira's safe validation messages without returning request data or tokens."""
+    try:
+        body = response.json()
+    except ValueError:
+        return response.text[:500].strip()
+    messages = [str(message) for message in body.get("errorMessages", [])]
+    messages.extend(f"{field}: {message}" for field, message in (body.get("errors") or {}).items())
+    return "; ".join(messages)[:1000]
 
 
 def adf_to_text(value: dict | None) -> str | None:
