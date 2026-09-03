@@ -121,6 +121,7 @@ def _manual_task_item(
         created_by_name=_user_display(creator), assigned_to_user_id=task.assigned_to_user_id,
         assigned_to_name=_user_display(assignee), related_product_id=task.product_id,
         related_release_id=task.product_release_id,
+        parent_task_id=task.parent_task_id,
         viewer_is_assignee=task.assigned_to_user_id == viewer_id,
         viewer_is_creator=task.created_by_user_id == viewer_id,
         is_completed=task.status == "completed",

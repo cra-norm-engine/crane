@@ -21,6 +21,7 @@ class ManualTaskCreate(BaseModel):
     assigned_to_user_id: UUID | None = None
     product_id: UUID | None = None
     product_release_id: UUID | None = None
+    parent_task_id: UUID | None = None
     priority: Literal["low", "medium", "high"] = "medium"
 
 
@@ -31,6 +32,7 @@ class ManualTaskUpdate(BaseModel):
     assigned_to_user_id: UUID | None = None
     product_id: UUID | None = None
     product_release_id: UUID | None = None
+    parent_task_id: UUID | None = None
     priority: Literal["low", "medium", "high"] | None = None
 
 
@@ -122,6 +124,7 @@ class TaskItem(BaseModel):
     assigned_to_name: str | None = None
     related_product_id: UUID | None = None
     related_release_id: UUID | None = None
+    parent_task_id: UUID | None = None
     viewer_is_assignee: bool = True
     viewer_is_creator: bool = False
     is_completed: bool = False

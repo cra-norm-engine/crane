@@ -74,6 +74,7 @@ class ManualTaskService:
             title=payload.title.strip(), description=payload.description, due_date=payload.due_date,
             priority=payload.priority, assigned_to_user_id=assignee.id,
             product_id=payload.product_id, product_release_id=payload.product_release_id,
+            parent_task_id=payload.parent_task_id,
             created_by_user_id=actor.id,
         )
         self.db.add(task)
@@ -99,12 +100,15 @@ class ManualTaskService:
             assigned_to_user_id=changes.get("assigned_to_user_id", task.assigned_to_user_id),
             product_id=changes.get("product_id", task.product_id),
             product_release_id=changes.get("product_release_id", task.product_release_id),
+            parent_task_id=changes.get("parent_task_id", task.parent_task_id),
         )
+        if effective.parent_task_id == task.id:
+            raise ValidationException("A task cannot be its own parent")
         assignee, _, _ = self._validate(effective, actor)
         before = snapshot_model(task)
         old_assignee = task.assigned_to_user_id
         task.title, task.description, task.due_date, task.priority = effective.title.strip(), effective.description, effective.due_date, effective.priority
-        task.assigned_to_user_id, task.product_id, task.product_release_id = assignee.id, effective.product_id, effective.product_release_id
+        task.assigned_to_user_id, task.product_id, task.product_release_id, task.parent_task_id = assignee.id, effective.product_id, effective.product_release_id, effective.parent_task_id
         self.db.flush()
         after = snapshot_model(task)
         changed = {key: {"before": before[key], "after": after[key]} for key in after if before.get(key) != after[key]}
@@ -269,6 +273,12 @@ class ManualTaskService:
             raise ValidationException("Product not found")
         if payload.product_release_id and (release is None or not product or release.product_id != product.id):
             raise ValidationException("Release must belong to the selected product")
+        if payload.parent_task_id:
+            if payload.parent_task_id == getattr(payload, "id", None):
+                raise ValidationException("A task cannot be its own parent")
+            parent = self.db.get(ManualTask, payload.parent_task_id)
+            if parent is None or parent.created_by_user_id != actor.id:
+                raise ValidationException("Parent task not found")
         return assignee, product, release
 
     def _audit(self, task: ManualTask, actor: User, action: str, details: dict) -> None:

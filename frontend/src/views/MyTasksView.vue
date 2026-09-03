@@ -42,6 +42,13 @@
         </select>
       </label>
       <label class="task-field">
+        <span>Parent task <small>Optional</small></span>
+        <select v-model="createForm.parent_task_id">
+          <option value="">Standalone task</option>
+          <option v-for="parent in parentTaskChoices" :key="parent.entity_id" :value="parent.entity_id">{{ parent.title }}</option>
+        </select>
+      </label>
+      <label class="task-field">
         <span>Related product <small>Optional</small></span>
         <select v-model="createForm.product_id" @change="onProductChange">
           <option value="">No related product</option>
@@ -74,6 +81,10 @@
         <p class="page-sub">Open items assigned to you or created by you, with completed-task history.</p>
       </div>
       <div class="head-actions">
+        <div class="view-toggle" role="group" aria-label="Task layout">
+          <button class="hbtn" :class="{ 'view-active': viewMode === 'list' }" @click="viewMode = 'list'">List</button>
+          <button class="hbtn" :class="{ 'view-active': viewMode === 'board' }" @click="viewMode = 'board'">Board</button>
+        </div>
         <button class="hbtn hbtn-primary" @click="openCreateModal">+ New task</button>
         <button class="hbtn" :disabled="isLoading" @click="load">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14" stroke-linecap="round" stroke-linejoin="round">
@@ -214,8 +225,22 @@
       <button class="hbtn" @click="clearFilters">Clear search &amp; filters</button>
     </div>
 
+    <div v-if="viewMode === 'board' && !isLoading" class="task-board">
+      <section v-for="column in boardColumns" :key="column.key" class="task-column">
+        <div class="task-column-head"><span class="gdot" :class="`gdot-${column.tone}`"></span><strong>{{ column.title }}</strong><span class="gcount">{{ column.tasks.length }}</span></div>
+        <div class="task-column-body" @dragover.prevent @drop="dropTask(column.key)">
+          <button v-for="task in column.tasks" :key="task.entity_id" class="board-card" :draggable="task.entity_type === 'manual_task' && task.can_update_status" @dragstart="draggedTask = task" @click="openDrawer(task)">
+            <span class="board-card-title">{{ task.title }}</span>
+            <span class="board-card-meta">{{ task.product_name || 'No product' }} · {{ task.assigned_to_name || 'Unassigned' }}</span>
+            <span class="board-card-foot"><StatusPill :status="task.status" /><span v-if="task.priority" :class="`priority-${task.priority}`">{{ task.priority }}</span></span>
+          </button>
+          <p v-if="!column.tasks.length" class="board-empty">Drop tasks here</p>
+        </div>
+      </section>
+    </div>
+
     <!-- ── Task groups — single template, looped over the group model ─────── -->
-    <template v-else>
+    <template v-else-if="viewMode === 'list'">
       <div v-for="group in visibleGroups" :key="group.key" class="group">
         <div class="group-head">
           <span class="gdot" :class="`gdot-${group.tone}`"></span>
@@ -292,6 +317,8 @@ const loadError = ref<string | null>(null);
 const router = useRouter();
 const route = useRoute();
 const activeFilter = ref<"overdue" | "week" | "all" | null>(null);
+const viewMode = ref<"list" | "board">("list");
+const draggedTask = ref<TaskItem | null>(null);
 const search = ref((route.query.search as string) || "");
 type TaskTab = "my_work" | "assigned_by_me" | "completed" | "archived";
 const validTabs: TaskTab[] = ["my_work", "assigned_by_me", "completed", "archived"];
@@ -308,11 +335,12 @@ const users = ref<UserSummary[]>([]);
 const products = ref<ProductSummaryRead[]>([]);
 const releases = ref<ProductReleaseRead[]>([]);
 const isLoadingReleases = ref(false);
-const createForm = ref({ title: "", description: "", due_date: "", priority: "medium" as "low" | "medium" | "high", assigned_to_user_id: "", product_id: "", product_release_id: "" });
+const createForm = ref({ title: "", description: "", due_date: "", priority: "medium" as "low" | "medium" | "high", assigned_to_user_id: "", parent_task_id: "", product_id: "", product_release_id: "" });
+const parentTaskChoices = computed(() => tasks.value.filter((task) => task.entity_type === "manual_task" && task.entity_id !== editingTask.value?.entity_id && !task.archived_at));
 
 function openCreateModal(): void {
   editingTask.value = null;
-  createForm.value = { title: "", description: "", due_date: "", priority: "medium", assigned_to_user_id: "", product_id: "", product_release_id: "" };
+  createForm.value = { title: "", description: "", due_date: "", priority: "medium", assigned_to_user_id: "", parent_task_id: "", product_id: "", product_release_id: "" };
   releases.value = [];
   createError.value = null;
   showCreateModal.value = true;
@@ -328,6 +356,7 @@ async function openEditModal(task: TaskItem): Promise<void> {
     due_date: task.due_date ?? "",
     priority: task.priority ?? "medium",
     assigned_to_user_id: task.assigned_to_user_id ?? "",
+    parent_task_id: task.parent_task_id ?? "",
     product_id: task.related_product_id ?? "",
     product_release_id: task.related_release_id ?? "",
   };
@@ -355,6 +384,7 @@ async function createTask(): Promise<void> {
       due_date: createForm.value.due_date || null,
       priority: createForm.value.priority,
       assigned_to_user_id: createForm.value.assigned_to_user_id || null,
+      parent_task_id: createForm.value.parent_task_id || null,
       product_id: createForm.value.product_id || null,
       product_release_id: createForm.value.product_release_id || null,
     };
@@ -660,6 +690,29 @@ const visibleGroups = computed<TaskGroup[]>(() => {
     }) }))
     .filter((g) => g.tasks.length > 0);
 });
+
+const boardColumns = computed(() => {
+  const source = (activeTab.value === "assigned_by_me" ? delegatedTasks.value : activeTab.value === "completed" ? completedTasks.value : activeTab.value === "archived" ? archivedTasks.value : tasks.value)
+    .filter(matchesSearch);
+  const columns = [
+    { key: "open", title: "Backlog", tone: "none", tasks: [] as TaskItem[] },
+    { key: "in_progress", title: "In progress", tone: "week", tasks: [] as TaskItem[] },
+    { key: "completed", title: "Done / release", tone: "upcoming", tasks: [] as TaskItem[] },
+  ];
+  source.forEach((task) => columns.find((column) => column.key === (task.is_completed ? "completed" : task.status === "in_progress" ? "in_progress" : "open"))?.tasks.push(task));
+  return columns;
+});
+
+async function dropTask(status: string): Promise<void> {
+  const task = draggedTask.value;
+  draggedTask.value = null;
+  if (!task || task.entity_type !== "manual_task" || !task.can_update_status || status === "completed" && task.status === "completed") return;
+  try {
+    const updated = status === "completed" ? await taskService.complete(task.entity_id, null) : await taskService.updateStatus(task.entity_id, status);
+    onTaskUpdated(updated);
+    await load();
+  } catch { /* the drawer remains the source of detailed validation errors */ }
+}
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function navigateToTask(task: TaskItem): void {
@@ -1221,6 +1274,22 @@ function productInitials(name: string | null | undefined): string {
   transition: opacity 0.1s, background 0.1s;
 }
 .task-row:hover .row-go { opacity: 1; background: var(--color-surface-elevated-strong, var(--color-surface-elevated)); color: var(--color-text); }
+
+.view-toggle { display: flex; gap: .2rem; }
+.view-active { background: var(--color-surface-elevated); border-color: var(--color-primary); color: var(--color-primary); }
+.task-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.task-column { min-width: 0; background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+.task-column-head { display: flex; align-items: center; gap: .5rem; padding: .8rem; border-bottom: 1px solid var(--color-border); }
+.task-column-head strong { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+.task-column-body { min-height: 18rem; padding: .6rem; display: flex; flex-direction: column; gap: .55rem; }
+.board-card { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; width: 100%; padding: .75rem; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); color: var(--color-text); text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.board-card:hover { border-color: var(--color-primary); transform: translateY(-1px); }
+.board-card-title { font-size: .84rem; font-weight: 650; }
+.board-card-meta { font-size: .72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.board-card-foot { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: .2rem; font-size: .7rem; text-transform: capitalize; }
+.priority-high { color: var(--color-danger); } .priority-medium { color: var(--color-warning); } .priority-low { color: var(--color-text-muted); }
+.board-empty { margin: auto; color: var(--color-text-muted); font-size: .78rem; }
+@media (max-width: 900px) { .task-board { grid-template-columns: 1fr; } }
 </style>
 
 <!-- Light-mode overrides — non-scoped to reach [data-theme] root -->

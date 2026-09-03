@@ -75,6 +75,7 @@ export interface TaskItem {
   assigned_to_name?: string | null;
   related_product_id?: string | null;
   related_release_id?: string | null;
+  parent_task_id?: string | null;
   viewer_is_assignee?: boolean;
   viewer_is_creator?: boolean;
   is_completed?: boolean;

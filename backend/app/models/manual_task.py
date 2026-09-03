@@ -33,6 +33,9 @@ class ManualTask(UUIDTimestampMixin, Base):
     product_release_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("product_releases.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    parent_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("manual_tasks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     assigned_to_user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -42,6 +45,7 @@ class ManualTask(UUIDTimestampMixin, Base):
     artifact_links: Mapped[list["ManualTaskArtifactLink"]] = relationship(
         back_populates="manual_task", cascade="all, delete-orphan", passive_deletes=True
     )
+    parent_task: Mapped[ManualTask | None] = relationship(remote_side="ManualTask.id")
 
 
 class ManualTaskArtifactLink(UUIDTimestampMixin, Base):
