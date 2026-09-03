@@ -20,8 +20,9 @@ Results are sorted: overdue first, then by due_date ascending, then no-date item
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -38,14 +39,20 @@ from app.models.enums import (
     VulnerabilityLifecycleStatus,
 )
 from app.models.lifecycle_notification import LifecycleNotification
+from app.models.manual_task import ManualTask
+from app.models.product import Product, ProductRelease
 from app.models.release_gate import ReleaseGate, ReleaseGateItem
 from app.models.risk_item import RiskItem
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
 from app.models.supplier_assessment import ComponentMaintainerNotification, SupplierAssessment
-from app.schemas.my_tasks import TaskItem
+from app.schemas.my_tasks import (
+    ManualTaskComplete, ManualTaskCreate, ManualTaskReason, ManualTaskStatusUpdate,
+    ManualTaskUpdate, TaskActivityRead, TaskArtifactRead, TaskItem, TaskNotificationRead,
+)
 from app.repositories.user_repository import UserRepository
+from app.services.manual_task_service import ManualTaskService
 
 router = APIRouter()
 
@@ -79,13 +86,156 @@ def _user_display(user: User | None) -> str | None:
     return user.full_name.strip() if user.full_name and user.full_name.strip() else user.email
 
 
+def _release_display(release: ProductRelease | None) -> str | None:
+    if release is None:
+        return None
+    system_label = f"v{release.system_version}"
+    return f"{release.user_version} ({system_label})" if release.user_version else system_label
+
+
+def _manual_task_item(
+    task: ManualTask,
+    viewer_id: UUID,
+    db: Session,
+) -> TaskItem:
+    creator = db.get(User, task.created_by_user_id)
+    assignee = db.get(User, task.assigned_to_user_id)
+    product = db.get(Product, task.product_id) if task.product_id else None
+    release = db.get(ProductRelease, task.product_release_id) if task.product_release_id else None
+    completed_by = db.get(User, task.completed_by_user_id) if task.completed_by_user_id else None
+    evidence = [TaskArtifactRead(
+        id=link.id, revision_id=link.artifact_revision_id,
+        artifact_id=link.artifact_revision.artifact_id,
+        title=link.artifact_revision.artifact.title,
+        filename=link.artifact_revision.original_filename,
+        uploader_name=_user_display(link.artifact_revision.uploaded_by_user),
+        revision_number=link.artifact_revision.revision_number,
+        linked_at=link.created_at,
+    ) for link in task.artifact_links]
+    return TaskItem(
+        entity_type="manual_task", entity_id=task.id, title=task.title, description=task.description,
+        status=task.status, created_at=task.created_at, due_date=task.due_date,
+        is_overdue=task.status != "completed" and task.archived_at is None and _is_overdue(task.due_date),
+        product_name=product.name if product else None,
+        release_version=_release_display(release), severity=None,
+        created_by_name=_user_display(creator), assigned_to_user_id=task.assigned_to_user_id,
+        assigned_to_name=_user_display(assignee), related_product_id=task.product_id,
+        related_release_id=task.product_release_id,
+        viewer_is_assignee=task.assigned_to_user_id == viewer_id,
+        viewer_is_creator=task.created_by_user_id == viewer_id,
+        is_completed=task.status == "completed",
+        priority=task.priority, completed_at=task.completed_at,
+        completed_by_name=_user_display(completed_by), completion_note=task.completion_note,
+        archived_at=task.archived_at, archive_reason=task.archive_reason,
+        can_edit_definition=task.created_by_user_id == viewer_id and task.archived_at is None,
+        can_update_status=task.assigned_to_user_id == viewer_id and task.archived_at is None,
+        can_archive=task.created_by_user_id == viewer_id,
+        evidence=evidence,
+    )
+
+
+@router.post("/", response_model=TaskItem, status_code=status.HTTP_201_CREATED)
+def create_manual_task(
+    payload: ManualTaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).create(payload, current_user), current_user.id, db)
+
+
+@router.patch("/{task_id}/status", response_model=TaskItem)
+def update_manual_task_status(
+    task_id: UUID,
+    payload: ManualTaskStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).set_status(task_id, payload.status, current_user), current_user.id, db)
+
+
+@router.patch("/{task_id}", response_model=TaskItem)
+def update_manual_task(
+    task_id: UUID,
+    payload: ManualTaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).update(task_id, payload, current_user), current_user.id, db)
+
+
+@router.post("/{task_id}/complete", response_model=TaskItem)
+def complete_manual_task(task_id: UUID, payload: ManualTaskComplete, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).complete(task_id, payload.completion_note, current_user), current_user.id, db)
+
+
+@router.post("/{task_id}/reopen", response_model=TaskItem)
+def reopen_manual_task(task_id: UUID, payload: ManualTaskReason, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).reopen(task_id, payload.reason, current_user), current_user.id, db)
+
+
+@router.post("/{task_id}/archive", response_model=TaskItem)
+def archive_manual_task(task_id: UUID, payload: ManualTaskReason, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).archive(task_id, payload.reason, current_user), current_user.id, db)
+
+
+@router.post("/{task_id}/restore", response_model=TaskItem)
+def restore_manual_task(task_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).restore(task_id, current_user), current_user.id, db)
+
+
+@router.get("/{task_id}/activity", response_model=list[TaskActivityRead])
+def manual_task_activity(task_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[TaskActivityRead]:
+    return ManualTaskService(db).activity(task_id, current_user)
+
+
+@router.post("/{task_id}/artifacts/{revision_id}", response_model=TaskItem)
+def attach_manual_task_artifact(task_id: UUID, revision_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).attach_artifact(task_id, revision_id, current_user), current_user.id, db)
+
+
+@router.delete("/{task_id}/artifacts/{revision_id}", response_model=TaskItem)
+def detach_manual_task_artifact(task_id: UUID, revision_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> TaskItem:
+    return _manual_task_item(ManualTaskService(db).detach_artifact(task_id, revision_id, current_user), current_user.id, db)
+
+
+@router.get("/notifications/list", response_model=list[TaskNotificationRead])
+def list_task_notifications(unread_only: bool = Query(default=False), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[TaskNotificationRead]:
+    return ManualTaskService(db).notifications(current_user, unread_only)
+
+
+@router.post("/notifications/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def read_task_notification(notification_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Response:
+    ManualTaskService(db).mark_notification_read(notification_id, current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/", response_model=list[TaskItem])
 def list_my_tasks(
+    include_completed: bool = Query(default=False),
+    scope: str = Query(default="my_work"),
+    state: str | None = Query(default=None),
+    priority: str | None = Query(default=None),
+    product_id: UUID | None = Query(default=None),
+    product_release_id: UUID | None = Query(default=None),
+    search: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[TaskItem]:
     tasks: list[TaskItem] = []
     today = date.today()  # noqa: F841 — kept for future date comparisons
+
+    # ── Tasks created directly from the task page ───────────────────────────
+    requested_state = state or ("all" if include_completed else "open")
+    for manual_task in ManualTaskService(db).list(
+        current_user, scope=scope, state=requested_state, priority=priority,
+        product_id=product_id, product_release_id=product_release_id, search=search,
+    ):
+        tasks.append(_manual_task_item(manual_task, current_user.id, db))
+
+    # Generated module work belongs only in the open My Work view.
+    if scope == "assigned_by_me" or requested_state in {"completed", "archived"} or priority or product_id or product_release_id:
+        tasks.sort(key=_sort_key)
+        return tasks
 
     # ── Vulnerability reports ──────────────────────────────────────────────────
     vuln_stmt = (

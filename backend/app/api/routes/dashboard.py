@@ -34,6 +34,7 @@ from app.models.enums import (
 from app.models.release_gate import ReleaseGate, ReleaseGateItem
 from app.models.risk_item import RiskItem
 from app.models.lifecycle_notification import LifecycleNotification
+from app.models.manual_task import ManualTask
 from app.models.product import Product, ProductRelease  # both defined in product.py
 from app.models.risk_assessment import RiskAssessment
 from app.models.support_period_record import SupportPeriodRecord
@@ -209,6 +210,12 @@ def get_dashboard(
     #   • RiskItem             (owner_user_id, status not terminal)
     # ──────────────────────────────────────────────────────────────────────────
     task_due_dates: list[date | None] = []
+
+    task_due_dates.extend(db.scalars(select(ManualTask.due_date).where(
+        ManualTask.assigned_to_user_id == current_user.id,
+        ManualTask.status != "completed",
+        ManualTask.archived_at.is_(None),
+    )).all())
 
     # Vulnerability tasks for this user.
     vuln_task_rows = db.execute(

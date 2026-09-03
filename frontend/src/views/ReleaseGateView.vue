@@ -102,6 +102,8 @@
 
     <template v-else-if="releaseDetail">
 
+      <RelatedTasksPanel :product-id="releaseDetail.release.product_id" :release-id="props.releaseId" />
+
       <!-- ── Progress strip ── -->
       <section class="rg-progress card">
         <div class="rg-progress-top">
@@ -730,6 +732,7 @@ import { useRoute, useRouter } from "vue-router";
 import AppButton from "@/components/AppButton.vue";
 import DropZone from "@/components/DropZone.vue";
 import SbomDiffPanel from "@/components/SbomDiffPanel.vue";
+import RelatedTasksPanel from "@/components/RelatedTasksPanel.vue";
 import { useScrollToHash } from "@/composables/useScrollToHash";
 import { artifactService } from "@/services/artifact-service";
 import { releaseGateService } from "@/services/release-gate-service";

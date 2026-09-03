@@ -340,7 +340,9 @@ function toggleFavorite(routeName: string): void {
 
 async function loadSidebarData(): Promise<void> {
   const requests: Promise<void>[] = [
-    taskService.listMyTasks().then((items) => { taskCount.value = items.length; }),
+    taskService.listMyTasks().then((items) => {
+      taskCount.value = items.filter((item) => item.viewer_is_assignee !== false).length;
+    }),
   ];
   if (can("security_update_read")) {
     requests.push(vulnerabilityReportService.list().then((items) => {

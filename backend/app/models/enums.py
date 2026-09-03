@@ -568,3 +568,4 @@ class EntityType(StrEnum):
     supplier_assessment = "supplier_assessment"
     supplier_finding = "supplier_finding"
     component_maintainer_notification = "component_maintainer_notification"
+    manual_task = "manual_task"

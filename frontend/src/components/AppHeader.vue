@@ -55,6 +55,17 @@
     <!-- ── Right side ─────────────────────────────────── -->
     <div class="topbar-right">
 
+      <div class="task-notification-wrap">
+        <button class="notification-button" aria-label="Task notifications" @click="toggleNotifications">🔔<span v-if="unreadCount">{{ unreadCount }}</span></button>
+        <div v-if="showNotifications" class="notification-menu">
+          <strong>Task notifications</strong>
+          <button v-for="item in notifications" :key="item.id" @click="openNotification(item)">
+            <span>{{ item.title }}</span><small>{{ item.message }}</small>
+          </button>
+          <p v-if="!notifications.length">No notifications.</p>
+        </div>
+      </div>
+
       <!--
         Theme toggle — pill-shaped track with a sliding thumb.
         Uses a hidden checkbox so the :checked state drives the CSS.
@@ -85,14 +96,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
+import { taskService } from "@/services/task-service";
+import type { TaskNotification } from "@/types/task";
 
 /* ── Stores ──────────────────────────────────────────── */
 const appStore  = useAppStore();
 const authStore = useAuthStore();
+const router = useRouter();
+const notifications = ref<TaskNotification[]>([]);
+const showNotifications = ref(false);
+const unreadCount = computed(() => notifications.value.filter((item) => !item.read_at).length);
+
+async function loadNotifications(): Promise<void> {
+  notifications.value = await taskService.notifications().catch(() => []);
+}
+
+async function toggleNotifications(): Promise<void> {
+  showNotifications.value = !showNotifications.value;
+  if (showNotifications.value) await loadNotifications();
+}
+
+async function openNotification(item: TaskNotification): Promise<void> {
+  if (!item.read_at) await taskService.markNotificationRead(item.id);
+  showNotifications.value = false;
+  await router.push({ name: "my-tasks", query: { task: item.manual_task_id } });
+  await loadNotifications();
+}
+
+onMounted(loadNotifications);
 
 /* ── Emitted events ──────────────────────────────────── */
 /* Parent (AppLayout) listens to this to toggle the sidebar overlay */
@@ -173,6 +209,14 @@ const greeting = computed(() => {
   gap: 0.75rem;
   flex-shrink: 0;
 }
+
+.task-notification-wrap { position: relative; }
+.notification-button { position: relative; width: 36px; height: 36px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); cursor: pointer; }
+.notification-button span { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; border-radius: 9px; background: var(--color-danger); color: white; font-size: 10px; line-height: 17px; }
+.notification-menu { position: absolute; right: 0; top: 44px; width: 310px; max-height: 360px; overflow: auto; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); box-shadow: var(--shadow-lg); z-index: 30; }
+.notification-menu > strong { display: block; margin-bottom: 0.5rem; }
+.notification-menu button { display: grid; width: 100%; gap: 0.15rem; padding: 0.65rem; border: 0; border-bottom: 1px solid var(--color-border); background: none; color: var(--color-text); text-align: left; cursor: pointer; }
+.notification-menu small, .notification-menu p { color: var(--color-text-muted); }
 
 /* ── Hamburger button — mobile only ───────────── */
 .hamburger {

@@ -29,7 +29,7 @@ def list_comments(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.comment_read)),
 ) -> list[CommentRead]:
-    return CommentService(db).list_comments(entity_type, entity_id)
+    return CommentService(db).list_comments(entity_type, entity_id, current_user)
 
 
 @router.post("/", response_model=CommentRead, status_code=status.HTTP_201_CREATED)

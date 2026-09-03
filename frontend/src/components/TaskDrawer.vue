@@ -55,6 +55,9 @@
             <span v-if="task.severity" class="dw-sev-pill" :class="`dsev-${task.severity}`">
               <span class="dsev-dot"></span>{{ task.severity }}
             </span>
+            <span v-if="task.priority" class="dw-sev-pill" :class="`dsev-${task.priority}`">
+              <span class="dsev-dot"></span>{{ task.priority }} priority
+            </span>
             <span v-if="task.is_overdue" class="dw-sev-pill dsev-overdue">
               <span class="dsev-dot"></span>Overdue
             </span>
@@ -122,6 +125,11 @@
               </div>
             </div>
 
+            <div v-if="task.entity_type === 'manual_task'" class="dw-cell">
+              <div class="dw-k">Assigned to</div>
+              <div class="dw-v dw-person">{{ task.assigned_to_name || '—' }}</div>
+            </div>
+
             <!-- Due date -->
             <div class="dw-cell">
               <div class="dw-k">Due date</div>
@@ -142,14 +150,54 @@
               <div class="dw-v dw-person">
                 <span class="dw-prod-mark">{{ productInitials(task.product_name) }}</span>
                 <span>
-                  {{ task.product_name || '—' }}
-                  <span v-if="task.release_version" class="dw-faint"> · {{ task.release_version }}</span>
+                  <RouterLink v-if="task.related_product_id" :to="{ name: 'product-detail', params: { productId: task.related_product_id } }" @click="$emit('close')">{{ task.product_name }}</RouterLink>
+                  <template v-else>{{ task.product_name || '—' }}</template>
+                  <RouterLink v-if="task.related_release_id" class="dw-faint" :to="{ name: 'release-gate', params: { releaseId: task.related_release_id } }" @click="$emit('close')"> · {{ task.release_version }}</RouterLink>
+                  <span v-else-if="task.release_version" class="dw-faint"> · {{ task.release_version }}</span>
                 </span>
               </div>
             </div>
           </div>
 
           <!-- Save error -->
+          <template v-if="task.description">
+            <h4 class="dw-section-h">Description</h4>
+            <p class="dw-note">{{ task.description }}</p>
+          </template>
+
+          <template v-if="task.entity_type === 'manual_task' && task.completed_at">
+            <h4 class="dw-section-h">Completion</h4>
+            <p class="dw-note">Completed {{ formatDateTime(task.completed_at) }} by {{ task.completed_by_name || 'Unknown' }}<template v-if="task.completion_note"><br>{{ task.completion_note }}</template></p>
+          </template>
+
+          <template v-if="task.entity_type === 'manual_task' && task.archived_at">
+            <h4 class="dw-section-h">Archived</h4>
+            <p class="dw-note">{{ formatDateTime(task.archived_at) }} · {{ task.archive_reason }}</p>
+          </template>
+
+          <template v-if="task.entity_type === 'manual_task'">
+            <h4 class="dw-section-h">Completion evidence</h4>
+            <ul v-if="task.evidence?.length" class="dw-evidence-list">
+              <li v-for="item in task.evidence" :key="item.id">
+                <span>{{ item.filename || item.title }} · rev {{ item.revision_number }} · {{ item.uploader_name || 'Unknown uploader' }}</span>
+                <button v-if="item.filename" class="dw-link-btn" @click="downloadEvidence(item.revision_id, item.filename)">Download</button>
+                <button v-if="!task.archived_at && task.viewer_is_assignee" class="dw-link-btn" @click="detachEvidence(item.revision_id)">Remove</button>
+              </li>
+            </ul>
+            <p v-else class="dw-note">No evidence attached.</p>
+            <div v-if="!task.archived_at && task.viewer_is_assignee && artifactChoices.length" class="dw-evidence-add">
+              <select v-model="selectedRevision" class="dw-select">
+                <option value="">Select artifact…</option>
+                <option v-for="item in artifactChoices" :key="item.revisionId" :value="item.revisionId">{{ item.label }}</option>
+              </select>
+              <AppButton size="sm" :disabled="!selectedRevision || taskBusy" @click="attachEvidence">Attach</AppButton>
+            </div>
+            <div v-if="!task.archived_at && task.viewer_is_assignee" class="dw-evidence-add">
+              <input type="file" :disabled="taskBusy" @change="selectEvidenceFile" />
+              <AppButton size="sm" :disabled="!evidenceFile || taskBusy" @click="uploadEvidence">Upload &amp; attach</AppButton>
+            </div>
+          </template>
+
           <p v-if="saveError" class="dw-error">{{ saveError }}</p>
 
           <!-- Workflow note for read-only status entities -->
@@ -165,6 +213,9 @@
               <template v-else-if="task.entity_type === 'eos_alert'">
                 This product's support period is approaching end of life. Open the product record to review the support period details and take action.
               </template>
+              <template v-else-if="task.entity_type === 'manual_task'">
+                This task is assigned to {{ task.assigned_to_name || 'another user' }}. Only the assignee can update its status.
+              </template>
             </p>
           </template>
 
@@ -172,10 +223,14 @@
 
           <!-- Comments -->
           <h4 class="dw-section-h">Activity &amp; comments</h4>
+          <ul v-if="activity.length" class="dw-activity">
+            <li v-for="item in activity" :key="item.id"><strong>{{ formatAction(item.action_type) }}</strong> · {{ item.actor_name || 'System' }} · {{ formatDateTime(item.occurred_at) }}</li>
+          </ul>
           <div class="dw-comments-wrap">
             <CommentThread
               :entity-type="task.entity_type"
               :entity-id="task.entity_id"
+              :read-only="!!task.archived_at"
             />
           </div>
 
@@ -207,8 +262,12 @@
           </button>
           <span class="dw-foot-spacer"></span>
           <AppButton @click="$emit('close')">Close</AppButton>
-          <AppButton variant="primary" @click="$emit('navigate', task)">
-            Open full record
+          <AppButton v-if="task.entity_type === 'manual_task' && task.can_archive && !task.archived_at" variant="danger" :disabled="taskBusy" @click="archiveTask">Archive</AppButton>
+          <AppButton v-if="task.entity_type === 'manual_task' && task.can_archive && task.archived_at" :disabled="taskBusy" @click="restoreTask">Restore</AppButton>
+          <AppButton v-if="task.entity_type === 'manual_task' && task.status === 'completed' && !task.archived_at && task.viewer_is_creator && !task.can_update_status" :disabled="taskBusy" @click="reopenTask">Reopen</AppButton>
+          <AppButton v-if="task.entity_type === 'manual_task' && task.can_edit_definition" @click="$emit('edit', task)">Edit task</AppButton>
+          <AppButton v-if="task.entity_type !== 'manual_task' || task.related_product_id" variant="primary" @click="$emit('navigate', task)">
+            {{ task.entity_type === 'manual_task' ? 'Open related record' : 'Open full record' }}
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
           </AppButton>
         </div>
@@ -223,17 +282,22 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import AppButton from "@/components/AppButton.vue";
 import CommentThread from "@/components/CommentThread.vue";
+import { artifactService } from "@/services/artifact-service";
 import { changeService } from "@/services/change-service";
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
+import { taskService } from "@/services/task-service";
 import { riskItemService } from "@/services/risk-item-service";
 import { vulnerabilityReportService } from "@/services/vulnerability-report-service";
-import type { TaskItem } from "@/types/task";
+import type { ArtifactListRead } from "@/types/artifact";
+import type { TaskActivity, TaskItem } from "@/types/task";
 
 const props = defineProps<{ task: TaskItem | null }>();
 const emit  = defineEmits<{
   (e: "close"): void;
   (e: "navigate", task: TaskItem): void;
+  (e: "edit", task: TaskItem): void;
   (e: "statusUpdated", task: TaskItem, newStatus: string): void;
+  (e: "taskUpdated", task: TaskItem): void;
 }>();
 
 // ── Status editing ─────────────────────────────────────────────────────────────
@@ -242,13 +306,37 @@ const isSaving    = ref(false);
 const saveError   = ref<string | null>(null);
 // Brief "Saved ✓" confirmation flash after a successful status change.
 const savedFlash  = ref(false);
+const activity = ref<TaskActivity[]>([]);
+const availableArtifacts = ref<ArtifactListRead[]>([]);
+const selectedRevision = ref("");
+const evidenceFile = ref<File | null>(null);
+const taskBusy = ref(false);
 let savedFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(() => props.task, (t) => {
   localStatus.value = t?.status ?? "";
   saveError.value   = null;
   savedFlash.value  = false;
+  activity.value = [];
+  availableArtifacts.value = [];
+  selectedRevision.value = "";
+  evidenceFile.value = null;
+  if (t?.entity_type === "manual_task") void loadManualDetails(t);
 }, { immediate: true });
+
+const artifactChoices = computed(() => availableArtifacts.value
+  .filter((item) => item.latest_revision && !props.task?.evidence?.some((link) => link.revision_id === item.latest_revision?.id))
+  .map((item) => ({ revisionId: item.latest_revision!.id, label: `${item.title} · rev ${item.latest_revision!.revision_number}` }))
+);
+
+async function loadManualDetails(task: TaskItem): Promise<void> {
+  const [events, artifacts] = await Promise.all([
+    taskService.activity(task.entity_id).catch(() => []),
+    artifactService.list(task.related_product_id ? { product_id: task.related_product_id } : undefined).catch(() => []),
+  ]);
+  activity.value = events;
+  availableArtifacts.value = artifacts;
+}
 
 // ── Accessibility: panel ref, focus management, scroll lock, Esc-to-close ───────
 // The drawer is a modal dialog, so per WCAG it must: trap focus while open, move
@@ -318,6 +406,7 @@ onBeforeUnmount(() => {
 
 const canEditStatus = computed(() =>
   props.task?.entity_type === "risk_item" ||
+  (props.task?.entity_type === "manual_task" && props.task.can_update_status === true) ||
   props.task?.entity_type === "vulnerability_report" ||
   props.task?.entity_type === "change_compliance_action"
 );
@@ -331,6 +420,13 @@ const statusOptions = computed(() => {
       { value: "mitigated",   label: "Mitigated" },
       { value: "accepted",    label: "Accepted" },
       { value: "closed",      label: "Closed" },
+    ];
+  }
+  if (props.task.entity_type === "manual_task") {
+    return [
+      { value: "open", label: "Open" },
+      { value: "in_progress", label: "In progress" },
+      { value: "completed", label: "Completed" },
     ];
   }
   if (props.task.entity_type === "vulnerability_report") {
@@ -361,12 +457,29 @@ async function saveStatus(): Promise<void> {
   try {
     if (props.task.entity_type === "risk_item") {
       await riskItemService.update(props.task.entity_id, { status: localStatus.value as any });
+    } else if (props.task.entity_type === "manual_task") {
+      let updated: TaskItem;
+      if (localStatus.value === "completed") {
+        const note = window.prompt("Completion note (required for high-priority tasks without evidence):");
+        if (note === null) {
+          localStatus.value = props.task.status;
+          return;
+        }
+        updated = await taskService.complete(props.task.entity_id, note || null);
+      } else if (props.task.status === "completed") {
+        const reason = window.prompt("Reason for reopening this task:");
+        if (!reason?.trim()) throw new Error("A reopen reason is required");
+        updated = await taskService.reopen(props.task.entity_id, reason);
+      } else {
+        updated = await taskService.updateStatus(props.task.entity_id, localStatus.value);
+      }
+      emit("taskUpdated", updated);
     } else if (props.task.entity_type === "vulnerability_report") {
       await vulnerabilityReportService.update(props.task.entity_id, { status: localStatus.value as any });
     } else if (props.task.entity_type === "change_compliance_action") {
       await changeService.updateComplianceAction(props.task.entity_id, { action_status: localStatus.value as any });
     }
-    emit("statusUpdated", props.task, localStatus.value);
+    if (props.task.entity_type !== "manual_task") emit("statusUpdated", props.task, localStatus.value);
     // Flash a brief success confirmation (cleared after 2s).
     savedFlash.value = true;
     if (savedFlashTimer) clearTimeout(savedFlashTimer);
@@ -376,6 +489,96 @@ async function saveStatus(): Promise<void> {
     localStatus.value = props.task.status;
   } finally {
     isSaving.value = false;
+  }
+}
+
+function selectEvidenceFile(event: Event): void {
+  evidenceFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+async function uploadEvidence(): Promise<void> {
+  if (!props.task || !evidenceFile.value) return;
+  taskBusy.value = true;
+  try {
+    const form = new FormData();
+    form.append("title", evidenceFile.value.name.replace(/\.[^/.]+$/, ""));
+    form.append("artifact_type", evidenceFile.value.type.startsWith("image/") ? "screenshot" : "document");
+    form.append("upload", evidenceFile.value);
+    if (props.task.related_product_id) form.append("product_id", props.task.related_product_id);
+    const artifact = await artifactService.createUpload(form);
+    const revision = artifact.revisions[0];
+    if (!revision) throw new Error("Uploaded artifact has no revision");
+    const updated = await taskService.attachArtifact(props.task.entity_id, revision.id);
+    evidenceFile.value = null;
+    emit("taskUpdated", updated);
+    await loadManualDetails(updated);
+  } catch {
+    saveError.value = "Failed to upload evidence.";
+  } finally {
+    taskBusy.value = false;
+  }
+}
+
+async function attachEvidence(): Promise<void> {
+  if (!props.task || !selectedRevision.value) return;
+  taskBusy.value = true;
+  try {
+    const updated = await taskService.attachArtifact(props.task.entity_id, selectedRevision.value);
+    emit("taskUpdated", updated);
+    selectedRevision.value = "";
+    await loadManualDetails(updated);
+  } finally {
+    taskBusy.value = false;
+  }
+}
+
+async function detachEvidence(revisionId: string): Promise<void> {
+  if (!props.task) return;
+  taskBusy.value = true;
+  try {
+    const updated = await taskService.detachArtifact(props.task.entity_id, revisionId);
+    emit("taskUpdated", updated);
+    await loadManualDetails(updated);
+  } finally {
+    taskBusy.value = false;
+  }
+}
+
+async function downloadEvidence(revisionId: string, filename: string): Promise<void> {
+  await artifactService.downloadRevision(revisionId, filename);
+}
+
+async function archiveTask(): Promise<void> {
+  if (!props.task) return;
+  const reason = window.prompt("Reason for archiving this task:");
+  if (!reason?.trim()) return;
+  taskBusy.value = true;
+  try {
+    emit("taskUpdated", await taskService.archive(props.task.entity_id, reason));
+  } finally {
+    taskBusy.value = false;
+  }
+}
+
+async function restoreTask(): Promise<void> {
+  if (!props.task) return;
+  taskBusy.value = true;
+  try {
+    emit("taskUpdated", await taskService.restore(props.task.entity_id));
+  } finally {
+    taskBusy.value = false;
+  }
+}
+
+async function reopenTask(): Promise<void> {
+  if (!props.task) return;
+  const reason = window.prompt("Reason for reopening this task:");
+  if (!reason?.trim()) return;
+  taskBusy.value = true;
+  try {
+    emit("taskUpdated", await taskService.reopen(props.task.entity_id, reason));
+  } finally {
+    taskBusy.value = false;
   }
 }
 
@@ -493,6 +696,7 @@ function formatEntityType(type: string): string {
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
+    manual_task:         "Task",
   };
   return map[type] ?? type;
 }
@@ -503,6 +707,14 @@ function formatLabel(s: string): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString();
+}
+
+function formatAction(action: string): string {
+  return action.replace(/^manual_task\./, "").replace(/_/g, " ");
 }
 </script>
 
@@ -812,6 +1024,14 @@ function formatDate(iso: string): string {
   background: var(--color-border);
   margin: 0.25rem 0;
 }
+
+.dw-evidence-list, .dw-activity { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
+.dw-evidence-list li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.55rem 0.7rem; border: 1px solid var(--color-border); border-radius: 7px; font-size: 0.78rem; }
+.dw-evidence-add { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.dw-evidence-add select { flex: 1; }
+.dw-link-btn { border: 0; background: none; color: var(--color-danger); cursor: pointer; }
+.dw-activity { max-height: 150px; overflow: auto; margin-bottom: 0.75rem; }
+.dw-activity li { font-size: 0.74rem; color: var(--color-text-muted); }
 
 /* Comments wrapper — overrides CommentThread defaults to match drawer style */
 .dw-comments-wrap {

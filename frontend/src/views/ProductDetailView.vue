@@ -125,6 +125,8 @@
         </article>
       </div>
 
+      <RelatedTasksPanel :product-id="props.productId" />
+
       <section v-if="authStore.hasPermission('supplier_assessment_read')" id="supply-chain" class="card supply-chain-card">
         <div class="section-header"><div><h2 class="section-title">Supply-chain traceability</h2><p class="muted section-sub">Suppliers and third-party components included across this product's releases.</p></div><RouterLink :to="{name:'supplier-assurance'}" class="btn btn-secondary btn-compact">Open supplier assurance</RouterLink></div>
         <div v-if="!productTraceability.length" class="muted">No supplied components are linked to this product.</div>
@@ -1761,6 +1763,7 @@ import { useScrollToHash } from "@/composables/useScrollToHash";
 import AppButton from "@/components/AppButton.vue";
 import AppModal from "@/components/AppModal.vue";
 import AuditTimeline from "@/components/AuditTimeline.vue";
+import RelatedTasksPanel from "@/components/RelatedTasksPanel.vue";
 import { auditService } from "@/services/audit-service";
 import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";

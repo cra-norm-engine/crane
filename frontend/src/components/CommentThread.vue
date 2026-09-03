@@ -52,7 +52,7 @@
         </div>
 
         <!-- Per-comment actions (author or admin only) -->
-        <div v-if="editingId !== c.id" class="comment-actions">
+        <div v-if="!readOnly && editingId !== c.id" class="comment-actions">
           <button
             v-if="canEdit(c)"
             class="btn-link"
@@ -72,7 +72,7 @@
     </ul>
 
     <!-- New comment form -->
-    <form class="comment-compose" @submit.prevent="postComment">
+    <form v-if="!readOnly" class="comment-compose" @submit.prevent="postComment">
       <textarea
         v-model.trim="newBody"
         class="comment-textarea"
@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { ref, watch } from "vue";
 
 import { commentService } from "@/services/comment-service";
 import { useAuthStore } from "@/stores/auth";
@@ -105,6 +105,7 @@ import type { CommentRead } from "@/types/comment";
 const props = defineProps<{
   entityType: string;
   entityId: string;
+  readOnly?: boolean;
 }>();
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ async function loadComments(): Promise<void> {
   }
 }
 
-onMounted(loadComments);
+watch(() => [props.entityType, props.entityId], loadComments, { immediate: true });
 
 // ── Post a new comment ────────────────────────────────────────────────────────
 async function postComment(): Promise<void> {

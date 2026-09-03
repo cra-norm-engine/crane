@@ -55,6 +55,14 @@ def _sweep_job() -> None:
             db.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _SWEEP_LOCK_KEY})
 
 
+def _task_notification_job() -> None:
+    """Generate deduplicated due-soon and overdue task notifications."""
+    from app.services.manual_task_service import ManualTaskService
+
+    with SessionLocal() as db:
+        ManualTaskService(db).generate_due_notifications()
+
+
 def start_scheduler() -> None:
     """Start the background scheduler if enabled in settings. Idempotent."""
     global _scheduler
@@ -78,6 +86,14 @@ def start_scheduler() -> None:
         _sweep_job,
         trigger=trigger,
         id="sbom_vulnerability_sweep",
+        max_instances=1,
+        coalesce=True,
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _task_notification_job,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="manual_task_due_notifications",
         max_instances=1,
         coalesce=True,
         replace_existing=True,

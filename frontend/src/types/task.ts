@@ -12,7 +12,47 @@ export type TaskEntityType =
   | "risk_item"
   | "supplier_reassessment"
   | "maintainer_notification"
+  | "manual_task"
   | "eos_alert";
+
+export interface ManualTaskCreate {
+  title: string;
+  description?: string | null;
+  due_date?: string | null;
+  assigned_to_user_id?: string | null;
+  product_id?: string | null;
+  product_release_id?: string | null;
+  priority?: "low" | "medium" | "high";
+}
+
+export interface TaskArtifact {
+  id: string;
+  revision_id: string;
+  artifact_id: string;
+  title: string;
+  filename: string | null;
+  uploader_name: string | null;
+  revision_number: number;
+  linked_at: string;
+}
+
+export interface TaskActivity {
+  id: string;
+  occurred_at: string;
+  actor_name: string | null;
+  action_type: string;
+  details: Record<string, unknown>;
+}
+
+export interface TaskNotification {
+  id: string;
+  manual_task_id: string;
+  event_type: string;
+  title: string;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+}
 
 export interface TaskItem {
   entity_type: TaskEntityType;
@@ -21,7 +61,9 @@ export interface TaskItem {
    *  risk_item → risk_assessment_id, release_gate_item → product_release_id */
   parent_id: string | null;
   title: string;
+  description?: string | null;
   status: string;
+  created_at?: string | null;
   due_date: string | null;
   is_overdue: boolean;
   product_name: string | null;
@@ -29,4 +71,21 @@ export interface TaskItem {
   severity: string | null;
   /** Display name of whoever created or reported the item. */
   created_by_name: string | null;
+  assigned_to_user_id?: string | null;
+  assigned_to_name?: string | null;
+  related_product_id?: string | null;
+  related_release_id?: string | null;
+  viewer_is_assignee?: boolean;
+  viewer_is_creator?: boolean;
+  is_completed?: boolean;
+  priority?: "low" | "medium" | "high" | null;
+  completed_at?: string | null;
+  completed_by_name?: string | null;
+  completion_note?: string | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  can_edit_definition?: boolean;
+  can_update_status?: boolean;
+  can_archive?: boolean;
+  evidence?: TaskArtifact[];
 }

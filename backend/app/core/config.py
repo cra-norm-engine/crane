@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     # Automatically scan an SBOM in the background right after it is uploaded.
     scan_on_upload: bool = Field(default=True, alias="BACKEND_SCAN_ON_UPLOAD")
 
+    # --- Task notifications ---
+    task_due_warning_days: int = Field(default=3, ge=0, alias="BACKEND_TASK_DUE_WARNING_DAYS")
+
     # --- Artifact Storage ---
     artifact_upload_dir: str = Field(
         default="/workspace/backend/uploads/artifacts",
