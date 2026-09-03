@@ -16,6 +16,7 @@ from app.models.evidence_item import EvidenceItem
 from app.models.lifecycle_notification import LifecycleNotification
 from app.models.market_action import MarketAction
 from app.models.manual_task import ManualTask, ManualTaskArtifactLink, TaskNotification
+from app.models.jira_integration import JiraConnection, JiraSyncEvent, JiraTaskLink, JiraUserMapping
 from app.models.maturity import MaturityAssessment, MaturityEvidenceLink, MaturityImprovementAction, MaturityModelVersion, MaturityResponse
 from app.models.permission import Permission
 from app.models.placeholders import DomainPlaceholder
@@ -72,6 +73,10 @@ __all__ = [
     "ManualTask",
     "ManualTaskArtifactLink",
     "TaskNotification",
+    "JiraConnection",
+    "JiraSyncEvent",
+    "JiraTaskLink",
+    "JiraUserMapping",
     "MaturityAssessment",
     "MaturityEvidenceLink",
     "MaturityImprovementAction",

@@ -114,6 +114,13 @@ class Settings(BaseSettings):
     # --- Task notifications ---
     task_due_warning_days: int = Field(default=3, ge=0, alias="BACKEND_TASK_DUE_WARNING_DAYS")
 
+    # --- Jira Cloud integration ---
+    jira_oauth_client_id: str = Field(default="", alias="BACKEND_JIRA_OAUTH_CLIENT_ID")
+    jira_oauth_client_secret: str = Field(default="", alias="BACKEND_JIRA_OAUTH_CLIENT_SECRET")
+    jira_oauth_redirect_uri: str = Field(default="http://localhost:8000/api/v1/jira/oauth/callback", alias="BACKEND_JIRA_OAUTH_REDIRECT_URI")
+    jira_frontend_settings_url: str = Field(default="http://localhost:5173/settings#jira", alias="BACKEND_JIRA_FRONTEND_SETTINGS_URL")
+    jira_forge_app_id: str = Field(default="", alias="BACKEND_JIRA_FORGE_APP_ID")
+
     # --- Artifact Storage ---
     artifact_upload_dir: str = Field(
         default="/workspace/backend/uploads/artifacts",

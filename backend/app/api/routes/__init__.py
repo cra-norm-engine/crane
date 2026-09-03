@@ -37,6 +37,7 @@ from app.api.routes.maturity import router as maturity_router
 from app.api.routes.my_tasks import router as my_tasks_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.supplier_assessments import router as supplier_assessments_router
+from app.api.routes.jira_integration import router as jira_integration_router
 
 api_router = APIRouter()
 
@@ -149,6 +150,8 @@ api_router.include_router(
     prefix="/my-tasks",
     tags=["my-tasks"],
 )
+
+api_router.include_router(jira_integration_router, prefix="/jira", tags=["jira"])
 
 api_router.include_router(admin_router)
 

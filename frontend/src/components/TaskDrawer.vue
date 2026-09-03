@@ -200,6 +200,30 @@
 
           <p v-if="saveError" class="dw-error">{{ saveError }}</p>
 
+          <template v-if="task.entity_type === 'manual_task'">
+            <h4 class="dw-section-h">Jira Cloud</h4>
+            <div v-if="jiraLink" class="dw-jira-box">
+              <a :href="jiraLink.issue_url" target="_blank" rel="noopener">{{ jiraLink.issue_key }} ↗</a>
+              <span class="dw-faint">{{ jiraLink.sync_status }}<template v-if="jiraLink.last_synced_at"> · {{ formatDateTime(jiraLink.last_synced_at) }}</template></span>
+              <div v-if="task.viewer_is_creator" class="dw-evidence-add">
+                <AppButton size="sm" :disabled="jiraBusy" @click="syncJira('push')">Push to Jira</AppButton>
+                <AppButton size="sm" :disabled="jiraBusy" @click="syncJira('pull')">Pull from Jira</AppButton>
+              </div>
+              <p v-if="jiraLink.last_error" class="dw-error">{{ jiraLink.last_error }}</p>
+            </div>
+            <div v-else-if="task.viewer_is_creator && jiraConnections.length" class="dw-evidence-add">
+              <select v-model="selectedJiraConnection" class="dw-select">
+                <option value="">Select Jira site…</option>
+                <option v-for="connection in jiraConnections" :key="connection.id" :value="connection.id" :disabled="!connection.project_key">
+                  {{ connection.site_name }}{{ connection.project_key ? ` · ${connection.project_key}` : ' · configure first' }}
+                </option>
+              </select>
+              <AppButton size="sm" :disabled="jiraBusy || !selectedJiraConnection" @click="exportToJira">Create Jira issue</AppButton>
+            </div>
+            <p v-else-if="task.viewer_is_creator" class="dw-note">Connect and configure Jira in Settings to export this task.</p>
+            <p v-else class="dw-note">This task is not linked to Jira.</p>
+          </template>
+
           <!-- Workflow note for read-only status entities -->
           <template v-if="!canEditStatus">
             <h4 class="dw-section-h">Details</h4>
@@ -285,6 +309,7 @@ import CommentThread from "@/components/CommentThread.vue";
 import { artifactService } from "@/services/artifact-service";
 import { changeService } from "@/services/change-service";
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
+import { jiraService, type JiraConnection, type JiraTaskLink } from "@/services/jira-service";
 import { taskService } from "@/services/task-service";
 import { riskItemService } from "@/services/risk-item-service";
 import { vulnerabilityReportService } from "@/services/vulnerability-report-service";
@@ -311,6 +336,10 @@ const availableArtifacts = ref<ArtifactListRead[]>([]);
 const selectedRevision = ref("");
 const evidenceFile = ref<File | null>(null);
 const taskBusy = ref(false);
+const jiraBusy = ref(false);
+const jiraLink = ref<JiraTaskLink | null>(null);
+const jiraConnections = ref<JiraConnection[]>([]);
+const selectedJiraConnection = ref("");
 let savedFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(() => props.task, (t) => {
@@ -321,6 +350,9 @@ watch(() => props.task, (t) => {
   availableArtifacts.value = [];
   selectedRevision.value = "";
   evidenceFile.value = null;
+  jiraLink.value = null;
+  jiraConnections.value = [];
+  selectedJiraConnection.value = "";
   if (t?.entity_type === "manual_task") void loadManualDetails(t);
 }, { immediate: true });
 
@@ -330,12 +362,41 @@ const artifactChoices = computed(() => availableArtifacts.value
 );
 
 async function loadManualDetails(task: TaskItem): Promise<void> {
-  const [events, artifacts] = await Promise.all([
+  const [events, artifacts, link, connections] = await Promise.all([
     taskService.activity(task.entity_id).catch(() => []),
     artifactService.list(task.related_product_id ? { product_id: task.related_product_id } : undefined).catch(() => []),
+    jiraService.taskLink(task.entity_id).catch(() => null),
+    task.viewer_is_creator ? jiraService.connections().catch(() => []) : Promise.resolve([]),
   ]);
   activity.value = events;
   availableArtifacts.value = artifacts;
+  jiraLink.value = link;
+  jiraConnections.value = connections.filter((item) => item.is_active);
+  if (jiraConnections.value.length === 1) selectedJiraConnection.value = jiraConnections.value[0].id;
+}
+
+async function exportToJira(): Promise<void> {
+  if (!props.task || !selectedJiraConnection.value) return;
+  jiraBusy.value = true;
+  saveError.value = null;
+  try { jiraLink.value = await jiraService.exportTask(props.task.entity_id, selectedJiraConnection.value); }
+  catch { saveError.value = "Failed to create the Jira issue."; }
+  finally { jiraBusy.value = false; }
+}
+
+async function syncJira(direction: "push" | "pull"): Promise<void> {
+  if (!props.task) return;
+  jiraBusy.value = true;
+  saveError.value = null;
+  try {
+    jiraLink.value = await jiraService.syncTask(props.task.entity_id, direction);
+    if (direction === "pull") {
+      const refreshed = (await taskService.listMyTasks(true, { scope: "all", state: "all" }))
+        .find((item) => item.entity_id === props.task?.entity_id);
+      if (refreshed) emit("taskUpdated", refreshed);
+    }
+  } catch { saveError.value = `Failed to ${direction} the Jira issue.`; }
+  finally { jiraBusy.value = false; }
 }
 
 // ── Accessibility: panel ref, focus management, scroll lock, Esc-to-close ───────
@@ -719,6 +780,8 @@ function formatAction(action: string): string {
 </script>
 
 <style scoped>
+.dw-jira-box { display: grid; gap: .5rem; padding: .75rem; border: 1px solid var(--color-border); border-radius: 8px; }
+.dw-jira-box > a { color: var(--color-primary, #2563eb); font-weight: 700; text-decoration: none; }
 /* ── Scrim ────────────────────────────────────────────────────────────────── */
 .dw-scrim {
   position: fixed;

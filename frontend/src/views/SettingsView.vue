@@ -256,6 +256,85 @@
           </div>
         </section>
 
+        <!-- Jira -->
+        <section id="jira" class="s-card">
+          <div class="s-card-head">
+            <h2 class="s-card-title">Jira Cloud</h2>
+            <p class="muted">Create Jira issues from CRANE tasks and synchronize their status and details.</p>
+          </div>
+          <div class="s-card-body">
+            <div v-if="!jiraConnections.length" class="s-row">
+              <div class="s-label">
+                <div class="s-label-t">Connect Atlassian</div>
+                <div class="s-label-h">Authorization uses Atlassian OAuth. CRANE never stores your Jira password.</div>
+              </div>
+              <div class="s-control">
+                <AppButton variant="primary" size="sm" :disabled="jiraBusy" @click="connectJira">
+                  {{ jiraBusy ? "Opening…" : "Connect Jira Cloud" }}
+                </AppButton>
+              </div>
+            </div>
+            <template v-for="connection in jiraConnections" :key="connection.id">
+              <div class="s-row jira-site-row">
+                <div class="s-label">
+                  <div class="s-label-t">{{ connection.site_name }}</div>
+                  <div class="s-label-h"><a :href="connection.site_url" target="_blank" rel="noopener">{{ connection.site_url }}</a></div>
+                </div>
+                <StatusBadge :label="connection.is_active ? 'Connected' : 'Disconnected'" :variant="connection.is_active ? 'success' : 'neutral'" />
+              </div>
+              <div class="s-row">
+                <div class="s-label">
+                  <div class="s-label-t">Default issue destination</div>
+                  <div class="s-label-h">Project key and Jira issue type used for exported CRANE tasks.</div>
+                </div>
+                <div class="s-control grow jira-fields">
+                  <input v-model.trim="connection.project_key" class="input" placeholder="Project key (e.g. CRA)" maxlength="50" />
+                  <input v-model.trim="connection.issue_type" class="input" placeholder="Issue type" maxlength="100" />
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="s-label">
+                  <div class="s-label-t">Workflow status IDs</div>
+                  <div class="s-label-h">Optional Jira status IDs for CRANE open, in progress, and completed states.</div>
+                </div>
+                <div class="s-control grow jira-fields">
+                  <input v-model.trim="connection.status_mapping_json.open" class="input" placeholder="Open status ID" />
+                  <input v-model.trim="connection.status_mapping_json.in_progress" class="input" placeholder="In progress status ID" />
+                  <input v-model.trim="connection.status_mapping_json.completed" class="input" placeholder="Completed status ID" />
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="s-label">
+                  <div class="s-label-t">Priority names or IDs</div>
+                  <div class="s-label-h">Optional Jira priorities corresponding to CRANE low, medium, and high.</div>
+                </div>
+                <div class="s-control grow jira-fields">
+                  <input v-model.trim="connection.priority_mapping_json.low" class="input" placeholder="Low" />
+                  <input v-model.trim="connection.priority_mapping_json.medium" class="input" placeholder="Medium" />
+                  <input v-model.trim="connection.priority_mapping_json.high" class="input" placeholder="High" />
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="s-label">
+                  <div class="s-label-t">Assignee mapping</div>
+                  <div class="s-label-h">Map CRANE users to Atlassian account IDs so exported issues retain their assignee.</div>
+                </div>
+                <div class="s-control grow jira-user-map">
+                  <label v-for="user in craneUsers" :key="user.id">
+                    <span>{{ userService.displayName(user) }}</span>
+                    <input v-model.trim="jiraAccountIds[connection.id][user.id]" class="input" placeholder="Atlassian account ID" />
+                  </label>
+                </div>
+              </div>
+              <div class="s-card-foot jira-actions">
+                <AppButton variant="danger" size="sm" :disabled="jiraBusy" @click="disconnectJira(connection.id)">Disconnect</AppButton>
+                <span class="foot-spacer" />
+                <AppButton variant="primary" size="sm" :disabled="jiraBusy || !connection.project_key" @click="saveJira(connection)">Save Jira settings</AppButton>
+              </div>
+            </template>
+          </div>
+        </section>
+
         <!-- About -->
         <section id="about" class="s-card">
           <div class="s-card-head">
@@ -374,6 +453,8 @@ import { useAppStore } from "@/stores/app";
 import { useToast } from "@/composables/useToast";
 import { useAsyncState } from "@/composables/useAsyncState";
 import { DATE_FORMAT_OPTIONS, formatDate } from "@/composables/useDateFormat";
+import { jiraService, type JiraConnection } from "@/services/jira-service";
+import { userService, type UserSummary } from "@/services/user-service";
 import AppButton from "@/components/AppButton.vue";
 import AppLogo from "@/components/AppLogo.vue";
 import AppModal from "@/components/AppModal.vue";
@@ -405,6 +486,7 @@ const navItems = [
   { id: "appearance", label: "Appearance", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2-4 2.5 2.5 0 0 1 2-4h2a4 4 0 0 0 4-4 10 10 0 0 0-10-8z"/></svg>' },
   { id: "preferences", label: "Preferences", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>' },
   { id: "security", label: "Security", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' },
+  { id: "jira", label: "Jira Cloud", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 10l7 7 7-7-7-7Z"/><path d="m8.5 13.5-3.5 3.5 7 4 7-4-3.5-3.5"/></svg>' },
   { id: "about", label: "About", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>' },
 ];
 
@@ -416,7 +498,61 @@ function scrollTo(id: string): void {
   activeSection.value = id;
 }
 
+const jiraConnections = ref<JiraConnection[]>([]);
+const jiraBusy = ref(false);
+const craneUsers = ref<UserSummary[]>([]);
+const jiraAccountIds = ref<Record<string, Record<string, string>>>({});
+
+async function loadJira(): Promise<void> {
+  try {
+    const [connections, users] = await Promise.all([jiraService.connections(), userService.listSummary()]);
+    craneUsers.value = users;
+    const accountIds: Record<string, Record<string, string>> = {};
+    const mappingLists = await Promise.all(connections.map((connection) => jiraService.userMappings(connection.id)));
+    connections.forEach((connection, index) => {
+      const values: Record<string, string> = {};
+      for (const user of users) values[user.id] = "";
+      for (const mapping of mappingLists[index]) values[mapping.crane_user_id] = mapping.jira_account_id;
+      accountIds[connection.id] = values;
+    });
+    jiraAccountIds.value = accountIds;
+    jiraConnections.value = connections;
+  } catch { /* global API error handler */ }
+}
+
+async function connectJira(): Promise<void> {
+  jiraBusy.value = true;
+  try { window.location.assign(await jiraService.authorizationUrl()); }
+  finally { jiraBusy.value = false; }
+}
+
+async function saveJira(connection: JiraConnection): Promise<void> {
+  jiraBusy.value = true;
+  try {
+    const updated = await jiraService.configure(connection.id, {
+      project_key: connection.project_key || "",
+      issue_type: connection.issue_type,
+      status_mapping_json: connection.status_mapping_json,
+      priority_mapping_json: connection.priority_mapping_json,
+    });
+    Object.assign(connection, updated);
+    const mappings = jiraAccountIds.value[connection.id] || {};
+    await Promise.all(Object.entries(mappings)
+      .filter(([, accountId]) => accountId.trim())
+      .map(([userId, accountId]) => jiraService.setUserMapping(connection.id, userId, accountId.trim())));
+    showToast({ type: "success", message: "Jira settings saved." });
+  } finally { jiraBusy.value = false; }
+}
+
+async function disconnectJira(id: string): Promise<void> {
+  if (!window.confirm("Disconnect this Jira Cloud site? Existing task links will remain visible.")) return;
+  jiraBusy.value = true;
+  try { await jiraService.disconnect(id); await loadJira(); }
+  finally { jiraBusy.value = false; }
+}
+
 onMounted(() => {
+  void loadJira();
   observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -564,6 +700,11 @@ function flash(flag: { value: boolean }): void {
 </script>
 
 <style scoped>
+.jira-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+.jira-site-row a { color: var(--color-primary, #2563eb); }
+.jira-actions { margin: 0; border-top: 0; }
+.jira-user-map { display: grid; gap: .5rem; }
+.jira-user-map label { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr; gap: .6rem; align-items: center; font-size: .82rem; }
 .settings-sub {
   margin: 0.35rem 0 0;
   font-size: var(--text-sm);
