@@ -6,7 +6,7 @@
 
 **Stop managing CRA compliance with spreadsheets.**
 
-Track Products • Analyze SBOMs • Manage Vulnerabilities • Collect Evidence • Pass Audits
+Track Products • Analyze SBOMs • Manage Vulnerabilities • Manage Tasks • Collect Evidence • Pass Audits
 
 Built for **manufacturers**, **software vendors**, **consultants**, **startups**, and **researchers**.
 
@@ -76,6 +76,9 @@ CRANE provides a complete workflow for the Cyber Resilience Act.
 - 📂 Evidence Repository
 - 👥 Team Collaboration
 - 🔐 LDAP / Active Directory Integration
+- ✅ Task board with assignment, parent/subtask links, comments, history, and archive tracking
+- 🔗 Jira Cloud integration with OAuth, issue export, status synchronization, and board-level sync
+- 🖼️ Personal profile photos shown on task assignments
 
 ---
 
@@ -113,6 +116,8 @@ Comprehensive overview of products, releases, lifecycle, and CRA-related informa
 | ⚠️ Risk Assessment | STRIDE & TARA methodology support |
 | 👥 Collaboration | Role-based access, tasks, comments |
 | 🔐 LDAP / Active Directory | Enterprise authentication |
+| ✅ Task management | Jira-style board, drag-and-drop status, assignees, parent/subtasks, comments, and history |
+| 🔗 Jira Cloud | OAuth connection, configurable projects/statuses/priorities, issue export and synchronization |
 | 📦 Data Export | Portable compliance packages with zero vendor lock-in |
 
 ---
@@ -267,7 +272,16 @@ https://cra-norm-engine.github.io/crane/configuration.html
 
 # 🗺️ Roadmap
 
-## 🚀 Near Term (Q3 2026)
+## ✅ Delivered (September 2026)
+
+- [x] Jira Cloud integration (OAuth, issue export, status synchronization, Forge issue panel)
+- [x] Task board with Backlog, In progress, and Done / release columns
+- [x] Drag-and-drop task status updates
+- [x] Task assignment, parent/subtask links, comments, completion history, and archive tracking
+- [x] Role-selectable `task_assign` permission
+- [x] Personal profile photos for task assignees
+
+## 🚀 Near Term (Q4 2026)
 
 - [ ] CRA reporting obligations
 - [ ] Release gates for exploitable vulnerabilities
@@ -279,7 +293,6 @@ https://cra-norm-engine.github.io/crane/configuration.html
 ## 📈 Medium Term (Q1 2027)
 
 - [ ] CENELEC standards integration
-- [ ] Jira integration
 - [ ] Security Development Lifecycle (SDL)
 
 ---
