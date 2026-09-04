@@ -236,7 +236,7 @@
         <div class="task-column-head"><span class="gdot" :class="`gdot-${column.tone}`"></span><strong>{{ column.title }}</strong><span class="gcount">{{ column.tasks.length }}</span></div>
         <div class="task-column-body" @dragover.prevent @drop="dropTask(column.key)">
           <button v-for="task in column.tasks" :key="task.entity_id" class="board-card" :draggable="task.entity_type === 'manual_task' && task.can_update_status" @dragstart="draggedTask = task" @click="openDrawer(task)">
-            <span class="board-card-head"><span class="board-card-title">{{ task.title }}</span><span class="board-avatar" :title="task.assigned_to_name || 'Unassigned'"><img v-if="task.assigned_to_avatar_data" :src="task.assigned_to_avatar_data" alt="" /><template v-else-if="task.assigned_to_name">{{ userInitials(task.assigned_to_name) }}</template><svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.3 3-5 6.5-5s5.8 1.7 6.5 5"/></svg></span></span>
+            <span class="board-card-head"><span class="board-card-title">{{ task.title }}</span><span class="board-avatar" :title="task.assigned_to_name || 'Unassigned'"><img v-if="assigneeAvatar(task)" :src="assigneeAvatar(task)" alt="" /><template v-else-if="task.assigned_to_name">{{ userInitials(task.assigned_to_name) }}</template><svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.3 3-5 6.5-5s5.8 1.7 6.5 5"/></svg></span></span>
             <span class="board-card-meta">{{ task.product_name || 'No product' }} · {{ task.assigned_to_name || 'Unassigned' }}</span>
             <span class="board-card-foot"><StatusPill :status="task.status" /><span v-if="task.priority" :class="`priority-${task.priority}`">{{ task.priority }}</span></span>
           </button>
@@ -808,6 +808,10 @@ function productInitials(name: string | null | undefined): string {
 
 function userInitials(name: string | null | undefined): string {
   return (name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+}
+
+function assigneeAvatar(task: TaskItem): string | null {
+  return task.assigned_to_avatar_data || users.value.find((user) => user.id === task.assigned_to_user_id)?.avatar_data || null;
 }
 </script>
 
