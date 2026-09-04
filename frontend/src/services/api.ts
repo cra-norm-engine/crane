@@ -62,6 +62,10 @@ apiClient.interceptors.request.use((config) => {
   }
 
   config.headers["X-Correlation-ID"] = Math.random().toString(36).substring(2, 11)
+  // Let the browser add the multipart boundary for file uploads.
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"]
+  }
   return config
 })
 
