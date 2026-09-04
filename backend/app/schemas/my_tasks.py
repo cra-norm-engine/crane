@@ -18,7 +18,7 @@ class ManualTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     due_date: date | None = None
-    assigned_to_user_id: UUID | None = None
+    assigned_to_user_id: UUID
     product_id: UUID | None = None
     product_release_id: UUID | None = None
     parent_task_id: UUID | None = None

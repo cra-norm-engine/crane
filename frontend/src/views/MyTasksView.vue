@@ -37,7 +37,6 @@
       <label class="task-field">
         <span>Assign to</span>
         <select v-model="createForm.assigned_to_user_id">
-          <option value="">Myself</option>
           <option v-for="user in users" :key="user.id" :value="user.id">{{ userService.displayName(user) }}</option>
         </select>
       </label>
@@ -66,7 +65,7 @@
     </form>
     <template #footer>
       <button class="hbtn" type="button" :disabled="isCreating" @click="showCreateModal = false">Cancel</button>
-      <button class="hbtn hbtn-primary" type="submit" form="manual-task-form" :disabled="isCreating || !createForm.title.trim()">
+      <button class="hbtn hbtn-primary" type="submit" form="manual-task-form" :disabled="isCreating || !createForm.title.trim() || !createForm.assigned_to_user_id">
         {{ isCreating ? "Saving…" : editingTask ? "Save changes" : "Create task" }}
       </button>
     </template>
@@ -352,7 +351,7 @@ const parentTaskChoices = computed(() => tasks.value.filter((task) => task.entit
 
 function openCreateModal(): void {
   editingTask.value = null;
-  createForm.value = { title: "", description: "", due_date: "", priority: "medium", assigned_to_user_id: "", parent_task_id: "", product_id: "", product_release_id: "" };
+  createForm.value = { title: "", description: "", due_date: "", priority: "medium", assigned_to_user_id: authStore.user?.id || "", parent_task_id: "", product_id: "", product_release_id: "" };
   releases.value = [];
   createError.value = null;
   showCreateModal.value = true;

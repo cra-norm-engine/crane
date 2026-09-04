@@ -264,7 +264,7 @@ class ManualTaskService:
     def _validate(self, payload: ManualTaskCreate, actor: User) -> tuple[User, Product | None, ProductRelease | None]:
         if not payload.title.strip():
             raise ValidationException("Title must not be blank")
-        assignee = self.db.get(User, payload.assigned_to_user_id) if payload.assigned_to_user_id else actor
+        assignee = self.db.get(User, payload.assigned_to_user_id)
         product = self.db.get(Product, payload.product_id) if payload.product_id else None
         release = self.db.get(ProductRelease, payload.product_release_id) if payload.product_release_id else None
         if assignee is None or not assignee.is_active:
