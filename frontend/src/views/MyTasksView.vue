@@ -314,6 +314,7 @@ import { userService, type UserSummary } from "@/services/user-service";
 import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { jiraService, type JiraConnection } from "@/services/jira-service";
+import { useAuthStore } from "@/stores/auth";
 import type { ProductSummaryRead } from "@/types/product";
 import type { ProductReleaseRead } from "@/types/release-gate";
 import type { TaskItem } from "@/types/task";
@@ -323,6 +324,7 @@ const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 const activeFilter = ref<"overdue" | "week" | "all" | null>(null);
 const viewMode = ref<"list" | "board">("list");
 const draggedTask = ref<TaskItem | null>(null);
@@ -811,7 +813,10 @@ function userInitials(name: string | null | undefined): string {
 }
 
 function assigneeAvatar(task: TaskItem): string | null {
-  return task.assigned_to_avatar_data || users.value.find((user) => user.id === task.assigned_to_user_id)?.avatar_data || null;
+  return task.assigned_to_avatar_data
+    || (task.assigned_to_user_id === authStore.user?.id ? authStore.user.avatar_data : null)
+    || users.value.find((user) => user.id === task.assigned_to_user_id)?.avatar_data
+    || null;
 }
 </script>
 
