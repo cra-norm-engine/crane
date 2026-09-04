@@ -122,6 +122,7 @@ class TaskItem(BaseModel):
 
     assigned_to_user_id: UUID | None = None
     assigned_to_name: str | None = None
+    assigned_to_avatar_data: str | None = None
     related_product_id: UUID | None = None
     related_release_id: UUID | None = None
     parent_task_id: UUID | None = None

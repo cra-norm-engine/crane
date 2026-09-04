@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+import base64
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_current_user_password_change_exempt
@@ -89,6 +91,7 @@ def me(
         id=str(current_user.id),
         email=current_user.email,
         full_name=current_user.full_name,
+        avatar_data=current_user.avatar_data,
         roles=current_user.role_names,
         permissions=permissions,
         is_active=current_user.is_active,
@@ -111,6 +114,7 @@ def update_profile(
         id=str(updated.id),
         email=updated.email,
         full_name=updated.full_name,
+        avatar_data=updated.avatar_data,
         roles=updated.role_names,
         permissions=permissions,
         is_active=updated.is_active,
@@ -118,6 +122,25 @@ def update_profile(
         must_change_password=updated.must_change_password,
         preferences=service.read_preferences(user=updated),
     )
+
+
+@router.post("/me/avatar")
+def upload_avatar(upload: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str | None]:
+    if upload.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise AppException("Avatar must be a JPEG, PNG, or WebP image", 400, "INVALID_AVATAR")
+    content = upload.file.read(2_100_000)
+    if len(content) >= 2_100_000:
+        raise AppException("Avatar must be smaller than 2 MB", 400, "INVALID_AVATAR")
+    current_user.avatar_data = f"data:{upload.content_type};base64,{base64.b64encode(content).decode()}"
+    db.commit()
+    return {"avatar_data": current_user.avatar_data}
+
+
+@router.delete("/me/avatar")
+def delete_avatar(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, None]:
+    current_user.avatar_data = None
+    db.commit()
+    return {"avatar_data": None}
 
 
 @router.get("/me/preferences", response_model=UserPreferenceRead, status_code=status.HTTP_200_OK)

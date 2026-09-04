@@ -39,6 +39,7 @@ class UserSummary(BaseModel):
     id: str
     full_name: str | None
     email: str
+    avatar_data: str | None = None
 
 
 @router.get("/users/summary", response_model=list[UserSummary], tags=["admin"])
@@ -49,7 +50,7 @@ def list_users_summary(
     """Return a minimal id/name list for all active users. Used by AssigneeSelector dropdowns."""
     users = AdminUserService(db).list_users()
     return [
-        UserSummary(id=str(u.id), full_name=u.full_name, email=u.email)
+        UserSummary(id=str(u.id), full_name=u.full_name, email=u.email, avatar_data=u.avatar_data)
         for u in users
         if u.is_active
     ]

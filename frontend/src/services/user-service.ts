@@ -15,6 +15,7 @@ export interface UserSummary {
   id: string;
   full_name: string | null;
   email: string;
+  avatar_data: string | null;
 }
 
 export const userService = {

@@ -41,7 +41,7 @@
 
           <div class="s-card-body">
             <div class="identity">
-              <div class="avatar" aria-hidden="true">{{ userEmoji }}</div>
+              <div class="avatar" aria-hidden="true"><img v-if="authStore.user?.avatar_data" :src="authStore.user.avatar_data" alt="" /><span v-else>{{ userEmoji }}</span></div>
               <div class="who">
                 <span class="who-name">{{ authStore.userFullName || "—" }}</span>
                 <span class="who-email">{{ authStore.userEmail }}</span>
@@ -58,6 +58,11 @@
                   variant="neutral"
                 />
               </div>
+            </div>
+
+            <div class="s-row">
+              <div class="s-label"><div class="s-label-t">Profile photo</div><div class="s-label-h">Optional JPEG, PNG, or WebP image up to 2 MB. It appears beside your assigned tasks.</div></div>
+              <div class="s-control avatar-actions"><input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp" @change="uploadAvatar" /><AppButton v-if="authStore.user?.avatar_data" variant="secondary" size="sm" :disabled="avatarBusy" @click="removeAvatar">Remove</AppButton></div>
             </div>
 
             <div class="s-row">
@@ -449,7 +454,9 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import {
+  deleteAvatarRequest,
   logoutAllRequest,
+  uploadAvatarRequest,
   updatePreferencesRequest,
   updateProfileRequest,
 } from "@/services/auth-service";
@@ -473,6 +480,22 @@ const { showToast } = useToast();
 const profileState = useAsyncState();
 const prefsState = useAsyncState();
 const logoutState = useAsyncState();
+const avatarInput = ref<HTMLInputElement | null>(null);
+const avatarBusy = ref(false);
+
+async function uploadAvatar(event: Event): Promise<void> {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  avatarBusy.value = true;
+  try { const result = await uploadAvatarRequest(file); authStore.updateUser({ avatar_data: result.avatar_data }); }
+  finally { avatarBusy.value = false; if (avatarInput.value) avatarInput.value.value = ""; }
+}
+
+async function removeAvatar(): Promise<void> {
+  avatarBusy.value = true;
+  try { await deleteAvatarRequest(); authStore.updateUser({ avatar_data: null }); }
+  finally { avatarBusy.value = false; }
+}
 
 const isLocalUser = computed(() => authStore.user?.auth_provider === "local");
 const userEmoji = computed(() => ({
@@ -706,6 +729,8 @@ function flash(flag: { value: boolean }): void {
 
 <style scoped>
 .jira-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+.avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.avatar-actions { display: flex; align-items: center; gap: .6rem; }
 .jira-guide { display: grid; gap: .35rem; padding: .85rem 1rem; margin-bottom: 1rem; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-elevated); font-size: .8rem; }
 .jira-guide strong { font-size: .88rem; }
 .jira-guide span { color: var(--color-text-muted); }

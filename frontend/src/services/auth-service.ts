@@ -39,6 +39,17 @@ export async function updateProfileRequest(payload: { full_name: string }): Prom
   return data;
 }
 
+export async function uploadAvatarRequest(file: File): Promise<{ avatar_data: string }> {
+  const form = new FormData();
+  form.append("upload", file);
+  const { data } = await apiClient.post<{ avatar_data: string }>("/auth/me/avatar", form);
+  return data;
+}
+
+export async function deleteAvatarRequest(): Promise<void> {
+  await apiClient.delete("/auth/me/avatar");
+}
+
 export async function updatePreferencesRequest(
   payload: UserPreferencesUpdate,
 ): Promise<UserPreferences> {

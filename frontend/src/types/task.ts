@@ -73,6 +73,7 @@ export interface TaskItem {
   created_by_name: string | null;
   assigned_to_user_id?: string | null;
   assigned_to_name?: string | null;
+  assigned_to_avatar_data?: string | null;
   related_product_id?: string | null;
   related_release_id?: string | null;
   parent_task_id?: string | null;

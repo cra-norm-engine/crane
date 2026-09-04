@@ -120,6 +120,7 @@ def _manual_task_item(
         release_version=_release_display(release), severity=None,
         created_by_name=_user_display(creator), assigned_to_user_id=task.assigned_to_user_id,
         assigned_to_name=_user_display(assignee), related_product_id=task.product_id,
+        assigned_to_avatar_data=assignee.avatar_data if assignee else None,
         related_release_id=task.product_release_id,
         parent_task_id=task.parent_task_id,
         viewer_is_assignee=task.assigned_to_user_id == viewer_id,

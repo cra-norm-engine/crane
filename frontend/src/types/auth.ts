@@ -28,6 +28,7 @@ export interface UserRead {
   id: string;
   email: string;
   full_name: string;
+  avatar_data: string | null;
   is_active: boolean;
   roles: string[];
   permissions: string[];

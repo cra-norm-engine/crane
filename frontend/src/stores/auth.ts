@@ -15,6 +15,7 @@ interface AuthUser {
   id: string;
   email: string;
   full_name: string;
+  avatar_data: string | null;
   roles: string[];
   permissions: string[];
   is_active: boolean;

@@ -59,6 +59,7 @@ class CurrentUserRead(BaseModel):
     id: str
     email: EmailStr
     full_name: str
+    avatar_data: str | None = None
     roles: list[str]
     permissions: list[str]
     is_active: bool

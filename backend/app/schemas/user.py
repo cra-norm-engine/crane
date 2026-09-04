@@ -31,3 +31,4 @@ class UserSummaryRead(ORMBaseModel):
     id: UUID
     email: EmailStr
     full_name: str
+    avatar_data: str | None = None

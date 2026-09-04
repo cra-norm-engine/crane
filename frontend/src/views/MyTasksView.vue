@@ -236,7 +236,7 @@
         <div class="task-column-head"><span class="gdot" :class="`gdot-${column.tone}`"></span><strong>{{ column.title }}</strong><span class="gcount">{{ column.tasks.length }}</span></div>
         <div class="task-column-body" @dragover.prevent @drop="dropTask(column.key)">
           <button v-for="task in column.tasks" :key="task.entity_id" class="board-card" :draggable="task.entity_type === 'manual_task' && task.can_update_status" @dragstart="draggedTask = task" @click="openDrawer(task)">
-            <span class="board-card-head"><span class="board-card-title">{{ task.title }}</span><span class="board-avatar" :title="task.assigned_to_name || 'Unassigned'"><template v-if="task.assigned_to_name">{{ userInitials(task.assigned_to_name) }}</template><svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.3 3-5 6.5-5s5.8 1.7 6.5 5"/></svg></span></span>
+            <span class="board-card-head"><span class="board-card-title">{{ task.title }}</span><span class="board-avatar" :title="task.assigned_to_name || 'Unassigned'"><img v-if="task.assigned_to_avatar_data" :src="task.assigned_to_avatar_data" alt="" /><template v-else-if="task.assigned_to_name">{{ userInitials(task.assigned_to_name) }}</template><svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.3 3-5 6.5-5s5.8 1.7 6.5 5"/></svg></span></span>
             <span class="board-card-meta">{{ task.product_name || 'No product' }} · {{ task.assigned_to_name || 'Unassigned' }}</span>
             <span class="board-card-foot"><StatusPill :status="task.status" /><span v-if="task.priority" :class="`priority-${task.priority}`">{{ task.priority }}</span></span>
           </button>
@@ -1314,6 +1314,7 @@ function userInitials(name: string | null | undefined): string {
 .board-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; width: 100%; }
 .board-avatar { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--color-primary); color: white; font-size: .62rem; font-weight: 750; }
 .board-avatar svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.board-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .board-card-meta { font-size: .72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .board-card-foot { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: .2rem; font-size: .7rem; text-transform: capitalize; }
 .priority-high { color: var(--color-danger); } .priority-medium { color: var(--color-warning); } .priority-low { color: var(--color-text-muted); }
