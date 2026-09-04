@@ -22,6 +22,7 @@ ROLE_PRODUCT_MANAGEMENT = "product_management"
 
 
 class Permission(StrEnum):
+    task_assign = "task_assign"
     product_read = "product_read"
     product_write = "product_write"
 

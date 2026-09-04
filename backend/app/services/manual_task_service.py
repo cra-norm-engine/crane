@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import create_audit_event, snapshot_model
 from app.core.config import settings
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException, ValidationException
+from app.core.permissions import Permission, require_permissions
 from app.models.artifact import ArtifactRevision
 from app.models.audit_log_event import AuditLogEvent
 from app.models.base import utc_now
@@ -69,6 +70,7 @@ class ManualTaskService:
         return list(self.db.scalars(stmt.order_by(ManualTask.updated_at.desc())).all())
 
     def create(self, payload: ManualTaskCreate, actor: User) -> ManualTask:
+        require_permissions(actor, {Permission.task_assign})
         assignee, _, _ = self._validate(payload, actor)
         task = ManualTask(
             title=payload.title.strip(), description=payload.description, due_date=payload.due_date,
@@ -86,6 +88,8 @@ class ManualTaskService:
         return task
 
     def update(self, task_id: UUID, payload: ManualTaskUpdate, actor: User) -> ManualTask:
+        if payload.assigned_to_user_id is not None:
+            require_permissions(actor, {Permission.task_assign})
         task = self.visible_task(task_id, actor)
         if task.created_by_user_id != actor.id:
             raise ForbiddenException("Only the task creator can edit its definition")
