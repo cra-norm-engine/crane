@@ -86,6 +86,12 @@
           <button class="hbtn" :class="{ 'view-active': viewMode === 'board' }" @click="viewMode = 'board'">Board</button>
         </div>
         <button class="hbtn hbtn-primary" @click="openCreateModal">+ New task</button>
+        <template v-if="viewMode === 'board' && jiraConnections.length">
+          <select v-model="jiraBoardConnection" class="toolbar-select" aria-label="Jira board destination">
+            <option v-for="connection in jiraConnections" :key="connection.id" :value="connection.id">{{ connection.site_name }} · {{ connection.project_key }}</option>
+          </select>
+          <button class="hbtn" :disabled="jiraBoardBusy || !jiraBoardConnection" @click="syncBoard">{{ jiraBoardBusy ? 'Syncing…' : 'Sync board to Jira' }}</button>
+        </template>
         <button class="hbtn" :disabled="isLoading" @click="load">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 4v4h4"/><path d="M4 8a7 7 0 1 0 1.4-4.1"/>
@@ -230,7 +236,7 @@
         <div class="task-column-head"><span class="gdot" :class="`gdot-${column.tone}`"></span><strong>{{ column.title }}</strong><span class="gcount">{{ column.tasks.length }}</span></div>
         <div class="task-column-body" @dragover.prevent @drop="dropTask(column.key)">
           <button v-for="task in column.tasks" :key="task.entity_id" class="board-card" :draggable="task.entity_type === 'manual_task' && task.can_update_status" @dragstart="draggedTask = task" @click="openDrawer(task)">
-            <span class="board-card-title">{{ task.title }}</span>
+            <span class="board-card-head"><span class="board-card-title">{{ task.title }}</span><span class="board-avatar" :title="task.assigned_to_name || 'Unassigned'">{{ userInitials(task.assigned_to_name) }}</span></span>
             <span class="board-card-meta">{{ task.product_name || 'No product' }} · {{ task.assigned_to_name || 'Unassigned' }}</span>
             <span class="board-card-foot"><StatusPill :status="task.status" /><span v-if="task.priority" :class="`priority-${task.priority}`">{{ task.priority }}</span></span>
           </button>
@@ -307,6 +313,7 @@ import { taskService } from "@/services/task-service";
 import { userService, type UserSummary } from "@/services/user-service";
 import { productService } from "@/services/product-service";
 import { productReleaseService } from "@/services/product-release-service";
+import { jiraService, type JiraConnection } from "@/services/jira-service";
 import type { ProductSummaryRead } from "@/types/product";
 import type { ProductReleaseRead } from "@/types/release-gate";
 import type { TaskItem } from "@/types/task";
@@ -319,6 +326,9 @@ const route = useRoute();
 const activeFilter = ref<"overdue" | "week" | "all" | null>(null);
 const viewMode = ref<"list" | "board">("list");
 const draggedTask = ref<TaskItem | null>(null);
+const jiraConnections = ref<JiraConnection[]>([]);
+const jiraBoardConnection = ref("");
+const jiraBoardBusy = ref(false);
 const search = ref((route.query.search as string) || "");
 type TaskTab = "my_work" | "assigned_by_me" | "completed" | "archived";
 const validTabs: TaskTab[] = ["my_work", "assigned_by_me", "completed", "archived"];
@@ -506,8 +516,20 @@ async function load(): Promise<void> {
   }
 }
 
+async function syncBoard(): Promise<void> {
+  if (!jiraBoardConnection.value) return;
+  jiraBoardBusy.value = true;
+  try {
+    const result = await jiraService.syncBoard(jiraBoardConnection.value);
+    window.alert(`Jira board sync complete: ${result.exported} exported, ${result.synchronized} synchronized, ${result.skipped} skipped, ${result.failed} failed.`);
+    await load();
+  } finally { jiraBoardBusy.value = false; }
+}
+
 onMounted(async () => {
   void load();
+  jiraConnections.value = (await jiraService.connections().catch(() => [])).filter((connection) => connection.is_active && !!connection.project_key);
+  jiraBoardConnection.value = jiraConnections.value[0]?.id || "";
   userService.listSummary().then((result) => { users.value = result; }).catch(() => { users.value = []; });
   products.value = await productService.list().catch(() => []);
   if (productFilter.value) void onFilterProductChange(false);
@@ -782,6 +804,10 @@ function productInitials(name: string | null | undefined): string {
   const words = name.trim().split(/\s+/);
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function userInitials(name: string | null | undefined): string {
+  return (name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 </script>
 
@@ -1285,6 +1311,8 @@ function productInitials(name: string | null | undefined): string {
 .board-card { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; width: 100%; padding: .75rem; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); color: var(--color-text); text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 .board-card:hover { border-color: var(--color-primary); transform: translateY(-1px); }
 .board-card-title { font-size: .84rem; font-weight: 650; }
+.board-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; width: 100%; }
+.board-avatar { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--color-primary); color: white; font-size: .62rem; font-weight: 750; }
 .board-card-meta { font-size: .72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .board-card-foot { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: .2rem; font-size: .7rem; text-transform: capitalize; }
 .priority-high { color: var(--color-danger); } .priority-medium { color: var(--color-warning); } .priority-low { color: var(--color-text-muted); }

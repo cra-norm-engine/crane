@@ -263,6 +263,11 @@
             <p class="muted">Create Jira issues from CRANE tasks and synchronize their status and details.</p>
           </div>
           <div class="s-card-body">
+            <div class="jira-guide">
+              <strong>Jira setup guide</strong>
+              <span>1. Connect your site</span><span>2. Choose the destination project</span><span>3. Map statuses and users (optional)</span>
+              <small>Use the project key shown in Jira, for example <code>SCRUM</code>. CRANE uses this connection for task export and board sync.</small>
+            </div>
             <div v-if="!jiraConnections.length" class="s-row">
               <div class="s-label">
                 <div class="s-label-t">Connect Atlassian</div>
@@ -284,7 +289,7 @@
               </div>
               <div class="s-row">
                 <div class="s-label">
-                  <div class="s-label-t">Default issue destination</div>
+                  <div class="s-label-t">Destination project <span class="jira-tag required">Required</span></div>
                   <div class="s-label-h">Project key and Jira issue type used for exported CRANE tasks.</div>
                 </div>
                 <div class="s-control grow jira-fields">
@@ -294,7 +299,7 @@
               </div>
               <div class="s-row">
                 <div class="s-label">
-                  <div class="s-label-t">Workflow status IDs</div>
+                  <div class="s-label-t">Workflow mapping <span class="jira-tag optional">Optional</span></div>
                   <div class="s-label-h">Optional Jira status IDs for CRANE open, in progress, and completed states.</div>
                 </div>
                 <div class="s-control grow jira-fields">
@@ -305,7 +310,7 @@
               </div>
               <div class="s-row">
                 <div class="s-label">
-                  <div class="s-label-t">Priority names or IDs</div>
+                  <div class="s-label-t">Priority mapping <span class="jira-tag optional">Optional</span></div>
                   <div class="s-label-h">Optional Jira priorities corresponding to CRANE low, medium, and high.</div>
                 </div>
                 <div class="s-control grow jira-fields">
@@ -316,7 +321,7 @@
               </div>
               <div class="s-row">
                 <div class="s-label">
-                  <div class="s-label-t">Assignee mapping</div>
+                  <div class="s-label-t">Assignee mapping <span class="jira-tag optional">Optional</span></div>
                   <div class="s-label-h">Map CRANE users to Atlassian account IDs so exported issues retain their assignee.</div>
                 </div>
                 <div class="s-control grow jira-user-map">
@@ -701,6 +706,14 @@ function flash(flag: { value: boolean }): void {
 
 <style scoped>
 .jira-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+.jira-guide { display: grid; gap: .35rem; padding: .85rem 1rem; margin-bottom: 1rem; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-elevated); font-size: .8rem; }
+.jira-guide strong { font-size: .88rem; }
+.jira-guide span { color: var(--color-text-muted); }
+.jira-guide small { color: var(--color-text-muted); margin-top: .2rem; }
+.jira-guide code { font-size: .75rem; }
+.jira-tag { display: inline-block; margin-left: .35rem; padding: .12rem .38rem; border-radius: 999px; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; vertical-align: middle; }
+.jira-tag.required { color: var(--color-danger); background: var(--color-danger-bg); }
+.jira-tag.optional { color: var(--color-text-muted); background: var(--color-surface-elevated); border: 1px solid var(--color-border); }
 .jira-site-row a { color: var(--color-primary, #2563eb); }
 .jira-actions { margin: 0; border-top: 0; }
 .jira-user-map { display: grid; gap: .5rem; }

@@ -215,6 +215,28 @@ class JiraIntegrationService:
             raise
         return link
 
+    def sync_board(self, connection_id: UUID, direction: str, actor: User) -> dict[str, int]:
+        connection = self.connection(connection_id, actor)
+        tasks = ManualTaskService(self.db).list(actor, scope="all", state="all")
+        result = {"exported": 0, "synchronized": 0, "skipped": 0, "failed": 0}
+        for task in tasks:
+            try:
+                link = self.db.scalar(select(JiraTaskLink).where(JiraTaskLink.manual_task_id == task.id))
+                if link is None:
+                    if task.created_by_user_id != actor.id:
+                        result["skipped"] += 1
+                        continue
+                    self.export_task(task.id, connection.id, actor)
+                    result["exported"] += 1
+                elif link.connection_id != connection.id:
+                    result["skipped"] += 1
+                else:
+                    self.sync_task(task.id, direction, actor)
+                    result["synchronized"] += 1
+            except Exception:
+                result["failed"] += 1
+        return result
+
     def enqueue_forge_event(self, token: str, payload: dict) -> JiraSyncEvent | None:
         claims = verify_forge_token(token)
         installation_id = ((claims.get("app") or {}).get("installationId"))

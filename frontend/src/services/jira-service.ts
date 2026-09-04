@@ -69,4 +69,8 @@ export const jiraService = {
     const { data } = await apiClient.post<JiraTaskLink>(`/jira/tasks/${taskId}/sync`, { direction });
     return data;
   },
+  async syncBoard(connectionId: string, direction: "push" | "pull" = "push"): Promise<{ exported: number; synchronized: number; skipped: number; failed: number }> {
+    const { data } = await apiClient.post("/jira/board/sync", { direction }, { params: { connection_id: connectionId } });
+    return data;
+  },
 };

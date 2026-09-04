@@ -57,6 +57,13 @@ class JiraSyncRequest(BaseModel):
     direction: Literal["push", "pull"] = "push"
 
 
+class JiraBoardSyncRead(BaseModel):
+    exported: int = 0
+    synchronized: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+
 class JiraOAuthStartRead(BaseModel):
     authorization_url: str
 

@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.core.exceptions import AppException
 from app.models.product import Product, ProductRelease
 from app.schemas.jira_integration import (
+    JiraBoardSyncRead,
     JiraConnectionRead,
     JiraConnectionUpdate,
     JiraForgeTaskRead,
@@ -89,6 +90,11 @@ def export_task(task_id: UUID, connection_id: Annotated[UUID, Query()], db: DbSe
 @router.post("/tasks/{task_id}/sync", response_model=JiraTaskLinkRead)
 def sync_task(task_id: UUID, payload: JiraSyncRequest, db: DbSession, current_user: CurrentUser):
     return JiraIntegrationService(db).sync_task(task_id, payload.direction, current_user)
+
+
+@router.post("/board/sync", response_model=JiraBoardSyncRead)
+def sync_board(connection_id: Annotated[UUID, Query()], payload: JiraSyncRequest, db: DbSession, current_user: CurrentUser) -> JiraBoardSyncRead:
+    return JiraBoardSyncRead(**JiraIntegrationService(db).sync_board(connection_id, payload.direction, current_user))
 
 
 @router.post("/forge/events", status_code=202)
