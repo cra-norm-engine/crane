@@ -128,7 +128,7 @@
 
     <div class="sidebar-footer">
       <div class="user-row" :title="effectiveCollapsed ? `${displayName} — ${primaryRoleLabel}` : undefined">
-        <div class="user-avatar" aria-hidden="true">{{ userEmoji }}</div>
+        <div class="user-avatar" aria-hidden="true"><img v-if="authStore.user?.avatar_data" :src="authStore.user.avatar_data" alt="" /><span v-else>{{ userEmoji }}</span></div>
         <div v-if="!effectiveCollapsed" class="user-info">
           <div class="user-name">{{ displayName }}</div>
           <span class="user-role-badge">{{ primaryRoleLabel }}</span>
@@ -516,6 +516,7 @@ async function logout(): Promise<void> {
 .sidebar-footer { flex-shrink: 0; display: flex; flex-direction: column; gap: 0.25rem; padding-top: 0.55rem; border-top: 1px solid rgba(233, 238, 252, 0.08); }
 .user-row { display: flex; align-items: center; gap: 0.65rem; padding: 0.4rem 0.35rem; }
 .user-avatar { width: 32px; height: 32px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid rgba(173, 214, 84, 0.2); border-radius: 9px; background: linear-gradient(135deg, rgba(112, 185, 23, 0.22), rgba(28, 107, 39, 0.28)); font-size: 1rem; }
+.user-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .user-info { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
 .user-name, .user-role-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-name { color: var(--color-text); font-size: 0.82rem; font-weight: 700; }
