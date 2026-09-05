@@ -160,12 +160,13 @@
   </div>
 
   <section class="page">
-    <header class="page-header">
+    <header class="page-header" data-guide="risk-detail-header">
       <div>
         <p class="eyebrow">Risk Assessment</p>
         <h1 class="page-title">{{ assessment?.title ?? "Risk Assessment Detail" }}</h1>
       </div>
       <div class="header-actions">
+        <button class="button secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <button class="button secondary" type="button" @click="goBack">← Back</button>
         <button class="button" type="button" @click="loadAssessment" :disabled="loading">
           {{ loading ? "Refreshing…" : "Refresh" }}
@@ -182,17 +183,17 @@
 
     <template v-else-if="assessment">
       <!-- Assessment Overview Card -->
-      <article class="panel">
+      <article class="panel" data-guide="risk-approval">
         <div class="panel-header">
           <div>
             <h2>Assessment Overview</h2>
           </div>
           <div class="overview-actions">
             <span class="count-badge">{{ assessment.display_version }}</span>
-            <button class="button secondary" @click="showEditModal = true">Edit Assessment</button>
-            <button class="button danger" type="button" :disabled="deletingAssessment" @click="deleteAssessment">
-              {{ deletingAssessment ? "Deleting..." : "Delete Assessment" }}
-            </button>
+            <div class="assessment-actions">
+              <button class="button secondary" type="button" @click="showEditModal = true">Edit assessment</button>
+              <button class="button danger" type="button" :disabled="deletingAssessment" @click="deleteAssessment">{{ deletingAssessment ? "Deleting…" : "Delete assessment" }}</button>
+            </div>
           </div>
         </div>
 
@@ -280,7 +281,7 @@
         </div>
       </div>
 
-      <section class="panel">
+      <section class="panel" data-guide="risk-items">
         <div class="panel-header">
           <h2>Risk Items</h2>
           <div class="risk-items-actions">
@@ -452,6 +453,7 @@ import type { RiskItemCreate, RiskItemRead, RiskItemStatus, RiskLevel } from "@/
 
 const route = useRoute();
 const router = useRouter();
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 const assessment = ref<RiskAssessmentDetailRead | null>(null);
 const riskItems = ref<RiskItemRead[]>([]);
@@ -851,13 +853,13 @@ onMounted(async () => {
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: var(--text-xl);
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: var(--text-xl);
   cursor: pointer;
   color: var(--color-text-muted);
   transition: color 0.2s;
@@ -906,13 +908,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
+  font-size: var(--text-sm);
 }
 
 .eyebrow {
   margin: 0 0 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -930,6 +933,11 @@ onMounted(async () => {
 .risk-card-header h3 {
   margin: 0;
 }
+
+.page-header h1 { font-size: var(--text-3xl); }
+.panel-header h2 { font-size: var(--text-xl); }
+.risk-card-header h3 { font-size: var(--text-lg); }
+.button, .input, .select, .textarea { font-size: var(--text-sm); }
 
 .page-subtitle {
   margin: 0.4rem 0 0;
@@ -976,14 +984,14 @@ onMounted(async () => {
 
 .action-title {
   margin: 0 0 0.3rem;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--color-text);
 }
 
 .action-description {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -1003,7 +1011,7 @@ onMounted(async () => {
 
 .panel-description {
   margin: 0.4rem 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -1047,7 +1055,10 @@ onMounted(async () => {
   .overview-actions {
     width: 100%;
     flex-direction: column;
+    align-items: stretch;
   }
+
+  .assessment-actions { width: 100%; flex-direction: column; }
 
   .overview-actions .button {
     width: 100%;
@@ -1095,7 +1106,7 @@ onMounted(async () => {
 }
 
 .overview-label {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1103,7 +1114,7 @@ onMounted(async () => {
 }
 
 .overview-value {
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
   word-break: break-word;
@@ -1118,7 +1129,7 @@ onMounted(async () => {
 
 .summary-title {
   margin: 0 0 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1127,7 +1138,7 @@ onMounted(async () => {
 
 .summary-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--color-text);
 }
@@ -1137,7 +1148,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
+.assessment-actions { display: flex; align-items: center; gap: .5rem; }
+.assessment-actions .button { min-height: 38px; padding: .55rem .8rem; white-space: nowrap; }
 
 .detail-full {
   grid-column: 1 / -1;
@@ -1180,7 +1195,7 @@ onMounted(async () => {
 
 .field-label,
 .checkbox-field span {
-  font-size: 0.82rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -1204,7 +1219,7 @@ onMounted(async () => {
   color: var(--color-status-text);
   border: 1px solid var(--color-status-border);
   padding: 0.28rem 0.62rem;
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: capitalize;
 }

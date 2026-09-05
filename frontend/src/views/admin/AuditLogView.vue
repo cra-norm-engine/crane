@@ -7,17 +7,17 @@
 -->
 <template>
   <section class="page">
-    <div class="page-header">
+    <div class="page-header" data-guide="audit-header">
       <div>
         <h1 class="page-title">Audit History</h1>
         <p class="muted">
           Choose a product, product release, or managed user and follow its full audit timeline.
         </p>
       </div>
-
+      <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
     </div>
 
-    <section class="card filters-card">
+    <section class="card filters-card" data-guide="audit-filters">
       <div class="filters-grid">
         <label class="field">
           <span class="field-label">Entity</span>
@@ -56,7 +56,7 @@
       </div>
     </section>
 
-    <AuditTimeline
+    <div data-guide="audit-timeline"><AuditTimeline
       :title="timelineTitle"
       eyebrow="Audit Workspace"
       :description="timelineDescription"
@@ -65,7 +65,7 @@
       :error-message="timelineErrorMessage"
       :show-refresh="true"
       @refresh="loadTimeline"
-    />
+    /></div>
   </section>
 </template>
 
@@ -73,6 +73,8 @@
 import { computed, ref, watch } from "vue";
 
 import AuditTimeline from "@/components/AuditTimeline.vue";
+import AppButton from "@/components/AppButton.vue";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import { adminService } from "@/services/admin-service";
 import { auditService } from "@/services/audit-service";
 import { productReleaseService } from "@/services/product-release-service";

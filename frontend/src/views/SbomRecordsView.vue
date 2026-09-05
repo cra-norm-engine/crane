@@ -7,7 +7,7 @@
 -->
 <template>
   <section class="page">
-    <header class="page-header">
+    <header class="page-header" data-guide="sbom-header">
       <div>
         <h1 class="page-title">SBOM analyzer</h1>
         <p class="muted page-subtitle">
@@ -18,6 +18,7 @@
       </div>
 
       <div class="page-actions">
+        <button class="btn btn-secondary embedded-guide-trigger" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <label class="field">
           <span class="field-label">Search products</span>
           <input v-model.trim="productQuery" type="text" placeholder="Product name or code" />
@@ -41,7 +42,7 @@
           </select>
         </label>
 
-        <!-- Import from release gate artifact -->
+        <div class="sbom-guide-actions" data-guide="sbom-actions"><!-- Import from release gate artifact -->
         <button
           class="btn btn-secondary"
           :disabled="!selectedReleaseId || isImporting"
@@ -60,13 +61,14 @@
         <button class="btn btn-secondary" @click="showCreateModal = true">
           + Manual entry
         </button>
+        </div>
       </div>
     </header>
 
     <div v-if="errorMessage" class="card feedback feedback-error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="card feedback feedback-success">{{ successMessage }}</div>
 
-    <section class="card">
+    <section class="card" data-guide="sbom-records">
       <div class="section-header">
         <h2 class="section-title">SBOM records</h2>
         <p class="muted">{{ records.length }} record(s)</p>
@@ -271,6 +273,7 @@
       <!-- Answer the user's first question before exposing technical detail. -->
       <section
         class="cra-readiness"
+        data-guide="sbom-readiness"
         :class="craValidation ? (craValidation.is_compliant ? 'cra-ready' : 'cra-action') : 'cra-unknown'"
       >
         <div class="cra-readiness-copy">
@@ -341,7 +344,7 @@
 
       <!-- ── Tabbed analysis pane ── -->
       <div class="sbom-analysis-pane">
-        <div class="detail-tabs" role="tablist" aria-label="SBOM detail sections">
+        <div class="detail-tabs" data-guide="sbom-tabs" role="tablist" aria-label="SBOM detail sections">
           <button
             v-for="(tab, index) in detailTabs"
             :key="tab.id"
@@ -891,6 +894,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import { apiClient } from "@/services/api";
 import { sbomRecordService } from "@/services/sbom-record-service";
 import { productReleaseService } from "@/services/product-release-service";
@@ -1514,6 +1518,7 @@ onMounted(async () => {
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+.sbom-guide-actions { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 
 /* ── Buttons ── */
 .btn {

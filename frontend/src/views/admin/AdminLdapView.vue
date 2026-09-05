@@ -7,12 +7,13 @@
 -->
 <template>
   <section class="page">
-    <div class="page-header">
+    <div class="page-header" data-guide="ldap-header">
       <div>
         <h1 class="page-title">Admin · LDAP</h1>
         <p class="muted">Configure LDAP/Active Directory integration for user authentication.</p>
       </div>
       <div class="page-actions">
+        <button class="button secondary embedded-guide-trigger" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <button class="button secondary" type="button" :disabled="statusLoading" @click="loadStatus">
           Refresh status
         </button>
@@ -20,7 +21,7 @@
     </div>
 
     <!-- Connection status -->
-    <div class="card status-card">
+    <div class="card status-card" data-guide="ldap-status">
       <div class="section-header">
         <div>
           <h2 class="section-title">Connection status</h2>
@@ -65,7 +66,7 @@
     </div>
 
     <!-- Test credentials -->
-    <div class="card form-card">
+    <div class="card form-card" data-guide="ldap-test">
       <div class="section-header">
         <div>
           <h2 class="section-title">Test credentials</h2>
@@ -108,7 +109,7 @@
     </div>
 
     <!-- Sync users -->
-    <div class="card form-card">
+    <div class="card form-card" data-guide="ldap-import">
       <div class="section-header">
         <div>
           <h2 class="section-title">Import LDAP users</h2>
@@ -158,7 +159,7 @@
     </div>
 
     <!-- Config reference -->
-    <div class="card config-card">
+    <div class="card config-card" data-guide="ldap-config">
       <div class="section-header">
         <div>
           <h2 class="section-title">Configuration reference</h2>
@@ -191,6 +192,7 @@ import { onMounted, reactive, ref } from "vue";
 
 import { adminService } from "@/services/admin-service";
 import type { LDAPStatusResult, LDAPSyncResult, LDAPTestResult, RoleRead } from "@/types/admin";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 const ldapStatus = ref<LDAPStatusResult | null>(null);
 const statusLoading = ref(false);

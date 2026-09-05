@@ -7,19 +7,20 @@
 -->
 <template>
   <section class="page">
-    <header class="page-header">
+    <header class="page-header" data-guide="risk-header">
       <div>
         <h1 class="page-title">Risk Assessments</h1>
         <p class="muted page-subtitle">
           Structured cybersecurity risk assessments for products and releases.
         </p>
       </div>
-      <AppButton variant="primary" type="button" @click="openCreateForm = !openCreateForm">
-        {{ openCreateForm ? "Close" : "New Assessment" }}
-      </AppButton>
+      <div class="header-actions">
+        <AppButton variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
+        <AppButton variant="primary" type="button" @click="openCreateForm = !openCreateForm">{{ openCreateForm ? "Close" : "New Assessment" }}</AppButton>
+      </div>
     </header>
 
-    <section class="panel filters-panel">
+    <section class="panel filters-panel" data-guide="risk-filters">
       <div class="filters-grid">
         <label class="field">
           <span class="field-label">Product</span>
@@ -108,7 +109,7 @@
       </form>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-guide="risk-list">
       <div class="panel-header">
         <h2 class="section-title">Assessment List</h2>
         <span class="count-badge">{{ assessments.length }}</span>
@@ -189,6 +190,8 @@ import type {
 } from "@/types/risk-assessment";
 import type { ProductSummaryRead } from "@/types/product";
 import type { ProductReleaseRead } from "@/types/release-gate";
+
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -482,6 +485,7 @@ watch(createReleaseId, (releaseId) => {
   align-items: center;
   gap: 1rem;
 }
+.header-actions { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 
 /* section-title is the global class; margin: 0 prevents panel layout shift */
 .panel-header .section-title {

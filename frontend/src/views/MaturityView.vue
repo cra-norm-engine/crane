@@ -1,19 +1,17 @@
 <template>
   <section class="page maturity-page">
-    <header class="page-header">
+    <header class="page-header" data-guide="maturity-header">
       <div>
         <h1 class="page-title">SME maturity</h1>
         <p class="muted page-subtitle">
           Assess organisational cyber-resilience practices using the ENISA SME model.
         </p>
       </div>
-      <AppButton v-if="!current" variant="primary" @click="showCreate = true">
-        New assessment
-      </AppButton>
+      <div class="header-actions"><AppButton class="embedded-guide-trigger" variant="secondary" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton><AppButton v-if="!current" variant="primary" @click="showCreate = true">New assessment</AppButton></div>
     </header>
 
     <template v-if="!current">
-      <section class="panel">
+      <section class="panel" data-guide="maturity-list">
         <div class="panel-header">
           <div>
             <h2 class="section-title">Assessments</h2>
@@ -49,7 +47,7 @@
         <AppButton variant="ghost" @click="closeAssessment">← All assessments</AppButton>
       </div>
 
-      <section class="panel assessment-header">
+      <section class="panel assessment-header" data-guide="maturity-detail">
         <div class="assessment-heading">
           <div class="heading-badges">
             <StatusBadge :label="formatLabel(current.status)" :variant="statusVariant(current.status)" />
@@ -68,7 +66,7 @@
         </div>
       </section>
 
-      <section class="metric-grid" aria-label="Assessment summary">
+      <section class="metric-grid" data-guide="maturity-metrics" aria-label="Assessment summary">
         <article class="metric-card">
           <span class="metric-label">Completion</span>
           <strong>{{ answeredCount }} / {{ current.catalog.length }}</strong>
@@ -96,14 +94,14 @@
         <span>{{ current.results.disclaimer }}</span>
       </div>
 
-      <nav class="tab-bar" aria-label="Maturity assessment sections">
+      <nav class="tab-bar" data-guide="maturity-tabs" aria-label="Maturity assessment sections">
         <button v-for="name in tabs" :key="name" :class="{ active: tab === name }" @click="tab = name">
           {{ name }}
           <span v-if="name === 'Improvement plan' && current.actions.length" class="tab-count">{{ current.actions.length }}</span>
         </button>
       </nav>
 
-      <section v-if="tab === 'Assessment'" class="assessment-workspace">
+      <section v-if="tab === 'Assessment'" class="assessment-workspace" data-guide="maturity-workspace">
         <aside class="domain-nav panel" aria-label="Assessment domains">
           <div class="domain-nav-header">
             <span class="field-label">Domains</span>
@@ -265,6 +263,7 @@
 import { computed, onMounted, reactive, ref } from "vue"
 import { useRoute } from "vue-router"
 import AppButton from "@/components/AppButton.vue"
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import AppModal from "@/components/AppModal.vue"
 import StatusBadge from "@/components/StatusBadge.vue"
 import { useAsyncState } from "@/composables/useAsyncState"

@@ -13,7 +13,7 @@
     downloaded.
   -->
   <section class="page declarations-page">
-    <header class="page-header">
+    <header class="page-header" data-guide="declarations-header">
       <div>
         <span class="eyebrow">Cyber Resilience Act · Article 28</span>
         <h1 class="page-title">Declarations of Conformity</h1>
@@ -22,9 +22,10 @@
           generate the matching package label.
         </p>
       </div>
+      <AppButton variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
     </header>
 
-    <section class="panel">
+    <section class="panel" data-guide="declarations-list">
       <div class="panel-header">
         <div>
           <h2 class="section-title">Release declarations</h2>
@@ -83,6 +84,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import EmptyState from "@/components/EmptyState.vue";
+import AppButton from "@/components/AppButton.vue";
 import StatusBadge from "@/components/StatusBadge.vue";
 import type { BadgeVariant } from "@/components/StatusBadge.vue";
 import { useToast } from "@/composables/useToast";
@@ -91,6 +93,7 @@ import type { DeclarationSummary, DocStatus } from "@/types/declaration";
 
 const { showToast } = useToast();
 const router = useRouter();
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 const rows = ref<DeclarationSummary[]>([]);
 const isLoading = ref(false);

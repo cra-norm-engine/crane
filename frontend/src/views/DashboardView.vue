@@ -9,7 +9,7 @@
   <section class="page ops-hub-page">
 
     <!-- ── Deadline banner (top of page) ────────────────────────────────── -->
-    <div class="deadline-banner" :class="daysToDeadline < 365 ? 'deadline-urgent' : 'deadline-ok'">
+    <div class="deadline-banner" data-guide="deadline" :class="daysToDeadline < 365 ? 'deadline-urgent' : 'deadline-ok'">
       <div class="deadline-eyebrow">CRA Enforcement Deadline</div>
       <div class="deadline-banner-center">
         <span class="deadline-count" :class="daysToDeadline < 365 ? 'text-amber' : 'text-green'">
@@ -24,6 +24,7 @@
         11 December 2027
       </div>
     </div>
+    <div class="dashboard-guide-actions"><AppButton variant="secondary" class="dashboard-guide-trigger" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton></div>
 
 
     <!-- ── Error ───────────────────────────────────────────────────────────── -->
@@ -40,7 +41,7 @@
     <template v-if="data">
 
       <!-- ── SME maturity overview ────────────────────────────────────────── -->
-      <div v-if="canViewMaturity" class="conformance-panel">
+      <div v-if="canViewMaturity" class="conformance-panel" data-guide="maturity">
         <div class="conf-pie-wrap">
           <svg class="conf-pie" viewBox="0 0 42 42" role="img" aria-label="Overall SME cybersecurity maturity">
             <circle class="conf-pie-track" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"/>
@@ -79,7 +80,7 @@
       </div>
 
       <!-- ── KPI strip ──────────────────────────────────────────────────────── -->
-      <div class="kpi-strip">
+      <div class="kpi-strip" data-guide="dashboard-kpis">
 
         <!-- Products -->
         <div class="kpi-card" @click="$router.push({ name: 'products' })">
@@ -160,7 +161,7 @@
         <div class="hub-left">
 
           <!-- Vulnerability pipeline -->
-          <div class="hub-card">
+          <div class="hub-card" data-guide="vulnerability-pipeline">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Vulnerability Pipeline</h3>
               <button class="link-btn" @click="$router.push({ name: 'vulnerability-handling' })">View all →</button>
@@ -189,7 +190,7 @@
           </div>
 
           <!-- Risk assessments -->
-          <div class="hub-card">
+          <div class="hub-card" data-guide="risk-assessments">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Risk Assessments</h3>
               <button class="link-btn" @click="$router.push({ name: 'risk-assessments' })">View all →</button>
@@ -210,7 +211,7 @@
           </div>
 
           <!-- Substantial changes -->
-          <div class="hub-card">
+          <div class="hub-card" data-guide="substantial-changes">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Substantial Changes</h3>
               <button class="link-btn" @click="$router.push({ name: 'changes' })">View all →</button>
@@ -239,7 +240,7 @@
           </div>
 
           <!-- Lifecycle alerts -->
-          <div class="hub-card" :class="{ 'hub-card-alert': data.lifecycle_summary.expired > 0 }">
+          <div class="hub-card" data-guide="lifecycle-alerts" :class="{ 'hub-card-alert': data.lifecycle_summary.expired > 0 }">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Lifecycle &amp; Support Period Alerts</h3>
               <button class="link-btn" @click="$router.push({ name: 'support-hub' })">View all →</button>
@@ -303,7 +304,7 @@
         <div class="hub-right">
 
           <!-- Upcoming releases -->
-          <div class="hub-card">
+          <div class="hub-card" data-guide="upcoming-releases">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Upcoming Releases</h3>
             </div>
@@ -336,7 +337,7 @@
           </div>
 
           <!-- Recent activity -->
-          <div class="hub-card hub-card-activity">
+          <div class="hub-card hub-card-activity" data-guide="recent-activity">
             <div class="hub-card-header">
               <h3 class="hub-card-title">Recent Activity</h3>
             </div>
@@ -361,12 +362,28 @@
         </div>
       </div>
 
+      <Teleport to="body">
+        <div v-if="guideOpen" class="dashboard-guide-layer" role="region" aria-labelledby="dashboard-guide-title">
+          <aside class="dashboard-guide-card">
+            <div class="dashboard-guide-kicker">CRANE dashboard · {{ guideStep + 1 }} / {{ guideSteps.length }}</div>
+            <h2 id="dashboard-guide-title">{{ guideSteps[guideStep].title }}</h2>
+            <p>{{ guideSteps[guideStep].text }}</p>
+            <div class="dashboard-guide-why"><strong>Why this matters:</strong> {{ guideSteps[guideStep].why }}</div>
+            <div class="dashboard-guide-progress" aria-hidden="true"><span v-for="(_, i) in guideSteps" :key="i" :class="{ active: i === guideStep, done: i < guideStep }"></span></div>
+            <div class="dashboard-guide-actions-row">
+              <button type="button" class="dashboard-guide-secondary" @click="closeGuide">Skip tour</button>
+              <button v-if="guideStep > 0" type="button" class="dashboard-guide-secondary" @click="goGuideBack">Back</button>
+              <button type="button" class="dashboard-guide-primary" @click="advanceGuide">{{ guideStep === guideSteps.length - 1 ? 'Finish' : 'Continue' }}</button>
+            </div>
+          </aside>
+        </div>
+      </Teleport>
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { dashboardService } from "@/services/dashboard-service";
 import { maturityService } from "@/services/maturity-service";
@@ -385,6 +402,32 @@ const loading = ref(false);
 const error   = ref<string | null>(null);
 const maturity = ref<MaturityDetail | null>(null);
 const canViewMaturity = computed(() => authStore.hasPermission("maturity_read"));
+const guideOpen = ref(false);
+const guideStep = ref(0);
+const guideSteps = [
+  { target: "deadline", title: "Start with the CRA deadline", text: "Use the countdown as a planning signal. Reporting obligations begin in 2026 and the main CRA obligations apply in 2027.", why: "The dashboard keeps the compliance program anchored to the regulatory timeline." },
+  { target: "maturity", title: "Review organizational maturity", text: "When available, this panel summarizes governance, protection, detection, response, and recovery maturity plus evidence coverage.", why: "A product can be technically secure while the organization still lacks repeatable processes." },
+  { target: "dashboard-kpis", title: "Read the portfolio KPIs", text: "Products, open vulnerabilities, risk assessments, and your tasks provide a quick portfolio health check. Each card opens its detailed workspace.", why: "KPIs help prioritize the next action instead of treating every product equally." },
+  { target: "vulnerability-pipeline", title: "Check the vulnerability pipeline", text: "Review open findings by severity and act on critical or overdue items first. Use View all for remediation and PSIRT workflows.", why: "Known exploitable vulnerabilities can block release readiness and require timely handling." },
+  { target: "risk-assessments", title: "Review risk assessments", text: "Check draft, in-review, approved, and archived risk work. Open the risk workspace to create or complete an assessment.", why: "Risk decisions connect threats and mitigations to the product and its releases." },
+  { target: "substantial-changes", title: "Review substantial changes", text: "Open, action-required, and substantial changes show where a modification may require re-assessment or new conformity work.", why: "A substantial change can invalidate assumptions made for an earlier release." },
+  { target: "lifecycle-alerts", title: "Plan support and lifecycle work", text: "Expired and upcoming support-period alerts identify products that need an owner, communication, or lifecycle decision.", why: "Support commitments and security updates continue throughout the product lifecycle." },
+  { target: "upcoming-releases", title: "Prepare upcoming releases", text: "Use this list to see planned releases and their timing, then open the product and release workspace to complete the gate.", why: "Release planning gives the team time to collect evidence before market placement." },
+  { target: "recent-activity", title: "Verify recent activity", text: "Use the activity feed to confirm who changed products, evidence, risks, tasks, and releases recently.", why: "Recent activity helps reviewers spot stale work and reconstruct decisions." },
+];
+function updateGuideTarget(): void {
+  if (!guideOpen.value) return;
+  document.querySelectorAll(".dashboard-guide-target,.dashboard-guide-section").forEach((el) => el.classList.remove("dashboard-guide-target", "dashboard-guide-section"));
+  const el = document.querySelector<HTMLElement>(`[data-guide="${guideSteps[guideStep.value].target}"]`);
+  if (!el) { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; nextTick(updateGuideTarget); } else closeGuide(); return; }
+  el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+  el.classList.add("dashboard-guide-target");
+  (el.closest<HTMLElement>(".hub-card,.kpi-strip,.conformance-panel,.deadline-banner") ?? el).classList.add("dashboard-guide-section");
+}
+function startGuide(): void { guideStep.value = 0; guideOpen.value = true; document.body.classList.add("dashboard-guide-open"); nextTick(() => window.requestAnimationFrame(updateGuideTarget)); }
+function closeGuide(): void { document.querySelectorAll(".dashboard-guide-target,.dashboard-guide-section").forEach((el) => el.classList.remove("dashboard-guide-target", "dashboard-guide-section")); document.body.classList.remove("dashboard-guide-open"); guideOpen.value = false; guideStep.value = 0; }
+function advanceGuide(): void { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; nextTick(updateGuideTarget); } else closeGuide(); }
+function goGuideBack(): void { if (guideStep.value > 0) { guideStep.value--; nextTick(updateGuideTarget); } }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function load(): Promise<void> {
@@ -402,6 +445,7 @@ onMounted(() => {
   void load();
   if (canViewMaturity.value) void loadMaturity();
 });
+onBeforeUnmount(() => document.body.classList.remove("dashboard-guide-open"));
 
 async function loadMaturity(): Promise<void> {
   try {
@@ -493,6 +537,25 @@ function timeAgo(iso: string): string {
 </script>
 
 <style scoped>
+:global(body.dashboard-guide-open .app-content) { padding-right: 390px; transition: padding-right .18s ease; }
+.dashboard-guide-actions { display: flex; justify-content: flex-end; margin-top: -1rem; }
+.dashboard-guide-trigger :deep(span) { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 700; }
+.dashboard-guide-layer { position: fixed; inset: 0; z-index: 1200; pointer-events: none; }
+.dashboard-guide-section { background: rgba(122, 204, 55, .10) !important; box-shadow: inset 4px 0 0 var(--color-primary) !important; transition: background .16s ease; }
+.dashboard-guide-target { outline: 2px solid var(--color-primary) !important; outline-offset: 5px !important; box-shadow: 0 0 0 4px rgba(120, 210, 50, .12) !important; border-radius: 4px; }
+.dashboard-guide-card { position: fixed; top: 76px; right: 18px; bottom: 18px; z-index: 1203; width: 340px; box-sizing: border-box; padding: 20px; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 8px 30px rgba(0,0,0,.2); pointer-events: auto; }
+.dashboard-guide-kicker { margin-bottom: 8px; color: var(--color-primary); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.dashboard-guide-card h2 { margin: 0 0 8px; font-size: 18px; }
+.dashboard-guide-card p { margin: 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.55; }
+.dashboard-guide-why { margin-top: 14px; padding: 11px 12px; border-left: 3px solid var(--color-primary); background: var(--color-surface-2); color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
+.dashboard-guide-progress { display: flex; gap: 4px; margin-top: 18px; }
+.dashboard-guide-progress span { height: 3px; flex: 1; border-radius: 99px; background: var(--color-border); }
+.dashboard-guide-progress span.active, .dashboard-guide-progress span.done { background: var(--color-primary); }
+.dashboard-guide-actions-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.dashboard-guide-actions-row button { padding: 8px 11px; border-radius: 7px; font: inherit; cursor: pointer; }
+.dashboard-guide-secondary { border: 1px solid var(--color-border); background: transparent; color: inherit; }
+.dashboard-guide-primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff; }
+@media (max-width: 1100px) { :global(body.dashboard-guide-open .app-content) { padding-right: 2rem; } .dashboard-guide-card { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; } .dashboard-guide-target { scroll-margin-bottom: 45vh; } }
 /* ── Font import ───────────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
 

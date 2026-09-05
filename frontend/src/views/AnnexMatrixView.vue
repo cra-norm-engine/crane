@@ -9,12 +9,13 @@
   <section class="annex-page">
 
     <!-- ── Header ────────────────────────────────────────── -->
-    <header class="page-header">
+    <header class="page-header" data-guide="annex-header">
       <div>
         <h1 class="page-title">CRA requirements</h1>
         <p class="muted">Select a product, review every CRA Annex I requirement, and trace each one to risk items, rationale, and supporting artifacts.</p>
       </div>
       <div class="page-actions">
+        <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
         <AppButton variant="secondary" type="button" @click="showFilterModal = true">
           Filter matrix
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
@@ -23,7 +24,7 @@
     </header>
 
     <!-- ── Compliance readiness overview (all products) ───── -->
-    <ProductReadinessPanel @select="onReadinessSelect" />
+    <div data-guide="annex-readiness"><ProductReadinessPanel @select="onReadinessSelect" /></div>
 
     <!-- ── Alerts ─────────────────────────────────────────── -->
     <transition name="fade">
@@ -34,7 +35,7 @@
     </transition>
 
     <!-- ── Product selector ───────────────────────────────── -->
-    <article class="card selector-card">
+    <article class="card selector-card" data-guide="annex-scope">
       <div class="section-heading">
         <div>
           <h2 class="section-title">Product scope</h2>
@@ -79,7 +80,7 @@
     </article>
 
     <!-- ── Matrix list ─────────────────────────────────────── -->
-    <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card">
+    <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card" data-guide="annex-matrix">
       <div class="section-heading">
         <div>
           <h2 class="section-title">{{ selectedProduct.name }}</h2>
@@ -789,6 +790,7 @@ import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { riskItemService } from "@/services/risk-item-service";
 import type { AnnexPart } from "@/types/annex-requirement";
 import type { ArtifactListRead } from "@/types/artifact";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import type { ProductSummaryRead } from "@/types/product";
 import type {
   ProductRequirementDecisionUpdate,

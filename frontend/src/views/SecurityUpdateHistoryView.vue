@@ -7,7 +7,7 @@
 -->
 <template>
   <section class="page">
-    <header class="page-header">
+    <header class="page-header" data-guide="security-header">
       <div>
         <h1 class="page-title">Security updates</h1>
         <p class="muted page-subtitle">
@@ -84,7 +84,7 @@
       {{ successMessage }}
     </div>
 
-    <section class="card">
+    <section class="card" data-guide="security-history">
       <div class="section-header">
         <div>
           <h2 class="section-title">History</h2>

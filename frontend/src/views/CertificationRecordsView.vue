@@ -8,7 +8,7 @@
 <template>
   <section class="page">
     <!-- ── Page header ── -->
-    <header class="page-header">
+    <header class="page-header" data-guide="cert-header">
       <div class="header-text">
         <h1 class="page-title">Certifications</h1>
         <p class="muted page-subtitle">
@@ -19,6 +19,7 @@
       </div>
 
       <div class="filter-row">
+        <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
         <label class="field">
           <span class="field-label">Filter by product</span>
           <select v-model="selectedProductId">
@@ -43,7 +44,7 @@
     <div v-if="successMessage" class="card feedback feedback-success">{{ successMessage }}</div>
 
     <!-- ── Records table ── -->
-    <section class="card">
+    <section class="card" data-guide="cert-records">
       <div class="section-header">
         <div>
           <h2 class="section-title">Records</h2>
@@ -52,7 +53,7 @@
             click a row to view details
           </p>
         </div>
-        <AppButton v-if="canWrite" variant="primary" type="button" @click="openCreateModal">
+        <AppButton v-if="canWrite" variant="primary" type="button" data-guide="cert-add" @click="openCreateModal">
           Add record
         </AppButton>
       </div>
@@ -431,6 +432,7 @@ import AppButton from "@/components/AppButton.vue";
 import { useAuthStore } from "@/stores/auth";
 import { certificationRecordService } from "@/services/certification-record-service";
 import { productService } from "@/services/product-service";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import {
   SCHEME_LABELS,
   STATUS_LABELS,

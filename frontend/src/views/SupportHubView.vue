@@ -11,7 +11,7 @@
     <!-- ══════════════════════════════════════════
          PAGE HEADER
          ══════════════════════════════════════════ -->
-    <header class="page-header">
+    <header class="page-header" data-guide="support-header">
       <div>
         <h1 class="page-title">Support Hub</h1>
         <p class="muted page-subtitle">
@@ -20,6 +20,7 @@
         </p>
       </div>
       <div class="page-actions">
+        <AppButton class="embedded-guide-trigger" variant="secondary" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
         <AppButton variant="secondary" :disabled="isLoading" @click="loadAll">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>
@@ -50,7 +51,7 @@
       <!-- ══════════════════════════════════════════
            KPI STRIP
            ══════════════════════════════════════════ -->
-      <section class="kpi-strip" aria-label="Summary statistics">
+      <section class="kpi-strip" data-guide="support-summary" aria-label="Summary statistics">
 
         <article class="kpi-card">
           <div class="kpi-top">
@@ -142,7 +143,7 @@
           <!-- ════════════════════════════════════
                PANEL 1 — EOS WATCH LIST (hero)
                ════════════════════════════════════ -->
-          <section class="card panel">
+          <section class="card panel" data-guide="support-eos">
 
             <div class="panel-header">
               <div>
@@ -252,7 +253,7 @@
           <!-- ════════════════════════════════════
                PANEL 2 — PRODUCT SUPPORT LOOKUP
                ════════════════════════════════════ -->
-          <section class="card panel">
+          <section class="card panel" data-guide="support-product">
 
             <div class="panel-header">
               <div>
@@ -431,7 +432,7 @@
           <!-- ════════════════════════════════════
                PANEL 3 — CVE LOOKUP
                ════════════════════════════════════ -->
-          <section class="card panel">
+          <section class="card panel" data-guide="support-cve">
 
             <div class="panel-header">
               <div>
@@ -510,7 +511,7 @@
           <!-- ════════════════════════════════════
                PANEL 4 — NOTIFICATION QUEUE
                ════════════════════════════════════ -->
-          <section class="card panel">
+          <section class="card panel" data-guide="support-notifications">
 
             <div class="panel-header">
               <div>
@@ -595,7 +596,7 @@
            PANEL 5 — PRODUCT RECALLS & WITHDRAWALS
            Full-width below the grid
            ══════════════════════════════════════════ -->
-      <section class="card panel">
+      <section class="card panel" data-guide="support-market">
 
         <div class="panel-header">
           <div>
@@ -815,6 +816,7 @@ import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
 import { securityUpdateService } from "@/services/security-update-service";
 import { supportPeriodService } from "@/services/support-period-service";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 import type { MarketActionRead, MarketActionStatus, MarketActionType } from "@/types/market-action";
 import type { ProductReleaseRead } from "@/types/release-gate";

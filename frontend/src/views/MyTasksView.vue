@@ -74,17 +74,18 @@
   <section class="tasks-page">
 
     <!-- ── Page head ─────────────────────────────────────────────────────── -->
-    <div class="page-head">
+    <div class="page-head" data-guide="head">
       <div>
         <h1 class="page-title">My Tasks</h1>
         <p class="page-sub">Open items assigned to you or created by you, with completed-task history.</p>
       </div>
       <div class="head-actions">
+        <button class="hbtn mt-guide-trigger" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <div class="view-toggle" role="group" aria-label="Task layout">
           <button class="hbtn" :class="{ 'view-active': viewMode === 'list' }" @click="viewMode = 'list'">List</button>
           <button class="hbtn" :class="{ 'view-active': viewMode === 'board' }" @click="viewMode = 'board'">Board</button>
         </div>
-        <button class="hbtn hbtn-primary" @click="openCreateModal">+ New task</button>
+        <button class="hbtn hbtn-primary" data-guide="create" @click="openCreateModal">+ New task</button>
         <template v-if="viewMode === 'board' && jiraConnections.length">
           <select v-model="jiraBoardConnection" class="toolbar-select" aria-label="Jira board destination">
             <option v-for="connection in jiraConnections" :key="connection.id" :value="connection.id">{{ connection.site_name }} · {{ connection.project_key }}</option>
@@ -100,8 +101,8 @@
       </div>
     </div>
 
-    <nav class="task-tabs" aria-label="Task views">
-      <button v-for="tab in taskTabs" :key="tab.key" :class="{ active: activeTab === tab.key }" @click="setTab(tab.key)">{{ tab.label }} <span>{{ tab.count }}</span></button>
+    <nav class="task-tabs" data-guide="tabs" aria-label="Task views">
+      <button v-for="tab in taskTabs" :key="tab.key" :data-guide="tab.key === 'completed' ? 'done' : undefined" :class="{ active: activeTab === tab.key }" @click="setTab(tab.key)">{{ tab.label }} <span>{{ tab.count }}</span></button>
     </nav>
 
     <!-- ── Error ──────────────────────────────────────────────────────────── -->
@@ -111,7 +112,7 @@
     </div>
 
     <!-- ── Summary filter cards ───────────────────────────────────────────── -->
-    <div v-if="!isLoading && activeTab === 'my_work'" class="summary-grid">
+    <div v-if="!isLoading && activeTab === 'my_work'" class="summary-grid" data-guide="summary">
 
       <!-- Overdue -->
       <button
@@ -177,7 +178,7 @@
     </div>
 
     <!-- ── Search + active-filter chip ────────────────────────────────────── -->
-    <div v-if="!isLoading && tasks.length" class="tasks-toolbar">
+    <div v-if="!isLoading && tasks.length" class="tasks-toolbar" data-guide="toolbar">
       <div class="task-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="15" height="15" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
@@ -230,7 +231,7 @@
       <button class="hbtn" @click="clearFilters">Clear search &amp; filters</button>
     </div>
 
-    <div v-if="viewMode === 'board' && !isLoading" class="task-board">
+    <div v-if="viewMode === 'board' && !isLoading" class="task-board" data-guide="board">
       <section v-for="column in boardColumns" :key="column.key" class="task-column">
         <div class="task-column-head"><span class="gdot" :class="`gdot-${column.tone}`"></span><strong>{{ column.title }}</strong><span class="gcount">{{ column.tasks.length }}</span></div>
         <div class="task-column-body" @dragover.prevent @drop="dropTask(column.key)">
@@ -246,7 +247,7 @@
 
     <!-- ── Task groups — single template, looped over the group model ─────── -->
     <template v-else-if="viewMode === 'list'">
-      <div v-for="group in visibleGroups" :key="group.key" class="group">
+      <div v-for="group in visibleGroups" :key="group.key" class="group" data-guide="list">
         <div class="group-head">
           <span class="gdot" :class="`gdot-${group.tone}`"></span>
           <span class="gtitle">{{ group.title }}</span>
@@ -300,10 +301,23 @@
       </div>
     </template>
   </section>
+
+  <Teleport to="body">
+    <div v-if="guideOpen" class="mt-guide-layer" role="region" aria-labelledby="mt-guide-title">
+      <aside class="mt-guide-card">
+      <div class="mt-guide-kicker">Interactive guide · {{ guideStep + 1 }} / {{ guideSteps.length }}</div>
+      <h2 id="mt-guide-title">{{ guideSteps[guideStep].title }}</h2>
+      <p>{{ guideSteps[guideStep].text }}</p>
+      <div class="mt-guide-tip"><strong>Why it matters:</strong> {{ guideSteps[guideStep].why }}</div>
+      <div class="mt-guide-progress" aria-hidden="true"><span v-for="(_, i) in guideSteps" :key="i" :class="{ active: i === guideStep, done: i < guideStep }"></span></div>
+      <div class="mt-guide-actions"><button type="button" class="mt-guide-secondary" @click="closeGuide">Skip tour</button><button v-if="guideStep" type="button" class="mt-guide-secondary" @click="guideStep--; updateGuideTarget()">Back</button><button type="button" class="mt-guide-primary" @click="advanceGuide">{{ guideStep === guideSteps.length - 1 ? 'Done' : 'Continue' }}</button></div>
+      </aside>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref, watch } from "vue";
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import TaskDrawer from "@/components/TaskDrawer.vue";
@@ -348,6 +362,31 @@ const releases = ref<ProductReleaseRead[]>([]);
 const isLoadingReleases = ref(false);
 const createForm = ref({ title: "", description: "", due_date: "", priority: "medium" as "low" | "medium" | "high", assigned_to_user_id: "", parent_task_id: "", product_id: "", product_release_id: "" });
 const parentTaskChoices = computed(() => tasks.value.filter((task) => task.entity_type === "manual_task" && task.entity_id !== editingTask.value?.entity_id && !task.archived_at));
+
+const guideOpen = ref(false);
+const guideStep = ref(0);
+const guideSteps = [
+  { target: "head", title: "Your task workspace", text: "Use My Tasks to see work assigned to you, work you delegated, completed history, and archived records.", why: "This separates responsibility from tracking." },
+  { target: "tabs", title: "Choose a responsibility view", text: "My work is actionable. Assigned by me lets you track delegated work without becoming the assignee. Completed and Archived preserve history.", why: "Completed work should remain auditable." },
+  { target: "summary", title: "Spot urgent work", text: "The summary cards filter overdue, due-this-week, or all open tasks in one click.", why: "Prioritisation reduces missed deadlines." },
+  { target: "toolbar", title: "Find and narrow tasks", text: "Search by title, product, or release, then filter by priority, product, and release.", why: "CRA evidence is easier to manage in context." },
+  { target: "create", title: "Create a complete task", text: "New task opens the form for title, context, deadline, priority, assignee, parent task, product, and release.", why: "Every task needs a clear owner; product and release links are optional." },
+  { target: "board", title: "Work in board view", text: "Switch to Board for Backlog, In progress, and Done / release columns. Drag manual tasks between columns when you can update them.", why: "Status makes progress visible to the whole team." },
+  { target: "list", title: "Review task details", text: "List rows show type, title, product or release, status, and due date. Select a row to open its detail drawer.", why: "The drawer is the single place for editing and history." },
+  { target: "done", title: "Keep a permanent record", text: "Use Completed and Archived tabs to find finished work later; completion does not delete the record.", why: "Retention supports evidence and lessons learned." },
+];
+function updateGuideTarget(): void {
+  document.querySelectorAll(".mt-guide-target,.mt-guide-section").forEach((el) => el.classList.remove("mt-guide-target", "mt-guide-section"));
+  const el = document.querySelector<HTMLElement>(`[data-guide="${guideSteps[guideStep.value].target}"]`);
+  if (!el) return;
+  el.classList.add("mt-guide-target");
+  (el.closest<HTMLElement>(".tasks-page > *, .task-column, .group") ?? el).classList.add("mt-guide-section");
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function startGuide(): void { guideStep.value = 0; guideOpen.value = true; document.body.classList.add("mt-guide-open"); nextTick(updateGuideTarget); }
+function closeGuide(): void { guideOpen.value = false; document.body.classList.remove("mt-guide-open"); document.querySelectorAll(".mt-guide-target,.mt-guide-section").forEach((el) => el.classList.remove("mt-guide-target", "mt-guide-section")); }
+function advanceGuide(): void { if (guideStep.value === guideSteps.length - 1) closeGuide(); else { guideStep.value++; nextTick(updateGuideTarget); } }
+onBeforeUnmount(closeGuide);
 
 function openCreateModal(): void {
   editingTask.value = null;
@@ -1328,6 +1367,28 @@ function assigneeAvatar(task: TaskItem): string | null {
 .priority-high { color: var(--color-danger); } .priority-medium { color: var(--color-warning); } .priority-low { color: var(--color-text-muted); }
 .board-empty { margin: auto; color: var(--color-text-muted); font-size: .78rem; }
 @media (max-width: 900px) { .task-board { grid-template-columns: 1fr; } }
+</style>
+
+<style scoped>
+:global(body.mt-guide-open .app-content) { padding-right: 390px; transition: padding-right .18s ease; }
+.mt-guide-layer { position: fixed; inset: 0; z-index: 1200; pointer-events: none; }
+.mt-guide-trigger { display: inline-flex; align-items: center; gap: .35rem; }
+.mt-guide-trigger span { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 700; line-height: 1; }
+.mt-guide-section { background: rgba(122, 204, 55, .10) !important; box-shadow: inset 4px 0 0 var(--color-primary) !important; }
+.mt-guide-target { outline: 2px solid var(--color-primary) !important; outline-offset: 5px !important; box-shadow: 0 0 0 4px rgba(120, 210, 50, .12) !important; border-radius: 4px; position: relative; z-index: 2; }
+.mt-guide-card { position: fixed; z-index: 1203; top: 76px; right: 18px; bottom: 18px; width: 340px; box-sizing: border-box; padding: 20px; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 8px 30px rgba(0,0,0,.2); pointer-events: auto; }
+.mt-guide-kicker { margin-bottom: 8px; color: var(--color-primary); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.mt-guide-card h2 { margin: 0 0 8px; font-size: 18px; }
+.mt-guide-card p { margin: 0; color: var(--color-text-muted); line-height: 1.55; font-size: 13px; }
+.mt-guide-tip { margin-top: 14px; padding: 11px 12px; border-left: 3px solid var(--color-primary); background: var(--color-surface-2); color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
+.mt-guide-progress { display: flex; gap: 4px; margin-top: 18px; }
+.mt-guide-progress span { height: 3px; flex: 1; border-radius: 99px; background: var(--color-border); }
+.mt-guide-progress span.active, .mt-guide-progress span.done { background: var(--color-primary); }
+.mt-guide-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.mt-guide-actions button { border-radius: 7px; padding: 8px 11px; font: inherit; cursor: pointer; }
+.mt-guide-secondary { border: 1px solid var(--color-border); background: transparent; color: inherit; }
+.mt-guide-primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff; }
+@media (max-width: 1100px) { :global(body.mt-guide-open .app-content) { padding-right: 2rem; } .mt-guide-card { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; } .mt-guide-target { scroll-margin-bottom: 45vh; } }
 </style>
 
 <!-- Light-mode overrides — non-scoped to reach [data-theme] root -->

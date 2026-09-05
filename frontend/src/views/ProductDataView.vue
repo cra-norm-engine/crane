@@ -9,13 +9,14 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header">
+    <header class="page-header" data-guide="data-header">
       <div>
         <h1 class="page-title">Data export / import</h1>
         <p class="muted page-subtitle">
           Export a complete product record as a portable JSON file, or import one to create a new product with all its data.
         </p>
       </div>
+      <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
     </header>
 
     <!-- ── Two-panel layout ── -->
@@ -24,7 +25,7 @@
       <!-- ══════════════════════════════════════════
            EXPORT PANEL
            ══════════════════════════════════════════ -->
-      <div class="panel card">
+      <div class="panel card" data-guide="data-export">
         <div class="panel-header">
           <div class="panel-icon icon-export">
             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -76,7 +77,7 @@
           </AppButton>
 
           <!-- Schema info -->
-          <div class="schema-info">
+          <div class="schema-info" data-guide="data-schema">
             <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.85rem;height:0.85rem;flex-shrink:0;margin-top:0.05rem">
               <path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm.93-9.412-3 .75a.75.75 0 0 0 .36 1.456l1.061-.265-.812 3.25a.75.75 0 0 0 1.454.363l1-4a.75.75 0 0 0-.563-.9l-.5-.124V5.588zm.07-1.838a.75.75 0 0 0 0-1.5.75.75 0 0 0 0 1.5z" clip-rule="evenodd"/>
             </svg>
@@ -93,7 +94,7 @@
       <!-- ══════════════════════════════════════════
            IMPORT PANEL
            ══════════════════════════════════════════ -->
-      <div class="panel card">
+      <div class="panel card" data-guide="data-import">
         <div class="panel-header">
           <div class="panel-icon icon-import">
             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -115,6 +116,7 @@
           <div
             v-if="!importBundle"
             class="drop-zone"
+            data-guide="data-drop"
             :class="{ 'drop-zone-hover': isDragging }"
             @dragover.prevent="isDragging = true"
             @dragleave.prevent="isDragging = false"
@@ -246,6 +248,7 @@ import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 
 import AppButton from "@/components/AppButton.vue";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import { productService } from "@/services/product-service";
 import {
   buildExportBundle,

@@ -7,16 +7,17 @@
 -->
 <template>
   <section class="settings">
-    <header class="page-header">
+    <header class="page-header" data-guide="settings-header">
       <div>
         <h1 class="page-title">Settings</h1>
         <p class="muted settings-sub">Manage your account, appearance, and personal preferences.</p>
       </div>
+      <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
     </header>
 
     <div class="settings-cols">
       <!-- ── Section navigation (scrollspy) ───────────── -->
-      <nav class="settings-nav" aria-label="Settings sections">
+      <nav class="settings-nav" data-guide="settings-nav" aria-label="Settings sections">
         <button
           v-for="item in navItems"
           :key="item.id"
@@ -33,7 +34,7 @@
       <!-- ── Content ──────────────────────────────────── -->
       <div class="settings-content">
         <!-- Account -->
-        <section id="account" class="s-card">
+        <section id="account" class="s-card" data-guide="settings-account">
           <div class="s-card-head">
             <h2 class="s-card-title">Account</h2>
             <p class="muted">Your identity and access within CRANE.</p>
@@ -123,7 +124,7 @@
         </section>
 
         <!-- Appearance -->
-        <section id="appearance" class="s-card">
+        <section id="appearance" class="s-card" data-guide="settings-appearance">
           <div class="s-card-head">
             <h2 class="s-card-title">Appearance</h2>
             <p class="muted">Choose how CRANE looks. Synced to your account.</p>
@@ -155,7 +156,7 @@
         </section>
 
         <!-- Preferences -->
-        <section id="preferences" class="s-card">
+        <section id="preferences" class="s-card" data-guide="settings-preferences">
           <div class="s-card-head">
             <h2 class="s-card-title">Preferences</h2>
             <p class="muted">Regional formatting and where you start.</p>
@@ -221,7 +222,7 @@
         </section>
 
         <!-- Security -->
-        <section id="security" class="s-card">
+        <section id="security" class="s-card" data-guide="settings-security">
           <div class="s-card-head">
             <h2 class="s-card-title">Security</h2>
             <p class="muted">Password and active sessions.</p>
@@ -262,7 +263,7 @@
         </section>
 
         <!-- Jira -->
-        <section id="jira" class="s-card">
+        <section id="jira" class="s-card" data-guide="settings-jira">
           <div class="s-card-head">
             <h2 class="s-card-title">Jira Cloud</h2>
             <p class="muted">Create Jira issues from CRANE tasks and synchronize their status and details.</p>
@@ -346,7 +347,7 @@
         </section>
 
         <!-- About -->
-        <section id="about" class="s-card">
+        <section id="about" class="s-card" data-guide="settings-about">
           <div class="s-card-head">
             <h2 class="s-card-title">About</h2>
             <p class="muted">Version, licensing, and resources.</p>
@@ -468,6 +469,7 @@ import { DATE_FORMAT_OPTIONS, formatDate } from "@/composables/useDateFormat";
 import { jiraService, type JiraConnection } from "@/services/jira-service";
 import { userService, type UserSummary } from "@/services/user-service";
 import AppButton from "@/components/AppButton.vue";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import AppLogo from "@/components/AppLogo.vue";
 import AppModal from "@/components/AppModal.vue";
 import StatusBadge from "@/components/StatusBadge.vue";

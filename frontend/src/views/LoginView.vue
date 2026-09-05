@@ -257,6 +257,7 @@ async function handleLogin(): Promise<void> {
       const { resolveLandingRouteName } = await import("@/router");
       await router.push({ name: resolveLandingRouteName() });
     }
+    setTimeout(() => window.dispatchEvent(new Event("crane-guide-hint")), 200);
   } catch (err: unknown) {
     if (err instanceof Error && "userMessage" in err) {
       error.value = (err as ApiError).userMessage || err.message;

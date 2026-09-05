@@ -15,13 +15,16 @@
         <p class="pi-sub">Catalogue every product, decide CRA scope, track conformity readiness.</p>
       </div>
       <div class="pi-head-actions">
-        <AppButton :disabled="isLoading" @click="loadProducts">
+        <AppButton class="pi-guide-trigger" @click="startGuide">
+          <span aria-hidden="true">?</span> Guide
+        </AppButton>
+        <AppButton data-guide="refresh" :disabled="isLoading" @click="loadProducts">
           <svg class="pi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>
           </svg>
           {{ isLoading ? 'Refreshing…' : 'Refresh' }}
         </AppButton>
-        <AppButton variant="primary" @click="toggleCreateForm">
+        <AppButton variant="primary" data-guide="add-product" @click="onAddProductClick">
           <svg class="pi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 5v14M5 12h14"/>
           </svg>
@@ -31,7 +34,7 @@
     </div>
 
     <!-- ── KPI strip — clickable scope filters ── -->
-    <div class="pi-kpi-row">
+    <div class="pi-kpi-row" data-guide="inventory-overview">
       <!-- Total products -->
       <button type="button" class="pi-kpi" :class="{ 'pi-kpi-sel': !filters.scopeStatus }" @click="setScopeFilter('')">
         <div class="pi-kpi-head">
@@ -114,9 +117,9 @@
          popover instead of a wall of always-visible pills. Any active filter
          surfaces below as a removable chip, so the current query stays visible
          without cluttering the toolbar. -->
-    <div class="pi-toolbar">
+    <div class="pi-toolbar" data-guide="filters">
       <!-- Search -->
-      <div class="pi-filter-search">
+      <div class="pi-filter-search" data-guide="search">
         <svg class="pi-ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
@@ -126,6 +129,7 @@
       <!-- Filters popover trigger -->
       <div class="pi-pop-wrap">
         <button
+          data-guide="filter-menu"
           type="button"
           class="pi-tbtn"
           :class="{ 'pi-tbtn-active': activeFilterCount > 0 }"
@@ -232,7 +236,7 @@
 
       <!-- Sort -->
       <div class="pi-pop-wrap pi-sort-group">
-        <div class="pi-fpill-wrap">
+        <div class="pi-fpill-wrap" data-guide="sort">
           <span class="pi-fpill-lbl">Sort: <strong>{{ sortLabel }}</strong></span>
           <svg class="pi-fpill-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 9l6 6 6-6"/>
@@ -281,36 +285,36 @@
       <form class="pi-form-grid" @submit.prevent="createProduct">
         <label class="pi-field">
           <span class="pi-field-lbl">Product code</span>
-          <input v-model.trim="form.product_code" class="pi-input" required maxlength="100" />
+          <input v-model.trim="form.product_code" data-guide="product-code" class="pi-input" required maxlength="100" />
         </label>
 
         <label class="pi-field">
           <span class="pi-field-lbl">Name</span>
-          <input v-model.trim="form.name" class="pi-input" required maxlength="255" />
+          <input v-model.trim="form.name" data-guide="product-name" class="pi-input" required maxlength="255" />
         </label>
 
-        <label class="pi-field pi-field-span2">
+        <label class="pi-field pi-field-span2" data-guide="description">
           <span class="pi-field-lbl">Description</span>
           <textarea v-model.trim="form.description" class="pi-textarea" rows="3" />
         </label>
 
         <label class="pi-field">
           <span class="pi-field-lbl">Manufacturer name</span>
-          <input v-model.trim="form.manufacturer_name" class="pi-input" required maxlength="255" />
+          <input v-model.trim="form.manufacturer_name" data-guide="manufacturer" class="pi-input" required maxlength="255" />
         </label>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="product-type">
           <span class="pi-field-lbl">Product type</span>
           <input v-model.trim="form.product_type" class="pi-input" required maxlength="150" />
         </label>
 
         <label class="pi-field pi-field-span2">
           <span class="pi-field-lbl">Intended use</span>
-          <textarea v-model.trim="form.intended_use" class="pi-textarea" rows="3" required />
+          <textarea v-model.trim="form.intended_use" data-guide="intended-use" class="pi-textarea" rows="3" required />
         </label>
 
         <!-- Parent product picker -->
-        <div class="pi-field pi-field-span2">
+        <div class="pi-field pi-field-span2" data-guide="parent-product">
           <span class="pi-field-lbl">
             Parent product
             <span class="pi-field-hint">(optional — set if this is a variant or sub-product)</span>
@@ -326,7 +330,7 @@
           </div>
         </div>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="classification">
           <span class="pi-field-lbl">Classification</span>
           <select v-model="form.current_classification" class="pi-select">
             <option value="normal">Default</option>
@@ -337,7 +341,7 @@
           </select>
         </label>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="scope-status">
           <span class="pi-field-lbl">Scope status</span>
           <select v-model="form.scope_status" class="pi-select">
             <option value="undecided">Undecided</option>
@@ -346,7 +350,7 @@
           </select>
         </label>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="lifecycle">
           <span class="pi-field-lbl">Lifecycle</span>
           <select v-model="form.lifecycle_status" class="pi-select">
             <option value="active">Active — full obligations when in scope</option>
@@ -354,7 +358,7 @@
           </select>
         </label>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="cra-product-type">
           <span class="pi-field-lbl">CRA product type</span>
           <select v-model="form.product_type_class" class="pi-select">
             <option value="undecided">Undecided</option>
@@ -363,7 +367,7 @@
           </select>
         </label>
 
-        <label class="pi-field">
+        <label class="pi-field" data-guide="conformity-route">
           <span class="pi-field-lbl">Conformity route</span>
           <select v-model="form.conformity_route" class="pi-select">
             <option value="undecided">Undecided</option>
@@ -374,7 +378,7 @@
         </label>
 
         <!-- Gap 2 — embedded product flag: enables per-release HW+SW version fields -->
-        <label class="pi-field pi-field-span2 pi-field-checkbox">
+        <label class="pi-field pi-field-span2 pi-field-checkbox" data-guide="embedded-product">
           <input type="checkbox" v-model="form.is_embedded_product" />
           <span>
             <strong>Embedded product (hardware + software/firmware)</strong>
@@ -384,7 +388,7 @@
 
         <div class="pi-form-actions pi-field-span2">
           <p v-if="formError" class="pi-form-error">{{ formError }}</p>
-          <AppButton variant="primary" type="submit" :disabled="isSubmitting">
+          <AppButton variant="primary" data-guide="create-product" type="submit" :disabled="isSubmitting" @click="onCreateProductClick">
             {{ isSubmitting ? 'Saving…' : 'Create product' }}
           </AppButton>
         </div>
@@ -393,7 +397,7 @@
 
     <!-- ── Inventory panel ── -->
     <div class="pi-panel">
-      <div class="pi-panel-head">
+      <div class="pi-panel-head" data-guide="inventory-table">
         <h3 class="pi-panel-title">
           Inventory
           <span class="pi-count-pill">{{ filteredProducts.length }} results</span>
@@ -461,7 +465,8 @@
               :key="product.id"
               class="pi-row"
               :class="{ 'pi-row-flagged': product.current_classification === 'critical', 'pi-row-active': product.id === drawerProductId }"
-              @click="openDrawer(product.id)"
+              data-guide="inventory-row"
+              @click="onInventoryRowClick(product.id)"
             >
               <!-- Product cell: initials mark + name + sub -->
               <td>
@@ -546,12 +551,12 @@
         </table>
       </div>
 
-      <div class="pi-panel-foot">
+      <div class="pi-panel-foot" data-guide="inventory-list">
         <span>
           Showing <strong>{{ filteredProducts.length }}</strong> of <strong>{{ products.length }}</strong> products
         </span>
         <!-- Flag legend — defines every chip shown in the Flags column -->
-        <div class="pi-legend">
+        <div class="pi-legend" data-guide="flag-legend">
           <span class="pi-legend-item"><span class="pi-flag pi-flag-violet">S</span> System</span>
           <span class="pi-legend-item"><span class="pi-flag pi-flag-cyan">T</span> Tailor-made</span>
           <span class="pi-legend-item"><span class="pi-flag pi-flag-green">R</span> Remote data</span>
@@ -561,6 +566,24 @@
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="guideOpen" class="pi-guide-layer" role="region" aria-labelledby="pi-guide-title">
+        <aside class="pi-guide-card">
+          <div class="pi-guide-kicker">Interactive guide · {{ guideStep + 1 }} / {{ guideSteps.length }}</div>
+          <h2 id="pi-guide-title">{{ guideSteps[guideStep].title }}</h2>
+          <p>{{ guideSteps[guideStep].text }}</p>
+          <div class="pi-guide-tip">{{ guideSteps[guideStep].tip }}</div>
+          <div class="pi-guide-progress" aria-hidden="true"><span v-for="(_, i) in guideSteps" :key="i" :class="{ active: i === guideStep, done: i < guideStep }"></span></div>
+          <div class="pi-guide-actions">
+            <button type="button" class="pi-guide-secondary" @click="closeGuide">Skip tour</button>
+            <button v-if="guideStep > 0" type="button" class="pi-guide-secondary" @click="goGuideBack">Back</button>
+            <button v-if="guideNeedsContinue" type="button" class="pi-guide-primary" :disabled="!guideCanContinue" @click="advanceGuide">Continue</button>
+            <span v-else class="pi-guide-wait">Click the highlighted element to continue</span>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
 
     <!-- ── Right-side detail drawer ── -->
     <Teleport to="body">
@@ -795,7 +818,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import AppButton from "@/components/AppButton.vue";
@@ -824,6 +847,73 @@ const formError = ref("");
 const showCreateForm = ref(false);
 const showFilterMenu = ref(false);
 const showParentPicker = ref(false);
+const guideOpen = ref(false);
+const guideStep = ref(0);
+const guideSteps = [
+  { target: "inventory-overview", title: "Understand the inventory overview", text: "These cards summarize registered products, CRA scope decisions, critical classifications, and products relying on remote processing.", tip: "The Total, In scope, and Out of scope cards are also clickable filters.", mode: "continue" },
+  { target: "refresh", title: "Refresh the register", text: "Reload product and support-period information after other users or integrations make changes.", tip: "CRANE also refreshes this page when it is first opened.", mode: "continue" },
+  { target: "add-product", title: "Click Add product", text: "Open the product registration form. The guide waits for the highlighted button.", tip: "Create one stable record for every product with digital elements.", mode: "click" },
+  { target: "product-code", title: "Enter a product code", text: "Enter a stable internal identifier such as ROUTER-X, then choose Continue.", tip: "Do not encode the release version in this code; releases are tracked separately.", mode: "continue", required: "product_code" },
+  { target: "product-name", title: "Enter the product name", text: "Enter the customer-facing or internally recognized product name.", tip: "Use a name that will remain understandable in exported evidence.", mode: "continue", required: "name" },
+  { target: "description", title: "Add a useful description", text: "Describe the product boundary, main capabilities, and connected elements. This field is optional but useful for reviewers.", tip: "Keep version-specific information in release records.", mode: "continue" },
+  { target: "manufacturer", title: "Identify the manufacturer", text: "Enter the legal manufacturer responsible for placing the product on the EU market.", tip: "Use the legal entity name used in conformity documentation.", mode: "continue", required: "manufacturer_name" },
+  { target: "product-type", title: "Describe the product type", text: "Enter a practical category such as IoT gateway, desktop application, or industrial controller.", tip: "This is the business-facing type; the CRA product type is selected separately below.", mode: "continue", required: "product_type" },
+  { target: "intended-use", title: "Document intended use", text: "Explain what the product does, who uses it, and its expected operating environment.", tip: "Intended use provides context for scope, risk, and security decisions.", mode: "continue", required: "intended_use" },
+  { target: "parent-product", title: "Model parent and child products", text: "Select a parent when this product is a variant, module, or part of a larger marketed system. Leave it empty for a top-level product.", tip: "Hierarchy helps connect related products without merging their releases or evidence.", mode: "continue" },
+  { target: "classification", title: "Choose the CRA classification", text: "Select Default, Important Class I, Important Class II, Critical, or FOSS based on the product category and scope analysis.", tip: "Use Undecided scope and confirm later with the product scope wizard if evidence is incomplete.", mode: "continue" },
+  { target: "scope-status", title: "Record the scope decision", text: "Mark whether CRA obligations apply. Keep Undecided until the assessment is supportable; out-of-scope decisions should later be justified and signed.", tip: "Scope is a documented decision, not merely a filter label.", mode: "continue" },
+  { target: "lifecycle", title: "Set lifecycle status", text: "Use Active for products still marketed or supported and Legacy for older products with the reduced workflow shown by CRANE.", tip: "Review lifecycle status whenever market or support conditions change.", mode: "continue" },
+  { target: "cra-product-type", title: "Identify software or hardware", text: "Choose software-only or hardware with digital elements. Leave Undecided only while the architecture is being assessed.", tip: "Embedded products can also expose separate hardware and firmware versions per release.", mode: "continue" },
+  { target: "conformity-route", title: "Select the conformity route", text: "Record self-assessment, third-party assessment, or not applicable based on scope and classification.", tip: "Important and critical categories can require a different conformity path; verify the applicable CRA route.", mode: "continue" },
+  { target: "embedded-product", title: "Mark embedded products", text: "Enable this when hardware and software or firmware versions must be tracked independently.", tip: "This adds separate hardware and software version fields to release records.", mode: "continue" },
+  { target: "create-product", title: "Create the product", text: "Click the highlighted button after completing the required fields.", tip: "You can refine scope, hierarchy, remote processing, releases, and support periods from the product workspace.", mode: "click" },
+  { target: "search", title: "Search the register", text: "Search by product code, name, or manufacturer to find a record quickly.", tip: "Search combines with every active filter.", mode: "continue" },
+  { target: "filter-menu", title: "Find compliance gaps", text: "Filters cover scope, classification, lifecycle, CRA type, conformity route, support status, and update age.", tip: "Use Missing support or Undecided values to build a remediation queue.", mode: "continue" },
+  { target: "sort", title: "Sort the result set", text: "Order products by update date, name, code, or support end date.", tip: "Support end ascending surfaces products that need lifecycle attention first.", mode: "continue" },
+  { target: "inventory-table", title: "Read the inventory columns", text: "Each row shows product identity, CRA type and class, scope, derived obligation, conformity route, flags, and support coverage.", tip: "The obligation value is derived from scope and lifecycle rather than entered independently.", mode: "continue" },
+  { target: "flag-legend", title: "Understand product flags", text: "Flags identify systems, tailor-made products, remote processing, embedded products, pre-CRA products, and unsigned decisions.", tip: "Hover a flag in the table to see its meaning.", mode: "continue" },
+  { target: "inventory-row", title: "Open the product workspace", text: "Click a product row to inspect it and continue with releases, support periods, SBOMs, risks, and evidence.", tip: "The product-detail Guide continues the CRA workflow from there.", mode: "click" },
+];
+const guideNeedsContinue = computed(() => guideSteps[guideStep.value].mode === 'continue');
+const guideCanContinue = computed(() => {
+  const step = guideSteps[guideStep.value];
+  const field = 'required' in step ? step.required as keyof ProductCreate : undefined;
+  return !field || Boolean(String(form[field] ?? '').trim());
+});
+function updateSpotlight(): void {
+  if (!guideOpen.value) return;
+  document.querySelectorAll('.pi-guide-target,.pi-guide-section').forEach((node) => node.classList.remove('pi-guide-target', 'pi-guide-section'));
+  const el = document.querySelector<HTMLElement>(`[data-guide="${guideSteps[guideStep.value].target}"]`);
+  if (!el) { if (guideStep.value < guideSteps.length - 1) advanceGuide(); else closeGuide(); return; }
+  el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+  el.classList.add('pi-guide-target');
+  el.closest<HTMLElement>('.pi-panel,.pi-head,.pi-kpi-row,.pi-toolbar')?.classList.add('pi-guide-section');
+}
+function showGuideStep(): void { nextTick(updateSpotlight); }
+function startGuide(): void { if (showCreateForm.value) toggleCreateForm(); guideStep.value = 0; guideOpen.value = true; document.body.classList.add('pi-guide-open'); showGuideStep(); }
+function closeGuide(): void {
+  document.querySelectorAll('.pi-guide-target,.pi-guide-section').forEach((el) => el.classList.remove('pi-guide-target', 'pi-guide-section'));
+  document.body.classList.remove('pi-guide-open');
+  guideOpen.value = false; guideStep.value = 0;
+}
+function advanceGuide(): void { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; showGuideStep(); } else closeGuide(); }
+function goGuideBack(): void {
+  if (guideStep.value > 0) {
+    guideStep.value--;
+    if (guideStep.value === 0 && showCreateForm.value) toggleCreateForm();
+    showGuideStep();
+  }
+}
+function onAddProductClick(): void { toggleCreateForm(); if (guideOpen.value && guideSteps[guideStep.value].target === 'add-product') advanceGuide(); }
+function onCreateProductClick(): void {
+  const complete = form.product_code && form.name && form.manufacturer_name && form.product_type && form.intended_use;
+  if (complete && guideOpen.value && guideSteps[guideStep.value].target === 'create-product') advanceGuide();
+}
+function onInventoryRowClick(productId: string): void {
+  if (guideOpen.value && guideSteps[guideStep.value].target === 'inventory-row') closeGuide();
+  openDrawer(productId);
+}
+onBeforeUnmount(() => document.body.classList.remove('pi-guide-open'));
 const parentPickerSearch = ref("");
 
 // ── Right-side detail drawer ──
@@ -1452,6 +1542,65 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+.pi-guide-trigger :deep(span) {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pi-guide-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+.pi-guide-section { background: rgba(122, 204, 55, .10) !important; box-shadow: inset 4px 0 0 var(--color-primary) !important; }
+.pi-guide-target {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 5px !important;
+  box-shadow: 0 0 0 4px rgba(120, 210, 50, .12) !important;
+  border-radius: 4px;
+}
+.pi-guide-card {
+  position: fixed;
+  z-index: 1203;
+  top: 76px;
+  right: 18px;
+  bottom: 18px;
+  width: 340px;
+  box-sizing: border-box;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 8px 30px rgba(0,0,0,.2);
+  pointer-events: auto;
+}
+.pi-guide-kicker { margin-bottom: 8px; color: var(--color-primary); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pi-guide-card h2 { margin: 0 0 8px; font-size: 18px; }
+.pi-guide-card p { margin: 0; color: var(--color-text-muted); line-height: 1.55; font-size: 13px; }
+.pi-guide-tip { margin-top: 14px; padding: 11px 12px; border-left: 3px solid var(--color-primary); background: var(--color-surface-2); color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
+.pi-guide-progress { display: flex; gap: 4px; margin-top: 18px; }
+.pi-guide-progress span { height: 3px; flex: 1; border-radius: 99px; background: var(--color-border); }
+.pi-guide-progress span.active, .pi-guide-progress span.done { background: var(--color-primary); }
+.pi-guide-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.pi-guide-actions button { border-radius: 7px; padding: 8px 11px; font: inherit; cursor: pointer; }
+.pi-guide-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.pi-guide-wait { margin-right: auto; align-self: center; color: var(--color-text-muted); font-size: 11px; }
+.pi-guide-secondary { border: 1px solid var(--color-border); background: transparent; color: inherit; }
+.pi-guide-primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff; }
+:global(body.pi-guide-open .app-content) { padding-right: 390px; transition: padding-right .18s ease; }
+@media (max-width: 1100px) {
+  :global(body.pi-guide-open .app-content) { padding-right: 2rem; }
+  .pi-guide-card { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .pi-guide-target { scroll-margin-bottom: 45vh; }
 }
 
 /* Buttons rendered by AppButton component */

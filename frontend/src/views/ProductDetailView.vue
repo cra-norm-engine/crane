@@ -40,7 +40,7 @@
             Product workspace
           </div>
 
-          <div class="pd-title-row">
+          <div class="pd-title-row" data-guide="product-identity">
             <h1 class="pd-title">{{ product.name }}</h1>
             <span class="pd-code">{{ product.product_code }}</span>
           </div>
@@ -72,23 +72,25 @@
         </div>
 
         <div class="pd-actions">
+          <AppButton variant="secondary" size="sm" class="pd-guide-trigger" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
           <AppButton
             variant="secondary"
             size="sm"
+            data-guide="refresh-product"
             :disabled="isLoading || isSaving || isSavingSupportPeriod"
             @click="loadProduct"
           >
             {{ isLoading ? "Refreshing…" : "Refresh" }}
           </AppButton>
-          <AppButton variant="secondary" size="sm" @click="startEditing">Edit</AppButton>
-          <AppButton variant="primary" size="sm" :disabled="isCreatingRelease" @click="openReleaseModal">
+          <AppButton variant="secondary" size="sm" data-guide="edit-product" @click="startEditing">Edit</AppButton>
+          <AppButton variant="primary" size="sm" data-guide="new-release" :disabled="isCreatingRelease" @click="openReleaseModal">
             New release
           </AppButton>
         </div>
       </header>
 
       <!-- ── Stats bar ───────────────────────────────────── -->
-      <div class="stats-grid">
+      <div class="stats-grid" data-guide="product-status">
         <article class="card stat-card">
           <span class="stat-label">Product code</span>
           <strong class="stat-value stat-value-code">{{ product.product_code }}</strong>
@@ -125,10 +127,10 @@
         </article>
       </div>
 
-      <RelatedTasksPanel :product-id="props.productId" />
+      <div data-guide="related-tasks"><RelatedTasksPanel :product-id="props.productId" /></div>
 
       <section v-if="authStore.hasPermission('supplier_assessment_read')" id="supply-chain" class="card supply-chain-card">
-        <div class="section-header"><div><h2 class="section-title">Supply-chain traceability</h2><p class="muted section-sub">Suppliers and third-party components included across this product's releases.</p></div><RouterLink :to="{name:'supplier-assurance'}" class="btn btn-secondary btn-compact">Open supplier assurance</RouterLink></div>
+        <div class="section-header"><div><h2 class="section-title" data-guide="supply-chain">Supply-chain traceability</h2><p class="muted section-sub">Suppliers and third-party components included across this product's releases.</p></div><RouterLink :to="{name:'supplier-assurance'}" class="btn btn-secondary btn-compact">Open supplier assurance</RouterLink></div>
         <div v-if="!productTraceability.length" class="muted">No supplied components are linked to this product.</div>
         <div v-else class="supply-chain-list"><div v-for="row in productTraceability" :key="row.id" class="supply-chain-row"><div><RouterLink :to="{name:'supplier-assurance',query:{supplierId:row.supplier_id,tab:'traceability'}}" class="supply-chain-supplier">{{ row.supplier_name }}</RouterLink><RouterLink :to="{name:'third-party-component-detail',params:{componentId:row.component_id}}"><strong>{{ row.component_name }} {{ row.component_version||'' }}</strong></RouterLink></div><div><RouterLink :to="{name:'release-gate',params:{releaseId:row.product_release_id}}">{{ row.release_version }}</RouterLink><span>{{ row.is_direct?'Direct':'Transitive' }} · {{ row.criticality }} criticality</span></div><div><span>{{ row.sbom_file_name||'Manual link' }}</span><RouterLink v-if="row.assessment_id" :to="{name:'supplier-assessment-detail',params:{assessmentId:row.assessment_id}}" :class="{'trace-gap':row.reassessment_required}">{{ row.reassessment_required?'Reassessment required':formatReleaseStatus(row.assessment_status||'') }}</RouterLink><span v-else class="trace-gap">Assessment missing</span></div></div></div>
       </section>
@@ -145,7 +147,7 @@
           <section class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Product information</h2>
+                <h2 class="section-title" data-guide="product-information">Product information</h2>
                 <p class="muted section-sub">Core identity and lifecycle metadata.</p>
               </div>
               <!-- Edit button opens the product edit modal -->
@@ -261,7 +263,7 @@
           >
             <div class="section-header">
               <div>
-                <h2 class="section-title">System &amp; tailor-made</h2>
+                <h2 class="section-title" data-guide="system-tailor-made">System &amp; tailor-made</h2>
                 <p class="muted section-sub">How this product is placed on the market.</p>
               </div>
             </div>
@@ -317,13 +319,14 @@
           <section id="releases" class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Releases</h2>
+                <h2 class="section-title" data-guide="releases-head">Releases</h2>
                 <p class="muted section-sub">
                   {{ product.releases.length }} release(s) · each has its own evidence workspace.
                 </p>
               </div>
               <button
                 class="btn btn-primary btn-compact"
+                data-guide="new-release-action"
                 type="button"
                 :disabled="isCreatingRelease"
                 @click="openReleaseModal"
@@ -343,6 +346,7 @@
                 v-for="release in product.releases"
                 :key="release.id"
                 class="rel-card"
+                data-guide="release-card"
                 role="listitem"
               >
                 <!-- ── Card header: version · meta · view button ── -->
@@ -402,6 +406,7 @@
                     </div>
                     <button
                       class="btn btn-secondary btn-compact"
+                      data-guide="release-support-action"
                       type="button"
                       @click="openSupportModalForRelease(release.id)"
                     >
@@ -414,6 +419,7 @@
                     <span class="rel-support-not-set">Not set</span>
                     <button
                       class="btn btn-primary btn-compact"
+                      data-guide="release-support-action"
                       type="button"
                       @click="openSupportModalForRelease(release.id)"
                     >
@@ -429,12 +435,13 @@
           <section id="remote-processing" class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Remote processing solutions</h2>
+                <h2 class="section-title" data-guide="remote-processing">Remote processing solutions</h2>
                 <p class="muted section-sub">{{ rpeList.length }} element(s) — {{ rpeInScopeCount }} CRA Art. 3(2) in scope</p>
               </div>
               <AppButton
                 variant="primary"
                 size="sm"
+                data-guide="add-remote-processing"
                 @click="openRpeAdd"
               >
                 + Add element
@@ -498,7 +505,7 @@
           <section class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Child products</h2>
+                <h2 class="section-title" data-guide="child-products-head">Child products</h2>
                 <p class="muted section-sub">{{ product.child_products.length }} child product(s)</p>
               </div>
             </div>
@@ -552,7 +559,7 @@
           <section id="support-periods" class="card">
             <div class="section-header">
               <div>
-                <h2 class="section-title">Support periods</h2>
+                <h2 class="section-title" data-guide="support-periods-head">Support periods</h2>
                 <p class="muted section-sub">
                   {{ supportHistoryCount }} of {{ product.releases.length }} release(s) covered
                 </p>
@@ -594,7 +601,7 @@
 
           <!-- CRA scope wizard trigger card -->
           <section id="cra-scope" class="card wizard-trigger-card">
-            <div class="wizard-trigger-body">
+            <div class="wizard-trigger-body" data-guide="cra-scope">
               <div class="wizard-trigger-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"/>
@@ -622,24 +629,25 @@
               </div>
             </div>
 
-            <button class="btn btn-primary wizard-open-btn" type="button" @click="showWizardModal = true">
+            <button class="btn btn-primary wizard-open-btn" data-guide="scope-wizard" type="button" @click="showWizardModal = true; if (guideOpen) advanceGuide()">
               Open scope wizard
             </button>
           </section>
 
           <!-- Audit timeline — only visible when the user has audit_read permission -->
-          <AuditTimeline
-            v-if="canViewAudit"
-            title="Product timeline"
-            eyebrow="Traceability"
-            description="High-value actions for this product — releases, evidence, support, and admin changes."
-            :events="auditEvents"
-            :loading="isAuditLoading"
-            :error-message="auditErrorMessage"
-            :show-refresh="true"
-            :compact="true"
-            @refresh="loadAuditEvents"
-          />
+          <div v-if="canViewAudit" data-guide="product-timeline">
+            <AuditTimeline
+              title="Product timeline"
+              eyebrow="Traceability"
+              description="High-value actions for this product — releases, evidence, support, and admin changes."
+              :events="auditEvents"
+              :loading="isAuditLoading"
+              :error-message="auditErrorMessage"
+              :show-refresh="true"
+              :compact="true"
+              @refresh="loadAuditEvents"
+            />
+          </div>
 
         </aside>
       </div>
@@ -1751,12 +1759,31 @@
         </Transition>
       </Teleport>
 
+      <!-- Interactive CRA workflow guide -->
+      <Teleport to="body">
+        <div v-if="guideOpen" class="pd-guide-layer" role="region" aria-labelledby="pd-guide-title">
+          <aside class="pd-guide-card">
+            <div class="pd-guide-kicker">CRA product workflow · {{ guideStep + 1 }} / {{ guideSteps.length }}</div>
+            <h2 id="pd-guide-title">{{ guideSteps[guideStep].title }}</h2>
+            <p>{{ guideSteps[guideStep].text }}</p>
+            <div class="pd-guide-why"><strong>Why this matters:</strong> {{ guideSteps[guideStep].why }}</div>
+            <div class="pd-guide-progress" aria-hidden="true"><span v-for="(_, i) in guideSteps" :key="i" :class="{ active: i === guideStep, done: i < guideStep }"></span></div>
+            <div class="pd-guide-actions">
+              <button type="button" class="pd-guide-secondary" @click="closeGuide">Skip tour</button>
+              <button v-if="guideStep > 0" type="button" class="pd-guide-secondary" @click="goGuideBack">Back</button>
+              <span v-if="!guideNeedsContinue" class="pd-guide-wait">Click the highlighted control to continue</span>
+              <button v-else type="button" class="pd-guide-primary" @click="advanceGuide">Continue</button>
+            </div>
+          </aside>
+        </div>
+      </Teleport>
+
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useScrollToHash } from "@/composables/useScrollToHash";
 
@@ -2090,6 +2117,62 @@ const showSupportModal = ref(false); // Support period (create / update)
 const showReleaseModal = ref(false); // New release
 const showWizardModal  = ref(false); // CRA scope wizard (bespoke implementation)
 const showDocFields    = ref(false); // Collapsible doc fields inside support modal
+
+// The tour follows the CRA evidence order: identify the product, model the
+// hierarchy, establish scope, then cover releases and support lifecycle.
+const guideOpen = ref(false);
+const guideStep = ref(0);
+const guideSteps = [
+  { target: "product-identity", title: "Verify the product identity", text: "Confirm the stable product name and code before adding compliance records. Releases belong under this product rather than being created as separate products.", why: "Technical documentation and conformity records must identify the product consistently.", mode: "continue" },
+  { target: "product-status", title: "Read the product status", text: "The summary shows classification, scope, release count, and the active support end date. Treat missing or undecided values as work still to complete.", why: "This is the fastest view of whether the product has a usable CRA baseline.", mode: "continue" },
+  { target: "refresh-product", title: "Refresh shared product data", text: "Reload the workspace after another user, background process, or integration changes product, release, or support information.", why: "Reviews should be based on the latest recorded evidence and lifecycle state.", mode: "continue" },
+  { target: "product-information", title: "Review the product definition", text: "Check manufacturer, intended use, product type, lifecycle, scope, conformity route, and parent relationship. Use Edit when the legal or architectural facts change.", why: "Scope and risk conclusions depend on an accurate product boundary and intended use.", mode: "continue" },
+  { target: "edit-product", title: "Maintain the product record", text: "Edit product identity, hierarchy, classification, scope, lifecycle, and conformity route here. Save only supportable decisions and document out-of-scope conclusions.", why: "Changes to the product definition can change applicable obligations and evidence needs.", mode: "continue" },
+  { target: "system-tailor-made", title: "Document systems and tailor-made products", text: "When shown, this section records whether several elements are marketed as one system and captures contract-specific tailor-made conditions.", why: "The marketed product boundary and contractual customization affect the CRA assessment.", mode: "continue" },
+  { target: "child-products-head", title: "Check parent and child relationships", text: "Link variants, modules, or bundled products to their parent while preserving separate release and evidence histories.", why: "Clear hierarchy prevents duplicated work and gaps between related products.", mode: "continue" },
+  { target: "cra-scope", title: "Establish CRA scope", text: "Review the current scope and classification recommendation before performing downstream compliance work.", why: "Scope, class, and lifecycle determine the applicable workflow and conformity route.", mode: "continue" },
+  { target: "scope-wizard", title: "Use the CRA scope wizard", text: "Open the wizard to answer product, connectivity, remote-processing, safety, critical-sector, sensitive-function, and exemption criteria. Review the rationale before saving.", why: "A repeatable, recorded scope assessment is stronger than an undocumented label.", mode: "continue" },
+  { target: "remote-processing", title: "Assess remote processing solutions", text: "Register cloud or remote services required by the product, identify providers and processed data, then evaluate whether each service belongs inside the product scope.", why: "CRA can include remote data processing solutions necessary for the product's functions.", mode: "continue" },
+  { target: "add-remote-processing", title: "Add and evaluate a remote service", text: "Use Add element for each SaaS platform, cloud backend, API, or remote service the product depends on. Complete the evaluation after recording its technical facts.", why: "The assessment distinguishes ordinary dependencies from remote processing solutions that form part of the product.", mode: "continue" },
+  { target: "supply-chain", title: "Trace suppliers and components", text: "Review third-party components appearing across releases, their suppliers, criticality, SBOM source, and supplier-assessment status.", why: "Manufacturers remain responsible for managing cybersecurity risks introduced through components and suppliers.", mode: "continue" },
+  { target: "releases-head", title: "Manage compliance per release", text: "Every market version receives its own release record and evidence workspace. Open a release to manage its gate, SBOM, risks, requirements, declarations, and approval state.", why: "Evidence must remain traceable to the exact version placed on the market.", mode: "continue" },
+  { target: "new-release-action", title: "Create the next release", text: "Use New release for a distinct product version. Record market date, status, conformity snapshot, hardware and software versions, parent release, and applicable remote services.", why: "A release boundary connects technical evidence and approval decisions to a market version.", mode: "continue" },
+  { target: "release-card", title: "Read a release record", text: "The release card shows version lineage, hardware and software versions, workflow status, conformity snapshot, market date, and a link to the release workspace.", why: "This keeps every approval and evidence set attached to the correct market version.", mode: "continue" },
+  { target: "release-support-action", title: "Set release-specific support", text: "Use Set period or Edit on the release card to create the support commitment, recipients, supporting justification, and version history.", why: "Support commitments must be maintained per release and remain traceable when changed.", mode: "continue" },
+  { target: "support-periods-head", title: "Cover every release with support", text: "Set a support start and end date for each release, define notification recipients, and preserve reasons when the commitment changes.", why: "CRA requires manufacturers to plan and communicate an appropriate security-support period.", mode: "continue" },
+  { target: "related-tasks", title: "Track outstanding product work", text: "Use related tasks to assign remediation, evidence, review, and release actions. Keep ownership, due dates, comments, and status visible.", why: "Compliance evidence is easier to maintain when every gap has an accountable owner.", mode: "continue" },
+  { target: "product-timeline", title: "Use the product timeline", text: "Review high-value product, release, support, evidence, and administrative events. Refresh it when validating recent changes.", why: "The timeline provides traceability for reviews and later audit reconstruction.", mode: "continue" },
+];
+const guideNeedsContinue = computed(() => guideSteps[guideStep.value].mode === "continue");
+function updateGuideSpotlight(): void {
+  if (!guideOpen.value) return;
+  document.querySelectorAll(".pd-guide-target,.pd-guide-section").forEach((el) => el.classList.remove("pd-guide-target", "pd-guide-section"));
+  const el = document.querySelector<HTMLElement>(`[data-guide="${guideSteps[guideStep.value].target}"]`);
+  if (!el) {
+    if (guideStep.value < guideSteps.length - 1) {
+      guideStep.value++;
+      nextTick(updateGuideSpotlight);
+    } else closeGuide();
+    return;
+  }
+  el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+  el.classList.add("pd-guide-target");
+  (el.closest<HTMLElement>(".card,.pd-head") ?? el).classList.add("pd-guide-section");
+}
+function startGuide(): void {
+  guideStep.value = 0;
+  guideOpen.value = true;
+  document.body.classList.add("pd-guide-open");
+  nextTick(() => window.requestAnimationFrame(updateGuideSpotlight));
+}
+function closeGuide(): void {
+  document.querySelectorAll(".pd-guide-target,.pd-guide-section").forEach((el) => el.classList.remove("pd-guide-target", "pd-guide-section"));
+  document.body.classList.remove("pd-guide-open");
+  guideOpen.value = false;
+  guideStep.value = 0;
+}
+function advanceGuide(): void { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; nextTick(updateGuideSpotlight); } else closeGuide(); }
+function goGuideBack(): void { if (guideStep.value > 0) { guideStep.value--; nextTick(updateGuideSpotlight); } }
 
 /* ── Message strings ────────────────────────────────── */
 const errorMessage         = ref("");
@@ -3062,10 +3145,17 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("click", handleWindowClick);
+  document.body.classList.remove("pd-guide-open");
 });
 </script>
 
 <style scoped>
+.pd-guide-section {
+  background: rgba(122, 204, 55, .10) !important;
+  box-shadow: inset 4px 0 0 var(--color-primary) !important;
+  transition: background .16s ease;
+}
+:global(body.pd-guide-open .app-content){padding-right:390px;transition:padding-right .18s ease}.pd-guide-layer{position:fixed;inset:0;z-index:1200;pointer-events:none}.pd-guide-target{outline:2px solid var(--color-primary)!important;outline-offset:5px!important;box-shadow:0 0 0 4px rgba(120,210,50,.12)!important;border-radius:4px}.pd-guide-card{position:fixed;top:76px;right:18px;bottom:18px;z-index:1203;width:340px;box-sizing:border-box;padding:20px;overflow:auto;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);box-shadow:0 8px 30px rgba(0,0,0,.2);pointer-events:auto}.pd-guide-kicker{margin-bottom:8px;color:var(--color-primary);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.pd-guide-card h2{margin:0 0 8px;font-size:18px}.pd-guide-card p{margin:0;color:var(--color-text-muted);line-height:1.55;font-size:13px}.pd-guide-why{margin-top:14px;padding:11px 12px;border-left:3px solid var(--color-primary);border-radius:0 6px 6px 0;background:var(--color-surface-2);color:var(--color-text-muted);font-size:12px;line-height:1.5}.pd-guide-progress{display:flex;gap:4px;margin-top:18px}.pd-guide-progress span{height:3px;flex:1;border-radius:99px;background:var(--color-border)}.pd-guide-progress span.active,.pd-guide-progress span.done{background:var(--color-primary)}.pd-guide-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-top:18px}.pd-guide-actions button{padding:8px 11px;border-radius:7px;font:inherit;cursor:pointer}.pd-guide-secondary{border:1px solid var(--color-border);background:transparent;color:inherit}.pd-guide-primary{border:1px solid var(--color-primary);background:var(--color-primary);color:#fff}.pd-guide-wait{width:100%;order:-1;color:var(--color-text-muted);font-size:11px}@media(max-width:1100px){:global(body.pd-guide-open .app-content){padding-right:2rem}.pd-guide-card{top:auto;left:16px;right:16px;bottom:16px;width:auto;max-height:42vh}.pd-guide-target{scroll-margin-bottom:45vh}}
 .supply-chain-card{display:grid;gap:14px}.supply-chain-list{overflow:hidden;border:1px solid var(--color-border);border-radius:10px}.supply-chain-row{display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:18px;padding:12px 14px;border-bottom:1px solid var(--color-border);font-size:12px}.supply-chain-row:last-child{border-bottom:0}.supply-chain-row>div{display:grid;gap:3px}.supply-chain-row a{color:var(--color-primary);text-decoration:none}.supply-chain-supplier{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}.supply-chain-row span{color:var(--color-text-muted)}.supply-chain-row .trace-gap{color:var(--color-danger-text)}
 /* ── Page layout ───────────────────────────────────── */
 .page {

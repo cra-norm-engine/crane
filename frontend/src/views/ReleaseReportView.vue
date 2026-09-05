@@ -40,7 +40,7 @@
         <!-- Document -->
         <div class="rpt-doc">
           <!-- Header / actions -->
-          <header class="rpt-head">
+          <header class="rpt-head" data-guide="report-identity">
             <div>
               <div class="rpt-eyebrow">Cyber Resilience Act · Single-Product Compliance Report</div>
               <h1 class="rpt-title">{{ report.product.name }} <span class="muted">{{ disp(report.product.model) }}</span></h1>
@@ -50,6 +50,7 @@
               </div>
             </div>
             <div class="rpt-actions">
+              <AppButton variant="secondary" size="sm" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
               <span class="rpt-stamp">{{ report.meta.status }}</span>
               <AppButton variant="secondary" size="sm" :disabled="busy" @click="exportPdf">
                 {{ busy ? "Generating…" : "Export PDF" }}
@@ -152,7 +153,7 @@
           </section>
 
           <!-- 04 Risk assessment -->
-          <section id="risk" class="rpt-sec">
+          <section id="risk" class="rpt-sec" data-guide="report-risk">
             <div class="rpt-sec-eyebrow">04 · Essential requirements — Art. 13(2)–(4)</div>
             <h2>Cybersecurity risk assessment</h2>
             <p class="rpt-intro">Summarises the cybersecurity risk assessment performed for this release
@@ -204,7 +205,7 @@
           </section>
 
           <!-- 07 SBOM -->
-          <section id="sbom" class="rpt-sec">
+          <section id="sbom" class="rpt-sec" data-guide="report-sbom">
             <div class="rpt-sec-eyebrow">07 · Annex I, Part II(1)</div>
             <h2>Software bill of materials</h2>
             <p class="rpt-intro">The machine-readable inventory of software components in this release,
@@ -262,7 +263,7 @@
           </section>
 
           <!-- 09 Conformity -->
-          <section id="conformity" class="rpt-sec">
+          <section id="conformity" class="rpt-sec" data-guide="report-conformity">
             <div class="rpt-sec-eyebrow">09 · Conformity — Art. 32</div>
             <h2>Conformity assessment route</h2>
             <p class="rpt-intro">The conformity-assessment module chosen for this product under Art. 32,
@@ -376,7 +377,7 @@
           </section>
 
           <!-- 16 Audit -->
-          <section id="audit" class="rpt-sec">
+          <section id="audit" class="rpt-sec" data-guide="report-audit">
             <div class="rpt-sec-eyebrow">16 · Assurance</div>
             <h2>Audit trail (recent activity)</h2>
             <p class="rpt-intro">CRANE's audit log is append-only and hash-chained; this is a recent
@@ -391,7 +392,7 @@
           </section>
 
           <!-- 17 Sign-off -->
-          <section id="signoff" class="rpt-sec">
+          <section id="signoff" class="rpt-sec" data-guide="report-signoff">
             <div class="rpt-sec-eyebrow">17 · Assurance</div>
             <h2>Sign-off &amp; approval</h2>
             <p class="rpt-intro">Who approved this release for the market and when, as the final
@@ -412,6 +413,7 @@ import { computed, h, onMounted, onUnmounted, ref } from "vue";
 import type { FunctionalComponent } from "vue";
 
 import AppButton from "@/components/AppButton.vue";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import StatusBadge from "@/components/StatusBadge.vue";
 import type { BadgeVariant } from "@/components/StatusBadge.vue";
 import { useAsyncState } from "@/composables/useAsyncState";

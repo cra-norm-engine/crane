@@ -1,17 +1,18 @@
 <template>
   <section class="page assurance-page">
-    <header class="page-header hero">
+    <header class="page-header hero" data-guide="supplier-header">
       <div>
         <p class="eyebrow">Supply chain assurance</p>
         <h1 class="page-title">Supplier due diligence</h1>
         <p class="muted page-subtitle hero-copy">Assess third-party cybersecurity risk, connect evidence, and maintain an audit-ready record for CRA Article 13.</p>
       </div>
-      <AppButton v-if="canWrite" variant="primary" @click="openSupplierCreate">
-        <span aria-hidden="true">＋</span> Add supplier
-      </AppButton>
+      <div class="hero-actions">
+        <AppButton variant="secondary" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
+        <AppButton v-if="canWrite" variant="primary" @click="openSupplierCreate"><span aria-hidden="true">＋</span> Add supplier</AppButton>
+      </div>
     </header>
 
-    <div class="metrics" aria-label="Supplier assurance summary">
+    <div class="metrics" data-guide="supplier-summary" aria-label="Supplier assurance summary">
       <div class="metric"><span class="metric-icon supplier-icon">S</span><div><strong>{{ suppliers.length }}</strong><span>Suppliers</span></div></div>
       <div class="metric"><span class="metric-icon component-icon">C</span><div><strong>{{ components.length }}</strong><span>Components</span></div></div>
       <div class="metric"><span class="metric-icon review-icon">R</span><div><strong>{{ assessmentsInReview }}</strong><span>Awaiting review</span></div></div>
@@ -19,8 +20,8 @@
     </div>
 
     <div class="workspace">
-      <aside class="supplier-panel">
-        <div class="panel-heading">
+      <aside class="supplier-panel" data-guide="supplier-register">
+      <div class="panel-heading">
           <div><h2>Suppliers</h2><span>{{ filteredSuppliers.length }} in register</span></div>
         </div>
         <label class="search-box">
@@ -39,12 +40,12 @@
         </div>
       </aside>
 
-      <main class="detail-panel">
+      <main class="detail-panel" data-guide="supplier-records">
         <div v-if="!selectedSupplier" class="empty-detail">
           <div class="empty-symbol">S</div><h2>Select a supplier</h2><p>Choose a supplier to review its components and due-diligence history.</p>
         </div>
         <template v-else>
-          <div class="supplier-header">
+          <div class="supplier-header" data-guide="supplier-identity">
             <div class="identity">
               <span class="large-avatar">{{ initials(selectedSupplier.name) }}</span>
               <div><div class="title-line"><h2>{{ selectedSupplier.name }}</h2><StatusBadge :label="selectedSupplier.status" :variant="statusVariant(selectedSupplier.status)" /></div><p>{{ supplierTypeLabel(selectedSupplier.supplier_type) }}<template v-if="selectedSupplier.country_code"> · {{ selectedSupplier.country_code }}</template></p></div>
@@ -58,7 +59,7 @@
             <div><span>Registered</span><strong>{{ formatDate(selectedSupplier.created_at) }}</strong></div>
           </div>
 
-          <nav class="tabs" aria-label="Supplier sections">
+          <nav class="tabs" data-guide="supplier-tabs" aria-label="Supplier sections">
             <button :class="{active:activeTab==='components'}" @click="activeTab='components'">Components <span>{{ selectedComponents.length }}</span></button>
             <button :class="{active:activeTab==='assessments'}" @click="activeTab='assessments'">Assessments <span>{{ selectedAssessments.length }}</span></button>
             <button :class="{active:activeTab==='traceability'}" @click="activeTab='traceability'">Products <span>{{ selectedTraceability.length }}</span></button>
@@ -66,7 +67,7 @@
             <button :class="{active:activeTab==='profile'}" @click="activeTab='profile'">Profile</button>
           </nav>
 
-          <section v-if="activeTab==='components'" class="section-content">
+      <section v-if="activeTab==='components'" class="section-content">
             <div class="section-heading"><div><h3>Third-party components</h3><p>Software, firmware, hardware, and services supplied to your products.</p></div><div class="heading-actions"><AppButton v-if="canWrite" variant="secondary" size="sm" @click="sbomModal=true">Match SBOM</AppButton><AppButton v-if="canWrite" variant="primary" size="sm" @click="openComponentCreate">Add component</AppButton></div></div>
             <div v-if="matchResult" class="result-banner"><strong>{{ matchResult.linked }} new link{{ matchResult.linked===1?'':'s' }}</strong><span>{{ matchResult.matched }} components matched · {{ matchResult.unmatched.length }} need review</span></div>
             <div v-if="selectedComponents.length===0" class="empty-table"><div>◇</div><strong>No components registered</strong><p>Add the first component supplied or maintained by this organisation.</p></div>
@@ -131,6 +132,7 @@ import type { ProductReleaseRead } from "@/types/release-gate";
 
 const auth=useAuthStore(), canWrite=computed(()=>auth.hasPermission("supplier_assessment_write"));
 const route=useRoute();
+function startGuide():void{window.dispatchEvent(new Event("crane-guide-start"))}
 const suppliers=ref<Supplier[]>([]),components=ref<ThirdPartyComponent[]>([]),assessments=ref<SupplierAssessment[]>([]),notifications=ref<MaintainerNotification[]>([]);
 const traceability=ref<ComponentTraceability[]>([]);
 const sbomRecords=ref<SbomRecordRead[]>([]),releases=ref<ProductReleaseRead[]>([]);
@@ -192,6 +194,7 @@ onMounted(load);
 /* Match the shared application frame instead of constraining this view to a custom width. */
 .assurance-page{max-width:none;margin:0;display:flex;gap:var(--space-5)}
 .hero{padding:0;gap:var(--space-4)}
+.hero-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
 .hero .page-title{font-size:var(--text-3xl);line-height:1.2;letter-spacing:normal}
 .hero-copy{margin:var(--space-2) 0 0;font-size:var(--text-sm)}
 </style>

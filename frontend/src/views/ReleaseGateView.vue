@@ -10,7 +10,7 @@
 
     <!-- ── Page header ── -->
     <header class="rg-head card" v-if="releaseDetail">
-      <div class="rg-head-body">
+      <div class="rg-head-body" data-guide="release-identity">
         <div class="rg-head-title-group">
           <p class="rg-eyebrow">Release Workspace</p>
           <h1 class="rg-head-title">
@@ -35,13 +35,15 @@
       </div>
 
       <div id="gate-actions" class="rg-head-actions">
-        <AppButton variant="ghost" @click="loadWorkspace" :disabled="loading || busy">
+        <AppButton variant="ghost" class="rg-guide-trigger" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
+        <AppButton variant="ghost" data-guide="release-refresh" @click="loadWorkspace" :disabled="loading || busy">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.9"/></svg>
           {{ loading ? "Refreshing…" : "Refresh" }}
         </AppButton>
         <AppButton
           v-if="!isApproved"
           variant="secondary"
+          data-guide="submit-review"
           @click="submitForReview"
           :disabled="busy || !canSubmit"
         >
@@ -50,6 +52,7 @@
         <AppButton
           v-if="canApprove"
           variant="primary"
+          data-guide="approve-gate"
           @click="approveGate"
           :disabled="busy"
         >
@@ -59,6 +62,7 @@
         <AppButton
           v-if="isApproved && canDownload && releaseDetail.gate.bundle_sha256"
           variant="secondary"
+          data-guide="technical-documentation"
           @click="downloadBundle"
           :disabled="busy"
         >
@@ -69,6 +73,7 @@
         <AppButton
           v-if="releaseDetail"
           variant="primary"
+          data-guide="compliance-report"
           @click="viewReport"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -78,6 +83,7 @@
         <AppButton
           v-if="releaseDetail"
           variant="secondary"
+          data-guide="declaration"
           @click="viewDeclaration"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
@@ -87,6 +93,7 @@
         <AppButton
           v-if="releaseDetail && releaseDetail.release.release_status !== 'draft'"
           variant="secondary"
+          data-guide="report-pdf"
           @click="downloadReport"
           :disabled="busy"
         >
@@ -102,10 +109,10 @@
 
     <template v-else-if="releaseDetail">
 
-      <RelatedTasksPanel :product-id="releaseDetail.release.product_id" :release-id="props.releaseId" />
+      <div data-guide="release-tasks"><RelatedTasksPanel :product-id="releaseDetail.release.product_id" :release-id="props.releaseId" /></div>
 
       <!-- ── Progress strip ── -->
-      <section class="rg-progress card">
+      <section class="rg-progress card" data-guide="gate-progress">
         <div class="rg-progress-top">
           <div class="rg-progress-title-group">
             <p class="rg-eyebrow">Gate Progress</p>
@@ -139,6 +146,7 @@
       <div
         v-if="releaseDetail.release.has_known_exploitable_vulnerabilities"
         class="kev-banner"
+        data-guide="kev-warning"
         role="alert"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -157,7 +165,7 @@
       <div class="rg-workspace">
 
         <!-- Left: gate item checklist -->
-        <section id="evidence-checklist" class="card rg-checklist-card">
+        <section id="evidence-checklist" class="card rg-checklist-card" data-guide="evidence-checklist">
           <div class="rg-checklist-head">
             <p class="rg-eyebrow">Evidence checklist</p>
             <div class="rg-checklist-head-right">
@@ -166,6 +174,7 @@
                 v-if="canEdit && !isApproved"
                 variant="ghost"
                 size="sm"
+                data-guide="add-checklist-item"
                 @click="showAddItemForm = !showAddItemForm"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -244,7 +253,7 @@
         </section>
 
         <!-- Right: detail panel -->
-        <section class="card rg-detail-card" v-if="selectedItem">
+        <section class="card rg-detail-card" v-if="selectedItem" data-guide="gate-item-detail">
 
           <!-- Detail header -->
           <div class="rg-detail-header">
@@ -259,7 +268,7 @@
           </div>
 
           <!-- Frozen banner -->
-          <div v-if="isApproved" class="rg-frozen-banner">
+          <div v-if="isApproved" class="rg-frozen-banner" data-guide="frozen-evidence">
             <div class="rg-frozen-icon" aria-hidden="true">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -286,10 +295,10 @@
           </div>
 
           <!-- ── Add evidence zone (hidden when frozen) ── -->
-          <div v-if="!isApproved" class="rg-add-evidence-zone">
+          <div v-if="!isApproved" class="rg-add-evidence-zone" data-guide="add-evidence">
             <div class="rg-add-evidence-header">
               <p class="rg-add-evidence-label">Add evidence</p>
-              <div class="rg-add-tabs" role="tablist">
+              <div class="rg-add-tabs" role="tablist" data-guide="evidence-sources">
                 <button
                   class="rg-add-tab"
                   :class="{ 'rg-add-tab--active': uploadMode === 'upload' && !showExistingEvidence }"
@@ -424,9 +433,10 @@
           </div>
 
           <!-- ── Detail tabs navigation ── -->
-          <div class="rg-detail-tabs">
+          <div class="rg-detail-tabs" data-guide="item-tabs">
             <button
               class="rg-detail-tab"
+              data-guide="evidence-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'evidence' }"
               type="button"
               @click="detailTabsActive = 'evidence'"
@@ -436,6 +446,7 @@
             </button>
             <button
               class="rg-detail-tab"
+              data-guide="history-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'history' }"
               type="button"
               @click="detailTabsActive = 'history'"
@@ -446,6 +457,7 @@
             <button
               v-if="selectedItem.code === 'sbom'"
               class="rg-detail-tab"
+              data-guide="sbom-diff-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'diff' }"
               type="button"
               @click="loadSbomDiff"
@@ -455,6 +467,7 @@
             </button>
             <button
               class="rg-detail-tab"
+              data-guide="dependencies-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'dependencies' }"
               type="button"
               @click="detailTabsActive = 'dependencies'"
@@ -465,6 +478,7 @@
             <button
               v-if="isApproved"
               class="rg-detail-tab"
+              data-guide="snapshot-tab"
               :class="{ 'rg-detail-tab--active': detailTabsActive === 'snapshot' }"
               type="button"
               @click="detailTabsActive = 'snapshot'"
@@ -475,7 +489,7 @@
           </div>
 
           <!-- ── Evidence tab ── -->
-          <div v-if="detailTabsActive === 'evidence'" class="rg-evidence-section">
+          <div v-if="detailTabsActive === 'evidence'" class="rg-evidence-section" data-guide="attached-evidence">
             <div class="rg-evidence-section-header">
               <div class="rg-evidence-section-title">
                 <svg v-if="isApproved" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -583,7 +597,7 @@
                 </div>
 
                 <!-- Review panel (hidden once the evidence has been rejected) -->
-                <div v-else-if="canReview && !isApproved" class="rg-review-panel">
+                <div v-else-if="canReview && !isApproved" class="rg-review-panel" data-guide="evidence-review">
                   <label class="rg-field">
                     <span class="rg-field-label">Reviewer note</span>
                     <textarea v-model.trim="reviewNotes[link.id]" rows="2" placeholder="Explain your decision (optional)" />
@@ -603,7 +617,7 @@
           </div>
 
           <!-- ── History tab — unified activity timeline for this item ── -->
-          <div v-if="detailTabsActive === 'history'" class="rg-history-section">
+          <div v-if="detailTabsActive === 'history'" class="rg-history-section" data-guide="item-history">
             <p class="rg-section-hint">Everything that happened to <strong>{{ selectedItem.title }}</strong> — submissions and review decisions, in order.</p>
             <div v-if="itemTimeline.length === 0" class="rg-empty-panel">
               Nothing yet. Attach evidence above to start this item's history.
@@ -625,7 +639,7 @@
           </div>
 
           <!-- ── SBOM Diff tab ── -->
-          <div v-if="detailTabsActive === 'diff'" class="rg-diff-section">
+          <div v-if="detailTabsActive === 'diff'" class="rg-diff-section" data-guide="sbom-diff">
             <div v-if="sbomDiffData === null && !sbomDiffLoading" class="rg-empty-panel">
               No SBOM found for this item. Ensure an SBOM file is attached above.
             </div>
@@ -633,7 +647,7 @@
           </div>
 
           <!-- ── Dependencies tab — prerequisites for the selected item ── -->
-          <div v-if="detailTabsActive === 'dependencies'" class="rg-dependencies-section">
+          <div v-if="detailTabsActive === 'dependencies'" class="rg-dependencies-section" data-guide="item-dependencies">
             <p class="rg-section-hint">
               <strong>{{ selectedItem.title }}</strong> can only be accepted once the items it
               requires are accepted first.
@@ -678,7 +692,7 @@
           </div>
 
           <!-- ── Snapshot tab ── -->
-          <div v-if="detailTabsActive === 'snapshot' && isApproved && releaseDetail.gate.snapshot_json" class="rg-snapshot-section">
+          <div v-if="detailTabsActive === 'snapshot' && isApproved && releaseDetail.gate.snapshot_json" class="rg-snapshot-section" data-guide="approved-snapshot">
             <div class="rg-snapshot-info">
               <p class="rg-snapshot-label">Approved at</p>
               <p class="rg-snapshot-value">{{ formatDateTime(releaseDetail.gate.approved_at) }}</p>
@@ -696,6 +710,23 @@
         </section>
       </div>
     </template>
+
+    <Teleport to="body">
+      <div v-if="guideOpen" class="rg-guide-layer" role="region" aria-labelledby="rg-guide-title">
+        <aside class="rg-guide-card">
+          <div class="rg-guide-kicker">CRA release workflow · {{ guideStep + 1 }} / {{ guideSteps.length }}</div>
+          <h2 id="rg-guide-title">{{ guideSteps[guideStep].title }}</h2>
+          <p>{{ guideSteps[guideStep].text }}</p>
+          <div class="rg-guide-why"><strong>Why this matters:</strong> {{ guideSteps[guideStep].why }}</div>
+          <div class="rg-guide-progress" aria-hidden="true"><span v-for="(_, i) in guideSteps" :key="i" :class="{ active: i === guideStep, done: i < guideStep }"></span></div>
+          <div class="rg-guide-actions">
+            <button type="button" class="rg-guide-secondary" @click="closeGuide">Skip tour</button>
+            <button v-if="guideStep > 0" type="button" class="rg-guide-secondary" @click="goGuideBack">Back</button>
+            <button type="button" class="rg-guide-primary" @click="advanceGuide">{{ guideStep === guideSteps.length - 1 ? 'Finish' : 'Continue' }}</button>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
 
     <!-- ── Remove checklist item confirmation modal ── -->
     <div v-if="removeConfirm.item" class="rg-modal-backdrop" @click.self="removeConfirm.item = null">
@@ -726,7 +757,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import AppButton from "@/components/AppButton.vue";
@@ -778,6 +809,47 @@ const showExistingEvidence = ref(false);
 const selectedFile = ref<File | null>(null);
 const reviewNotes = reactive<Record<string, string>>({});
 const showAddItemForm = ref(false);
+const guideOpen = ref(false);
+const guideStep = ref(0);
+const guideSteps = [
+  { target: "release-identity", title: "Confirm the release identity", text: "Verify the product, display version, release status, classification snapshot, conformity route, and planned market date before attaching evidence.", why: "Every assessment and artifact must be traceable to the exact product version placed on the market." },
+  { target: "release-refresh", title: "Refresh shared release data", text: "Reload the workspace after another user, scanner, task, or integration updates release evidence or status.", why: "A gate decision should use the latest recorded state." },
+  { target: "release-tasks", title: "Track release work", text: "Create and assign tasks for missing evidence, vulnerabilities, risk treatments, reviews, or approval actions. Keep comments and status with the release.", why: "Every readiness gap needs a visible owner and completion trail." },
+  { target: "gate-progress", title: "Read gate progress", text: "This shows how many required checklist items have accepted evidence and whether the gate is draft, under review, or approved.", why: "The progress bar summarizes evidence readiness; it does not replace reviewer judgment." },
+  { target: "kev-warning", title: "Resolve exploitable vulnerabilities", text: "If this warning appears, resolve all known exploitable vulnerabilities in Vulnerability Intake before approval.", why: "CRA Article 13 requires products placed on the market without known exploitable vulnerabilities." },
+  { target: "evidence-checklist", title: "Work through the evidence checklist", text: "Select each required item and attach evidence. Pending, needs-update, rejected, waived, and accepted states show exactly what remains.", why: "The checklist turns the release decision into a complete, reviewable evidence set." },
+  { target: "add-checklist-item", title: "Add release-specific requirements", text: "Add an item when this product or release needs evidence beyond the standard checklist, such as a specialist test report.", why: "Product-specific risks may require evidence beyond CRANE's default gate items." },
+  { target: "gate-item-detail", title: "Review the selected gate item", text: "The right panel explains the selected requirement, its current decision, evidence, history, SBOM comparison, and dependencies.", why: "Reviewing one requirement at a time keeps decisions focused and traceable." },
+  { target: "add-evidence", title: "Attach evidence to the requirement", text: "Provide a file, external URL, or existing library artifact. Give it a clear name and change summary so reviewers know what it proves.", why: "Evidence is useful only when its source, revision, purpose, and release association are clear." },
+  { target: "evidence-sources", title: "Choose the correct evidence source", text: "Upload stores a file in CRANE, Web link references controlled external evidence, and From library reuses an existing product artifact.", why: "The source choice determines how evidence is preserved and reviewed." },
+  { target: "item-tabs", title: "Use the gate-item tools", text: "Evidence shows attached artifacts, History shows the decision trail, Diff compares SBOM content, Dependencies controls prerequisites, and Snapshot appears after approval.", why: "These views separate the current evidence from its history, technical comparison, workflow dependencies, and final frozen state." },
+  { target: "attached-evidence", title: "Inspect attached evidence", text: "Review artifact revision, uploader, timestamp, change summary, decision, and reviewer history before relying on it.", why: "Accepted evidence must be identifiable, current, and appropriate for this release." },
+  { target: "evidence-review", title: "Record the review decision", text: "Accept suitable evidence, request an update when incomplete, reject invalid evidence, or waive only with a defensible rationale.", why: "Append-only review decisions provide accountability and prevent silent evidence replacement." },
+  { target: "history-tab", title: "Use the item history", text: "Open History to see submissions and review decisions in chronological order, including reviewer notes.", why: "The timeline reconstructs how the requirement reached its current state." },
+  { target: "sbom-diff-tab", title: "Review SBOM changes", text: "For the SBOM checklist item, use Diff to inspect component additions, removals, and version changes between releases.", why: "Software composition changes can introduce new vulnerability and licensing risks." },
+  { target: "dependencies-tab", title: "Manage prerequisite items", text: "Use Dependencies to define which checklist items must be accepted before this item can be accepted.", why: "Prerequisites enforce the logical order of the release review." },
+  { target: "frozen-evidence", title: "Understand the approved snapshot", text: "After approval, evidence is frozen and the bundle hash identifies the approved technical-documentation snapshot.", why: "Immutability protects the integrity of the release decision." },
+  { target: "snapshot-tab", title: "Inspect the approval snapshot", text: "Use Snapshot to review the approver, approval time, bundle hash, and captured gate data.", why: "The snapshot preserves exactly what was approved." },
+  { target: "submit-review", title: "Submit the gate for review", text: "Submit only after required items have evidence and blocking conditions are resolved. Editing becomes governed by the review workflow.", why: "Submission separates preparation from independent approval." },
+  { target: "approve-gate", title: "Approve the release gate", text: "Authorized reviewers approve only when required evidence is accepted, dependencies are met, and exploitable vulnerabilities are cleared.", why: "Approval is the accountable release-readiness decision." },
+  { target: "technical-documentation", title: "Download technical documentation", text: "After approval, download the frozen technical-documentation bundle and retain its SHA-256 identifier.", why: "The bundle is the stable evidence package associated with the approved release." },
+  { target: "compliance-report", title: "Open the compliance dossier", text: "The in-app report assembles product, release, risk, requirements, SBOM, support, declaration, change, and audit information.", why: "The dossier gives reviewers a consolidated view without losing links to source records." },
+  { target: "declaration", title: "Prepare the Declaration of Conformity", text: "Open the release declaration to complete and maintain the EU Declaration of Conformity information.", why: "The declaration is a formal output of the conformity process, not a substitute for supporting evidence." },
+  { target: "report-pdf", title: "Export the compliance report", text: "Generate a PDF for controlled sharing once the release has moved beyond draft.", why: "Exports support external review while CRANE remains the source of truth." },
+];
+function updateGuideTarget(): void {
+  if (!guideOpen.value) return;
+  document.querySelectorAll(".rg-guide-target,.rg-guide-section").forEach((el) => el.classList.remove("rg-guide-target", "rg-guide-section"));
+  const el = document.querySelector<HTMLElement>(`[data-guide="${guideSteps[guideStep.value].target}"]`);
+  if (!el) { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; nextTick(updateGuideTarget); } else closeGuide(); return; }
+  el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+  el.classList.add("rg-guide-target");
+  (el.closest<HTMLElement>(".card,.kev-banner,.rg-head") ?? el).classList.add("rg-guide-section");
+}
+function startGuide(): void { detailTabsActive.value = "evidence"; guideStep.value = 0; guideOpen.value = true; document.body.classList.add("rg-guide-open"); nextTick(() => window.requestAnimationFrame(updateGuideTarget)); }
+function closeGuide(): void { document.querySelectorAll(".rg-guide-target,.rg-guide-section").forEach((el) => el.classList.remove("rg-guide-target", "rg-guide-section")); document.body.classList.remove("rg-guide-open"); guideOpen.value = false; guideStep.value = 0; }
+function advanceGuide(): void { if (guideStep.value < guideSteps.length - 1) { guideStep.value++; nextTick(updateGuideTarget); } else closeGuide(); }
+function goGuideBack(): void { if (guideStep.value > 0) { guideStep.value--; nextTick(updateGuideTarget); } }
 const addItemForm = reactive({ title: "", description: "" });
 const removeConfirm = reactive<{
   item: ReleaseGateItemRead | null;
@@ -1348,9 +1420,32 @@ onMounted(() => {
     loadWorkspace();
   }
 });
+onBeforeUnmount(() => document.body.classList.remove("rg-guide-open"));
 </script>
 
 <style scoped>
+:global(body.rg-guide-open .app-content) { padding-right: 390px; transition: padding-right .18s ease; }
+.rg-guide-layer { position: fixed; inset: 0; z-index: 1200; pointer-events: none; }
+.rg-guide-section { background: rgba(122, 204, 55, .10) !important; box-shadow: inset 4px 0 0 var(--color-primary) !important; transition: background .16s ease; }
+.rg-guide-target { outline: 2px solid var(--color-primary) !important; outline-offset: 5px !important; box-shadow: 0 0 0 4px rgba(120, 210, 50, .12) !important; border-radius: 4px; }
+.rg-guide-card { position: fixed; top: 76px; right: 18px; bottom: 18px; z-index: 1203; width: 340px; box-sizing: border-box; padding: 20px; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 8px 30px rgba(0,0,0,.2); pointer-events: auto; }
+.rg-guide-kicker { margin-bottom: 8px; color: var(--color-primary); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.rg-guide-card h2 { margin: 0 0 8px; font-size: 18px; }
+.rg-guide-card p { margin: 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.55; }
+.rg-guide-why { margin-top: 14px; padding: 11px 12px; border-left: 3px solid var(--color-primary); background: var(--color-surface-2); color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
+.rg-guide-progress { display: flex; gap: 4px; margin-top: 18px; }
+.rg-guide-progress span { height: 3px; flex: 1; border-radius: 99px; background: var(--color-border); }
+.rg-guide-progress span.active, .rg-guide-progress span.done { background: var(--color-primary); }
+.rg-guide-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.rg-guide-actions button { padding: 8px 11px; border-radius: 7px; font: inherit; cursor: pointer; }
+.rg-guide-secondary { border: 1px solid var(--color-border); background: transparent; color: inherit; }
+.rg-guide-primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff; }
+.rg-guide-trigger :deep(span) { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 700; }
+@media (max-width: 1100px) {
+  :global(body.rg-guide-open .app-content) { padding-right: 2rem; }
+  .rg-guide-card { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; }
+  .rg-guide-target { scroll-margin-bottom: 45vh; }
+}
 /* ── Page shell ── */
 .rg-page { display: grid; gap: 1.25rem; }
 

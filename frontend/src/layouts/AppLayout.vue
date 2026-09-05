@@ -48,6 +48,7 @@
       <main class="app-content">
         <router-view />
       </main>
+      <PageGuide />
     </div>
 
   </div>
@@ -58,6 +59,7 @@ import { ref } from "vue";
 
 import AppHeader from "@/components/AppHeader.vue";
 import AppSidebar from "@/components/AppSidebar.vue";
+import PageGuide from "@/components/PageGuide.vue";
 
 /* Tracks whether the sidebar overlay is open on mobile.
    On desktop this value is irrelevant — the sidebar is
@@ -86,6 +88,7 @@ const sidebarCollapsed = ref(false);
   min-width: 0;      /* prevents grid blowout from long content */
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /* ── Page content area ────────────────────────── */

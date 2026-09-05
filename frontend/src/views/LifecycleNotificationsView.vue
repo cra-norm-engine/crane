@@ -7,7 +7,7 @@
 -->
 <template>
   <section class="page">
-    <header class="page-header">
+    <header class="page-header" data-guide="lifecycle-header">
       <div>
         <h1 class="page-title">Lifecycle alerts</h1>
         <p class="muted page-subtitle">
@@ -22,7 +22,7 @@
       </div>
     </header>
 
-    <section class="card filters-card">
+    <section class="card filters-card" data-guide="lifecycle-filters">
       <div class="section-header">
         <div>
           <h2 class="section-title">Analysis filters</h2>
@@ -101,7 +101,7 @@
       </div>
     </section>
 
-    <section class="summary-grid">
+    <section class="summary-grid" data-guide="lifecycle-summary">
       <article class="card stat-card">
         <p class="muted stat-label">Products with support</p>
         <strong class="stat-value">{{ eosRows.length }}</strong>
@@ -121,7 +121,7 @@
       {{ successMessage }}
     </div>
 
-    <section class="card">
+    <section class="card" data-guide="lifecycle-results">
       <div class="section-header">
         <div>
           <h2 class="section-title">EOS analysis</h2>
@@ -274,6 +274,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import AppButton from "@/components/AppButton.vue";
+
 
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
 import { productService } from "@/services/product-service";

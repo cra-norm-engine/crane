@@ -25,7 +25,7 @@
       </div>
 
       <!-- Product + release selectors (both required) -->
-      <div class="cj-filters">
+      <div class="cj-filters" data-guide="cj-selectors">
         <div class="field">
           <label class="field-label" for="cj-product">Product</label>
           <select id="cj-product" class="select" v-model="selectedProductId">
@@ -64,7 +64,7 @@
     <!-- ── Journey ─────────────────────────────────────────────────────────── -->
     <template v-else>
       <!-- Status infographic: identity + compliance donut + legend breakdown -->
-      <div class="card cj-status">
+      <div class="card cj-status" data-guide="cj-status">
         <div class="cj-status-head">
           <div class="cj-ov-id">
             <span class="cj-ov-name">{{ journey.product_name }}</span>
@@ -112,7 +112,7 @@
 
       <div class="c-grid">
         <!-- LEFT — phase spine, all steps visible & clickable -->
-        <div class="c-rail">
+        <div class="c-rail" data-guide="cj-phases">
           <div
             v-for="phase in phases"
             :key="phase.id"
@@ -156,7 +156,7 @@
         </div>
 
         <!-- RIGHT — focus on the selected step (fills the column height) -->
-        <div class="c-focus" v-if="focusStep">
+        <div class="c-focus" v-if="focusStep" data-guide="cj-focus">
           <div class="c-ftop">
             <div class="c-kick">
               Step {{ focusNumber }} of {{ journey.total_steps }}
@@ -177,7 +177,7 @@
           </div>
 
           <!-- CRA-grounded guidance: what the step requires + FAQs -->
-          <div class="c-guide">
+          <div class="c-guide" data-guide="cj-guidance">
             <div v-if="guideFor(focusStep.id).requirements.length" class="c-guide-block">
               <div class="lab">What this step requires</div>
               <ul class="c-reqs">
@@ -204,7 +204,7 @@
             </p>
           </div>
 
-          <div class="c-foot">
+          <div class="c-foot" data-guide="cj-action">
             <RouterLink class="cj-btn primary" :to="stepTo(focusStep)">
               {{ focusStep.next_action }}
               <svg viewBox="0 0 16 16" width="16" height="16" fill="none"
@@ -652,6 +652,7 @@ function prettyStatus(raw: string): string {
 
 /* ── Status infographic ───────────────────────────────── */
 .cj-status { padding: 16px 20px; }
+.cj-top { position: relative; padding-right: 96px; }
 .cj-status-head {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 0.5rem 1.5rem; padding-bottom: 14px;

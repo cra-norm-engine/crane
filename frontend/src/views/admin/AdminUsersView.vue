@@ -9,7 +9,7 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header">
+    <header class="page-header" data-guide="users-header">
       <div>
         <h1 class="page-title">Users</h1>
         <p class="muted page-subtitle">
@@ -17,6 +17,7 @@
         </p>
       </div>
       <div class="page-actions">
+        <button class="btn btn-secondary embedded-guide-trigger" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <button class="btn btn-primary" type="button" @click="showCreateModal = true">
           + Invite user
         </button>
@@ -50,7 +51,7 @@
     <div v-if="users.length > 0" class="workspace">
 
       <!-- ── Left: user list ── -->
-      <aside class="card users-aside">
+      <aside class="card users-aside" data-guide="users-register">
 
         <!-- Search + filter -->
         <div class="aside-search">
@@ -126,7 +127,7 @@
       </aside>
 
       <!-- ── Right: user detail panel ── -->
-      <section v-if="selectedUser" class="card detail-panel">
+      <section v-if="selectedUser" class="card detail-panel" data-guide="users-detail">
 
         <!-- Detail header -->
         <div class="detail-header">
@@ -208,7 +209,7 @@
               </label>
             </div>
 
-            <div class="section-actions">
+            <div class="section-actions" data-guide="users-actions">
               <button
                 class="btn btn-primary"
                 type="button"
@@ -387,6 +388,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { adminService } from "@/services/admin-service";
 import type { AdminUserCreate, AdminUserRead, RoleRead } from "@/types/admin";
 import { PASSWORD_HINT, passwordPolicyError } from "@/utils/passwordPolicy";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 /* ─── State ─────────────────────────────────────────── */
 type StatusFilter = "all" | "active" | "inactive";

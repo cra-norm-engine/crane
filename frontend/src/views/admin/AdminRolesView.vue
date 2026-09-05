@@ -9,7 +9,7 @@
   <section class="page">
 
     <!-- ── Page header ── -->
-    <header class="page-header">
+    <header class="page-header" data-guide="roles-header">
       <div>
         <h1 class="page-title">Roles &amp; access</h1>
         <p class="muted page-subtitle">
@@ -18,6 +18,7 @@
         </p>
       </div>
       <div class="page-actions">
+        <button class="btn btn-secondary embedded-guide-trigger" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</button>
         <button class="btn btn-primary" type="button" @click="showCreateModal = true">
           + New role
         </button>
@@ -39,7 +40,7 @@
     <div v-if="roles.length > 0" class="workspace">
 
       <!-- ── Left: role list ── -->
-      <aside class="card roles-aside">
+      <aside class="card roles-aside" data-guide="roles-register">
         <div class="aside-header">
           <span class="aside-title">Roles</span>
           <span class="count-badge">{{ roles.length }}</span>
@@ -90,7 +91,7 @@
       </aside>
 
       <!-- ── Right: role detail ── -->
-      <section v-if="selectedRole && roleDrafts[selectedRole.id]" class="card detail-panel">
+      <section v-if="selectedRole && roleDrafts[selectedRole.id]" class="card detail-panel" data-guide="roles-detail">
 
         <!-- Detail header -->
         <div class="detail-header">
@@ -137,7 +138,7 @@
           </div>
 
           <!-- Permission groups -->
-          <div class="perm-section">
+          <div class="perm-section" data-guide="roles-permissions">
             <div class="perm-section-header">
               <h3 class="perm-section-title">Permissions</h3>
               <div class="perm-section-actions">
@@ -298,6 +299,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import AppModal from "@/components/AppModal.vue";
 import { adminService } from "@/services/admin-service";
 import type { PermissionRead, RoleRead } from "@/types/admin";
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 
 /* ─── Types ─────────────────────────────────────────── */
 interface RoleDraft {
