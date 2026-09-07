@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
-from app.core.exceptions import ConflictException, NotFoundException
+from app.core.exceptions import ConflictException, NotFoundException, ValidationException
 from app.models.enums import AuditStatus, EntityType
 from app.models.sbom_record import SbomRecord
 from app.repositories.product_release_repository import ProductReleaseRepository
@@ -121,6 +121,11 @@ class SbomRecordService:
     ) -> SbomRecordRead:
         """Create a new SBOM record from raw file content, running sbom-tools analysis."""
         release = self.release_repository.get_or_404(product_release_id)
+
+        try:
+            sbom_analyzer.validate_sbom_content(sbom_content)
+        except ValueError as exc:
+            raise ValidationException(str(exc)) from exc
 
         # Find previous SBOM for this release to enable diff analysis.
         existing = self.repository.list_all(product_release_id=product_release_id)

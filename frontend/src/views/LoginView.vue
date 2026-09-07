@@ -27,6 +27,7 @@
 
       <div class="bp-mark">
         <AppLogo on-dark :scale="1.4" />
+        <span class="bp-status"><span aria-hidden="true"></span>Secure workspace</span>
       </div>
 
       <!-- Centre content -->
@@ -39,11 +40,11 @@
           EU Cyber Resilience Act
         </span>
 
-        <h1 class="bp-heading">Cyber Resilience Act<br>Norm Engine (CRANE)</h1>
+        <h1 class="bp-heading">Move from CRA requirements<br>to defensible evidence.</h1>
 
         <p class="bp-desc">
-          One workspace for CRA conformity — from product scope and risk
-          to vulnerability handling and audit-ready evidence.
+          CRANE connects product scope, risk, vulnerability handling, and
+          technical documentation in one traceable workflow.
         </p>
 
         <ul class="bp-feats">
@@ -51,19 +52,19 @@
             <span class="bp-feat-check">
               <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
             </span>
-            Continuous conformity tracking
+            Guide every product through its compliance journey
           </li>
           <li class="bp-feat">
             <span class="bp-feat-check">
               <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
             </span>
-            Vulnerability handling &amp; PSIRT
+            Coordinate risks, vulnerabilities, and releases
           </li>
           <li class="bp-feat">
             <span class="bp-feat-check">
               <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
             </span>
-            Audit-ready evidence &amp; reporting
+            Maintain audit-ready evidence and reports
           </li>
         </ul>
       </div>
@@ -74,9 +75,7 @@
         <span class="bp-dot" aria-hidden="true"></span>
         <a href="https://github.com/cra-norm-engine/crane" target="_blank" rel="noopener">Source (AGPL-3.0)</a>
         <span class="bp-dot" aria-hidden="true"></span>
-        <span>Privacy</span>
-        <span class="bp-dot" aria-hidden="true"></span>
-        <span>Security</span>
+        <span>CRANE v1.2.0</span>
       </div>
     </section>
 
@@ -89,14 +88,29 @@
           <AppLogo :scale="1.1" />
         </div>
 
-        <!-- Heading -->
-        <div class="form-head">
-          <h2>Sign in</h2>
-          <p>Access your CRA compliance workspace.</p>
-        </div>
+        <div class="auth-card">
+          <!-- Heading -->
+          <div class="form-head">
+            <span class="form-eyebrow">
+              <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+              </svg>
+              Secure sign-in
+            </span>
+            <h2>Welcome back</h2>
+            <p>Sign in to continue to your CRANE workspace.</p>
+          </div>
 
-        <!-- Login form -->
-        <form class="login-form" novalidate @submit.prevent="handleLogin">
+          <!-- Error banner -->
+          <p v-if="error" id="login-error" class="login-error" role="alert" aria-live="assertive">
+            <svg class="login-error-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="10" cy="10" r="8"/><line x1="10" y1="6" x2="10" y2="10"/><circle cx="10" cy="13.5" r="0.5" fill="currentColor"/>
+            </svg>
+            <span><strong>Unable to sign in</strong>{{ error }}</span>
+          </p>
+
+          <!-- Login form -->
+          <form class="login-form" @submit.prevent="handleLogin">
 
           <!-- Email -->
           <div class="f-field">
@@ -111,10 +125,16 @@
                 v-model.trim="email"
                 class="inp"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="you@company.com"
                 required
                 autocomplete="username"
+                autocapitalize="none"
+                spellcheck="false"
+                autofocus
+                :disabled="loading"
                 :aria-invalid="!!error"
+                :aria-describedby="error ? 'login-error' : undefined"
+                @input="error = null"
               />
             </div>
           </div>
@@ -137,7 +157,10 @@
                 placeholder="Enter your password"
                 required
                 autocomplete="current-password"
+                :disabled="loading"
                 :aria-invalid="!!error"
+                :aria-describedby="error ? 'login-error' : undefined"
+                @input="error = null"
               />
               <button
                 class="pw-toggle"
@@ -169,40 +192,36 @@
             </span>
             <template v-else>
               Sign in
-              <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12h14M13 6l6 6-6 6"/>
               </svg>
             </template>
           </button>
 
-        </form>
-
-        <!-- Error banner -->
-        <p v-if="error" class="login-error" role="alert" aria-live="assertive">
-          <svg class="login-error-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M10 2 2 16h16L10 2z"/>
-            <line x1="10" y1="9" x2="10" y2="12"/>
-            <circle cx="10" cy="14.5" r="0.5" fill="currentColor"/>
-          </svg>
-          {{ error }}
-        </p>
+          </form>
 
         <!-- Divider -->
-        <div class="divider"><span>or</span></div>
+          <div class="divider"><span>or use your organisation</span></div>
 
         <!-- SSO -->
-        <button class="btn btn-ghost" type="button" @click="handleSso">
+          <button class="btn btn-ghost" type="button" :disabled="loading" @click="handleSso">
           <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9"/>
             <path d="M12 8v4l3 3"/>
             <path d="M3.6 9h16.8"/>
             <path d="M3.6 15h16.8"/>
           </svg>
-          Continue with SSO / LDAP
-        </button>
+            Continue with SSO / LDAP
+          </button>
 
-        <!-- Admin contact -->
-        <p class="admin-note">New to CRANE? Contact your administrator: <a href="mailto:amh1036@yahoo.com">amh1036@yahoo.com</a></p>
+          <!-- Admin contact -->
+          <p class="admin-note">Need access? Contact your CRANE administrator.</p>
+        </div>
+
+        <p class="security-note">
+          <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          Protected access · Activity is recorded for auditability
+        </p>
 
       </div>
     </section>
@@ -280,8 +299,9 @@ function handleSso(): void {
 /* ── Full-screen two-column layout ─────────────── */
 .auth-layout {
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: minmax(480px, 1.06fr) minmax(440px, 0.94fr);
   min-height: 100vh;
+  background: var(--color-bg);
 }
 
 /* ═══════════════ Brand panel ═══════════════ */
@@ -371,7 +391,34 @@ function handleSso(): void {
 .brand-panel > * { position: relative; z-index: 1; }
 .brand-panel > .bp-particles { z-index: 0; }
 
-.bp-mark { display: flex; align-items: flex-start; }
+.bp-mark {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.bp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid oklch(0.7 0.05 150 / 0.2);
+  border-radius: 999px;
+  color: oklch(0.76 0.025 150);
+  background: oklch(0.2 0.025 150 / 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bp-status > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.76 0.16 145);
+  box-shadow: 0 0 0 4px oklch(0.76 0.16 145 / 0.12);
+}
 
 /* Centre block */
 .bp-center { margin: auto 0; max-width: 30rem; }
@@ -393,11 +440,11 @@ function handleSso(): void {
 }
 
 .bp-heading {
-  font-size: 34px;
+  font-size: clamp(34px, 3.1vw, 48px);
   font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  margin: 0 0 14px;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  margin: 0 0 18px;
   color: white;
 }
 
@@ -448,6 +495,13 @@ function handleSso(): void {
   color: oklch(0.66 0.012 150);
 }
 
+.bp-foot a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.bp-foot a:hover { color: white; }
+
 .bp-dot {
   width: 3px;
   height: 3px;
@@ -461,14 +515,26 @@ function handleSso(): void {
 
 /* ═══════════════ Form panel ═══════════════ */
 .form-panel {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 44px;
-  background: var(--color-bg);
+  padding: 48px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 34rem),
+    var(--color-bg-secondary);
 }
 
-.form-wrap { width: 100%; max-width: 380px; }
+.form-wrap { width: 100%; max-width: 440px; }
+
+.auth-card {
+  padding: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(16px);
+}
 
 /* Mobile brand — hidden on desktop */
 .mobile-brand {
@@ -477,28 +543,39 @@ function handleSso(): void {
 }
 
 .form-head h2 {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.015em;
-  margin: 0 0 6px;
+  letter-spacing: -0.025em;
+  margin: 9px 0 7px;
   color: var(--color-text);
 }
 
 .form-head p {
   color: var(--color-text-muted);
-  margin: 0 0 28px;
+  margin: 0 0 26px;
   font-size: 14px;
 }
 
+.form-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 /* ── Field layout ─────────────────── */
-.login-form { display: flex; flex-direction: column; gap: 16px; }
+.login-form { display: flex; flex-direction: column; gap: 18px; }
 
 .f-field { display: flex; flex-direction: column; gap: 6px; }
 
 .f-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text);
 }
 
 .f-label-row {
@@ -522,7 +599,7 @@ function handleSso(): void {
 
 .inp {
   width: 100%;
-  height: 46px;
+  height: 48px;
   padding: 0 14px 0 40px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-strong, var(--color-border));
@@ -532,6 +609,12 @@ function handleSso(): void {
   font-size: 14px;
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
+
+.inp:hover:not(:disabled) { border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border)); }
+
+.inp:disabled { cursor: wait; opacity: 0.72; }
+
+.inp[aria-invalid="true"] { border-color: var(--color-danger-border); }
 
 .inp::placeholder { color: var(--color-text-muted); opacity: 0.5; }
 
@@ -563,10 +646,17 @@ function handleSso(): void {
   color: var(--color-text);
 }
 
+.pw-toggle:focus-visible,
+.btn:focus-visible,
+.bp-foot a:focus-visible {
+  outline: 2px solid var(--color-primary-2);
+  outline-offset: 2px;
+}
+
 /* ── Buttons ──────────────────────── */
 .btn {
   width: 100%;
-  height: 46px;
+  min-height: 48px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
@@ -575,7 +665,7 @@ function handleSso(): void {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: filter var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+  transition: filter var(--t-fast), background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
 
 .btn-primary {
@@ -585,7 +675,7 @@ function handleSso(): void {
 }
 
 .btn-primary:hover:not(:disabled)  { filter: brightness(1.06); }
-.btn-primary:active:not(:disabled) { filter: brightness(0.97); }
+.btn-primary:active:not(:disabled) { filter: brightness(0.97); transform: translateY(1px); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-ghost {
@@ -594,7 +684,8 @@ function handleSso(): void {
   color: var(--color-text);
 }
 
-.btn-ghost:hover { background: var(--color-surface-elevated); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-surface-elevated); border-color: var(--color-primary); }
+.btn-ghost:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-loading {
   display: inline-flex;
@@ -607,7 +698,7 @@ function handleSso(): void {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin: 4px 0 0;
+  margin: 0 0 20px;
   color: var(--color-danger-text);
   background: var(--color-danger-bg);
   border: 1px solid var(--color-danger-border);
@@ -618,6 +709,9 @@ function handleSso(): void {
 }
 
 .login-error-icon { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+
+.login-error span { display: grid; gap: 2px; }
+.login-error strong { color: var(--color-danger-text); font-size: 12px; }
 
 /* ── Divider ──────────────────────── */
 .divider {
@@ -654,11 +748,39 @@ function handleSso(): void {
 
 .admin-note a:hover { text-decoration: underline; }
 
+.security-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+
 /* ═══════════════ Responsive ═══════════════ */
 @media (max-width: 860px) {
   .auth-layout { grid-template-columns: 1fr; }
   .brand-panel { display: none; }
   .mobile-brand { display: block; }
-  .form-panel { padding: 32px 24px; align-items: flex-start; padding-top: 9vh; }
+  .form-panel { padding: max(32px, 7vh) 24px; align-items: flex-start; }
+}
+
+@media (max-width: 480px) {
+  .form-panel { padding: 28px 18px; background: var(--color-bg); }
+  .mobile-brand { margin: 2px 0 28px 4px; }
+  .auth-card { padding: 28px 22px; border-radius: 16px; }
+  .form-head h2 { font-size: 26px; }
+  .security-note { padding: 0 12px; }
+}
+
+@media (max-height: 720px) and (min-width: 861px) {
+  .brand-panel { padding-block: 30px; }
+  .bp-feats { gap: 9px; }
+  .bp-desc { margin-bottom: 20px; }
+  .auth-card { padding-block: 28px; }
+  .form-head p { margin-bottom: 20px; }
+  .login-form { gap: 12px; }
 }
 </style>

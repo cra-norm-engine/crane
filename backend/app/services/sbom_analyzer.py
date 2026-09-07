@@ -155,6 +155,23 @@ def _cdx_component_to_dict(comp: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _cdx_components(components: Any) -> list[dict[str, Any]]:
+    """Flatten nested CycloneDX component trees in document order."""
+    if not isinstance(components, list):
+        return []
+    flattened: list[dict[str, Any]] = []
+    pending = list(reversed(components))
+    while pending:
+        component = pending.pop()
+        if not isinstance(component, dict):
+            continue
+        flattened.append(_cdx_component_to_dict(component))
+        children = component.get("components")
+        if isinstance(children, list):
+            pending.extend(reversed(children))
+    return flattened
+
+
 def _spdx_package_to_dict(pkg: dict[str, Any]) -> dict[str, Any]:
     """Normalise an SPDX package object to a compact storage dict."""
     out: dict[str, Any] = {}
@@ -166,8 +183,8 @@ def _spdx_package_to_dict(pkg: dict[str, Any]) -> dict[str, Any]:
     # Extract purl from externalRefs (SPDX 2.2+: referenceCategory PACKAGE-MANAGER, referenceType purl)
     for ref in pkg.get("externalRefs", []):
         if (
-            ref.get("referenceCategory") in ("PACKAGE-MANAGER", "PACKAGE_MANAGER")
-            and ref.get("referenceType") == "purl"
+            isinstance(ref, dict)
+            and str(ref.get("referenceType", "")).lower() == "purl"
             and ref.get("referenceLocator")
         ):
             out["purl"] = ref["referenceLocator"]
@@ -197,6 +214,8 @@ def parse_metadata(sbom_content: str) -> SbomMetadata:
         meta.spec_version = doc.get("specVersion")
 
         metadata = doc.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
         meta.generated_at = metadata.get("timestamp")
         meta.tool_name, meta.tool_version = _parse_cdx_tool(metadata.get("tools"))
 
@@ -204,12 +223,8 @@ def parse_metadata(sbom_content: str) -> SbomMetadata:
         if not meta.tool_name:
             meta.tool_name, meta.tool_version = _parse_cdx_tool(doc.get("tools"))
 
-        components = doc.get("components") or []
-        if isinstance(components, list):
-            meta.components_json = [
-                _cdx_component_to_dict(c) for c in components if isinstance(c, dict)
-            ]
-            meta.component_count = len(meta.components_json)
+        meta.components_json = _cdx_components(doc.get("components") or [])
+        meta.component_count = len(meta.components_json)
         return meta
 
     # ── SPDX JSON ────────────────────────────────────────────────────────────
@@ -220,6 +235,8 @@ def parse_metadata(sbom_content: str) -> SbomMetadata:
         meta.spec_version = spdx_version.replace("SPDX-", "").strip() or None
 
         creation_info = doc.get("creationInfo") or {}
+        if not isinstance(creation_info, dict):
+            creation_info = {}
         meta.generated_at = creation_info.get("created")
 
         # Creators: ["Tool: syft-0.99.0", "Organization: ..."]
@@ -248,6 +265,25 @@ def parse_metadata(sbom_content: str) -> SbomMetadata:
         return meta
 
     return meta
+
+
+def validate_sbom_content(sbom_content: str) -> None:
+    """Reject malformed or unsupported uploads before storing or analyzing them."""
+    try:
+        doc = json.loads(sbom_content)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("The uploaded SBOM is not valid JSON") from exc
+    if not isinstance(doc, dict):
+        raise ValueError("The uploaded SBOM must be a JSON object")
+    if str(doc.get("bomFormat", "")).lower() == "cyclonedx":
+        if not isinstance(doc.get("components", []), list):
+            raise ValueError("CycloneDX 'components' must be an array")
+        return
+    if str(doc.get("spdxVersion", "")).lower().startswith("spdx-"):
+        if not isinstance(doc.get("packages", []), list):
+            raise ValueError("SPDX 'packages' must be an array")
+        return
+    raise ValueError("Only CycloneDX JSON and SPDX JSON SBOMs are supported")
 
 
 def analyze(sbom_content: str, previous_content: str | None = None) -> dict[str, Any]:
