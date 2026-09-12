@@ -1,0 +1,37 @@
+name: Refresh update metadata
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh expiry and signature
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPDATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
+        run: |
+          test -n "$UPDATE_KEY" || { echo 'Configure UPDATE_SIGNING_PRIVATE_KEY_B64'; exit 1; }
+          TAG="$(gh release view --json tagName --jq .tagName)"
+          gh release download "$TAG" --pattern update-manifest.json
+          python3 - <<'PY'
+          import json
+          from datetime import UTC, datetime, timedelta
+          from pathlib import Path
+          path = Path("update-manifest.json")
+          value = json.loads(path.read_text())
+          value["expires_at"] = (datetime.now(UTC).replace(microsecond=0) + timedelta(days=30)).isoformat().replace("+00:00", "Z")
+          path.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+          printf '%s' "$UPDATE_KEY" | base64 --decode > /tmp/update-private.pem
+          chmod 600 /tmp/update-private.pem
+          openssl pkeyutl -sign -rawin -inkey /tmp/update-private.pem -in update-manifest.json -out /tmp/update-manifest.sig
+          base64 -w0 /tmp/update-manifest.sig > update-manifest.json.sig
+          gh release upload "$TAG" update-manifest.json update-manifest.json.sig --clobber

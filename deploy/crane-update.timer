@@ -1,0 +1,10 @@
+[Unit]
+Description=Check CRANE automatic update policy hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

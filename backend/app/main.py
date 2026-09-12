@@ -51,7 +51,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title=settings.project_name,
-    version="0.1.0",
+    version=settings.app_version,
     openapi_url=f"{settings.api_prefix}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",

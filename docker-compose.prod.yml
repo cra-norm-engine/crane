@@ -1,36 +1,11 @@
-# ============================================================================
-# CRANE Production Docker Compose Configuration
-# ============================================================================
-# Production-grade deployment with minimal attack surface:
-# - Pre-built images from GHCR (no source code volume mounts)
-# - Non-root containers
-# - Resource limits
-# - Port binding restricted to localhost for database
-# - No debug mode
-#
-# Prerequisites:
-# 1. Create a .env file with required values (see .env.example)
-# 2. Set strong values for POSTGRES_PASSWORD and BACKEND_SECRET_KEY
-# 3. Update BACKEND_CORS_ORIGINS for your domain
-# 4. Run behind a reverse proxy (nginx/Caddy) with TLS
-#
-# Usage:
-#   docker compose -f docker-compose.prod.yml up -d
-# ============================================================================
-
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cra-compliance-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-cra_compliance}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -38,77 +13,88 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: "1"
           memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
+
+  migrate:
+    image: ${BACKEND_IMAGE:-ghcr.io/cra-norm-engine/crane-backend:latest}
+    profiles: ["tools"]
+    env_file: [.env]
+    environment:
+      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL}
+      BACKEND_AUTO_MIGRATE: "false"
+    entrypoint: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
-    image: ghcr.io/cra-norm-engine/crane-backend:${BACKEND_IMAGE_TAG:-latest}
-    container_name: cra-compliance-backend
+    image: ${BACKEND_IMAGE:-ghcr.io/cra-norm-engine/crane-backend:latest}
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL}
       BACKEND_HOST: 0.0.0.0
-      BACKEND_PORT: ${BACKEND_PORT:-8000}
-      BACKEND_DEBUG: false
+      BACKEND_PORT: 8000
+      BACKEND_AUTO_MIGRATE: "false"
+      BACKEND_DEBUG: "false"
       BACKEND_ENVIRONMENT: production
-      BACKEND_API_PREFIX: ${BACKEND_API_PREFIX:-/api/v1}
-      BACKEND_PROJECT_NAME: ${BACKEND_PROJECT_NAME:-CRA Compliance Tool}
-      BACKEND_SECRET_KEY: ${BACKEND_SECRET_KEY}
-      BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES: ${BACKEND_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      BACKEND_REFRESH_TOKEN_EXPIRE_DAYS: ${BACKEND_REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS}
-      BACKEND_LOG_LEVEL: INFO
+      BACKEND_APP_VERSION: ${CRANE_VERSION:-0.0.0-dev}
+      BACKEND_UPDATE_STATE_DIR: /var/lib/crane/updates
+      BACKEND_UPDATE_PUBLIC_KEY_PATH: /etc/crane/update-public.pem
+    volumes:
+      - ./data/artifacts:/workspace/backend/uploads/artifacts
+      - ./data/updates:/var/lib/crane/updates
+      - ./updates/update-public.pem:/etc/crane/update-public.pem:ro
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
-        reservations:
-          cpus: '1'
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+          cpus: "2"
+          memory: 2G
 
   frontend:
-    image: ghcr.io/cra-norm-engine/crane-frontend:${FRONTEND_IMAGE_TAG:-latest}
-    container_name: cra-compliance-frontend
+    image: ${FRONTEND_IMAGE:-ghcr.io/cra-norm-engine/crane-frontend:latest}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
-    environment:
-      API_BASE_URL: ${VITE_API_BASE_URL}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: "1"
           memory: 256M
-        reservations:
-          cpus: '0.5'
-          memory: 128M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   postgres_data:
-    driver: local

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+args=" $* "
+if [[ "$args" == *" psql "* ]]; then
+  printf '160000\n'
+elif [[ "$args" == *" pg_dump "* ]]; then
+  printf 'fake-pg-dump\n'
+fi

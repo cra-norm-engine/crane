@@ -23,9 +23,20 @@ import type {
   RoleUpdate,
   VulnerabilityScanningSetting,
   IngestionKey,
+  SystemUpdatePolicy,
+  SystemUpdateStatus,
 } from "@/types/admin";
 
 export const adminService = {
+  async getSystemUpdates(): Promise<SystemUpdateStatus> {
+    return (await apiClient.get<SystemUpdateStatus>("/admin/system-updates")).data;
+  },
+  async checkSystemUpdates(): Promise<SystemUpdateStatus> {
+    return (await apiClient.post<SystemUpdateStatus>("/admin/system-updates/check")).data;
+  },
+  async setSystemUpdatePolicy(payload: SystemUpdatePolicy): Promise<SystemUpdateStatus> {
+    return (await apiClient.put<SystemUpdateStatus>("/admin/system-updates/policy", payload)).data;
+  },
   async listIngestionKeys(): Promise<IngestionKey[]> {
     return (await apiClient.get<IngestionKey[]>("/admin/ingestion-keys")).data;
   },

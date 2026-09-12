@@ -1,0 +1,9 @@
+{
+  "update_type": "maintenance",
+  "severity": "none",
+  "minimum_upgrade_version": "1.0.0",
+  "postgres_major_versions": [16],
+  "automatic_update_allowed": true,
+  "rollback_mode": "database-restore",
+  "advisory_url": null
+}

@@ -26,10 +26,16 @@ from app.schemas.admin_user import (
 from app.schemas.auth import AdminPasswordResetRequest
 from app.schemas.permission import PermissionRead
 from app.schemas.role import RoleCreate, RolePermissionsUpdate, RoleRead, RoleUpdate
+from app.schemas.system_update import SystemUpdatePolicy, SystemUpdateStatus
 from app.services import ldap_service
 from app.services.admin_user_service import AdminUserService
 from app.services.ldap_service import LDAPConnectionError
 from app.services.role_service import RoleService
+from app.services.system_update_service import (
+    check_for_updates,
+    get_status as get_system_update_status,
+    set_policy as set_system_update_policy,
+)
 from app.services.vulnerability_scanning_settings import (
     is_vulnerability_scanning_enabled,
     set_vulnerability_scanning_enabled,
@@ -72,6 +78,39 @@ def update_vulnerability_scanning_setting(
         db, payload.enabled, actor_user_id=current_user.id
     )
     return VulnerabilityScanningSetting(enabled=enabled)
+
+
+@router.get("/system-updates", response_model=SystemUpdateStatus)
+def get_system_updates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+) -> SystemUpdateStatus:
+    return get_system_update_status(db)
+
+
+@router.post("/system-updates/check", response_model=SystemUpdateStatus)
+def check_system_updates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+) -> SystemUpdateStatus:
+    check_for_updates()
+    return get_system_update_status(db)
+
+
+@router.put("/system-updates/policy", response_model=SystemUpdateStatus)
+def update_system_update_policy(
+    payload: SystemUpdatePolicy,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+) -> SystemUpdateStatus:
+    set_system_update_policy(db, payload, current_user.id)
+    return get_system_update_status(db)
 
 
 @router.get("/users/summary", response_model=list[UserSummary], tags=["admin"])

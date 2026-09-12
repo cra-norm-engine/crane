@@ -235,12 +235,15 @@ For production deployments:
 - Use `docker-compose.prod.yml`
 - Configure strong secrets
 - Run behind HTTPS (NGINX, Caddy, Traefik, etc.)
-- Regularly update dependencies
-- Maintain database backups
+- Install signed releases with `./crane-update apply`
+- Choose notification-only or automatic security updates in **Settings → System updates**
+- Test `./crane-update rollback` and retain backups independently of the CRANE host
 
 Complete guide:
 
 https://cra-norm-engine.github.io/crane/configuration.html
+
+Update and rollback guide: [docs/docs/getting-started/system-updates.md](docs/docs/getting-started/system-updates.md)
 
 ---
 

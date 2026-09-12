@@ -428,6 +428,68 @@
           </div>
         </section>
 
+        <!-- CRANE application updates -->
+        <section v-if="isSystemAdmin" v-show="activeSection === 'system-updates'" id="system-updates" class="s-card" data-guide="settings-system-updates">
+          <div class="s-card-head">
+            <h2 class="s-card-title">System updates</h2>
+            <p class="muted">Receive verified CRANE releases and choose how this installation applies them.</p>
+          </div>
+          <div class="s-card-body update-settings">
+            <div v-if="systemUpdateBusy && !systemUpdateStatus" class="update-empty">Loading update status…</div>
+            <template v-else-if="systemUpdateStatus">
+              <div class="update-summary">
+                <div><span>Installed</span><strong>v{{ systemUpdateStatus.installed_version }}</strong></div>
+                <div><span>Update channel</span><strong>{{ systemUpdateStatus.policy.channel }}</strong></div>
+                <div><span>Status</span><StatusBadge :label="updateStatusLabel" :variant="updateStatusVariant" /></div>
+              </div>
+
+              <div v-if="systemUpdateStatus.manifest && systemUpdateStatus.update_available" class="available-update" role="status">
+                <div>
+                  <span class="update-kind">{{ systemUpdateStatus.manifest.update_type }} · {{ systemUpdateStatus.manifest.severity }} severity</span>
+                  <h3>CRANE {{ systemUpdateStatus.manifest.version }}</h3>
+                  <p>Requires CRANE {{ systemUpdateStatus.manifest.minimum_upgrade_version }} or newer and PostgreSQL {{ systemUpdateStatus.manifest.postgres_major_versions.join(', ') }}.</p>
+                </div>
+                <div class="update-links">
+                  <a :href="systemUpdateStatus.manifest.release_notes_url" target="_blank" rel="noopener">Release notes</a>
+                  <a v-if="systemUpdateStatus.manifest.advisory_url" :href="systemUpdateStatus.manifest.advisory_url" target="_blank" rel="noopener">Security advisory</a>
+                  <button v-if="systemUpdateStatus.manifest.severity !== 'critical'" class="link-button" type="button" @click="postponeSystemUpdate">Remind me in 7 days</button>
+                </div>
+              </div>
+
+              <div v-if="systemUpdateStatus.last_error" class="update-warning" role="alert">
+                <strong>Update check needs attention</strong>
+                <span>{{ systemUpdateStatus.last_error }}</span>
+              </div>
+
+              <fieldset class="update-policies">
+                <legend>Installation policy</legend>
+                <label v-for="option in updatePolicyOptions" :key="option.value" class="update-policy" :class="{ selected: updatePolicy.policy === option.value }">
+                  <input v-model="updatePolicy.policy" type="radio" name="update-policy" :value="option.value" />
+                  <span><strong>{{ option.label }}</strong><small>{{ option.description }}</small></span>
+                </label>
+              </fieldset>
+
+              <div v-if="updatePolicy.policy !== 'manual'" class="maintenance-fields">
+                <label><span>Maintenance day</span><select v-model.number="updatePolicy.maintenance_day" class="select"><option v-for="(day, index) in weekDays" :key="day" :value="index">{{ day }}</option></select></label>
+                <label><span>Start hour (UTC)</span><input v-model.number="updatePolicy.maintenance_hour_utc" class="input" type="number" min="0" max="23" /></label>
+              </div>
+              <p v-if="updatePolicy.policy !== 'manual'" class="update-host-note">Automatic installation also requires the CRANE systemd timer on the host. Follow <a href="https://github.com/cra-norm-engine/crane/blob/main/docs/docs/getting-started/system-updates.md" target="_blank" rel="noopener">the update guide</a> once; CRANE never exposes the Docker socket to the web application.</p>
+
+              <div class="manual-update">
+                <div><strong>Manual installation</strong><p>The host updater creates and verifies a database backup before migration. Run this from the CRANE installation directory.</p></div>
+                <code>{{ systemUpdateStatus.manual_command }}</code>
+                <AppButton variant="secondary" size="sm" @click="copyUpdateCommand">Copy command</AppButton>
+              </div>
+              <p v-if="systemUpdateStatus.last_checked_at" class="last-check">Last checked {{ formatDate(systemUpdateStatus.last_checked_at) }}</p>
+            </template>
+          </div>
+          <div class="s-card-foot">
+            <AppButton variant="secondary" size="sm" :disabled="systemUpdateBusy" @click="checkSystemUpdates">{{ systemUpdateBusy ? 'Checking…' : 'Check now' }}</AppButton>
+            <span class="foot-spacer" />
+            <AppButton variant="primary" size="sm" :disabled="systemUpdateBusy || !systemUpdateStatus" @click="saveSystemUpdatePolicy">Save update policy</AppButton>
+          </div>
+        </section>
+
         <!-- About -->
         <section v-show="activeSection === 'about'" id="about" class="s-card" data-guide="settings-about">
           <div class="s-card-head">
@@ -553,6 +615,7 @@ import { userService, type UserSummary } from "@/services/user-service";
 import { adminService } from "@/services/admin-service";
 import { sbomRecordService } from "@/services/sbom-record-service";
 import type { IngestionKey } from "@/types/admin";
+import type { SystemUpdatePolicy, SystemUpdatePolicyMode, SystemUpdateStatus } from "@/types/admin";
 import type { SbomRecordRead } from "@/types/product";
 import AppButton from "@/components/AppButton.vue";
 import DependencyTrackSettings from "@/components/DependencyTrackSettings.vue";
@@ -605,6 +668,7 @@ const allNavItems = [
   { id: "preferences", label: "Preferences", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>' },
   { id: "security", label: "Security", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' },
   { id: "vulnerability-scanning", label: "Vulnerability scanning", adminOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>' },
+  { id: "system-updates", label: "System updates", adminOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>' },
   { id: "jira", label: "Jira Cloud", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 10l7 7 7-7-7-7Z"/><path d="m8.5 13.5-3.5 3.5 7 4 7-4-3.5-3.5"/></svg>' },
   { id: "external-findings", label: "External tools", adminOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14M15 3l4 4-4 4M19 17H5m4-4-4 4 4 4"/></svg>' },
   { id: "about", label: "About", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>' },
@@ -612,7 +676,7 @@ const allNavItems = [
 const navItems = computed(() => allNavItems.filter((item) => !item.adminOnly || isSystemAdmin.value));
 const navGroups = computed(() => [
   { label: 'Personal', ids: ['account', 'appearance', 'preferences', 'security'] },
-  { label: 'Workspace', ids: ['vulnerability-scanning'] },
+  { label: 'Workspace', ids: ['vulnerability-scanning', 'system-updates'] },
   { label: 'Integrations', ids: ['external-findings', 'jira'] },
   { label: 'About CRANE', ids: ['about'] },
 ].map(group => ({ label: group.label, items: group.ids.flatMap(id => {
@@ -639,6 +703,28 @@ const craneUsers = ref<UserSummary[]>([]);
 const jiraAccountIds = ref<Record<string, Record<string, string>>>({});
 const vulnerabilityScanningEnabled = ref(true);
 const vulnerabilityScanningBusy = ref(false);
+const systemUpdateStatus = ref<SystemUpdateStatus | null>(null);
+const systemUpdateBusy = ref(false);
+const updatePolicy = ref<SystemUpdatePolicy>({ policy: "manual", channel: "stable", maintenance_day: 6, maintenance_hour_utc: 2, postponed_until: null });
+const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const updatePolicyOptions: Array<{ value: SystemUpdatePolicyMode; label: string; description: string }> = [
+  { value: "manual", label: "Notify only", description: "Administrators review and run every update manually." },
+  { value: "security", label: "Automatic security updates", description: "Install eligible security fixes during the maintenance window." },
+  { value: "all", label: "Automatic compatible updates", description: "Install eligible security, maintenance, and feature updates." },
+];
+const updateStatusLabel = computed(() => {
+  const status = systemUpdateStatus.value;
+  if (!status?.configured) return "Not configured";
+  if (!status.update_checks_enabled) return "Checks disabled";
+  if (status.last_error) return "Check failed";
+  if (!status.last_checked_at) return "Not checked";
+  return status.update_available ? "Update available" : "Up to date";
+});
+const updateStatusVariant = computed<"danger" | "neutral" | "success" | "warning">(() => {
+  if (!systemUpdateStatus.value?.configured || systemUpdateStatus.value?.last_error) return "danger";
+  if (!systemUpdateStatus.value.update_checks_enabled || !systemUpdateStatus.value.last_checked_at) return "neutral";
+  return systemUpdateStatus.value.update_available ? "warning" : "success";
+});
 const ingestionKeys = ref<IngestionKey[]>([]);
 const ingestionSboms = ref<SbomRecordRead[]>([]);
 const ingestionName = ref("");
@@ -711,6 +797,45 @@ async function changeVulnerabilityScanning(event: Event): Promise<void> {
   }
 }
 
+async function loadSystemUpdates(): Promise<void> {
+  if (!isSystemAdmin.value) return;
+  systemUpdateBusy.value = true;
+  try {
+    systemUpdateStatus.value = await adminService.getSystemUpdates();
+    updatePolicy.value = { ...systemUpdateStatus.value.policy };
+  } catch { /* global API handler reports the error */ }
+  finally { systemUpdateBusy.value = false; }
+}
+
+async function checkSystemUpdates(): Promise<void> {
+  systemUpdateBusy.value = true;
+  try {
+    systemUpdateStatus.value = await adminService.checkSystemUpdates();
+    showToast({ type: "success", message: systemUpdateStatus.value.update_available ? "A CRANE update is available." : "CRANE is up to date." });
+  } catch { /* global API handler reports the error */ }
+  finally { systemUpdateBusy.value = false; }
+}
+
+async function saveSystemUpdatePolicy(): Promise<void> {
+  systemUpdateBusy.value = true;
+  try {
+    systemUpdateStatus.value = await adminService.setSystemUpdatePolicy(updatePolicy.value);
+    showToast({ type: "success", message: "Update policy saved." });
+  } catch { /* global API handler reports the error */ }
+  finally { systemUpdateBusy.value = false; }
+}
+
+async function postponeSystemUpdate(): Promise<void> {
+  updatePolicy.value.postponed_until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await saveSystemUpdatePolicy();
+}
+
+async function copyUpdateCommand(): Promise<void> {
+  if (!systemUpdateStatus.value) return;
+  await navigator.clipboard.writeText(systemUpdateStatus.value.manual_command);
+  showToast({ type: "success", message: "Update command copied." });
+}
+
 async function loadJira(): Promise<void> {
   try {
     const [connections, users] = await Promise.all([jiraService.connections(), userService.listSummary()]);
@@ -762,6 +887,9 @@ async function disconnectJira(id: string): Promise<void> {
 onMounted(() => {
   void loadJira();
   void loadVulnerabilityScanning();
+  void loadSystemUpdates();
+  const hashSection = window.location.hash.slice(1);
+  if (navItems.value.some((item) => item.id === hashSection)) activeSection.value = hashSection;
   window.addEventListener('crane-guide-reveal', revealGuideSection);
 });
 
@@ -874,7 +1002,7 @@ async function logoutEverywhere(): Promise<void> {
 }
 
 /* ── About ───────────────────────────────────── */
-const appVersion = "1.2.0";
+const appVersion = computed(() => systemUpdateStatus.value?.installed_version ?? import.meta.env.VITE_APP_VERSION ?? "dev");
 const environment = import.meta.env.MODE === "production" ? "Production" : "Development";
 const currentYear = new Date().getFullYear();
 const copyrightHolder = "Ali Mohammad Hosseini";
@@ -920,6 +1048,31 @@ function flash(flag: { value: boolean }): void {
 .jira-actions { margin: 0; border-top: 0; }
 .jira-user-map { display: grid; gap: .5rem; }
 .jira-user-map label { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr; gap: .6rem; align-items: center; font-size: .82rem; }
+.update-settings { display: grid; gap: 1.25rem; }
+.update-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.update-summary > div { display: grid; gap: .35rem; padding: .85rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-soft); }
+.update-summary span, .last-check { color: var(--color-text-muted); font-size: var(--text-xs); text-transform: capitalize; }
+.available-update { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid var(--color-primary); border-radius: var(--radius-md); background: var(--color-status-bg); }
+.available-update h3 { margin: .2rem 0; font-size: var(--text-lg); }
+.available-update p { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.update-kind { color: var(--color-primary-2); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; }
+.update-links { display: flex; flex-direction: column; gap: .4rem; white-space: nowrap; font-size: var(--text-sm); }
+.link-button { padding: 0; border: 0; color: var(--color-primary); background: none; font: inherit; text-align: left; cursor: pointer; }
+.update-host-note { margin: 0; padding: .8rem 1rem; border-left: 3px solid var(--color-primary); color: var(--color-text-muted); background: var(--color-surface-soft); font-size: var(--text-sm); }
+.update-warning { display: grid; gap: .3rem; padding: .8rem 1rem; border: 1px solid var(--color-warning); border-radius: var(--radius-md); color: var(--color-warning-text); background: var(--color-warning-bg); font-size: var(--text-sm); }
+.update-policies { display: grid; gap: .55rem; padding: 0; border: 0; }
+.update-policies legend { margin-bottom: .65rem; font-size: var(--text-sm); font-weight: 700; }
+.update-policy { display: flex; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer; }
+.update-policy.selected { border-color: var(--color-primary); background: var(--color-status-bg); }
+.update-policy input { margin-top: .15rem; accent-color: var(--color-primary); }
+.update-policy span { display: grid; gap: .2rem; }
+.update-policy small { color: var(--color-text-muted); }
+.maintenance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.maintenance-fields label { display: grid; gap: .4rem; font-size: var(--text-sm); font-weight: 600; }
+.manual-update { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .75rem; align-items: center; padding-top: 1rem; border-top: 1px solid var(--color-divider); }
+.manual-update p { margin: .25rem 0 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+.manual-update code { padding: .55rem .7rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-soft); }
+.update-empty { color: var(--color-text-muted); }
 .settings-sub {
   margin: 0.35rem 0 0;
   font-size: var(--text-sm);
@@ -1379,6 +1532,9 @@ function flash(flag: { value: boolean }): void {
   .about-grid {
     grid-template-columns: 1fr;
   }
+
+  .update-summary, .maintenance-fields { grid-template-columns: 1fr; }
+  .available-update, .manual-update { display: flex; flex-direction: column; align-items: stretch; }
 
 }
 </style>

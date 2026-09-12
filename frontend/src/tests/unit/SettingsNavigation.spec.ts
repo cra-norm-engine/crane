@@ -7,7 +7,15 @@ import { useAuthStore } from '@/stores/auth';
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }), useRoute: () => ({ name: 'settings' }) }));
 vi.mock('@/services/jira-service', () => ({ jiraService: { connections: vi.fn().mockResolvedValue([]) } }));
 vi.mock('@/services/user-service', () => ({ userService: { listSummary: vi.fn().mockResolvedValue([]) } }));
-vi.mock('@/services/admin-service', () => ({ adminService: { getVulnerabilityScanning: vi.fn().mockResolvedValue({ enabled: true }) } }));
+vi.mock('@/services/admin-service', () => ({ adminService: {
+  getVulnerabilityScanning: vi.fn().mockResolvedValue({ enabled: true }),
+  getSystemUpdates: vi.fn().mockResolvedValue({
+    installed_version: '1.2.0', configured: true, update_checks_enabled: true,
+    policy: { policy: 'manual', channel: 'stable', maintenance_day: 6, maintenance_hour_utc: 2, postponed_until: null },
+    update_available: false, automatic_update_eligible: false, manifest: null,
+    last_checked_at: null, last_error: null, last_operation: null, manual_command: './crane-update apply',
+  }),
+} }));
 vi.mock('@/services/api', () => ({ apiClient: {
   get: vi.fn().mockResolvedValue({ data: [] }),
   post: vi.fn().mockResolvedValue({ data: {} }),
@@ -16,6 +24,13 @@ vi.mock('@/services/api', () => ({ apiClient: {
 describe('Settings category navigation', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    const values = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+    } });
     HTMLElement.prototype.scrollIntoView = vi.fn();
     useAuthStore().login('test', 'refresh', { id: 'user', email: 'user@example.com', full_name: 'Test user', avatar_data: null, is_active: true, roles: [], permissions: [], auth_provider: 'local', must_change_password: false });
   });
@@ -66,7 +81,7 @@ describe('Settings category navigation', () => {
     const visited: string[] = [];
     for (let i = 0; i < 20; i++) {
       const current = wrapper.get('.snav-link[aria-current="page"]').attributes('aria-controls');
-      if (visited.at(-1) !== current) visited.push(current);
+      if (current && visited.at(-1) !== current) visited.push(current);
       if (document.querySelector('#page-guide-title')?.textContent === 'Review system information') break;
       (document.querySelector('.page-guide-actions .page-guide-primary') as HTMLButtonElement).click();
       await flushPromises();

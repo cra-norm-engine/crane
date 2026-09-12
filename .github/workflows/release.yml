@@ -2,196 +2,77 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
-  build-and-push-backend:
-    name: Build and Push Backend Image
+  images:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract version from tag
-        id: meta
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "image_tag=ghcr.io/cra-norm-engine/crane-backend:${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v5
+      - id: build
+        uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: ./${{ matrix.component }}
           push: true
           tags: |
-            ${{ steps.meta.outputs.image_tag }}
-            ghcr.io/cra-norm-engine/crane-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ghcr.io/cra-norm-engine/crane-${{ matrix.component }}:${{ github.ref_name }}
+            ghcr.io/cra-norm-engine/crane-${{ matrix.component }}:latest
+          build-args: VITE_APP_VERSION=${{ github.ref_name }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+      - uses: sigstore/cosign-installer@v3
+      - run: cosign sign --yes ghcr.io/cra-norm-engine/crane-${{ matrix.component }}@${{ steps.build.outputs.digest }}
+      - run: printf '%s' '${{ steps.build.outputs.digest }}' > '${{ matrix.component }}.digest'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.component }}
+          path: ${{ matrix.component }}.digest
 
-  build-and-push-frontend:
-    name: Build and Push Frontend Image
+  release:
+    needs: images
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: actions/download-artifact@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract version from tag
-        id: meta
+          pattern: digest-*
+          merge-multiple: true
+      - name: Require update signing key
+        env:
+          UPDATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
+        run: test -n "$UPDATE_KEY" || { echo 'Configure UPDATE_SIGNING_PRIVATE_KEY_B64'; exit 1; }
+      - name: Generate signed update manifest
+        env:
+          UPDATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "image_tag=ghcr.io/cra-norm-engine/crane-frontend:${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Create Dockerfile for frontend
-        run: |
-          cat > frontend/Dockerfile << 'EOF'
-          # Build stage
-          FROM node:20-alpine as builder
-          WORKDIR /app
-          COPY package*.json ./
-          RUN npm ci --legacy-peer-deps
-          COPY . .
-          RUN npm run build
-
-          # Runtime stage
-          FROM nginx:alpine
-          COPY --from=builder /app/dist /usr/share/nginx/html
-          COPY nginx.conf /etc/nginx/conf.d/default.conf
-          EXPOSE 80
-          CMD ["nginx", "-g", "daemon off;"]
-          EOF
-
-      - name: Create nginx config for frontend
-        run: |
-          cat > frontend/nginx.conf << 'EOF'
-          server {
-              listen 80;
-              server_name _;
-              root /usr/share/nginx/html;
-
-              # Single-page app routing
-              location / {
-                  try_files $uri $uri/ /index.html;
-              }
-
-              # Disable caching for index.html
-              location = /index.html {
-                  add_header Cache-Control "no-cache, no-store, must-revalidate";
-              }
-
-              # Cache static assets
-              location ~* ^/assets/ {
-                  expires 1y;
-                  add_header Cache-Control "public, immutable";
-              }
-
-              # Gzip compression
-              gzip on;
-              gzip_min_length 1024;
-              gzip_types text/plain text/css text/javascript application/javascript application/json;
-          }
-          EOF
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v5
+          python3 .github/scripts/release_manifest.py \
+            --version "${GITHUB_REF_NAME}" \
+            --backend-digest "$(cat backend.digest)" \
+            --frontend-digest "$(cat frontend.digest)" \
+            --repository "${GITHUB_REPOSITORY}"
+          printf '%s' "$UPDATE_KEY" | base64 --decode > /tmp/update-private.pem
+          chmod 600 /tmp/update-private.pem
+          openssl pkeyutl -sign -rawin -inkey /tmp/update-private.pem -in update-manifest.json -out /tmp/update-manifest.sig
+          base64 -w0 /tmp/update-manifest.sig > update-manifest.json.sig
+      - uses: softprops/action-gh-release@v2
         with:
-          context: ./frontend
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.image_tag }}
-            ghcr.io/cra-norm-engine/crane-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  create-github-release:
-    name: Create GitHub Release
-    needs: [build-and-push-backend, build-and-push-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract version from tag
-        id: meta
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          VERSION=${{ steps.meta.outputs.version }}
-          # Extract section from CHANGELOG.md between this version and the next
-          awk -v version="$VERSION" '
-            BEGIN { found=0; content="" }
-            /^\[/ {
-              if (found) exit
-              if ($0 ~ version) found=1
-              else if (found) exit
-              next
-            }
-            found { content = content $0 "\n" }
-            END { print content }
-          ' CHANGELOG.md > /tmp/release-notes.md
-
-          # Read the changelog into the output variable
-          NOTES=$(cat /tmp/release-notes.md)
-          # Escape for GitHub Actions
-          NOTES="${NOTES//'%'/'%25'}"
-          NOTES="${NOTES//$'\n'/'%0A'}"
-          NOTES="${NOTES//$'\r'/'%0D'}"
-          echo "notes=${NOTES}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ github.ref_name }}
-          name: CRANE ${{ steps.meta.outputs.version }}
-          body: |
-            ## Docker Images
-
-            **Backend:** `ghcr.io/cra-norm-engine/crane-backend:${{ steps.meta.outputs.version }}`
-            **Frontend:** `ghcr.io/cra-norm-engine/crane-frontend:${{ steps.meta.outputs.version }}`
-
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.notes }}
-
-            ## Deployment
-
-            ```bash
-            # Pull the latest images
-            docker compose -f docker-compose.prod.yml pull
-
-            # Restart with the new version
-            docker compose -f docker-compose.prod.yml up -d
-
-            # Run database migrations
-            docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
-            ```
-          draft: false
-          prerelease: false
+          generate_release_notes: true
+          files: |
+            update-manifest.json
+            update-manifest.json.sig

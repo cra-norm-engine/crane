@@ -1,0 +1,10 @@
+[Unit]
+Description=Apply eligible CRANE updates
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/crane
+ExecStart=/opt/crane/crane-update auto
+User=root

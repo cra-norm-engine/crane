@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+# CRANE host updater — runs beside docker-compose.prod.yml, never inside the web container.
+set -Eeuo pipefail
+umask 077
+
+ROOT_DIR="${CRANE_HOME:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
+COMPOSE_FILE="${CRANE_COMPOSE_FILE:-$ROOT_DIR/docker-compose.prod.yml}"
+ENV_FILE="${CRANE_ENV_FILE:-$ROOT_DIR/.env}"
+DATA_DIR="${CRANE_UPDATE_DATA_DIR:-$ROOT_DIR/data/updates}"
+BACKUP_DIR="${CRANE_BACKUP_DIR:-$ROOT_DIR/backups}"
+PUBLIC_KEY="${CRANE_UPDATE_PUBLIC_KEY:-$ROOT_DIR/updates/update-public.pem}"
+MANIFEST_URL="${CRANE_UPDATE_MANIFEST_URL:-https://github.com/cra-norm-engine/crane/releases/latest/download/update-manifest.json}"
+STATE_FILE="$DATA_DIR/operation-state.json"
+POLICY_FILE="$DATA_DIR/update-policy.json"
+
+die() { printf 'CRANE update error: %s\n' "$*" >&2; exit 1; }
+info() { printf '[CRANE update] %s\n' "$*"; }
+compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
+require() { command -v "$1" >/dev/null 2>&1 || die "$1 is required"; }
+
+cleanup() {
+  if [[ -n "${WORK_DIR:-}" && -d "$WORK_DIR" ]]; then rm -rf -- "$WORK_DIR"; fi
+  if [[ -n "${LOCK_DIR:-}" && -d "$LOCK_DIR" ]]; then rmdir "$LOCK_DIR" 2>/dev/null || true; fi
+}
+trap cleanup EXIT
+
+lock() {
+  mkdir -p "$DATA_DIR"
+  LOCK_DIR="$DATA_DIR/.lock"
+  mkdir "$LOCK_DIR" 2>/dev/null || die "another update operation is running"
+}
+
+env_get() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+}
+
+env_set_many() {
+  python3 - "$ENV_FILE" "$@" <<'PY'
+import os, sys, tempfile
+from pathlib import Path
+path = Path(sys.argv[1])
+updates = dict(arg.split("=", 1) for arg in sys.argv[2:])
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+seen = set()
+out = []
+for line in lines:
+    key = line.split("=", 1)[0] if "=" in line and not line.lstrip().startswith("#") else None
+    if key in updates:
+        out.append(f"{key}={updates[key]}")
+        seen.add(key)
+    else:
+        out.append(line)
+out.extend(f"{key}={value}" for key, value in updates.items() if key not in seen)
+fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".env.")
+with os.fdopen(fd, "w", encoding="utf-8") as handle:
+    handle.write("\n".join(out) + "\n")
+    handle.flush(); os.fsync(handle.fileno())
+os.chmod(tmp, 0o600)
+os.replace(tmp, path)
+PY
+}
+
+json_value() {
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+for part in sys.argv[2].split("."):
+    value = value[part]
+if isinstance(value, bool): print(str(value).lower())
+elif value is None: print("")
+else: print(value)
+PY
+}
+
+write_state() {
+  python3 - "$STATE_FILE" "$@" <<'PY'
+import json, os, sys, tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+path = Path(sys.argv[1]); path.parent.mkdir(parents=True, exist_ok=True)
+state = {"recorded_at": datetime.now(timezone.utc).isoformat()}
+for item in sys.argv[2:]:
+    key, value = item.split("=", 1); state[key] = value
+fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".state.")
+with os.fdopen(fd, "w", encoding="utf-8") as handle:
+    json.dump(state, handle, separators=(",", ":")); handle.flush(); os.fsync(handle.fileno())
+os.chmod(tmp, 0o640); os.replace(tmp, path)
+PY
+}
+
+fetch_manifest() {
+  require curl; require openssl; require base64; require python3
+  [[ -f "$PUBLIC_KEY" ]] || die "update verification key not found: $PUBLIC_KEY"
+  WORK_DIR="$(mktemp -d)"
+  if [[ -n "${CRANE_UPDATE_MANIFEST_FILE:-}" ]]; then
+    [[ -f "$CRANE_UPDATE_MANIFEST_FILE" && -f "${CRANE_UPDATE_SIGNATURE_FILE:-}" ]] || die "local manifest and signature files are required"
+    cp "$CRANE_UPDATE_MANIFEST_FILE" "$WORK_DIR/manifest.json"
+    cp "$CRANE_UPDATE_SIGNATURE_FILE" "$WORK_DIR/manifest.sig.b64"
+  else
+    curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$MANIFEST_URL" -o "$WORK_DIR/manifest.json"
+    curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$MANIFEST_URL.sig" -o "$WORK_DIR/manifest.sig.b64"
+  fi
+  base64 --decode "$WORK_DIR/manifest.sig.b64" > "$WORK_DIR/manifest.sig" || die "invalid manifest signature encoding"
+  openssl pkeyutl -verify -pubin -inkey "$PUBLIC_KEY" -rawin -in "$WORK_DIR/manifest.json" -sigfile "$WORK_DIR/manifest.sig" >/dev/null 2>&1 || die "manifest signature verification failed"
+  python3 - "$WORK_DIR/manifest.json" <<'PY'
+import json, re, sys
+from datetime import datetime, timezone
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+required = {"schema_version", "version", "channel", "update_type", "severity", "published_at", "expires_at", "minimum_upgrade_version", "database_revision", "postgres_major_versions", "automatic_update_allowed", "rollback_mode", "backend", "frontend", "release_notes_url"}
+missing = required - m.keys()
+if missing: raise SystemExit("manifest missing: " + ", ".join(sorted(missing)))
+if m["schema_version"] != 1: raise SystemExit("unsupported manifest schema")
+if m["channel"] not in {"stable", "preview"}: raise SystemExit("invalid channel")
+if m["update_type"] not in {"security", "maintenance", "feature"}: raise SystemExit("invalid update type")
+if m["rollback_mode"] not in {"image-only", "database-restore"}: raise SystemExit("invalid rollback mode")
+if datetime.fromisoformat(m["expires_at"].replace("Z", "+00:00")) <= datetime.now(timezone.utc): raise SystemExit("manifest expired")
+for name in ("backend", "frontend"):
+    item = m[name]
+    if not item["image"].startswith("ghcr.io/cra-norm-engine/"): raise SystemExit("untrusted image registry")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", item["digest"]): raise SystemExit("invalid image digest")
+PY
+  MANIFEST="$WORK_DIR/manifest.json"
+}
+
+version_is_newer() {
+  python3 - "$1" "$2" <<'PY'
+import re, sys
+def version(value):
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", value)
+    if not match: raise SystemExit(f"invalid version: {value}")
+    return tuple(map(int, match.groups()))
+raise SystemExit(0 if version(sys.argv[1]) > version(sys.argv[2]) else 1)
+PY
+}
+
+check_compatibility() {
+  local installed minimum postgres_major supported db_user db_name
+  installed="$(env_get CRANE_VERSION || true)"; installed="${installed:-0.0.0}"
+  minimum="$(json_value "$MANIFEST" minimum_upgrade_version)"
+  if [[ "$installed" != "0.0.0" ]] && version_is_newer "$minimum" "$installed"; then
+    die "CRANE $installed cannot upgrade directly; first upgrade to at least $minimum"
+  fi
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  postgres_major="$(compose exec -T postgres psql -U "$db_user" -d "$db_name" -Atc 'show server_version_num' 2>/dev/null | cut -c1-2 || true)"
+  supported="$(python3 - "$MANIFEST" "$postgres_major" <<'PY'
+import json, sys
+m=json.load(open(sys.argv[1])); print("yes" if int(sys.argv[2] or 0) in m["postgres_major_versions"] else "no")
+PY
+)"
+  [[ "$supported" == yes ]] || die "PostgreSQL ${postgres_major:-unknown} is not supported by this release"
+}
+
+backup() {
+  local stamp db_user db_name
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  ACTIVE_BACKUP="$BACKUP_DIR/$stamp"
+  mkdir -p "$ACTIVE_BACKUP"
+  cp "$ENV_FILE" "$ACTIVE_BACKUP/environment"
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  compose exec -T postgres pg_dump -U "$db_user" -d "$db_name" -Fc > "$ACTIVE_BACKUP/database.dump"
+  compose exec -T postgres pg_restore --list < "$ACTIVE_BACKUP/database.dump" >/dev/null
+  if [[ -d "$ROOT_DIR/data/artifacts" ]]; then tar -C "$ROOT_DIR/data" -czf "$ACTIVE_BACKUP/artifacts.tar.gz" artifacts; fi
+  info "Verified backup: $ACTIVE_BACKUP"
+}
+
+wait_healthy() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    if compose exec -T backend python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
+restore_backup() {
+  local source="$1"
+  [[ -f "$source/environment" && -f "$source/database.dump" ]] || die "backup is incomplete: $source"
+  info "Rolling back from $source"
+  compose stop frontend backend >/dev/null 2>&1 || true
+  cp "$source/environment" "$ENV_FILE"; chmod 600 "$ENV_FILE"
+  compose up -d postgres
+  local db_user db_name
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  compose exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges -U "$db_user" -d "$db_name" < "$source/database.dump"
+  if [[ -f "$source/artifacts.tar.gz" ]]; then tar -C "$ROOT_DIR/data" -xzf "$source/artifacts.tar.gz"; fi
+  compose up -d backend frontend
+  wait_healthy || die "rollback completed but CRANE is not healthy"
+  write_state status=rolled_back backup="$source" version="$(env_get CRANE_VERSION)"
+}
+
+apply_update() {
+  lock; fetch_manifest; check_compatibility
+  local installed target backend frontend
+  installed="$(env_get CRANE_VERSION || true)"; installed="${installed:-0.0.0}"
+  target="$(json_value "$MANIFEST" version)"
+  version_is_newer "$target" "$installed" || { info "CRANE $installed is already current."; return; }
+  backend="$(json_value "$MANIFEST" backend.image)@$(json_value "$MANIFEST" backend.digest)"
+  frontend="$(json_value "$MANIFEST" frontend.image)@$(json_value "$MANIFEST" frontend.digest)"
+  backup
+  env_set_many "CRANE_VERSION=$target" "BACKEND_IMAGE=$backend" "FRONTEND_IMAGE=$frontend"
+  write_state status=installing from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
+  set +e
+  compose pull backend frontend
+  local result=$?
+  if [[ $result -eq 0 ]]; then compose stop frontend backend >/dev/null 2>&1; result=$?; fi
+  if [[ $result -eq 0 ]]; then compose --profile tools run --rm migrate; result=$?; fi
+  if [[ $result -eq 0 ]]; then compose up -d backend frontend; result=$?; fi
+  if [[ $result -eq 0 ]]; then wait_healthy; result=$?; fi
+  set -e
+  if [[ $result -ne 0 ]]; then
+    write_state status=failed from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
+    restore_backup "$ACTIVE_BACKUP"
+    die "update failed and the previous release was restored"
+  fi
+  write_state status=installed from_version="$installed" version="$target" backup="$ACTIVE_BACKUP"
+  info "CRANE $target installed successfully. Backup retained at $ACTIVE_BACKUP"
+}
+
+install_initial() {
+  lock; fetch_manifest
+  [[ -f "$ENV_FILE" ]] || die ".env must be configured before installation"
+  local target backend frontend
+  target="$(json_value "$MANIFEST" version)"
+  backend="$(json_value "$MANIFEST" backend.image)@$(json_value "$MANIFEST" backend.digest)"
+  frontend="$(json_value "$MANIFEST" frontend.image)@$(json_value "$MANIFEST" frontend.digest)"
+  mkdir -p "$ROOT_DIR/data/artifacts" "$DATA_DIR" "$BACKUP_DIR"
+  env_set_many "CRANE_VERSION=$target" "BACKEND_IMAGE=$backend" "FRONTEND_IMAGE=$frontend"
+  compose pull backend frontend
+  compose up -d postgres
+  check_compatibility
+  compose --profile tools run --rm migrate
+  compose up -d backend frontend
+  wait_healthy || die "installation started but CRANE did not become healthy"
+  write_state status=installed from_version=none version="$target" backup=none
+  info "CRANE $target installed successfully"
+}
+
+automatic_update() {
+  [[ -f "$POLICY_FILE" ]] || { info "No automatic update policy configured."; return; }
+  local policy channel day hour now_day now_hour update_type auto_allowed postponed manifest_channel
+  policy="$(json_value "$POLICY_FILE" policy)"
+  channel="$(json_value "$POLICY_FILE" channel)"
+  [[ "$policy" != manual ]] || return
+  postponed="$(json_value "$POLICY_FILE" postponed_until)"
+  if [[ -n "$postponed" ]] && python3 - "$postponed" <<'PY'
+from datetime import datetime, timezone
+import sys
+raise SystemExit(0 if datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")) > datetime.now(timezone.utc) else 1)
+PY
+  then
+    info "Automatic updates are postponed until $postponed"
+    return
+  fi
+  day="$(json_value "$POLICY_FILE" maintenance_day)"; hour="$(json_value "$POLICY_FILE" maintenance_hour_utc)"
+  now_day="$((10#$(date -u +%u) - 1))"; now_hour="$((10#$(date -u +%H)))"
+  [[ "$day" -eq "$now_day" && "$hour" -eq "$now_hour" ]] || return
+  fetch_manifest
+  manifest_channel="$(json_value "$MANIFEST" channel)"
+  [[ "$channel" == "$manifest_channel" ]] || { info "No update is available on the $channel channel."; return; }
+  update_type="$(json_value "$MANIFEST" update_type)"; auto_allowed="$(json_value "$MANIFEST" automatic_update_allowed)"
+  [[ "$auto_allowed" == true ]] || { info "Release requires manual installation."; return; }
+  [[ "$policy" == all || "$update_type" == security ]] || return
+  cleanup; unset WORK_DIR LOCK_DIR
+  apply_update
+}
+
+show_check() {
+  fetch_manifest
+  local installed target
+  installed="$(env_get CRANE_VERSION || true)"; installed="${installed:-0.0.0}"
+  target="$(json_value "$MANIFEST" version)"
+  printf 'Installed: %s\nAvailable: %s\nType: %s\nSeverity: %s\nAutomatic: %s\n' \
+    "$installed" "$target" "$(json_value "$MANIFEST" update_type)" "$(json_value "$MANIFEST" severity)" "$(json_value "$MANIFEST" automatic_update_allowed)"
+}
+
+case "${1:-}" in
+  install) install_initial ;;
+  check|plan) show_check ;;
+  apply) apply_update ;;
+  auto) automatic_update ;;
+  rollback)
+    lock
+    [[ -f "$STATE_FILE" ]] || die "no update state is available"
+    rollback_backup="$(json_value "$STATE_FILE" backup)"
+    [[ "$rollback_backup" != none ]] || die "the initial installation has no rollback backup"
+    if [[ "${CRANE_ROLLBACK_CONFIRM:-}" != yes ]]; then
+      [[ -t 0 ]] || die "set CRANE_ROLLBACK_CONFIRM=yes to confirm database restore"
+      read -r -p "Restore $rollback_backup? Data written after that backup will be lost. [y/N] " answer
+      [[ "$answer" == y || "$answer" == Y ]] || die "rollback cancelled"
+    fi
+    restore_backup "$rollback_backup"
+    ;;
+  status) [[ -f "$STATE_FILE" ]] && cat "$STATE_FILE" || printf '{"status":"never_run"}\n' ;;
+  *) printf 'Usage: %s {install|check|plan|apply|auto|rollback|status}\n' "$0"; exit 2 ;;
+esac

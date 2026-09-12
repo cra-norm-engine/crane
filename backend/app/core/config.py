@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import List
 
 from pydantic import Field, field_validator
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     project_name: str = Field(default="CRA Compliance Tool", alias="BACKEND_PROJECT_NAME")
     environment: str = Field(default="development", alias="BACKEND_ENVIRONMENT")
     debug: bool = Field(default=True, alias="BACKEND_DEBUG")
+    app_version: str = Field(default="0.1.0-dev", alias="BACKEND_APP_VERSION")
 
     # --- Server ---
     api_prefix: str = Field(default="/api/v1", alias="BACKEND_API_PREFIX")
@@ -117,6 +119,21 @@ class Settings(BaseSettings):
 
     # --- Task notifications ---
     task_due_warning_days: int = Field(default=3, ge=0, alias="BACKEND_TASK_DUE_WARNING_DAYS")
+
+    # --- CRANE application updates ---
+    update_check_enabled: bool = Field(default=True, alias="BACKEND_UPDATE_CHECK_ENABLED")
+    update_manifest_url: str = Field(
+        default="https://github.com/cra-norm-engine/crane/releases/latest/download/update-manifest.json",
+        alias="BACKEND_UPDATE_MANIFEST_URL",
+    )
+    update_public_key_path: Path = Field(
+        default=Path("/etc/crane/update-public.pem"),
+        alias="BACKEND_UPDATE_PUBLIC_KEY_PATH",
+    )
+    update_state_dir: Path = Field(
+        default=Path("/var/lib/crane/updates"),
+        alias="BACKEND_UPDATE_STATE_DIR",
+    )
 
     # --- Jira Cloud integration ---
     jira_oauth_client_id: str = Field(default="", alias="BACKEND_JIRA_OAUTH_CLIENT_ID")

@@ -44,6 +44,7 @@
     <div class="app-main">
       <!-- AppHeader emits 'toggle-sidebar' when the hamburger is clicked -->
       <AppHeader @toggle-sidebar="sidebarOpen = !sidebarOpen" />
+      <SystemUpdateNotice />
 
       <main class="app-content">
         <router-view />
@@ -60,6 +61,7 @@ import { ref } from "vue";
 import AppHeader from "@/components/AppHeader.vue";
 import AppSidebar from "@/components/AppSidebar.vue";
 import PageGuide from "@/components/PageGuide.vue";
+import SystemUpdateNotice from "@/components/SystemUpdateNotice.vue";
 
 /* Tracks whether the sidebar overlay is open on mobile.
    On desktop this value is irrelevant — the sidebar is

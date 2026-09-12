@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # chain lock in models/audit_log_event.py).
 _SWEEP_LOCK_KEY = 73194216
 _JIRA_LOCK_KEY = 73194217
+_UPDATE_LOCK_KEY = 73194218
 
 _scheduler: BackgroundScheduler | None = None
 
@@ -79,6 +80,23 @@ def _jira_sync_job() -> None:
             db.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _JIRA_LOCK_KEY})
 
 
+def _system_update_check_job() -> None:
+    """Refresh signed update metadata once across all application workers."""
+    if not settings.update_check_enabled:
+        return
+    from sqlalchemy import text
+    from app.services.system_update_service import check_for_updates
+
+    with SessionLocal() as db:
+        got_lock = db.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _UPDATE_LOCK_KEY}).scalar()
+        if not got_lock:
+            return
+        try:
+            check_for_updates()
+        finally:
+            db.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _UPDATE_LOCK_KEY})
+
+
 def start_scheduler() -> None:
     """Start background maintenance jobs. Idempotent."""
     global _scheduler
@@ -111,6 +129,15 @@ def start_scheduler() -> None:
         coalesce=True,
         replace_existing=True,
     )
+    if settings.update_check_enabled:
+        scheduler.add_job(
+            _system_update_check_job,
+            trigger=IntervalTrigger(hours=6),
+            id="crane_system_update_check",
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
+        )
     scheduler.start()
     from app.services.dependency_track_service import run_due_syncs
     scheduler.add_job(

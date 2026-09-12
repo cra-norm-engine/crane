@@ -49,10 +49,17 @@ services:
       BACKEND_REFRESH_TOKEN_EXPIRE_DAYS: ${BACKEND_REFRESH_TOKEN_EXPIRE_DAYS:-7}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       BACKEND_LOG_LEVEL: ${BACKEND_LOG_LEVEL:-INFO}
+      BACKEND_APP_VERSION: ${BACKEND_APP_VERSION:-0.1.0-dev}
+      BACKEND_UPDATE_CHECK_ENABLED: ${BACKEND_UPDATE_CHECK_ENABLED:-true}
+      BACKEND_UPDATE_MANIFEST_URL: ${BACKEND_UPDATE_MANIFEST_URL:-https://github.com/cra-norm-engine/crane/releases/latest/download/update-manifest.json}
+      BACKEND_UPDATE_PUBLIC_KEY_PATH: /etc/crane/update-public.pem
+      BACKEND_UPDATE_STATE_DIR: /var/lib/crane/updates
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend:/workspace/backend
+      - ./data/updates:/var/lib/crane/updates
+      - ./updates/update-public.pem:/etc/crane/update-public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
