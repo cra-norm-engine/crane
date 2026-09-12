@@ -461,6 +461,19 @@
                 <span>{{ systemUpdateStatus.last_error }}</span>
               </div>
 
+              <aside class="update-safety" data-guide="settings-update-safety">
+                <div>
+                  <strong>Prepare the host before enabling installation</strong>
+                  <p>Updates deliberately take CRANE offline while data is protected and verified.</p>
+                </div>
+                <ul>
+                  <li>Mount encrypted backup storage independent of the CRANE host and set <code>CRANE_BACKUP_COPY_DIR</code>.</li>
+                  <li>Test backup restoration and PostgreSQL point-in-time recovery on a non-production installation.</li>
+                  <li>Supervise every update that changes the database; those releases are never installed automatically.</li>
+                </ul>
+                <a href="https://github.com/cra-norm-engine/crane/blob/main/docs/docs/getting-started/system-updates.md" target="_blank" rel="noopener">Open the safe update runbook</a>
+              </aside>
+
               <fieldset class="update-policies">
                 <legend>Installation policy</legend>
                 <label v-for="option in updatePolicyOptions" :key="option.value" class="update-policy" :class="{ selected: updatePolicy.policy === option.value }">
@@ -476,7 +489,7 @@
               <p v-if="updatePolicy.policy !== 'manual'" class="update-host-note">Automatic installation also requires the CRANE systemd timer on the host. Follow <a href="https://github.com/cra-norm-engine/crane/blob/main/docs/docs/getting-started/system-updates.md" target="_blank" rel="noopener">the update guide</a> once; CRANE never exposes the Docker socket to the web application.</p>
 
               <div class="manual-update">
-                <div><strong>Manual installation</strong><p>The host updater creates and verifies a database backup before migration. Run this from the CRANE installation directory.</p></div>
+                <div><strong>Manual installation</strong><p>The host updater stops writes, restore-tests both backup copies, verifies the migration and audit chain, then reopens CRANE. Run this from the installation directory.</p></div>
                 <code>{{ systemUpdateStatus.manual_command }}</code>
                 <AppButton variant="secondary" size="sm" @click="copyUpdateCommand">Copy command</AppButton>
               </div>
@@ -1059,6 +1072,10 @@ function flash(flag: { value: boolean }): void {
 .update-links { display: flex; flex-direction: column; gap: .4rem; white-space: nowrap; font-size: var(--text-sm); }
 .link-button { padding: 0; border: 0; color: var(--color-primary); background: none; font: inherit; text-align: left; cursor: pointer; }
 .update-host-note { margin: 0; padding: .8rem 1rem; border-left: 3px solid var(--color-primary); color: var(--color-text-muted); background: var(--color-surface-soft); font-size: var(--text-sm); }
+.update-safety { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-md); background: var(--color-warning-bg); }
+.update-safety p, .update-safety ul { margin: .25rem 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.update-safety ul { display: grid; gap: .35rem; padding-left: 1.2rem; }
+.update-safety a { width: fit-content; font-size: var(--text-sm); font-weight: 600; }
 .update-warning { display: grid; gap: .3rem; padding: .8rem 1rem; border: 1px solid var(--color-warning); border-radius: var(--radius-md); color: var(--color-warning-text); background: var(--color-warning-bg); font-size: var(--text-sm); }
 .update-policies { display: grid; gap: .55rem; padding: 0; border: 0; }
 .update-policies legend { margin-bottom: .65rem; font-size: var(--text-sm); font-weight: 700; }

@@ -113,6 +113,8 @@ BACKEND_UPDATE_CHECK_ENABLED=true
 BACKEND_UPDATE_MANIFEST_URL=https://github.com/cra-norm-engine/crane/releases/latest/download/update-manifest.json
 BACKEND_UPDATE_PUBLIC_KEY_PATH=/etc/crane/update-public.pem
 BACKEND_UPDATE_STATE_DIR=/var/lib/crane/updates
+CRANE_BACKUP_COPY_DIR=
+CRANE_ALLOW_LOCAL_BACKUP_ONLY=false
 
 # Frontend
 VITE_APP_NAME=CRANE

@@ -5,7 +5,7 @@ extend-exclude = [".venv", "__pycache__", "node_modules"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "T10", "T20", "Q"]
-ignore = ["E501", "W503"]  # E501: line too long (handled by formatter), W503: line break before binary operator
+ignore = ["E501"]  # E501: line too long (handled by formatter)
 
 [tool.mypy]
 python_version = "3.11"
@@ -17,4 +17,5 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["app/tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["ignore::DeprecationWarning"]

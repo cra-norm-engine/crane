@@ -17,6 +17,7 @@ from app.api.routes import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal, check_database_connection
 from app.core.exceptions import register_exception_handlers
+from app.core.maintenance import MaintenanceMiddleware, maintenance_mode
 from app.core.scheduler import shutdown_scheduler, start_scheduler
 from app.core.seed import seed_initial_data
 from app.services.vulnerability_scanning_settings import (
@@ -38,12 +39,13 @@ def configure_logging() -> None:
 async def lifespan(_: FastAPI):
     configure_logging()
     LOGGER.info("Starting application: %s", settings.project_name)
-    with SessionLocal() as db:
-        seed_initial_data(db)
-        if not is_vulnerability_scanning_enabled(db):
-            clear_trivy_cache()
-    # Start the automated vulnerability re-scan scheduler (no-op unless enabled).
-    start_scheduler()
+    if not maintenance_mode():
+        with SessionLocal() as db:
+            seed_initial_data(db)
+            if not is_vulnerability_scanning_enabled(db):
+                clear_trivy_cache()
+        # Start the automated vulnerability re-scan scheduler (no-op unless enabled).
+        start_scheduler()
     yield
     shutdown_scheduler()
     LOGGER.info("Shutting down application: %s", settings.project_name)
@@ -58,6 +60,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(MaintenanceMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -78,4 +81,8 @@ async def root() -> dict[str, str]:
 @app.get("/healthz", tags=["health"])
 async def root_healthcheck() -> dict[str, str | bool]:
     database_ok = check_database_connection()
-    return {"status": "ok" if database_ok else "degraded", "database": database_ok}
+    return {
+        "status": "ok" if database_ok else "degraded",
+        "database": database_ok,
+        "maintenance_mode": maintenance_mode(),
+    }

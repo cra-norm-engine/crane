@@ -12,6 +12,7 @@ PUBLIC_KEY="${CRANE_UPDATE_PUBLIC_KEY:-$ROOT_DIR/updates/update-public.pem}"
 MANIFEST_URL="${CRANE_UPDATE_MANIFEST_URL:-https://github.com/cra-norm-engine/crane/releases/latest/download/update-manifest.json}"
 STATE_FILE="$DATA_DIR/operation-state.json"
 POLICY_FILE="$DATA_DIR/update-policy.json"
+MAINTENANCE_FILE="$DATA_DIR/maintenance.json"
 
 die() { printf 'CRANE update error: %s\n' "$*" >&2; exit 1; }
 info() { printf '[CRANE update] %s\n' "$*"; }
@@ -19,6 +20,7 @@ compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
 require() { command -v "$1" >/dev/null 2>&1 || die "$1 is required"; }
 
 cleanup() {
+  if [[ "${VERIFY_RUNNING:-}" == yes ]]; then compose rm -sf backup-verify >/dev/null 2>&1 || true; fi
   if [[ -n "${WORK_DIR:-}" && -d "$WORK_DIR" ]]; then rm -rf -- "$WORK_DIR"; fi
   if [[ -n "${LOCK_DIR:-}" && -d "$LOCK_DIR" ]]; then rmdir "$LOCK_DIR" 2>/dev/null || true; fi
 }
@@ -89,6 +91,36 @@ os.chmod(tmp, 0o640); os.replace(tmp, path)
 PY
 }
 
+enable_maintenance() {
+  mkdir -p "$DATA_DIR"
+  python3 - "$MAINTENANCE_FILE" "${1:-System maintenance is in progress.}" <<'PY'
+import json, os, sys, tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+path = Path(sys.argv[1])
+fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".maintenance.")
+with os.fdopen(fd, "w", encoding="utf-8") as handle:
+    json.dump({"enabled_at": datetime.now(timezone.utc).isoformat(), "reason": sys.argv[2]}, handle)
+    handle.flush(); os.fsync(handle.fileno())
+os.chmod(tmp, 0o640); os.replace(tmp, path)
+PY
+}
+
+disable_maintenance() {
+  rm -f -- "$MAINTENANCE_FILE"
+}
+
+wait_for_drain() {
+  local attempt
+  for attempt in $(seq 1 15); do
+    if compose exec -T backend python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)); assert d.get('maintenance_mode') is True and d.get('active_requests') == 0" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  info "The running release does not support request draining; Docker will perform a graceful 60-second stop."
+}
+
 fetch_manifest() {
   require curl; require openssl; require base64; require python3
   [[ -f "$PUBLIC_KEY" ]] || die "update verification key not found: $PUBLIC_KEY"
@@ -152,69 +184,190 @@ PY
   [[ "$supported" == yes ]] || die "PostgreSQL ${postgres_major:-unknown} is not supported by this release"
 }
 
-backup() {
-  local stamp db_user db_name
-  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  ACTIVE_BACKUP="$BACKUP_DIR/$stamp"
-  mkdir -p "$ACTIVE_BACKUP"
-  cp "$ENV_FILE" "$ACTIVE_BACKUP/environment"
+current_database_revision() {
+  local db_user db_name
   db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
   db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
-  compose exec -T postgres pg_dump -U "$db_user" -d "$db_name" -Fc > "$ACTIVE_BACKUP/database.dump"
-  compose exec -T postgres pg_restore --list < "$ACTIVE_BACKUP/database.dump" >/dev/null
-  if [[ -d "$ROOT_DIR/data/artifacts" ]]; then tar -C "$ROOT_DIR/data" -czf "$ACTIVE_BACKUP/artifacts.tar.gz" artifacts; fi
-  info "Verified backup: $ACTIVE_BACKUP"
+  compose exec -T postgres psql -U "$db_user" -d "$db_name" -Atc 'select version_num from alembic_version' 2>/dev/null | head -n1
+}
+
+preflight_backup() {
+  local db_user db_name db_bytes artifact_kb available_kb required_kb copy_dir local_only
+  mkdir -p "$BACKUP_DIR"
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  db_bytes="$(compose exec -T postgres psql -U "$db_user" -d "$db_name" -Atc 'select pg_database_size(current_database())' 2>/dev/null)"
+  [[ "$db_bytes" =~ ^[0-9]+$ ]] || die "could not determine database size"
+  artifact_kb=0
+  [[ ! -d "$ROOT_DIR/data/artifacts" ]] || artifact_kb="$(du -sk "$ROOT_DIR/data/artifacts" | awk '{print $1}')"
+  available_kb="$(df -Pk "$BACKUP_DIR" | awk 'NR == 2 {print $4}')"
+  required_kb=$(( (db_bytes + 1023) / 1024 + artifact_kb + 1048576 ))
+  [[ "$available_kb" -ge "$required_kb" ]] || die "insufficient backup space: ${required_kb} KiB required, ${available_kb} KiB available"
+
+  copy_dir="${CRANE_BACKUP_COPY_DIR:-$(env_get CRANE_BACKUP_COPY_DIR || true)}"
+  local_only="${CRANE_ALLOW_LOCAL_BACKUP_ONLY:-$(env_get CRANE_ALLOW_LOCAL_BACKUP_ONLY || true)}"
+  if [[ -z "$copy_dir" && "$local_only" != true ]]; then
+    die "set CRANE_BACKUP_COPY_DIR to mounted off-host storage before updating"
+  fi
+  if [[ -n "$copy_dir" ]]; then
+    mkdir -p "$copy_dir"
+    if [[ "$local_only" != true && "$(stat -c %d "$BACKUP_DIR")" == "$(stat -c %d "$copy_dir")" ]]; then
+      die "CRANE_BACKUP_COPY_DIR must use a different mounted filesystem"
+    fi
+  fi
+}
+
+verify_backup_restore() {
+  VERIFY_RUNNING=yes
+  compose --profile tools up -d backup-verify || return
+  local attempt ready=no
+  for attempt in $(seq 1 30); do
+    if compose exec -T backup-verify pg_isready -U postgres -d crane_restore_verify >/dev/null 2>&1; then ready=yes; break; fi
+    sleep 2
+  done
+  [[ "$ready" == yes ]] || { info "backup verification database did not become ready"; return 1; }
+  compose exec -T backup-verify pg_restore --exit-on-error --no-owner --no-privileges -U postgres -d crane_restore_verify < "$ACTIVE_BACKUP/database.dump" || return
+  compose rm -sf backup-verify >/dev/null || return
+  VERIFY_RUNNING=no
+}
+
+backup() {
+  local stamp db_user db_name copy_dir copy_tmp
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  ACTIVE_BACKUP="$BACKUP_DIR/$stamp"
+  mkdir -p "$ACTIVE_BACKUP" || return
+  cp "$ENV_FILE" "$ACTIVE_BACKUP/environment" || return
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  compose exec -T postgres pg_dump -U "$db_user" -d "$db_name" -Fc > "$ACTIVE_BACKUP/database.dump" || return
+  compose exec -T postgres pg_restore --list < "$ACTIVE_BACKUP/database.dump" >/dev/null || return
+  if [[ -d "$ROOT_DIR/data/artifacts" ]]; then tar -C "$ROOT_DIR/data" -czf "$ACTIVE_BACKUP/artifacts.tar.gz" artifacts || return; fi
+  [[ ! -f "$ACTIVE_BACKUP/artifacts.tar.gz" ]] || tar -tzf "$ACTIVE_BACKUP/artifacts.tar.gz" >/dev/null || return
+  (cd "$ACTIVE_BACKUP" && sha256sum environment database.dump artifacts.tar.gz 2>/dev/null > SHA256SUMS) || \
+    (cd "$ACTIVE_BACKUP" && sha256sum environment database.dump > SHA256SUMS) || return
+  verify_backup_restore || return
+
+  copy_dir="${CRANE_BACKUP_COPY_DIR:-$(env_get CRANE_BACKUP_COPY_DIR || true)}"
+  if [[ -n "$copy_dir" ]]; then
+    copy_tmp="$copy_dir/.partial-$stamp"
+    [[ ! -e "$copy_tmp" && ! -e "$copy_dir/$stamp" ]] || { info "backup copy already exists for $stamp"; return 1; }
+    cp -a "$ACTIVE_BACKUP" "$copy_tmp" || return
+    (cd "$copy_tmp" && sha256sum -c SHA256SUMS >/dev/null) || return
+    mv "$copy_tmp" "$copy_dir/$stamp" || return
+  fi
+  info "Restore-tested backup: $ACTIVE_BACKUP"
 }
 
 wait_healthy() {
   local attempt
   for attempt in $(seq 1 30); do
-    if compose exec -T backend python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)" >/dev/null 2>&1; then return 0; fi
+    if compose exec -T backend python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)); assert d['status']=='ok' and d['database'] is True" >/dev/null 2>&1; then return 0; fi
     sleep 2
   done
   return 1
 }
 
+resume_unchanged_release() {
+  compose up -d backend || return
+  wait_healthy || return
+  compose stop -t 60 backend >/dev/null || return
+  disable_maintenance
+  compose up -d backend frontend || return
+  wait_healthy
+}
+
+verify_release() {
+  local target="$1" expected_revision actual_revision invalid_constraints db_user db_name
+  expected_revision="$(json_value "$MANIFEST" database_revision)"
+  wait_healthy || return
+  compose exec -T backend python -c "import json,sys,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)); assert d['version']==sys.argv[1] and d['maintenance_mode'] is True" "$target" || return
+  actual_revision="$(current_database_revision)"
+  [[ "$actual_revision" == "$expected_revision" ]] || { info "database revision is $actual_revision, expected $expected_revision"; return 1; }
+  db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
+  db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
+  invalid_constraints="$(compose exec -T postgres psql -U "$db_user" -d "$db_name" -Atc "select count(*) from pg_constraint where contype in ('f','c') and not convalidated" 2>/dev/null)"
+  [[ "$invalid_constraints" == 0 ]] || { info "$invalid_constraints database constraints are not validated"; return 1; }
+  compose exec -T backend python -c "from app.core.database import SessionLocal; from app.services.audit_service import AuditService; db=SessionLocal(); result=AuditService(db).verify_integrity(); db.close(); assert result.verified, result.issues" || return
+}
+
 restore_backup() {
-  local source="$1"
+  local source="$1" failed_artifacts
   [[ -f "$source/environment" && -f "$source/database.dump" ]] || die "backup is incomplete: $source"
+  if [[ -f "$source/SHA256SUMS" ]]; then
+    (cd "$source" && sha256sum -c SHA256SUMS >/dev/null) || die "backup checksum verification failed: $source"
+  else
+    compose exec -T postgres pg_restore --list < "$source/database.dump" >/dev/null || die "legacy backup is unreadable: $source"
+  fi
   info "Rolling back from $source"
-  compose stop frontend backend >/dev/null 2>&1 || true
+  compose stop -t 60 frontend backend >/dev/null 2>&1 || true
   cp "$source/environment" "$ENV_FILE"; chmod 600 "$ENV_FILE"
   compose up -d postgres
   local db_user db_name
   db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
   db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
-  compose exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges -U "$db_user" -d "$db_name" < "$source/database.dump"
-  if [[ -f "$source/artifacts.tar.gz" ]]; then tar -C "$ROOT_DIR/data" -xzf "$source/artifacts.tar.gz"; fi
-  compose up -d backend frontend
+  [[ "$db_name" != postgres && "$db_name" != template0 && "$db_name" != template1 ]] || die "refusing to replace PostgreSQL maintenance database $db_name"
+  compose exec -T postgres dropdb --if-exists --force -U "$db_user" "$db_name"
+  compose exec -T postgres createdb -U "$db_user" -O "$db_user" "$db_name"
+  compose exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges -U "$db_user" -d "$db_name" < "$source/database.dump"
+  if [[ -f "$source/artifacts.tar.gz" ]]; then
+    if [[ -d "$ROOT_DIR/data/artifacts" ]]; then
+      failed_artifacts="$ROOT_DIR/data/artifacts.before-rollback-$(date -u +%Y%m%dT%H%M%SZ)"
+      mv "$ROOT_DIR/data/artifacts" "$failed_artifacts"
+    fi
+    tar -C "$ROOT_DIR/data" -xzf "$source/artifacts.tar.gz"
+  fi
+  compose up -d backend
   wait_healthy || die "rollback completed but CRANE is not healthy"
+  compose stop -t 60 backend >/dev/null
+  disable_maintenance
+  compose up -d backend frontend
+  wait_healthy || die "rollback data was restored but CRANE did not restart"
   write_state status=rolled_back backup="$source" version="$(env_get CRANE_VERSION)"
 }
 
 apply_update() {
-  lock; fetch_manifest; check_compatibility
-  local installed target backend frontend
+  lock
+  [[ ! -f "$MAINTENANCE_FILE" ]] || die "maintenance mode is already active; inspect status and run recover or rollback"
+  fetch_manifest; check_compatibility
+  local installed target backend frontend previous_status
+  if [[ -f "$STATE_FILE" ]]; then
+    previous_status="$(json_value "$STATE_FILE" status)"
+    [[ "$previous_status" != installing ]] || die "an interrupted update requires operator review; inspect status and run rollback"
+  fi
   installed="$(env_get CRANE_VERSION || true)"; installed="${installed:-0.0.0}"
   target="$(json_value "$MANIFEST" version)"
   version_is_newer "$target" "$installed" || { info "CRANE $installed is already current."; return; }
   backend="$(json_value "$MANIFEST" backend.image)@$(json_value "$MANIFEST" backend.digest)"
   frontend="$(json_value "$MANIFEST" frontend.image)@$(json_value "$MANIFEST" frontend.digest)"
-  backup
+  docker pull "$backend"
+  docker pull "$frontend"
+  preflight_backup
+  write_state status=installing phase=maintenance from_version="$installed" target_version="$target" backup=none
+  enable_maintenance "Updating CRANE from $installed to $target"
+  wait_for_drain
+  compose stop -t 60 frontend backend >/dev/null
+  if ! backup; then
+    if resume_unchanged_release; then
+      write_state status=aborted phase=backup from_version="$installed" target_version="$target" backup="${ACTIVE_BACKUP:-none}"
+      die "update aborted because no verified backup was created; CRANE $installed was resumed unchanged"
+    fi
+    write_state status=failed phase=backup from_version="$installed" target_version="$target" backup="${ACTIVE_BACKUP:-none}"
+    die "update stopped: no verified backup was created and CRANE could not safely resume; maintenance mode remains enabled"
+  fi
+  write_state status=installing phase=migration from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
   env_set_many "CRANE_VERSION=$target" "BACKEND_IMAGE=$backend" "FRONTEND_IMAGE=$frontend"
-  write_state status=installing from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
-  set +e
-  compose pull backend frontend
-  local result=$?
-  if [[ $result -eq 0 ]]; then compose stop frontend backend >/dev/null 2>&1; result=$?; fi
-  if [[ $result -eq 0 ]]; then compose --profile tools run --rm migrate; result=$?; fi
-  if [[ $result -eq 0 ]]; then compose up -d backend frontend; result=$?; fi
-  if [[ $result -eq 0 ]]; then wait_healthy; result=$?; fi
-  set -e
-  if [[ $result -ne 0 ]]; then
-    write_state status=failed from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
+  if ! compose --profile tools run --rm migrate || ! compose up -d backend || ! verify_release "$target"; then
+    write_state status=failed phase=verification from_version="$installed" target_version="$target" backup="$ACTIVE_BACKUP"
     restore_backup "$ACTIVE_BACKUP"
     die "update failed and the previous release was restored"
+  fi
+  compose stop -t 60 backend >/dev/null
+  disable_maintenance
+  compose up -d backend frontend
+  if ! wait_healthy; then
+    enable_maintenance "Post-update restart failed; rollback is required"
+    restore_backup "$ACTIVE_BACKUP"
+    die "update failed after restart and the previous release was restored"
   fi
   write_state status=installed from_version="$installed" version="$target" backup="$ACTIVE_BACKUP"
   info "CRANE $target installed successfully. Backup retained at $ACTIVE_BACKUP"
@@ -241,7 +394,7 @@ install_initial() {
 
 automatic_update() {
   [[ -f "$POLICY_FILE" ]] || { info "No automatic update policy configured."; return; }
-  local policy channel day hour now_day now_hour update_type auto_allowed postponed manifest_channel
+  local policy channel day hour now_day now_hour update_type auto_allowed postponed manifest_channel expected_revision installed_revision
   policy="$(json_value "$POLICY_FILE" policy)"
   channel="$(json_value "$POLICY_FILE" channel)"
   [[ "$policy" != manual ]] || return
@@ -263,6 +416,9 @@ PY
   [[ "$channel" == "$manifest_channel" ]] || { info "No update is available on the $channel channel."; return; }
   update_type="$(json_value "$MANIFEST" update_type)"; auto_allowed="$(json_value "$MANIFEST" automatic_update_allowed)"
   [[ "$auto_allowed" == true ]] || { info "Release requires manual installation."; return; }
+  expected_revision="$(json_value "$MANIFEST" database_revision)"
+  installed_revision="$(current_database_revision)"
+  [[ "$expected_revision" == "$installed_revision" ]] || { info "Release changes the database and requires a supervised manual update."; return; }
   [[ "$policy" == all || "$update_type" == security ]] || return
   cleanup; unset WORK_DIR LOCK_DIR
   apply_update
@@ -292,8 +448,24 @@ case "${1:-}" in
       read -r -p "Restore $rollback_backup? Data written after that backup will be lost. [y/N] " answer
       [[ "$answer" == y || "$answer" == Y ]] || die "rollback cancelled"
     fi
+    enable_maintenance "Rolling CRANE back to the previous release"
+    wait_for_drain
     restore_backup "$rollback_backup"
     ;;
+  recover)
+    lock
+    [[ -f "$STATE_FILE" && -f "$MAINTENANCE_FILE" ]] || die "there is no interrupted maintenance operation to recover"
+    recovery_phase="$(json_value "$STATE_FILE" phase 2>/dev/null || true)"
+    recovery_from="$(json_value "$STATE_FILE" from_version 2>/dev/null || true)"
+    recovery_current="$(env_get CRANE_VERSION || true)"
+    if [[ "$recovery_phase" == maintenance || "$recovery_phase" == backup ]] && [[ "$recovery_current" == "$recovery_from" ]]; then
+      resume_unchanged_release || die "CRANE could not safely resume; maintenance mode remains enabled"
+      write_state status=aborted phase="$recovery_phase" version="$recovery_current" backup=none
+      info "CRANE $recovery_current resumed unchanged"
+    else
+      die "the database may have changed; use the confirmed rollback command"
+    fi
+    ;;
   status) [[ -f "$STATE_FILE" ]] && cat "$STATE_FILE" || printf '{"status":"never_run"}\n' ;;
-  *) printf 'Usage: %s {install|check|plan|apply|auto|rollback|status}\n' "$0"; exit 2 ;;
+  *) printf 'Usage: %s {install|check|plan|apply|auto|rollback|recover|status}\n' "$0"; exit 2 ;;
 esac

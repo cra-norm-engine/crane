@@ -14,3 +14,5 @@ class HealthRead(BaseModel):
     status: str
     database: bool
     version: str
+    maintenance_mode: bool = False
+    active_requests: int = 0

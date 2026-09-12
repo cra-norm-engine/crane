@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.core.database import check_database_connection
 from app.core.config import settings
+from app.core.database import check_database_connection
+from app.core.maintenance import active_requests, maintenance_mode
 from app.schemas.health import HealthRead
 
 router = APIRouter()
@@ -23,4 +24,6 @@ def health() -> HealthRead:
         status="ok" if database_ok else "degraded",
         database=database_ok,
         version=settings.app_version,
+        maintenance_mode=maintenance_mode(),
+        active_requests=active_requests(),
     )

@@ -10,6 +10,18 @@ Production installations receive signed release metadata from GitHub Releases an
 
 ## Check and install manually
 
+Before the first production update, mount backup storage that is independent of the
+CRANE host and set its host path in `.env`:
+
+```dotenv
+CRANE_BACKUP_COPY_DIR=/mnt/crane-backups
+CRANE_ALLOW_LOCAL_BACKUP_ONLY=false
+```
+
+The updater rejects a production update if it cannot create this independent copy.
+`CRANE_ALLOW_LOCAL_BACKUP_ONLY=true` is intended only for disposable development and
+test installations.
+
 Run these commands from the installation directory:
 
 ```bash
@@ -17,7 +29,30 @@ Run these commands from the installation directory:
 ./crane-update apply
 ```
 
-The updater verifies the release signature and image digests, checks the installed CRANE and PostgreSQL versions, creates a PostgreSQL and artifact backup, runs the Alembic migration as a one-shot job, starts the matching frontend and backend images, and waits for the health check. A failed installation automatically restores the previous database and images.
+The updater downloads immutable images before downtime, enables maintenance mode,
+drains requests, and gracefully stops the application. With writes stopped, it backs
+up PostgreSQL, artifacts, and the environment, records checksums, restores the dump
+into an isolated temporary PostgreSQL instance, and verifies the independent backup
+copy. Only then does it run the migration.
+
+Before reopening CRANE, the updater verifies the expected application version,
+Alembic revision, database constraints, database health, and complete audit-log HMAC
+chain. A failed migration or verification restores the matching environment,
+database, artifacts, and images. Database rollback replaces the migrated database
+rather than overlaying it; pre-rollback artifacts are retained separately for
+forensic recovery. A crash fails closed: maintenance mode remains in
+place for operator review instead of exposing an uncertain state.
+
+Plan a maintenance window. CRANE is unavailable while its cold backup, migration,
+verification, and possible rollback run. Keep a separately tested infrastructure
+backup and PostgreSQL point-in-time recovery; the application updater does not
+replace either one.
+
+If the host or updater stops before a backup or migration starts, inspect
+`./crane-update status`, correct the underlying problem, and run
+`./crane-update recover`. Recovery is deliberately accepted only when the journal
+proves that the database and configured version were not changed. Once migration
+may have started, use the confirmed `rollback` command instead.
 
 ## Automatic updates
 
@@ -29,7 +64,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now crane-update.timer
 ```
 
-The timer checks hourly but installs only during the configured window. Releases marked as requiring manual installation are never installed automatically.
+The timer checks hourly but installs only during the configured window. Releases
+marked as requiring manual installation are never installed automatically. Any
+release whose database revision differs from the installed revision always requires
+a supervised manual update, even if its manifest otherwise permits automation.
 
 ## Roll back
 
@@ -48,4 +86,6 @@ Rollback restores the pre-update database, artifacts, environment file, and cont
 - Database migrations do not run during ordinary backend restarts.
 - Destructive schema changes require `database-restore` rollback and must follow expand-and-contract migration practices.
 
-Backups are stored under `backups/`. Test restoration regularly and move retained backups to storage protected independently from the CRANE host.
+The local restore-tested copy is retained under `backups/`; the independently mounted
+copy is written under `CRANE_BACKUP_COPY_DIR`. Encrypt that storage, restrict access,
+monitor backup failures, and test a full host-loss restore on a schedule.

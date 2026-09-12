@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 set -e
 args=" $* "
-if [[ "$args" == *" psql "* ]]; then
+if [[ "${FAKE_DOCKER_FAIL_RESTORE_VERIFY:-}" == true && "$args" == *"backup-verify pg_restore"* ]]; then
+  exit 1
+elif [[ "$args" == *"show server_version_num"* ]]; then
   printf '160000\n'
+elif [[ "$args" == *"pg_database_size"* ]]; then
+  printf '1048576\n'
+elif [[ "$args" == *"version_num from alembic_version"* ]]; then
+  printf 'head\n'
+elif [[ "$args" == *"from pg_constraint"* ]]; then
+  printf '0\n'
 elif [[ "$args" == *" pg_dump "* ]]; then
   printf 'fake-pg-dump\n'
 fi
