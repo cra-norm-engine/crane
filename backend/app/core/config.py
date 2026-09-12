@@ -127,7 +127,7 @@ class Settings(BaseSettings):
         alias="BACKEND_UPDATE_MANIFEST_URL",
     )
     update_public_key_path: Path = Field(
-        default=Path("/etc/crane/update-public.pem"),
+        default=Path(__file__).with_name("update-public.pem"),
         alias="BACKEND_UPDATE_PUBLIC_KEY_PATH",
     )
     update_state_dir: Path = Field(
