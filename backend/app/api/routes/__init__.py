@@ -6,6 +6,7 @@
 # License v3.0 or later. See <https://www.gnu.org/licenses/>.
 
 from fastapi import APIRouter
+from app.api.routes.dependency_track import router as dependency_track_router
 
 from app.api.routes.admin import router as admin_router
 from app.api.routes.annex_requirements import router as annex_requirements_router
@@ -14,6 +15,7 @@ from app.api.routes.audit import router as audit_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.evidence_items import router as evidence_items_router
 from app.api.routes.health import router as health_router
+from app.api.routes.external_findings import router as external_findings_router
 from app.api.routes.lifecycle_notifications import router as lifecycle_notifications_router
 from app.api.routes.product_releases import router as product_releases_router
 from app.api.routes.products import router as products_router
@@ -40,6 +42,8 @@ from app.api.routes.supplier_assessments import router as supplier_assessments_r
 from app.api.routes.jira_integration import router as jira_integration_router
 
 api_router = APIRouter()
+api_router.include_router(dependency_track_router)
+api_router.include_router(external_findings_router)
 
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])

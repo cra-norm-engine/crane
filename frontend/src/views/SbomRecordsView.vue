@@ -601,10 +601,11 @@
                   </span>
                 </div>
               </div>
-              <button class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities"
+              <button v-if="vulnerabilityScanningEnabled" class="btn btn-primary btn-sm" :disabled="isScanningVulns" @click="scanVulnerabilities"
                 title="Runs OSV + Trivy (if installed), and enriches with NVD, EPSS, and CISA KEV">
                 {{ isScanningVulns ? "Scanning…" : "Scan for vulnerabilities" }}
               </button>
+              <span v-else class="muted">Built-in scanning is disabled by an administrator.</span>
             </div>
 
             <div v-if="vulnScanError" class="feedback feedback-error" style="margin-bottom:0.75rem">{{ vulnScanError }}</div>
@@ -627,7 +628,9 @@
 
             <!-- Empty state -->
             <div v-if="!vulnFindings.length" class="empty-panel">
-              No findings yet. Run a scan to check components against known CVEs.
+              {{ vulnerabilityScanningEnabled
+                ? "No findings yet. Run a scan to check components against known CVEs."
+                : "No findings yet. Import vulnerability data using the API or your configured synchronization tool." }}
             </div>
 
             <template v-else>
@@ -729,6 +732,8 @@
                         :class="`source-badge-${src}`"
                         :title="`Detected by ${src.toUpperCase()}`"
                       >{{ src.toUpperCase() }}</span>
+                      <span v-if="f.external_id" class="source-badge" :title="`External ID: ${f.external_id}. Last source update: ${f.external_updated_at}`">Imported</span>
+                      <span v-if="f.external_payload_json?.suppressed" class="source-badge">Suppressed in source</span>
                       <span class="severity-badge" :class="f.severity ? `severity-${f.severity.toLowerCase()}` : 'severity-unknown'">
                         {{ f.severity ?? "UNKNOWN" }}
                       </span>
@@ -774,6 +779,14 @@
 
                   <!-- Row 3: Summary text (collapsed: 2-line clamp) -->
                   <p v-if="f.summary" class="vuln-summary-text" :class="{ 'vuln-summary-full': expandedFindingId === f.id }">{{ f.summary }}</p>
+                  <div v-if="expandedFindingId === f.id && f.external_id" class="vuln-summary-text">
+                    <p>Imported from {{ f.external_source }} · {{ f.external_updated_at }}<br />External ID: {{ f.external_id }}</p>
+                    <template v-if="f.external_payload_json?.assessment">
+                      <p>External assessment snapshot: {{ f.external_payload_json.assessment.assessed_by || 'Assessor not supplied' }} · {{ f.external_payload_json.assessment.assessed_at }}</p>
+                      <p>{{ f.external_payload_json.assessment.rationale }}</p>
+                      <p class="muted">Local assessment changes take precedence. Open the linked report for the current CRANE decision.</p>
+                    </template>
+                  </div>
 
                   <!-- Row 4: Footer — fixed-in · published · report badge -->
                   <div class="vuln-card-footer">
@@ -917,6 +930,7 @@ const isDeleting = ref(false);
 const isReanalyzing = ref(false);
 const isImporting = ref(false);
 const isScanningVulns = ref(false);
+const vulnerabilityScanningEnabled = ref(true);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showCreateModal = ref(false);
@@ -1332,6 +1346,12 @@ async function loadVulnFindings(sbomId: string): Promise<void> {
   await loadScanRuns(sbomId);
 }
 
+async function loadVulnerabilityScanningStatus(): Promise<void> {
+  try {
+    vulnerabilityScanningEnabled.value = (await sbomRecordService.vulnerabilityScanningStatus()).enabled;
+  } catch { /* retain the server-enforced fallback */ }
+}
+
 async function loadScanRuns(sbomId: string): Promise<void> {
   try {
     scanRuns.value = await sbomRecordService.listScanRuns(sbomId);
@@ -1506,7 +1526,7 @@ watch(activeDetailTab, (tab) => {
 
 onMounted(async () => {
   await loadProducts();
-  loadSbomRecords();
+  void Promise.all([loadSbomRecords(), loadVulnerabilityScanningStatus()]);
 });
 </script>
 

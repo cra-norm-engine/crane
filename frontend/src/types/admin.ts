@@ -92,3 +92,16 @@ export interface PermissionRead {
   key: string;
   description: string | null;
 }
+
+export interface VulnerabilityScanningSetting {
+  enabled: boolean;
+}
+
+export interface IngestionKey {
+  id: string;
+  name: string;
+  sbom_record_id: string;
+  source: string;
+  expires_at: string;
+  revoked_at: string | null;
+}

@@ -67,9 +67,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get purge -y curl && apt-get autoremove -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Pre-warm the Trivy vulnerability DB at image build time so first scan is fast.
-RUN trivy image --download-db-only --no-progress || true
-
 # Bring in the fully-installed Python environment from the builder stage.
 COPY --from=builder /opt/venv /opt/venv
 

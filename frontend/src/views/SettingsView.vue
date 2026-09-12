@@ -10,31 +10,36 @@
     <header class="page-header" data-guide="settings-header">
       <div>
         <h1 class="page-title">Settings</h1>
-        <p class="muted settings-sub">Manage your account, appearance, and personal preferences.</p>
+        <p class="muted settings-sub">Your workspace, your preferences, and connected services.</p>
       </div>
       <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
     </header>
 
     <div class="settings-cols">
-      <!-- ── Section navigation (scrollspy) ───────────── -->
+      <!-- Focus on one category while preserving unsaved form values. -->
       <nav class="settings-nav" data-guide="settings-nav" aria-label="Settings sections">
+        <div v-for="group in navGroups" :key="group.label" class="snav-group" :class="{ 'snav-about': group.label === 'About CRANE' }">
+        <p class="snav-group-title">{{ group.label }}</p>
         <button
-          v-for="item in navItems"
+          v-for="item in group.items"
           :key="item.id"
           type="button"
           class="snav-link"
           :class="{ active: activeSection === item.id }"
+          :aria-current="activeSection === item.id ? 'page' : undefined"
+          :aria-controls="item.id"
           @click="scrollTo(item.id)"
         >
           <span class="snav-ic" aria-hidden="true" v-html="item.icon" />
           {{ item.label }}
         </button>
+        </div>
       </nav>
 
       <!-- ── Content ──────────────────────────────────── -->
       <div class="settings-content">
         <!-- Account -->
-        <section id="account" class="s-card" data-guide="settings-account">
+        <section v-show="activeSection === 'account'" id="account" class="s-card" data-guide="settings-account">
           <div class="s-card-head">
             <h2 class="s-card-title">Account</h2>
             <p class="muted">Your identity and access within CRANE.</p>
@@ -78,6 +83,7 @@
                   type="text"
                   maxlength="255"
                   autocomplete="name"
+                  aria-label="Full name"
                   :disabled="!isLocalUser"
                 />
               </div>
@@ -124,7 +130,7 @@
         </section>
 
         <!-- Appearance -->
-        <section id="appearance" class="s-card" data-guide="settings-appearance">
+        <section v-show="activeSection === 'appearance'" id="appearance" class="s-card" data-guide="settings-appearance">
           <div class="s-card-head">
             <h2 class="s-card-title">Appearance</h2>
             <p class="muted">Choose how CRANE looks. Synced to your account.</p>
@@ -156,7 +162,7 @@
         </section>
 
         <!-- Preferences -->
-        <section id="preferences" class="s-card" data-guide="settings-preferences">
+        <section v-show="activeSection === 'preferences'" id="preferences" class="s-card" data-guide="settings-preferences">
           <div class="s-card-head">
             <h2 class="s-card-title">Preferences</h2>
             <p class="muted">Regional formatting and where you start.</p>
@@ -168,7 +174,7 @@
                 <div class="s-label-h">Used to display dates and times.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="timezone" class="select">
+                <select v-model="timezone" class="select" aria-label="Timezone">
                   <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
                 </select>
               </div>
@@ -180,7 +186,7 @@
                 <div class="s-label-h">How calendar dates are written.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="dateFormat" class="select">
+                <select v-model="dateFormat" class="select" aria-label="Date format">
                   <option v-for="fmt in dateFormatOptions" :key="fmt" :value="fmt">{{ fmt }}</option>
                 </select>
                 <div class="preview-note">Preview: <b>{{ datePreview }}</b></div>
@@ -193,7 +199,7 @@
                 <div class="s-label-h">The page you see right after signing in.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="landingPage" class="select">
+                <select v-model="landingPage" class="select" aria-label="Default landing page">
                   <option v-for="opt in landingOptions" :key="opt.name" :value="opt.name">
                     {{ opt.label }}
                   </option>
@@ -222,7 +228,7 @@
         </section>
 
         <!-- Security -->
-        <section id="security" class="s-card" data-guide="settings-security">
+        <section v-show="activeSection === 'security'" id="security" class="s-card" data-guide="settings-security">
           <div class="s-card-head">
             <h2 class="s-card-title">Security</h2>
             <p class="muted">Password and active sessions.</p>
@@ -262,8 +268,84 @@
           </div>
         </section>
 
+        <!-- Vulnerability scanning -->
+        <section v-if="isSystemAdmin" v-show="activeSection === 'vulnerability-scanning'" id="vulnerability-scanning" class="s-card" data-guide="settings-vulnerability-scanning">
+          <div class="s-card-head">
+            <h2 class="s-card-title">Vulnerability scanning</h2>
+            <p class="muted">Control CRANE's built-in OSV, Trivy, NVD, EPSS, and CISA KEV scanning.</p>
+          </div>
+          <div class="s-card-body">
+            <div class="s-row">
+              <div class="s-label">
+                <div class="s-label-t">Built-in scanning</div>
+                <div class="s-label-h">
+                  Disable this when vulnerabilities and assessments are synchronized from another tool.
+                  Existing findings are preserved; downloaded Trivy feeds are removed.
+                </div>
+              </div>
+              <label class="s-control setting-check">
+                <input
+                  type="checkbox"
+                  :checked="vulnerabilityScanningEnabled"
+                  :disabled="vulnerabilityScanningBusy"
+                  @change="changeVulnerabilityScanning"
+                />
+                {{ vulnerabilityScanningEnabled ? "Enabled" : "Disabled" }}
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="isSystemAdmin" v-show="activeSection === 'external-findings'" id="external-findings" class="s-card" data-guide="settings-external-tools">
+          <div class="s-card-head">
+            <h2 class="s-card-title">Dependency-Track</h2>
+            <p class="muted">Connect your project and keep its vulnerability findings up to date in CRANE.</p>
+          </div>
+          <div class="s-card-body">
+            <DependencyTrackSettings />
+            <details class="advanced-integration" @toggle="loadAdvancedIngestion">
+              <summary>Advanced: API keys for custom integrations</summary>
+              <p class="s-label-h">For custom scripts and other tools. These keys are not needed for the Dependency-Track connection above.</p>
+            <div v-if="ingestionError" class="ingestion-error" role="alert"><span>{{ ingestionError }}</span><AppButton variant="secondary" size="sm" type="button" :disabled="ingestionBusy" @click="loadIngestionKeys">Retry</AppButton></div>
+            <form class="ingestion-form" @submit.prevent="createIngestionKey">
+              <div class="s-row">
+                <label class="s-label" for="ingestion-name"><span class="s-label-t">Integration name</span><span class="s-label-h">A recognizable name for this credential.</span></label>
+                <div class="s-control grow"><input id="ingestion-name" v-model.trim="ingestionName" class="input" required maxlength="100" placeholder="Dependency-Track production" /></div>
+              </div>
+              <div class="s-row">
+                <label class="s-label" for="ingestion-source"><span class="s-label-t">Source identifier</span><span class="s-label-h">Use a stable, distinct identifier for each tool instance.</span></label>
+                <div class="s-control grow"><input id="ingestion-source" v-model.trim="ingestionSource" class="input" required maxlength="100" pattern="[a-z0-9][a-z0-9._-]*" /></div>
+              </div>
+              <div class="s-row">
+                <label class="s-label" for="ingestion-sbom"><span class="s-label-t">Target SBOM</span><span class="s-label-h">The key can import findings only for this SBOM.</span></label>
+                <div class="s-control grow"><select id="ingestion-sbom" v-model="ingestionSbom" class="select" required>
+                    <option value="">Select an SBOM</option>
+                    <option v-for="sbom in ingestionSboms" :key="sbom.id" :value="sbom.id">{{ sbom.file_name || sbom.format }} — {{ sbom.id }}</option>
+                  </select></div>
+              </div>
+              <div class="s-row">
+                <label class="s-label" for="ingestion-expiry"><span class="s-label-t">Expires after</span><span class="s-label-h">Rotate integration credentials regularly.</span></label>
+                <div class="s-control grow"><input id="ingestion-expiry" v-model.number="ingestionExpiry" class="input" type="number" required min="1" max="365" aria-describedby="ingestion-expiry-unit" /><span id="ingestion-expiry-unit" class="preview-note">days</span></div>
+              </div>
+              <div class="s-row">
+                <div class="s-label"><span class="s-label-t">Ingestion key</span><span class="s-label-h">The secret is shown once after creation.</span></div>
+                <div class="s-control"><AppButton type="submit" size="sm" :disabled="ingestionBusy || !ingestionSbom">{{ ingestionBusy ? "Creating…" : "Create key" }}</AppButton></div>
+              </div>
+            </form>
+            <div v-if="issuedIngestionToken" class="s-row">
+              <label class="s-label" for="issued-ingestion-token"><span class="s-label-t">New key</span><span class="s-label-h">Copy it now. It will not be shown again.</span></label>
+              <div class="s-control grow"><textarea id="issued-ingestion-token" :value="issuedIngestionToken" readonly class="input ingestion-token" spellcheck="false" /><AppButton variant="secondary" size="sm" type="button" @click="issuedIngestionToken = ''">Dismiss</AppButton></div>
+            </div>
+            <div v-for="key in ingestionKeys" :key="key.id" class="s-row">
+              <div class="s-label"><span class="s-label-t">{{ key.name }}</span><div class="s-label-h">{{ key.source }} · expires {{ formatDate(key.expires_at) }}{{ key.revoked_at ? ' · revoked' : '' }}</div></div>
+              <div class="s-control"><AppButton v-if="!key.revoked_at" variant="danger" size="sm" type="button" :disabled="ingestionBusy" @click="revokeIngestionKey(key.id)">Revoke</AppButton><StatusBadge v-else label="Revoked" variant="neutral" /></div>
+            </div>
+            </details>
+          </div>
+        </section>
+
         <!-- Jira -->
-        <section id="jira" class="s-card" data-guide="settings-jira">
+        <section v-show="activeSection === 'jira'" id="jira" class="s-card" data-guide="settings-jira">
           <div class="s-card-head">
             <h2 class="s-card-title">Jira Cloud</h2>
             <p class="muted">Create Jira issues from CRANE tasks and synchronize their status and details.</p>
@@ -347,10 +429,10 @@
         </section>
 
         <!-- About -->
-        <section id="about" class="s-card" data-guide="settings-about">
+        <section v-show="activeSection === 'about'" id="about" class="s-card" data-guide="settings-about">
           <div class="s-card-head">
-            <h2 class="s-card-title">About</h2>
-            <p class="muted">Version, licensing, and resources.</p>
+            <h2 class="s-card-title">About CRANE</h2>
+            <p class="muted">Application information, open-source licensing, and help resources.</p>
           </div>
           <div class="s-card-body">
             <!-- Brand header -->
@@ -451,7 +533,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import {
@@ -468,7 +550,12 @@ import { useAsyncState } from "@/composables/useAsyncState";
 import { DATE_FORMAT_OPTIONS, formatDate } from "@/composables/useDateFormat";
 import { jiraService, type JiraConnection } from "@/services/jira-service";
 import { userService, type UserSummary } from "@/services/user-service";
+import { adminService } from "@/services/admin-service";
+import { sbomRecordService } from "@/services/sbom-record-service";
+import type { IngestionKey } from "@/types/admin";
+import type { SbomRecordRead } from "@/types/product";
 import AppButton from "@/components/AppButton.vue";
+import DependencyTrackSettings from "@/components/DependencyTrackSettings.vue";
 function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 import AppLogo from "@/components/AppLogo.vue";
 import AppModal from "@/components/AppModal.vue";
@@ -500,6 +587,7 @@ async function removeAvatar(): Promise<void> {
 }
 
 const isLocalUser = computed(() => authStore.user?.auth_provider === "local");
+const isSystemAdmin = computed(() => authStore.hasPermission("admin_manage_users"));
 const userEmoji = computed(() => ({
   admin: "🛡️",
   product_owner: "🧭",
@@ -510,28 +598,118 @@ const userEmoji = computed(() => ({
   lifecycle_manager: "♻️",
 }[authStore.roles?.[0] ?? ""] ?? "👤"));
 
-/* ── Section nav / scrollspy ─────────────────── */
-const navItems = [
+/* ── Section navigation ─────────────────── */
+const allNavItems = [
   { id: "account", label: "Account", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5.5 21a8.4 8.4 0 0 1 13 0"/></svg>' },
   { id: "appearance", label: "Appearance", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2-4 2.5 2.5 0 0 1 2-4h2a4 4 0 0 0 4-4 10 10 0 0 0-10-8z"/></svg>' },
   { id: "preferences", label: "Preferences", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>' },
   { id: "security", label: "Security", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' },
+  { id: "vulnerability-scanning", label: "Vulnerability scanning", adminOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>' },
   { id: "jira", label: "Jira Cloud", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 10l7 7 7-7-7-7Z"/><path d="m8.5 13.5-3.5 3.5 7 4 7-4-3.5-3.5"/></svg>' },
+  { id: "external-findings", label: "External tools", adminOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14M15 3l4 4-4 4M19 17H5m4-4-4 4 4 4"/></svg>' },
   { id: "about", label: "About", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>' },
 ];
+const navItems = computed(() => allNavItems.filter((item) => !item.adminOnly || isSystemAdmin.value));
+const navGroups = computed(() => [
+  { label: 'Personal', ids: ['account', 'appearance', 'preferences', 'security'] },
+  { label: 'Workspace', ids: ['vulnerability-scanning'] },
+  { label: 'Integrations', ids: ['external-findings', 'jira'] },
+  { label: 'About CRANE', ids: ['about'] },
+].map(group => ({ label: group.label, items: group.ids.flatMap(id => {
+  const item = navItems.value.find(item => item.id === id);
+  return item ? [{ ...item, label: id === 'external-findings' ? 'Dependency-Track' : id === 'about' ? 'Information & help' : item.label }] : [];
+}) })).filter(group => group.items.length));
 
 const activeSection = ref("account");
-let observer: IntersectionObserver | null = null;
 
 function scrollTo(id: string): void {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   activeSection.value = id;
+  void nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
+function revealGuideSection(event: Event): void {
+  const selector = (event as CustomEvent<string>).detail;
+  const section = document.querySelector(selector)?.closest<HTMLElement>('.s-card');
+  if (section && navItems.value.some(item => item.id === section.id)) activeSection.value = section.id;
 }
 
 const jiraConnections = ref<JiraConnection[]>([]);
 const jiraBusy = ref(false);
 const craneUsers = ref<UserSummary[]>([]);
 const jiraAccountIds = ref<Record<string, Record<string, string>>>({});
+const vulnerabilityScanningEnabled = ref(true);
+const vulnerabilityScanningBusy = ref(false);
+const ingestionKeys = ref<IngestionKey[]>([]);
+const ingestionSboms = ref<SbomRecordRead[]>([]);
+const ingestionName = ref("");
+const ingestionSource = ref("dependency-track");
+const ingestionSbom = ref("");
+const ingestionExpiry = ref(90);
+const ingestionBusy = ref(false);
+const ingestionError = ref("");
+const issuedIngestionToken = ref("");
+
+function loadAdvancedIngestion(event: Event): void {
+  if ((event.target as HTMLDetailsElement).open) void loadIngestionKeys();
+}
+
+async function loadIngestionKeys(): Promise<void> {
+  if (!isSystemAdmin.value) return;
+  ingestionBusy.value = true;
+  ingestionError.value = "";
+  try {
+    [ingestionKeys.value, ingestionSboms.value] = await Promise.all([adminService.listIngestionKeys(), sbomRecordService.list()]);
+  } catch { ingestionError.value = "Could not load external-tool settings."; }
+  finally { ingestionBusy.value = false; }
+}
+
+async function createIngestionKey(): Promise<void> {
+  ingestionBusy.value = true;
+  ingestionError.value = "";
+  issuedIngestionToken.value = "";
+  try {
+    const issued = await adminService.createIngestionKey({ name: ingestionName.value, source: ingestionSource.value, sbom_record_id: ingestionSbom.value, expires_in_days: ingestionExpiry.value });
+    issuedIngestionToken.value = issued.token;
+    ingestionKeys.value = await adminService.listIngestionKeys();
+  } catch { ingestionError.value = "Could not create ingestion key."; }
+  finally { ingestionBusy.value = false; }
+}
+
+async function revokeIngestionKey(id: string): Promise<void> {
+  ingestionBusy.value = true;
+  ingestionError.value = "";
+  try {
+    await adminService.revokeIngestionKey(id);
+    issuedIngestionToken.value = "";
+    ingestionKeys.value = await adminService.listIngestionKeys();
+  } catch { ingestionError.value = "Could not revoke ingestion key."; }
+  finally { ingestionBusy.value = false; }
+}
+
+async function loadVulnerabilityScanning(): Promise<void> {
+  if (!isSystemAdmin.value) return;
+  const setting = await adminService.getVulnerabilityScanning();
+  vulnerabilityScanningEnabled.value = setting.enabled;
+}
+
+async function changeVulnerabilityScanning(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const enabled = input.checked;
+  if (!enabled && !window.confirm("Disable built-in vulnerability scanning and delete downloaded vulnerability feeds? Existing findings will be kept.")) {
+    input.checked = true;
+    return;
+  }
+  vulnerabilityScanningBusy.value = true;
+  try {
+    const setting = await adminService.setVulnerabilityScanning(enabled);
+    vulnerabilityScanningEnabled.value = setting.enabled;
+    showToast({ type: "success", message: `Built-in vulnerability scanning ${enabled ? "enabled" : "disabled"}.` });
+  } catch {
+    input.checked = vulnerabilityScanningEnabled.value;
+  } finally {
+    vulnerabilityScanningBusy.value = false;
+  }
+}
 
 async function loadJira(): Promise<void> {
   try {
@@ -583,21 +761,11 @@ async function disconnectJira(id: string): Promise<void> {
 
 onMounted(() => {
   void loadJira();
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) activeSection.value = entry.target.id;
-      }
-    },
-    { rootMargin: "-20% 0px -70% 0px" },
-  );
-  for (const item of navItems) {
-    const el = document.getElementById(item.id);
-    if (el) observer.observe(el);
-  }
+  void loadVulnerabilityScanning();
+  window.addEventListener('crane-guide-reveal', revealGuideSection);
 });
 
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => window.removeEventListener('crane-guide-reveal', revealGuideSection));
 
 /* ── Account ─────────────────────────────────── */
 const fullName = ref(authStore.userFullName);
@@ -733,6 +901,13 @@ function flash(flag: { value: boolean }): void {
 .jira-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
 .avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .avatar-actions { display: flex; align-items: center; gap: .6rem; }
+.setting-check { display: flex; align-items: center; gap: .55rem; font-weight: 600; }
+.ingestion-form { display: contents; }
+.advanced-integration { margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 1rem; }
+.advanced-integration summary { cursor: pointer; font-size: var(--text-sm); color: var(--color-text-muted); }
+.s-label > span { display: block; }
+.ingestion-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: .5rem 0; padding: .65rem .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-md); background: var(--color-danger-bg); color: var(--color-danger-text); font-size: var(--text-sm); }
+.ingestion-token { min-height: 4.5rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .jira-guide { display: grid; gap: .35rem; padding: .85rem 1rem; margin-bottom: 1rem; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-elevated); font-size: .8rem; }
 .jira-guide strong { font-size: .88rem; }
 .jira-guide span { color: var(--color-text-muted); }
@@ -752,10 +927,11 @@ function flash(flag: { value: boolean }): void {
 
 .settings-cols {
   display: grid;
-  grid-template-columns: 210px 1fr;
-  gap: 2rem;
+  grid-template-columns: 215px minmax(0, 1fr);
+  gap: 2.5rem;
   align-items: start;
-  max-width: 1040px;
+  max-width: 1120px;
+  margin-top: 1.75rem;
 }
 
 /* ── Section nav ─────────────────────────────── */
@@ -764,8 +940,13 @@ function flash(flag: { value: boolean }): void {
   top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1.5rem;
 }
+.snav-group { display: grid; gap: .25rem; min-width: 0; }
+.snav-about { padding-top: 1.25rem; border-top: 1px solid var(--color-border); margin-top: .5rem; }
+#about .s-card-head { background: var(--color-surface-elevated); }
+.snav-group-title { margin: 0 0 .4rem; padding: 0 .8rem; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-text-muted); }
+.snav-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .snav-link {
   appearance: none;
@@ -776,7 +957,7 @@ function flash(flag: { value: boolean }): void {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.55rem 0.7rem;
+  padding: 0.75rem 0.8rem;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -809,22 +990,21 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-card {
-  background: linear-gradient(180deg, var(--color-card-start), var(--color-card-end));
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(14px);
   overflow: hidden;
   scroll-margin-top: 1.25rem;
 }
 
 .s-card-head {
-  padding: 1.15rem 1.4rem 0.2rem;
+  padding: 1.75rem 2rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .s-card-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: 700;
 }
 
@@ -834,16 +1014,17 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-card-body {
-  padding: 0.5rem 1.4rem 1rem;
+  padding: 1.5rem 2rem;
 }
 
 /* ── Rows ────────────────────────────────────── */
 .s-row {
   display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding: 0.95rem 0;
-  border-top: 1px solid var(--color-divider);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .65rem;
+  padding: .8rem 0;
+  margin-bottom: .75rem;
 }
 
 .s-row:first-child {
@@ -851,7 +1032,7 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-label {
-  flex: 1;
+  flex: none;
   min-width: 0;
 }
 
@@ -861,7 +1042,7 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-label-h {
-  margin-top: 0.15rem;
+  margin-top: 0.3rem;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.45;
@@ -871,13 +1052,15 @@ function flash(flag: { value: boolean }): void {
   flex: none;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 0.4rem;
 }
 
 .s-control.grow {
-  flex: 1;
-  max-width: 320px;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  max-width: 480px;
   align-items: stretch;
 }
 
@@ -893,10 +1076,18 @@ function flash(flag: { value: boolean }): void {
 /* tighter inputs than the global default for settings rows */
 .s-control .input,
 .s-control .select {
-  padding: 0.6rem 0.8rem;
+  padding: 0.75rem 0.85rem;
   font-size: var(--text-sm);
   border-radius: var(--radius-md);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
+.s-control.setting-check { flex-direction: row; align-items: center; padding: .7rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-surface-elevated); }
+.setting-check input { width: 1rem; height: 1rem; accent-color: var(--color-primary); }
+.avatar-actions { max-width: 100%; }
+.avatar-actions input { max-width: 100%; font: inherit; font-size: var(--text-sm); }
+.avatar-actions input::file-selector-button { padding: .55rem .75rem; margin-right: .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-elevated); color: var(--color-text); font: inherit; cursor: pointer; }
 
 .preview-note {
   font-size: var(--text-xs);
@@ -1009,7 +1200,7 @@ function flash(flag: { value: boolean }): void {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.85rem 1.4rem;
+  padding: 1rem 2rem;
   border-top: 1px solid var(--color-divider);
   background: var(--color-surface-soft);
 }
@@ -1161,7 +1352,14 @@ function flash(flag: { value: boolean }): void {
     position: static;
     flex-direction: row;
     flex-wrap: wrap;
+    gap: .8rem;
   }
+  .snav-group { display: flex; flex-wrap: wrap; gap: .25rem; width: 100%; }
+  .snav-group-title { width: 100%; margin: 0; }
+  .snav-link { padding: .55rem .7rem; }
+  .s-card-head { padding: 1.25rem; }
+  .s-card-body { padding: 1.25rem; }
+  .settings-cols { gap: 1.25rem; }
 
   .s-row {
     flex-direction: column;
@@ -1181,5 +1379,6 @@ function flash(flag: { value: boolean }): void {
   .about-grid {
     grid-template-columns: 1fr;
   }
+
 }
 </style>

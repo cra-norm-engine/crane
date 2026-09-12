@@ -481,6 +481,7 @@ class VexStatus(StrEnum):
 class VulnerabilitySource(StrEnum):
     """Origin of a vulnerability report."""
     manual = "manual"       # Created by a user manually
+    external = "external"   # Imported finding from an external vulnerability tool
     sbom_scan = "sbom_scan" # Auto-created from an SBOM component scan via OSV API
 
 

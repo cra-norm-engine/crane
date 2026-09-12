@@ -112,6 +112,11 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
     scheduler.start()
+    from app.services.dependency_track_service import run_due_syncs
+    scheduler.add_job(
+        run_due_syncs, trigger=IntervalTrigger(minutes=1),
+        id="dependency_track_sync", max_instances=1, coalesce=True, replace_existing=True,
+    )
     _scheduler = scheduler
     logger.info(
         "Background scheduler started (scan cron=%s, Jira sync every minute)",

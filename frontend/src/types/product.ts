@@ -743,7 +743,7 @@ export type VulnerabilityLifecycleStatus =
 export type VexStatus = "not_affected" | "affected" | "fixed" | "under_investigation";
 
 /** Whether a vulnerability report was filed manually or discovered via SBOM CVE scan. */
-export type VulnerabilitySource = "manual" | "sbom_scan";
+export type VulnerabilitySource = "manual" | "sbom_scan" | "external";
 export type VulnerabilityPriority = "critical" | "high" | "medium" | "low" | "informational" | "needs_review";
 export type VulnerabilityExposure = "external" | "internal" | "unknown";
 export type AssetCriticality = "critical" | "high" | "medium" | "low" | "unknown";
@@ -989,6 +989,10 @@ export interface PriorityPreviewRead {
 // ── Gap 10: SBOM Vulnerability Findings ──────────────────────────────────
 /** A CVE/vulnerability finding linked to a specific SBOM component via OSV scan. */
 export interface SbomVulnerabilityFindingRead {
+  external_source?: string | null;
+  external_id?: string | null;
+  external_updated_at?: string | null;
+  external_payload_json?: { suppressed?: boolean; source_analysis_state?: string; source_url?: string; assessment?: { rationale: string; assessed_by?: string; assessed_at: string } } | null;
   id: string;
   sbom_record_id: string;
   component_name: string;

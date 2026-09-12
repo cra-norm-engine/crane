@@ -32,6 +32,10 @@ from app.core.database import SessionLocal
 from app.models.sbom_record import SbomRecord
 from app.models.sbom_scan_run import SbomScanRun
 from app.services.sbom_vulnerability_scanner import SbomVulnerabilityScanner
+from app.services.vulnerability_scanning_settings import (
+    is_vulnerability_scanning_enabled,
+    require_vulnerability_scanning_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ class ScanOrchestrationService:
         "degraded"; an exception → "failed" (never re-raised, so a scheduled
         sweep keeps going).
         """
+        require_vulnerability_scanning_enabled(self.db)
         started = time.monotonic()
         run = run or SbomScanRun(sbom_record_id=sbom_record_id, trigger=trigger, status="queued")
         if run not in self.db:
@@ -113,6 +118,9 @@ def run_scheduled_sweep() -> list[SbomScanRun]:
     """
     # Enumerate target SBOM ids up front in a short-lived session.
     with SessionLocal() as db:
+        if not is_vulnerability_scanning_enabled(db):
+            logger.info("Scheduled vulnerability sweep skipped — scanning is disabled")
+            return []
         sbom_ids = list(
             db.scalars(
                 select(SbomRecord.id).where(SbomRecord.sbom_content.is_not(None))

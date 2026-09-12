@@ -14,6 +14,13 @@ import type {
 } from "@/types/product";
 
 export const sbomRecordService = {
+  async vulnerabilityScanningStatus(): Promise<{ enabled: boolean }> {
+    const { data } = await apiClient.get<{ enabled: boolean }>(
+      "/sbom-records/vulnerability-scanning/status",
+    );
+    return data;
+  },
+
   async list(opts?: { productReleaseId?: string; productId?: string }): Promise<SbomRecordRead[]> {
     const params: Record<string, string> = {};
     if (opts?.productReleaseId) params.product_release_id = opts.productReleaseId;

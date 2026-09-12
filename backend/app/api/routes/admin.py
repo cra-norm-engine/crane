@@ -26,10 +26,14 @@ from app.schemas.admin_user import (
 from app.schemas.auth import AdminPasswordResetRequest
 from app.schemas.permission import PermissionRead
 from app.schemas.role import RoleCreate, RolePermissionsUpdate, RoleRead, RoleUpdate
+from app.services import ldap_service
 from app.services.admin_user_service import AdminUserService
 from app.services.ldap_service import LDAPConnectionError
 from app.services.role_service import RoleService
-from app.services import ldap_service
+from app.services.vulnerability_scanning_settings import (
+    is_vulnerability_scanning_enabled,
+    set_vulnerability_scanning_enabled,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -40,6 +44,34 @@ class UserSummary(BaseModel):
     full_name: str | None
     email: str
     avatar_data: str | None = None
+
+
+class VulnerabilityScanningSetting(BaseModel):
+    enabled: bool
+
+
+@router.get("/vulnerability-scanning", response_model=VulnerabilityScanningSetting)
+def get_vulnerability_scanning_setting(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+) -> VulnerabilityScanningSetting:
+    return VulnerabilityScanningSetting(enabled=is_vulnerability_scanning_enabled(db))
+
+
+@router.put("/vulnerability-scanning", response_model=VulnerabilityScanningSetting)
+def update_vulnerability_scanning_setting(
+    payload: VulnerabilityScanningSetting,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permissions_dependency(Permission.admin_manage_users)
+    ),
+) -> VulnerabilityScanningSetting:
+    enabled = set_vulnerability_scanning_enabled(
+        db, payload.enabled, actor_user_id=current_user.id
+    )
+    return VulnerabilityScanningSetting(enabled=enabled)
 
 
 @router.get("/users/summary", response_model=list[UserSummary], tags=["admin"])

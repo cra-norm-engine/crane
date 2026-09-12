@@ -19,6 +19,10 @@ from app.core.database import SessionLocal, check_database_connection
 from app.core.exceptions import register_exception_handlers
 from app.core.scheduler import shutdown_scheduler, start_scheduler
 from app.core.seed import seed_initial_data
+from app.services.vulnerability_scanning_settings import (
+    clear_trivy_cache,
+    is_vulnerability_scanning_enabled,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +40,8 @@ async def lifespan(_: FastAPI):
     LOGGER.info("Starting application: %s", settings.project_name)
     with SessionLocal() as db:
         seed_initial_data(db)
+        if not is_vulnerability_scanning_enabled(db):
+            clear_trivy_cache()
     # Start the automated vulnerability re-scan scheduler (no-op unless enabled).
     start_scheduler()
     yield

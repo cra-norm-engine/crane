@@ -21,9 +21,35 @@ import type {
   RolePermissionsUpdate,
   RoleRead,
   RoleUpdate,
+  VulnerabilityScanningSetting,
+  IngestionKey,
 } from "@/types/admin";
 
 export const adminService = {
+  async listIngestionKeys(): Promise<IngestionKey[]> {
+    return (await apiClient.get<IngestionKey[]>("/admin/ingestion-keys")).data;
+  },
+  async createIngestionKey(payload: { name: string; source: string; sbom_record_id: string; expires_in_days: number }): Promise<IngestionKey & { token: string }> {
+    return (await apiClient.post<IngestionKey & { token: string }>("/admin/ingestion-keys", payload)).data;
+  },
+  async revokeIngestionKey(id: string): Promise<void> {
+    await apiClient.delete(`/admin/ingestion-keys/${id}`);
+  },
+  async getVulnerabilityScanning(): Promise<VulnerabilityScanningSetting> {
+    const { data } = await apiClient.get<VulnerabilityScanningSetting>(
+      "/admin/vulnerability-scanning",
+    );
+    return data;
+  },
+
+  async setVulnerabilityScanning(enabled: boolean): Promise<VulnerabilityScanningSetting> {
+    const { data } = await apiClient.put<VulnerabilityScanningSetting>(
+      "/admin/vulnerability-scanning",
+      { enabled },
+    );
+    return data;
+  },
+
   // USERS
   async listUsers(): Promise<AdminUserRead[]> {
     const { data } = await apiClient.get<AdminUserRead[]>("/admin/users");

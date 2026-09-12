@@ -46,6 +46,9 @@ from app.models.security_update import SecurityUpdate
 from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.user import Role, User, UserRole
 from app.models.user_preference import UserPreference
+from app.models.system_setting import SystemSetting
+from app.models.ingestion_key import IngestionKey
+from app.models.dependency_track import DependencyTrackConnection
 from app.models.vulnerability_report import VulnerabilityReport
 from app.models.vulnerability_priority_policy import VulnerabilityPriorityPolicy
 from app.models.vulnerability_priority_evaluation import VulnerabilityPriorityEvaluation
@@ -109,6 +112,7 @@ __all__ = [
     "User",
     "UserRole",
     "UserPreference",
+    "SystemSetting",
     "VulnerabilityReport",
     "VulnerabilityPriorityPolicy",
     "VulnerabilityPriorityEvaluation",

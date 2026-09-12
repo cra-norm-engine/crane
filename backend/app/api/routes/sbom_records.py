@@ -11,24 +11,40 @@ import logging
 from types import SimpleNamespace
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permissions_dependency
 from app.core.config import settings
 from app.core.database import SessionLocal, get_db
 from app.core.permissions import Permission
+from app.models.sbom_scan_run import SbomScanRun
 from app.models.user import User
+from app.repositories.sbom_scan_run_repository import SbomScanRunRepository
+from app.repositories.sbom_vulnerability_finding_repository import (
+    SbomVulnerabilityFindingRepository,
+)
 from app.schemas.sbom_record import SbomRecordCreate, SbomRecordRead, SbomRecordUpdate
 from app.schemas.sbom_vulnerability_finding import (
     SbomScanRunRead,
     SbomVulnerabilityFindingRead,
 )
-from app.services.scan_orchestration_service import ScanOrchestrationService
 from app.services.sbom_record_service import SbomRecordService
-from app.repositories.sbom_scan_run_repository import SbomScanRunRepository
-from app.models.sbom_scan_run import SbomScanRun
-from app.repositories.sbom_vulnerability_finding_repository import SbomVulnerabilityFindingRepository
+from app.services.scan_orchestration_service import ScanOrchestrationService
+from app.services.vulnerability_scanning_settings import (
+    is_vulnerability_scanning_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +88,14 @@ def list_sbom_records(
         product_release_id=product_release_id,
         product_id=product_id,
     )
+
+
+@router.get("/vulnerability-scanning/status")
+def vulnerability_scanning_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.security_update_read)),
+) -> dict[str, bool]:
+    return {"enabled": is_vulnerability_scanning_enabled(db)}
 
 
 @router.post("/", response_model=SbomRecordRead, status_code=status.HTTP_201_CREATED)
@@ -134,7 +158,7 @@ async def upload_sbom_record(
         notes=notes,
         actor=current_user,
     )
-    if settings.scan_on_upload:
+    if settings.scan_on_upload and is_vulnerability_scanning_enabled(db):
         background_tasks.add_task(_run_on_upload_scan, record.id)
     return record
 
@@ -174,6 +198,11 @@ def scan_sbom_vulnerabilities(
     auto-creates a VulnerabilityReport for each finding so it enters the
     exploitability assessment workflow (CRA Art. 13(2)).
     """
+    if not is_vulnerability_scanning_enabled(db):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vulnerability scanning is disabled by an administrator",
+        )
     SbomRecordService(db).get_sbom_record(sbom_id)
     repository = SbomScanRunRepository(db)
     run = repository.active_for_sbom(sbom_id)

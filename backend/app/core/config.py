@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="BACKEND_LOG_LEVEL")
 
     # --- Automated vulnerability scanning ---
+    vulnerability_scanning_enabled: bool = Field(
+        default=True,
+        alias="BACKEND_VULNERABILITY_SCANNING_ENABLED",
+    )
     # Recurring re-scan of stored SBOMs so newly-published CVEs surface without a
     # manual click. Disabled by default so environments without outbound internet
     # (e.g. the offline sandbox) are unaffected; scans still degrade gracefully when

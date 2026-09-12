@@ -556,15 +556,12 @@ function timeAgo(iso: string): string {
 .dashboard-guide-secondary { border: 1px solid var(--color-border); background: transparent; color: inherit; }
 .dashboard-guide-primary { border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff; }
 @media (max-width: 1100px) { :global(body.dashboard-guide-open .app-content) { padding-right: 2rem; } .dashboard-guide-card { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 42vh; } .dashboard-guide-target { scroll-margin-bottom: 45vh; } }
-/* ── Font import ───────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
-
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 .ops-hub-page {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  font-family: 'Inter', var(--font-sans, system-ui), sans-serif;
+  font-family: inherit;
 
   /* Light-mode local tokens matching CRANE Dashboard reference */
   --ring-track: var(--color-inset-border, #e8edea);
@@ -659,7 +656,7 @@ function timeAgo(iso: string): string {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
 }
-.conf-pct { font-size: 1.5rem; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; color: oklch(0.44 0.092 150); }
+.conf-pct { font-size: 1.5rem; font-weight: 800; line-height: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: -0.03em; color: oklch(0.44 0.092 150); }
 .conf-pct-sub { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-text-muted); }
 
 .conf-copy { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
@@ -683,7 +680,7 @@ function timeAgo(iso: string): string {
   font-size: 1.5rem;
   font-weight: 800;
   line-height: 1;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.03em;
 }
 
@@ -838,7 +835,7 @@ function timeAgo(iso: string): string {
   font-weight: 700;
   color: var(--color-text);
   letter-spacing: -0.01em;
-  font-family: 'Inter', var(--font-sans, system-ui), sans-serif;
+  font-family: inherit;
 }
 
 .hub-card-sub {
