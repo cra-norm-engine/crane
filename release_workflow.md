@@ -14,6 +14,9 @@ Use this checklist for every production release, including hotfixes and security
 - [ ] Private commit (`amh1036/CRA-Compliance-Tool`):
 - [ ] Public commit (`cra-norm-engine/crane`):
 - [ ] Previous supported release:
+- [ ] Previous and target Alembic revisions:
+- [ ] Host updater/Compose change required: yes / no
+- [ ] Approved RPO / RTO and measured restore time:
 - [ ] GitHub release URL:
 - [ ] Render deployment URL and deploy ID:
 - [ ] Backup/restore evidence:
@@ -30,6 +33,7 @@ Do not create or push a release tag until every applicable item below is complet
 - [ ] A restorable database and artifact backup exists before a production migration.
 - [ ] The installation has an encrypted, independently mounted `CRANE_BACKUP_COPY_DIR`; local-only backup mode is disabled.
 - [ ] Release metadata, compatibility limits, release notes, upgrade instructions, and rollback instructions are accurate.
+- [ ] `automatic_update_allowed` is false when the database revision, `crane-update`, `docker-compose.prod.yml`, `install.sh`, update key, or required host configuration changes.
 - [ ] The update signing key is available only through the protected GitHub Actions secret.
 - [ ] Staging installation and rollback have been exercised for any release containing migrations or deployment changes.
 - [ ] A named person owns production monitoring and rollback during the release window.
@@ -102,6 +106,7 @@ git@github.com-cra-norm-engine:cra-norm-engine/crane.git
 - [ ] Exercise Dependency-Track, Jira, LDAP/SSO, SBOM ingestion, vulnerability scanning-disabled mode, and other changed integrations.
 - [ ] Verify upgrade paths from every supported source version, not only a clean install.
 - [ ] Verify configuration remains compatible or provide an explicit migration procedure.
+- [ ] Compare host-managed files (`crane-update`, `docker-compose.prod.yml`, `install.sh`, `deploy/`, `updates/`) with the previous release. If any required file changed, document and test the manual host-tooling upgrade before running `apply`.
 
 ## 4. Run the release test suite
 
@@ -156,12 +161,14 @@ docker build --build-arg VITE_APP_VERSION=vX.Y.Z -t crane-frontend-release-test:
 - [ ] Review every new Alembic migration for locks, table rewrites, data loss, runtime, and backward compatibility.
 - [ ] Prefer expand-and-contract migrations; do not combine destructive schema removal with code that may need rollback.
 - [ ] Test upgrade from a copy of the previous production database to `head`.
+- [ ] Record the previous release manifest's `database_revision` and the candidate Alembic head; treat any difference as a supervised database migration.
 - [ ] Confirm the upgraded application can read old data and new writes remain valid.
 - [ ] Create a PostgreSQL custom-format backup and validate it with `pg_restore --list`.
 - [ ] Include retained artifact storage in the backup.
 - [ ] Restore the backup into an isolated database and run health and data-integrity checks.
 - [ ] Confirm maintenance mode rejects application traffic, permits health probes, drains in-flight requests, and remains enabled after an interrupted update.
 - [ ] Confirm the updater verifies checksums, restores the dump, validates constraints and Alembic revision, and verifies the complete audit-log HMAC chain before reopening traffic.
+- [ ] Confirm the independent backup destination is a different mounted filesystem, has enough free space, preserves restrictive permissions for the backed-up `.env`, and is covered by encryption, retention, and access-control policy.
 - [ ] Run `./crane-update apply` on a staging Docker Compose installation.
 - [ ] Run `./crane-update rollback` and confirm the previous images, environment, database, and artifacts are restored.
 - [ ] Interrupt staging once before backup and once after migration; verify `recover` only resumes the unchanged release and requires `rollback` after possible data changes.
@@ -202,7 +209,9 @@ Update `updates/release-metadata.json` deliberately:
 - [ ] `postgres_major_versions` lists only tested versions.
 - [ ] `automatic_update_allowed` is true only when unattended backup, migration, health verification, and rollback are safe.
 - [ ] Treat every database-revision change as supervised/manual; the updater must refuse it in automatic mode.
+- [ ] Set `automatic_update_allowed` to false when administrators must first update host files or add/change required environment variables.
 - [ ] `rollback_mode` matches actual recovery requirements.
+- [ ] Use `database-restore` until an end-to-end test proves that both the previous and target images can safely use the same schema; the current updater restores the matching database backup during rollback.
 - [ ] `advisory_url` is set for a published security advisory or is `null`.
 - [ ] Frontend and backend report the intended release version.
 
@@ -261,6 +270,8 @@ Documentation:
 ## 10. Publish the public GitHub release
 
 Release tags are published from `/home/ali/Desktop/crane-oss` only. Do not tag the private repository unless its release workflow is deliberately disabled or changed, because its workflow targets the same public GHCR image names.
+
+Pushing the tag triggers immediate image publication and GitHub Release creation; it is the production release action, not a harmless preparation step. Have the approved release-note text ready before pushing the tag. The workflow currently generates notes automatically, so review and replace them with the approved notes before notifying users.
 
 - [ ] Confirm public `main` is clean, current, reviewed, and green:
 
@@ -334,6 +345,7 @@ Before deployment:
 
 - [ ] Confirm the private commit recorded above contains the same intended application changes as the public release.
 - [ ] Create and verify a Render PostgreSQL backup; export retained artifacts separately if they are not in managed persistent storage.
+- [ ] Record the exact Render recovery point, backup identifier, previous backend/frontend deploy IDs, measured restore time, and named rollback operator.
 - [ ] Confirm the Render PostgreSQL major version is listed in the release manifest.
 - [ ] Review all Render environment variables without copying secret values into tickets or logs.
 - [ ] Set `BACKEND_ENVIRONMENT=production`, `BACKEND_DEBUG=false`, and `BACKEND_APP_VERSION=X.Y.Z`.
@@ -344,6 +356,8 @@ Before deployment:
 
 Deployment:
 
+- [ ] Block new application writes at the Render ingress/application layer and allow in-flight requests and background jobs to drain before the final backup or migration.
+- [ ] Keep the application unavailable throughout any incompatible migration; do not rely on a rolling deployment across incompatible schemas.
 - [ ] Run the migration against the Render database from the exact release commit in a controlled job.
 - [ ] Deploy the backend from the recorded private commit.
 - [ ] Deploy the frontend with `VITE_APP_VERSION=X.Y.Z` and the correct `VITE_API_BASE_URL`.
@@ -369,6 +383,7 @@ Render rollback:
 - [ ] Notify administrators that the release is available, including severity, required action, expected downtime, compatibility, and rollback guidance.
 - [ ] Roll out to a canary installation first.
 - [ ] Confirm the in-app notification appears and links to the correct notes/advisory.
+- [ ] If the release changes host-managed files, set automation off and have the administrator update the public checkout with `git pull --ff-only`, verify the expected public commit, review configuration changes, and run Compose validation before `./crane-update apply`.
 - [ ] For manual rollout, run `./crane-update check` and `./crane-update apply` from the installation directory.
 - [ ] Confirm `CRANE_BACKUP_COPY_DIR` is mounted, writable, encrypted, monitored, and independent of the application host before running `apply`.
 - [ ] Enable automatic rollout only when the manifest explicitly allows it and the administrator selected an automatic policy.

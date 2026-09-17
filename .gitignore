@@ -30,6 +30,7 @@ docs/.docusaurus/
 # Generated files
 sbom*.json
 PentestReport.md
+pentest-report.md
 
 # Claude internal data
 .claude/

@@ -122,7 +122,7 @@
 import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
-import { changePasswordRequest } from "@/services/auth-service";
+import { changePasswordRequest, fetchCurrentUser, loginRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/stores/auth";
 import AppLogo from "@/components/AppLogo.vue";
 import { PASSWORD_HINT, passwordPolicyError } from "@/utils/passwordPolicy";
@@ -155,13 +155,18 @@ async function handleSubmit(): Promise<void> {
 
   loading.value = true;
   try {
+    const email = authStore.user?.email ?? "";
     await changePasswordRequest({
       current_password: currentPassword.value,
       new_password:     newPassword.value,
     });
 
-    // Clear the forced-change flag in the local store so the guard passes.
-    authStore.updateUser({ must_change_password: false });
+    // Password changes invalidate every existing token. Replace this session's
+    // stale pair immediately so the first protected request does not log the user out.
+    authStore.clearAuthState();
+    const tokens = await loginRequest({ email, password: newPassword.value });
+    const user = await fetchCurrentUser(tokens.access_token);
+    authStore.login(tokens.access_token, tokens.refresh_token, user);
 
     await router.push({ name: "dashboard" });
   } catch (err: unknown) {

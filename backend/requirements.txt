@@ -17,5 +17,3 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.20
 SQLAlchemy==2.0.38
 uvicorn[standard]==0.34.0
-pytest==8.3.4
-pytest-asyncio==0.25.3
