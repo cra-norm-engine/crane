@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 args=" $* "
-if [[ "${FAKE_DOCKER_FAIL_RESTORE_VERIFY:-}" == true && "$args" == *"backup-verify pg_restore"* ]]; then
+if [[ "$args" == *" up -d postgres "* ]]; then
+  exit 1
+elif [[ "${FAKE_DOCKER_FAIL_RESTORE_VERIFY:-}" == true && "$args" == *"backup-verify pg_restore"* ]]; then
   exit 1
 elif [[ "$args" == *"show server_version_num"* ]]; then
   printf '160000\n'

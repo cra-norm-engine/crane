@@ -301,7 +301,7 @@ restore_backup() {
   info "Rolling back from $source"
   compose stop -t 60 frontend backend >/dev/null 2>&1 || true
   cp "$source/environment" "$ENV_FILE"; chmod 600 "$ENV_FILE"
-  compose up -d postgres
+  compose up -d --wait postgres
   local db_user db_name
   db_user="$(env_get POSTGRES_USER || true)"; db_user="${db_user:-postgres}"
   db_name="$(env_get POSTGRES_DB || true)"; db_name="${db_name:-cra_compliance}"
@@ -383,7 +383,7 @@ install_initial() {
   mkdir -p "$ROOT_DIR/data/artifacts" "$DATA_DIR" "$BACKUP_DIR"
   env_set_many "CRANE_VERSION=$target" "BACKEND_IMAGE=$backend" "FRONTEND_IMAGE=$frontend"
   compose pull backend frontend
-  compose up -d postgres
+  compose up -d --wait postgres
   check_compatibility
   compose --profile tools run --rm migrate
   compose up -d backend frontend
