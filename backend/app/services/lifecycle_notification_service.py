@@ -42,12 +42,14 @@ class LifecycleNotificationService:
         *,
         status: LifecycleNotificationStatus | None = None,
         support_period_record_id: UUID | None = None,
+        third_party_component_id: UUID | None = None,
         notification_type: LifecycleNotificationType | None = None,
         recipient_user_id: UUID | None = None,
     ) -> list[LifecycleNotificationRead]:
         notifications = self.repository.list_all(
             status=status,
             support_period_record_id=support_period_record_id,
+            third_party_component_id=third_party_component_id,
             notification_type=notification_type,
             recipient_user_id=recipient_user_id,
         )
@@ -128,7 +130,98 @@ class LifecycleNotificationService:
                     self.db.rollback()
                     continue
 
-        if created_notifications:
+        superseded_component_alerts = False
+        from app.models.support_period_record import SupportPeriodRecord
+        from app.models.supplier_assessment import ThirdPartyComponent
+        from app.services.supplier_assessment_service import SupplierAssessmentService
+
+        gaps_by_component = {}
+        for gap in SupplierAssessmentService(self.db).component_support_gaps(today=effective_today):
+            if (
+                gap.component_support_end_date is None
+                or gap.product_support_end_date is None
+                or gap.product_support_end_date < effective_today
+            ):
+                continue
+            component = self.db.get(ThirdPartyComponent, gap.component_id)
+            if component is None or (gap.days_until_eos or 0) > component.support_notify_before_days:
+                continue
+            gaps_by_component.setdefault(gap.component_id, []).append(gap)
+
+        for component_id, gaps in gaps_by_component.items():
+            component = self.db.get(ThirdPartyComponent, component_id)
+            if component is None or component.support_end_date is None:
+                continue
+            for stale in self.repository.list_all(third_party_component_id=component_id):
+                if (
+                    stale.status == LifecycleNotificationStatus.pending
+                    and stale.support_end_date_snapshot != component.support_end_date
+                ):
+                    stale.status = LifecycleNotificationStatus.dismissed
+                    stale.dismissed_at = datetime.now(UTC)
+                    superseded_component_alerts = True
+
+            recipient_ids = {component.supplier.owner_user_id} if component.supplier.owner_user_id else set()
+            for gap in gaps:
+                if not gap.support_period_record_id:
+                    continue
+                support = self.db.get(SupportPeriodRecord, gap.support_period_record_id)
+                if support:
+                    recipient_ids.update(item.user_id for item in support.notification_recipients)
+            if not recipient_ids and actor is not None and getattr(actor, "id", None):
+                recipient_ids.add(actor.id)
+            if not recipient_ids:
+                continue
+
+            scheduled_date = component.support_end_date - timedelta(days=component.support_notify_before_days)
+            scheduled_for = datetime.combine(scheduled_date, time.min, tzinfo=UTC)
+            affected = sorted({f"{gap.product_name} {gap.release_version}" for gap in gaps})
+            affected_text = ", ".join(affected[:5]) + (" and more" if len(affected) > 5 else "")
+            version = f" {component.version}" if component.version else ""
+            for recipient_user_id in recipient_ids:
+                existing = self.repository.get_by_component_and_type(
+                    third_party_component_id=component.id,
+                    notification_type=LifecycleNotificationType.component_end_of_support_upcoming,
+                    recipient_user_id=recipient_user_id,
+                    support_end_date_snapshot=component.support_end_date,
+                )
+                if existing is not None:
+                    continue
+                notification = LifecycleNotification(
+                    support_period_record_id=None,
+                    security_update_id=None,
+                    third_party_component_id=component.id,
+                    support_end_date_snapshot=component.support_end_date,
+                    recipient_user_id=recipient_user_id,
+                    notification_type=LifecycleNotificationType.component_end_of_support_upcoming,
+                    status=LifecycleNotificationStatus.pending,
+                    scheduled_for=scheduled_for,
+                    title=f"Component support ending — {component.name}{version}",
+                    message=(
+                        f"Upstream support ends on {component.support_end_date.isoformat()}. "
+                        f"Affected product releases: {affected_text}. Review replacement, extended support, "
+                        "isolation, or internal maintenance before the finished-product support obligation is affected."
+                    ),
+                )
+                self.repository.add(notification)
+                created_notifications.append(notification)
+                create_audit_event(
+                    self.db,
+                    actor_user_id=getattr(actor, "id", None) if actor is not None else None,
+                    action_type=AuditActionType.notify,
+                    entity_type=EntityType.lifecycle_notification,
+                    entity_id=notification.id,
+                    status=AuditStatus.success,
+                    details_json={
+                        "third_party_component_id": str(component.id),
+                        "support_end_date": component.support_end_date.isoformat(),
+                        "recipient_user_id": str(recipient_user_id),
+                        "affected_release_count": len(affected),
+                        "notification_type": notification.notification_type.value,
+                    },
+                )
+
+        if created_notifications or superseded_component_alerts:
             self.db.commit()
             for notification in created_notifications:
                 self.db.refresh(notification)
@@ -222,7 +315,7 @@ class LifecycleNotificationService:
                         "security_update_id": str(su.id),
                         "product_id": str(product.id),
                         "product_release_id": str(release.id),
-                        "recipient_user_id": str(recipient.user_id),
+                        "recipient_user_id": str(user_id),
                         "notification_type": notif.notification_type.value,
                     },
                 )

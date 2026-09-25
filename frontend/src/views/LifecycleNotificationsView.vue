@@ -11,7 +11,7 @@
       <div>
         <h1 class="page-title">Lifecycle alerts</h1>
         <p class="muted page-subtitle">
-          Run End of Support (EOS) analysis from active support periods and review products nearing end of support.
+          Review product and supplier-component support coverage, upcoming EOS, and lifecycle notifications.
         </p>
       </div>
 
@@ -111,6 +111,10 @@
         <p class="muted stat-label">Expired</p>
         <strong class="stat-value">{{ expiredCount }}</strong>
       </article>
+      <article class="card stat-card">
+        <p class="muted stat-label">Component support risks</p>
+        <strong class="stat-value">{{ componentRiskRows.length }}</strong>
+      </article>
     </section>
 
     <div v-if="errorMessage" class="card feedback feedback-error">
@@ -188,24 +192,30 @@
       </div>
     </section>
 
-    <!-- Security update alerts -->
+    <section class="card">
+      <div class="section-header"><div><h2 class="section-title">Third-party component support coverage</h2><p class="muted">Compares upstream component EOS with the support obligation for every product release using it. Component EOS is a risk input and does not alter the product support period.</p></div></div>
+      <div v-if="isLoading" class="empty-panel">Loading component support coverage…</div>
+      <div v-else-if="componentSupportRows.length === 0" class="empty-panel">No product releases are linked to registered supplier components.</div>
+      <div v-else class="table-wrapper"><table class="data-table"><thead><tr><th>Component</th><th>Product release</th><th>Component EOS</th><th>Product EOS</th><th>Coverage</th></tr></thead><tbody><tr v-for="row in componentSupportRows" :key="row.link_id"><td><div class="product-cell"><RouterLink :to="{name:'third-party-component-detail',params:{componentId:row.component_id}}"><strong>{{ row.component_name }} {{ row.component_version || '' }}</strong></RouterLink><p class="muted">{{ row.supplier_name }}</p></div></td><td><div class="product-cell"><RouterLink :to="{name:'product-detail',params:{productId:row.product_id}}"><strong>{{ row.product_name }}</strong></RouterLink><p class="muted">{{ row.release_version }} · {{ row.criticality }}<template v-if="row.is_core_function"> · core function</template></p></div></td><td>{{ row.component_support_end_date ? formatDate(row.component_support_end_date) : 'Unknown' }}</td><td>{{ row.product_support_end_date ? formatDate(row.product_support_end_date) : 'Not defined' }}</td><td><span class="badge" :class="componentStatusClass(row.severity)">{{ formatComponentStatus(row.status) }}</span><p v-if="row.support_gap_days" class="muted small-text">{{ row.support_gap_days }} uncovered day(s)</p></td></tr></tbody></table></div>
+    </section>
+
+    <!-- Lifecycle notification queue -->
     <section class="card">
       <div class="section-header">
         <div>
-          <h2 class="section-title">Security update alerts</h2>
+          <h2 class="section-title">Lifecycle notification queue</h2>
           <p class="muted">
-            Alerts generated automatically when a security update is published for a product
-            with an active support period (CRA Annex I Part II §8).
+            Product EOS, upstream component EOS, and security-update alerts awaiting review or dispatch.
           </p>
         </div>
       </div>
 
-      <div v-if="isLoadingSecurityAlerts" class="empty-panel">
-        Loading security update alerts…
+      <div v-if="isLoadingLifecycleAlerts" class="empty-panel">
+        Loading lifecycle alerts…
       </div>
 
-      <div v-else-if="securityAlerts.length === 0" class="empty-panel">
-        No security update alerts. Alerts appear automatically when a security update is published for a product.
+      <div v-else-if="lifecycleAlerts.length === 0" class="empty-panel">
+        No lifecycle alerts. Run the EOS check or publish a security update to generate notifications.
       </div>
 
       <div v-else class="table-wrapper">
@@ -214,6 +224,7 @@
             <tr>
               <th>Status</th>
               <th>Alert</th>
+              <th>Source</th>
               <th>Details</th>
               <th>Created</th>
               <th>Actions</th>
@@ -221,7 +232,7 @@
           </thead>
 
           <tbody>
-            <tr v-for="alert in securityAlerts" :key="alert.id">
+            <tr v-for="alert in lifecycleAlerts" :key="alert.id">
               <td>
                 <span class="badge" :class="alertStatusClass(alert.status)">
                   {{ formatAlertStatus(alert.status) }}
@@ -237,6 +248,7 @@
                 </div>
               </td>
 
+              <td><RouterLink v-if="alert.third_party_component" :to="{name:'third-party-component-detail',params:{componentId:alert.third_party_component.id}}">{{ alert.third_party_component.name }} {{ alert.third_party_component.version || '' }}</RouterLink><span v-else>{{ formatNotificationType(alert.notification_type) }}</span></td>
               <td class="message-cell">{{ alert.message }}</td>
 
               <td>{{ formatDate(alert.created_at) }}</td>
@@ -273,11 +285,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { RouterLink } from "vue-router";
 import AppButton from "@/components/AppButton.vue";
 
 
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";
 import { productService } from "@/services/product-service";
+import { supplierAssessmentService } from "@/services/supplier-assessment-service";
 import { supportPeriodService } from "@/services/support-period-service";
 
 import type {
@@ -287,6 +301,7 @@ import type {
   ProductSummaryRead,
   SupportPeriodRecordRead,
 } from "@/types/product";
+import type { ComponentSupportGap } from "@/types/supplier-assessment";
 
 type ThresholdPreset = "" | "30" | "90" | "180" | "365" | "custom" | "expired";
 type EosStatus = "active" | "approaching_eos" | "expired";
@@ -300,6 +315,7 @@ type EosRow = {
 
 const products = ref<ProductSummaryRead[]>([]);
 const supportByProductId = ref<Record<string, SupportPeriodRecordRead | null>>({});
+const componentSupportRows = ref<ComponentSupportGap[]>([]);
 
 const isLoading = ref(false);
 const isRunningScheduler = ref(false);
@@ -307,8 +323,8 @@ const errorMessage = ref("");
 const successMessage = ref("");
 
 // Security update alerts
-const securityAlerts = ref<LifecycleNotificationRead[]>([]);
-const isLoadingSecurityAlerts = ref(false);
+const lifecycleAlerts = ref<LifecycleNotificationRead[]>([]);
+const isLoadingLifecycleAlerts = ref(false);
 const isActioning = ref(false);
 
 const filters = reactive({
@@ -443,6 +459,7 @@ const filteredRows = computed(() => {
 });
 
 const expiredCount = computed(() => eosRows.value.filter((row) => row.daysLeft < 0).length);
+const componentRiskRows = computed(() => componentSupportRows.value.filter((row) => row.status !== "covered"));
 
 function formatSupportStatus(value: EosStatus): string {
   switch (value) {
@@ -464,6 +481,20 @@ function supportStatusClass(value: EosStatus): string {
     case "expired":
       return "badge-danger";
   }
+}
+
+function formatComponentStatus(value: string): string {
+  return ({ unknown: "Support unknown", ended: "Support ended", gap: "Support gap", expiring: "EOS approaching", covered: "Covered" } as Record<string, string>)[value] ?? value;
+}
+
+function componentStatusClass(severity: string): string {
+  if (severity === "critical" || severity === "high") return "badge-danger";
+  if (severity === "medium") return "badge-warning";
+  return "badge-success";
+}
+
+function formatNotificationType(value: string): string {
+  return ({ end_of_support_upcoming: "Product EOS", component_end_of_support_upcoming: "Component EOS", security_update_available: "Security update" } as Record<string, string>)[value] ?? value;
 }
 
 function formatClassification(value: ProductClassification): string {
@@ -534,8 +565,12 @@ async function loadPageData(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    const loadedProducts = await productService.list();
+    const [loadedProducts, loadedComponentSupport] = await Promise.all([
+      productService.list(),
+      supplierAssessmentService.componentSupport(),
+    ]);
     products.value = loadedProducts;
+    componentSupportRows.value = loadedComponentSupport;
     await loadSupportPeriods(loadedProducts);
   } catch (error) {
     errorMessage.value =
@@ -559,6 +594,7 @@ async function runScheduler(): Promise<void> {
     successMessage.value = thresholdDays
       ? `EOS check completed for threshold ${thresholdDays} day(s). ${created.length} notification(s) created.`
       : `EOS check completed. ${created.length} notification(s) created.`;
+    await Promise.all([loadPageData(), loadLifecycleAlerts()]);
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "Failed to run EOS scheduling check.";
@@ -589,16 +625,14 @@ function formatAlertStatus(status: LifecycleNotificationStatus): string {
   }
 }
 
-async function loadSecurityUpdateAlerts(): Promise<void> {
-  isLoadingSecurityAlerts.value = true;
+async function loadLifecycleAlerts(): Promise<void> {
+  isLoadingLifecycleAlerts.value = true;
   try {
-    securityAlerts.value = await lifecycleNotificationService.list({
-      notification_type: "security_update_available",
-    });
+    lifecycleAlerts.value = await lifecycleNotificationService.list();
   } catch {
     // Non-fatal — EOS section still works independently.
   } finally {
-    isLoadingSecurityAlerts.value = false;
+    isLoadingLifecycleAlerts.value = false;
   }
 }
 
@@ -606,7 +640,7 @@ async function markAlertSent(notificationId: string): Promise<void> {
   isActioning.value = true;
   try {
     await lifecycleNotificationService.markSent(notificationId);
-    await loadSecurityUpdateAlerts();
+    await loadLifecycleAlerts();
   } catch {
     // Silently ignore — the alert list will not change.
   } finally {
@@ -618,7 +652,7 @@ async function dismissAlert(notificationId: string): Promise<void> {
   isActioning.value = true;
   try {
     await lifecycleNotificationService.dismiss(notificationId);
-    await loadSecurityUpdateAlerts();
+    await loadLifecycleAlerts();
   } catch {
     // Silently ignore — the alert list will not change.
   } finally {
@@ -628,7 +662,7 @@ async function dismissAlert(notificationId: string): Promise<void> {
 
 onMounted(() => {
   void loadPageData();
-  void loadSecurityUpdateAlerts();
+  void loadLifecycleAlerts();
 });
 </script>
 

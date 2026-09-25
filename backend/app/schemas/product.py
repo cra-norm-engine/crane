@@ -215,14 +215,8 @@ class ProductReleaseSummaryRead(BaseModel):
     @computed_field  # type: ignore
     @property
     def display_version(self) -> str:
-        """
-        Smart display:
-        - If user_version is set: "Spring 2026 (v2)"
-        - If not set: "v2"
-        """
-        if self.user_version:
-            return f"{self.user_version} (v{self.system_version})"
-        return f"v{self.system_version}"
+        """Display the commercial version, falling back for legacy releases."""
+        return self.user_version or f"v{self.system_version}"
 
 
 class RemoteProcessingElementSummaryRead(BaseModel):

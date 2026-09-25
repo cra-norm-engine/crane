@@ -339,7 +339,7 @@ def _assemble_journey(
             annex_undecided=annex_undecided,
             out_of_scope=out_of_scope,
         )
-        version = f"v{release.system_version}" if getattr(release, "system_version", None) else "—"
+        version = release.user_version or f"v{release.system_version}"
         release_status: str | None = str(release.release_status)
         release_id: UUID | None = release.id
     else:

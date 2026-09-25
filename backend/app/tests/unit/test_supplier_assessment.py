@@ -1,11 +1,21 @@
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 
 from app.models.enums import SupplierAssessmentStatus
-from app.schemas.supplier_assessment import AssessmentDecision, ComponentLinkUpdate, EvidenceLinkCreate, MaintainerNotificationUpdate
-from app.services.supplier_assessment_service import SupplierAssessmentService, match_registered_component
+from app.schemas.supplier_assessment import (
+    AssessmentDecision,
+    ComponentLinkUpdate,
+    EvidenceLinkCreate,
+    MaintainerNotificationUpdate,
+)
+from app.services.supplier_assessment_service import (
+    SupplierAssessmentService,
+    classify_component_support,
+    match_registered_component,
+)
 
 
 def test_only_draft_assessments_are_editable() -> None:
@@ -58,3 +68,19 @@ def test_component_correlation_requires_an_unambiguous_identity() -> None:
     ambiguous_db = SimpleNamespace(scalars=lambda _stmt: SimpleNamespace(all=lambda: [component, SimpleNamespace(id="component-2")]))
     assert match_registered_component(unique_db, "openssl", "3.0", "pkg:generic/openssl@3.0") is component
     assert match_registered_component(ambiguous_db, "openssl", "3.0", "pkg:generic/openssl@3.0") is None
+
+
+def test_component_support_classification_flags_product_coverage_gap() -> None:
+    status, severity, days_left, gap_days = classify_component_support(
+        date(2026, 8, 15), date(2027, 8, 15), 180, True, "high", date(2026, 3, 1)
+    )
+
+    assert (status, severity, days_left, gap_days) == ("gap", "high", 167, 365)
+    assert classify_component_support(None, date(2027, 8, 15), 180, False, "low", date(2026, 3, 1))[:2] == ("unknown", "medium")
+
+
+def test_component_support_dates_and_unknown_reason_are_validated() -> None:
+    with pytest.raises(ValueError, match="on or after"):
+        SupplierAssessmentService._validate_component_support(date(2027, 1, 1), date(2026, 1, 1), None)
+    with pytest.raises(ValueError, match="required"):
+        SupplierAssessmentService._validate_component_support(None, None, "")

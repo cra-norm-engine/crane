@@ -1,5 +1,5 @@
 import { apiClient } from "./api"
-import type { ComponentLink, ComponentTraceability, ComponentVulnerabilityTrace, MaintainerNotification, SbomMatchResult, Supplier, SupplierAssessment, ThirdPartyComponent } from "@/types/supplier-assessment"
+import type { ComponentLink, ComponentSupportGap, ComponentTraceability, ComponentVulnerabilityTrace, MaintainerNotification, SbomMatchResult, Supplier, SupplierAssessment, ThirdPartyComponent } from "@/types/supplier-assessment"
 
 export const supplierAssessmentService = {
   suppliers: (): Promise<Supplier[]> => apiClient.get("/supplier-assurance/suppliers").then(r => r.data),
@@ -13,6 +13,7 @@ export const supplierAssessmentService = {
   createNotification: (p:object): Promise<MaintainerNotification> => apiClient.post("/supplier-assurance/maintainer-notifications",p).then(r=>r.data),
   updateNotification: (id:string,p:object): Promise<MaintainerNotification> => apiClient.patch(`/supplier-assurance/maintainer-notifications/${id}`,p).then(r=>r.data),
   traceability: (params?:Record<string,string>): Promise<ComponentTraceability[]> => apiClient.get("/supplier-assurance/traceability",{params}).then(r=>r.data),
+  componentSupport: (params?:Record<string,string>): Promise<ComponentSupportGap[]> => apiClient.get("/supplier-assurance/component-support",{params}).then(r=>r.data),
   createLink: (p:object): Promise<ComponentLink> => apiClient.post("/supplier-assurance/component-links",p).then(r=>r.data),
   updateLink: (id:string,p:object): Promise<ComponentLink> => apiClient.patch(`/supplier-assurance/component-links/${id}`,p).then(r=>r.data),
   deleteLink: (id:string): Promise<void> => apiClient.delete(`/supplier-assurance/component-links/${id}`).then(()=>undefined),

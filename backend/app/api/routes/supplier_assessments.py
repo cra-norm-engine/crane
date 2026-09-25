@@ -38,6 +38,9 @@ def delete_component_link(entity_id:UUID,db:Session=Depends(get_db),user:User=De
 def links(product_release_id:UUID,db:Session=Depends(get_db),user:User=Depends(read_user())): return SupplierAssessmentService(db).list_links(product_release_id)
 @router.get("/traceability", response_model=list[ComponentTraceabilityRead])
 def traceability(supplier_id:UUID|None=Query(None),component_id:UUID|None=Query(None),product_id:UUID|None=Query(None),product_release_id:UUID|None=Query(None),db:Session=Depends(get_db),user:User=Depends(read_user())): return SupplierAssessmentService(db).traceability(supplier_id,component_id,product_id,product_release_id)
+@router.get("/component-support", response_model=list[ComponentSupportGapRead])
+def component_support(supplier_id:UUID|None=Query(None),component_id:UUID|None=Query(None),product_id:UUID|None=Query(None),product_release_id:UUID|None=Query(None),db:Session=Depends(get_db),user:User=Depends(read_user())): return SupplierAssessmentService(db).component_support_gaps(supplier_id,component_id,product_id,product_release_id)
+
 @router.get("/components/{component_id}/vulnerabilities", response_model=list[ComponentVulnerabilityTraceRead])
 def component_vulnerabilities(component_id:UUID,db:Session=Depends(get_db),user:User=Depends(read_user())): return SupplierAssessmentService(db).component_vulnerabilities(component_id)
 

@@ -9,6 +9,7 @@ from app.core.exceptions import NotFoundException
 from app.models.enums import AuditStatus, EntityType, SupplierAssessmentStatus
 from app.models.evidence_item import EvidenceItem
 from app.models.product import ProductRelease
+from app.models.support_period_record import SupportPeriodRecord
 from app.models.risk_item import RiskItem
 from app.models.sbom_record import SbomRecord
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
@@ -33,6 +34,26 @@ def match_registered_component(db: Session, name: str, version: str | None, purl
     return candidates[0] if len(candidates) == 1 else None
 
 
+def classify_component_support(component_end, product_end, notify_before_days, is_core, criticality, today=None):
+    """Return status, severity, days-to-EOS, and uncovered product-support days."""
+    effective_today = today or date.today()
+    priority = is_core or criticality == "high"
+    if component_end is None:
+        return "unknown", "high" if priority else "medium", None, None
+    days_until_eos = (component_end - effective_today).days
+    gap_days = (product_end - component_end).days if product_end and component_end < product_end else None
+    product_is_supported = product_end is not None and product_end >= effective_today
+    if product_is_supported and component_end < effective_today:
+        return "ended", "critical", days_until_eos, gap_days
+    if product_is_supported and gap_days:
+        return "gap", "high" if priority else "medium", days_until_eos, gap_days
+    if days_until_eos < 0:
+        return "ended", "low", days_until_eos, gap_days
+    if days_until_eos <= notify_before_days:
+        return "expiring", "medium", days_until_eos, gap_days
+    return "covered", "low", days_until_eos, gap_days
+
+
 class SupplierAssessmentService:
     def __init__(self, db: Session): self.db, self.repo = db, SupplierAssessmentRepository(db)
     def _audit(self, actor_id, entity_type, entity_id, action, details=None):
@@ -42,6 +63,13 @@ class SupplierAssessmentService:
     @staticmethod
     def _editable(a):
         if a.status != SupplierAssessmentStatus.draft: raise ValueError("Only draft assessments can be edited")
+    @staticmethod
+    def _validate_component_support(start, end, unknown_reason):
+        if start and end and end < start:
+            raise ValueError("support_end_date must be on or after support_start_date")
+        if end is None and not (unknown_reason or "").strip():
+            raise ValueError("support_unknown_reason is required when support end is unknown")
+
 
     def list_suppliers(self): return [SupplierRead.model_validate(x) for x in self.repo.suppliers()]
     def create_supplier(self, p: SupplierCreate, actor_id):
@@ -53,10 +81,20 @@ class SupplierAssessmentService:
 
     def list_components(self, supplier_id=None): return [ComponentRead.model_validate(x) for x in self.repo.components(supplier_id)]
     def create_component(self, p: ComponentCreate, actor_id):
-        self.repo.supplier(p.supplier_id); x=ThirdPartyComponent(**p.model_dump()); self.db.add(x); self.db.flush(); self._audit(actor_id,EntityType.third_party_component,x.id,"create"); return ComponentRead.model_validate(self._commit(x))
+        self.repo.supplier(p.supplier_id)
+        data = p.model_dump()
+        self._validate_component_support(data["support_start_date"], data["support_end_date"], data["support_unknown_reason"])
+        data.update(support_verified_at=datetime.now(UTC), support_verified_by_user_id=actor_id)
+        x = ThirdPartyComponent(**data)
+        self.db.add(x); self.db.flush(); self._audit(actor_id, EntityType.third_party_component, x.id, "create")
+        return ComponentRead.model_validate(self._commit(x))
     def update_component(self, entity_id, p: ComponentUpdate, actor_id):
         x = self.repo.component(entity_id)
         changes = p.model_dump(exclude_unset=True)
+        support_fields = {"support_start_date", "support_end_date", "support_basis", "support_scope", "support_reference_url", "support_notify_before_days", "support_unknown_reason"}
+        if support_fields & changes.keys():
+            self._validate_component_support(changes.get("support_start_date", x.support_start_date), changes.get("support_end_date", x.support_end_date), changes.get("support_unknown_reason", x.support_unknown_reason))
+            changes.update(support_verified_at=datetime.now(UTC), support_verified_by_user_id=actor_id)
         for key, value in changes.items(): setattr(x, key, value)
         if changes:
             self._trigger_reassessment(x.supplier_id, x.id, "Component identity, support, or update information changed")
@@ -171,6 +209,16 @@ class SupplierAssessmentService:
     def list_links(self, release_id):
         return [ComponentLinkRead.model_validate(x) for x in self.db.scalars(select(ProductComponentLink).where(ProductComponentLink.product_release_id==release_id)).all()]
 
+    def _active_support(self, product_id, release_id):
+        exact = self.db.scalar(select(SupportPeriodRecord).where(
+            SupportPeriodRecord.product_release_id == release_id, SupportPeriodRecord.is_active.is_(True)
+        ).order_by(SupportPeriodRecord.created_at.desc()).limit(1))
+        return exact or self.db.scalar(select(SupportPeriodRecord).where(
+            SupportPeriodRecord.product_id == product_id,
+            SupportPeriodRecord.product_release_id.is_(None),
+            SupportPeriodRecord.is_active.is_(True),
+        ).order_by(SupportPeriodRecord.created_at.desc()).limit(1))
+
     def traceability(self, supplier_id=None, component_id=None, product_id=None, release_id=None):
         from app.models.product import Product
         stmt = (select(ProductComponentLink, ThirdPartyComponent, Supplier, ProductRelease, Product)
@@ -192,6 +240,12 @@ class SupplierAssessmentService:
             notices = self.db.scalar(select(func.count()).select_from(ComponentMaintainerNotification).where(
                 ComponentMaintainerNotification.component_id == component.id)) or 0
             sbom = self.db.get(SbomRecord, link.sbom_record_id) if link.sbom_record_id else None
+            support = self._active_support(product.id, release.id)
+            support_end = support.support_end_date if support else None
+            support_status, support_severity, _, support_gap_days = classify_component_support(
+                component.support_end_date, support_end, component.support_notify_before_days,
+                link.is_core_function, link.criticality,
+            )
             result.append(ComponentTraceabilityRead.model_validate({
                 **ComponentLinkRead.model_validate(link).model_dump(),
                 "supplier_id": supplier.id, "supplier_name": supplier.name,
@@ -204,8 +258,38 @@ class SupplierAssessmentService:
                 "assessment_valid_until": assessment.valid_until if assessment else None,
                 "reassessment_required": assessment.reassessment_required if assessment else False,
                 "maintainer_notification_count": notices,
+                "support_period_record_id": support.id if support else None,
+                "component_support_end_date": component.support_end_date,
+                "product_support_end_date": support_end,
+                "component_support_status": support_status,
+                "component_support_severity": support_severity,
+                "support_gap_days": support_gap_days,
             }))
         return result
+    def component_support_gaps(self, supplier_id=None, component_id=None, product_id=None, release_id=None, today=None):
+        effective_today = today or date.today()
+        result = []
+        for row in self.traceability(supplier_id, component_id, product_id, release_id):
+            component = self.repo.component(row.component_id)
+            supplier = self.repo.supplier(row.supplier_id)
+            status, severity, days_until_eos, support_gap_days = classify_component_support(
+                row.component_support_end_date, row.product_support_end_date,
+                component.support_notify_before_days, row.is_core_function, row.criticality, effective_today,
+            )
+            result.append(ComponentSupportGapRead(
+                link_id=row.id, component_id=row.component_id, component_name=row.component_name,
+                component_version=row.component_version, supplier_id=row.supplier_id,
+                supplier_name=row.supplier_name, supplier_owner_user_id=supplier.owner_user_id,
+                product_id=row.product_id, product_name=row.product_name,
+                product_release_id=row.product_release_id, release_version=row.release_version,
+                support_period_record_id=row.support_period_record_id,
+                component_support_end_date=row.component_support_end_date,
+                product_support_end_date=row.product_support_end_date, status=status, severity=severity,
+                days_until_eos=days_until_eos, support_gap_days=support_gap_days,
+                is_core_function=row.is_core_function, criticality=row.criticality,
+            ))
+        return result
+
 
     def component_vulnerabilities(self, component_id):
         from app.models.product import Product

@@ -478,6 +478,7 @@ const TypeIcon = defineComponent({
         release_gate_item:    "M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
         risk_item:            "M4 4h12v12H4zM8 8h4M8 11h4M8 14h2",
         eos_alert:            "M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3M10 6.5v3.5l2.5 1.5",
+        component_eos_alert:  "M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3M10 6.5v3.5l2.5 1.5",
         manual_task:          "M4 4h12v12H4zM7 8h6M7 11h4",
       };
       const d = paths[props.type ?? ""] ?? paths.risk_item;
@@ -805,6 +806,11 @@ function navigateToTask(task: TaskItem): void {
         ? { name: "product-detail", params: { productId: task.parent_id } }
         : { name: "products" });
       break;
+    case "component_eos_alert":
+      router.push(task.parent_id
+        ? { name: "third-party-component-detail", params: { componentId: task.parent_id } }
+        : { name: "supplier-assurance" });
+      break;
     case "supplier_reassessment":
       router.push({ name: "supplier-assessment-detail", params: { assessmentId: task.entity_id } });
       break;
@@ -827,6 +833,7 @@ function formatEntityType(type: string): string {
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
+    component_eos_alert: "Component EOS",
     supplier_reassessment: "Supplier reassessment",
     maintainer_notification: "Maintainer notice",
     manual_task:         "Task",
@@ -1246,6 +1253,7 @@ function assigneeAvatar(task: TaskItem): string | null {
 .tp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .tp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .tp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.tp-component_eos_alert  { background: var(--color-danger-bg); color: var(--color-danger-text); }
 
 /* ── Title cell ───────────────────────────────────────────────────────────── */
 .tt-wrap { min-width: 0; }

@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -22,11 +22,21 @@ class LifecycleNotificationRecipientRead(ORMBaseModel):
     email: str
 
 
+class LifecycleNotificationComponentRead(ORMBaseModel):
+    id: UUID
+    supplier_id: UUID
+    name: str
+    version: str | None
+    support_end_date: date | None
+
+
 class LifecycleNotificationBase(BaseModel):
     # Nullable: set for EOS alerts, None for security update alerts.
     support_period_record_id: UUID | None = None
     # Nullable: set for security update alerts, None for EOS alerts.
     security_update_id: UUID | None = None
+    third_party_component_id: UUID | None = None
+    support_end_date_snapshot: date | None = None
     recipient_user_id: UUID | None = None
     notification_type: LifecycleNotificationType
     status: LifecycleNotificationStatus
@@ -42,6 +52,7 @@ class LifecycleNotificationRead(LifecycleNotificationBase):
 
     id: UUID
     recipient_user: LifecycleNotificationRecipientRead | None = None
+    third_party_component: LifecycleNotificationComponentRead | None = None
     created_at: datetime
     updated_at: datetime
 

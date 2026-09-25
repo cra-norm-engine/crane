@@ -555,6 +555,7 @@
                       <strong>{{ notifProduct(notif)!.name }}</strong>
                       <code class="muted">{{ notifProduct(notif)!.product_code }}</code>
                     </span>
+                    <RouterLink v-else-if="notif.third_party_component" :to="{name:'third-party-component-detail',params:{componentId:notif.third_party_component.id}}"><strong>{{ notif.third_party_component.name }} {{ notif.third_party_component.version || '' }}</strong><code class="muted">Third-party component</code></RouterLink>
                     <span v-else class="muted">—</span>
                   </div>
                   <strong class="notif-title">{{ notif.title }}</strong>
@@ -641,7 +642,7 @@
               <select v-model="maForm.product_release_id" class="select" :disabled="!!editingMarketAction">
                 <option value="">— select release —</option>
                 <option v-for="rel in allReleases" :key="rel.id" :value="rel.id">
-                  {{ productById[rel.product_id]?.name ?? rel.product_id.slice(0, 8) }} — v{{ rel.display_version }}
+                  {{ productById[rel.product_id]?.name ?? rel.product_id.slice(0, 8) }} — {{ rel.display_version }}
                   ({{ rel.release_status }})
                 </option>
               </select>
@@ -715,7 +716,7 @@
                     <strong>
                       {{ productById[ma.product_release?.product_id ?? '']?.name ?? '—' }}
                     </strong>
-                    <code class="muted">v{{ ma.product_release?.display_version ?? '?' }}</code>
+                    <code class="muted">{{ ma.product_release?.display_version ?? '?' }}</code>
                   </div>
                 </td>
 
@@ -808,6 +809,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { RouterLink } from "vue-router";
 
 import AppButton from "@/components/AppButton.vue";
 import { lifecycleNotificationService } from "@/services/lifecycle-notification-service";

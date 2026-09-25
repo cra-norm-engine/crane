@@ -426,7 +426,7 @@ export type SecurityUpdateSeverity =
   | "low"
   | "informational";
 
-export type LifecycleNotificationType = "end_of_support_upcoming" | "security_update_available";
+export type LifecycleNotificationType = "end_of_support_upcoming" | "component_end_of_support_upcoming" | "security_update_available";
 
 export type LifecycleNotificationStatus = "pending" | "sent" | "dismissed";
 
@@ -1124,6 +1124,8 @@ export interface LifecycleNotificationRead {
   id: string;
   support_period_record_id: string | null;
   security_update_id: string | null;
+  third_party_component_id: string | null;
+  support_end_date_snapshot: string | null;
   recipient_user_id: string | null;
   notification_type: LifecycleNotificationType;
   status: LifecycleNotificationStatus;
@@ -1132,6 +1134,7 @@ export interface LifecycleNotificationRead {
   dismissed_at: string | null;
   title: string;
   message: string;
+  third_party_component: { id: string; supplier_id: string; name: string; version: string | null; support_end_date: string | null } | null;
   recipient_user: {
     id: string;
     full_name: string;

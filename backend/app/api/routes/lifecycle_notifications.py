@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -32,6 +31,7 @@ router = APIRouter()
 def list_lifecycle_notifications(
     status: LifecycleNotificationStatus | None = Query(default=None),
     support_period_record_id: UUID | None = Query(default=None),
+    third_party_component_id: UUID | None = Query(default=None),
     notification_type: LifecycleNotificationType | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions_dependency(Permission.lifecycle_notification_read)),
@@ -39,6 +39,7 @@ def list_lifecycle_notifications(
     return LifecycleNotificationService(db).list_notifications(
         status=status,
         support_period_record_id=support_period_record_id,
+        third_party_component_id=third_party_component_id,
         notification_type=notification_type,
         recipient_user_id=current_user.id,
     )

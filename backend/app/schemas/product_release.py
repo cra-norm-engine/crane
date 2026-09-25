@@ -126,11 +126,5 @@ class ProductReleaseRead(ProductReleaseBase):
     @computed_field  # type: ignore
     @property
     def display_version(self) -> str:
-        """
-        Smart display:
-        - If user_version is set: "Spring 2026 (v2)"
-        - If not set: "v2"
-        """
-        if self.user_version:
-            return f"{self.user_version} ({self.system_version_label})"
-        return self.system_version_label
+        """Display the commercial version, falling back for legacy releases."""
+        return self.user_version or self.system_version_label

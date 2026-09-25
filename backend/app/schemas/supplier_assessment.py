@@ -45,6 +45,12 @@ class ComponentCreate(BaseModel):
     purl: str | None = Field(default=None, max_length=1024)
     cpe: str | None = Field(default=None, max_length=1024)
     part_number: str | None = Field(default=None, max_length=255)
+    support_start_date: date | None = None
+    support_basis: str | None = Field(default=None, max_length=40)
+    support_scope: str | None = None
+    support_reference_url: str | None = Field(default=None, max_length=2048)
+    support_notify_before_days: int = Field(default=180, ge=1, le=3650)
+    support_unknown_reason: str | None = None
     support_end_date: date | None = None
     update_channel: str | None = Field(default=None, max_length=2048)
     notes: str | None = None
@@ -52,8 +58,10 @@ class ComponentCreate(BaseModel):
 
 class ComponentRead(TimestampedRead):
     supplier_id: UUID; name: str; version: str | None; component_type: str; purl: str | None
-    cpe: str | None; part_number: str | None; support_end_date: date | None; update_channel: str | None; notes: str | None
-
+    cpe: str | None; part_number: str | None; support_start_date: date | None; support_end_date: date | None
+    support_basis: str | None; support_scope: str | None; support_reference_url: str | None
+    support_verified_at: datetime | None; support_verified_by_user_id: UUID | None
+    support_notify_before_days: int; support_unknown_reason: str | None; update_channel: str | None; notes: str | None
 
 class ComponentUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
@@ -62,6 +70,12 @@ class ComponentUpdate(BaseModel):
     purl: str | None = Field(default=None, max_length=1024)
     cpe: str | None = Field(default=None, max_length=1024)
     part_number: str | None = Field(default=None, max_length=255)
+    support_start_date: date | None = None
+    support_basis: str | None = Field(default=None, max_length=40)
+    support_scope: str | None = None
+    support_reference_url: str | None = Field(default=None, max_length=2048)
+    support_notify_before_days: int | None = Field(default=None, ge=1, le=3650)
+    support_unknown_reason: str | None = None
     support_end_date: date | None = None
     update_channel: str | None = Field(default=None, max_length=2048)
     notes: str | None = None
@@ -92,6 +106,32 @@ class ComponentTraceabilityRead(ComponentLinkRead):
     sbom_file_name: str | None; assessment_id: UUID | None; assessment_status: str | None
     assessment_valid_until: date | None; reassessment_required: bool
     maintainer_notification_count: int
+    support_period_record_id: UUID | None; component_support_end_date: date | None
+    product_support_end_date: date | None; component_support_status: str
+    component_support_severity: str; support_gap_days: int | None
+
+
+class ComponentSupportGapRead(BaseModel):
+    link_id: UUID
+    component_id: UUID
+    component_name: str
+    component_version: str | None
+    supplier_id: UUID
+    supplier_name: str
+    supplier_owner_user_id: UUID | None
+    product_id: UUID
+    product_name: str
+    product_release_id: UUID
+    release_version: str
+    support_period_record_id: UUID | None
+    component_support_end_date: date | None
+    product_support_end_date: date | None
+    status: str
+    severity: str
+    days_until_eos: int | None
+    support_gap_days: int | None
+    is_core_function: bool
+    criticality: str
 
 
 class ComponentVulnerabilityTraceRead(BaseModel):

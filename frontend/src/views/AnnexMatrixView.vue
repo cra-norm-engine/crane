@@ -72,7 +72,7 @@
           >
             <option value="">Choose a release</option>
             <option v-for="rel in productReleases" :key="rel.id" :value="rel.id">
-              v{{ rel.display_version }} · {{ formatLabel(rel.release_status) }}
+              {{ rel.display_version }} · {{ formatLabel(rel.release_status) }}
             </option>
           </select>
         </label>
@@ -85,7 +85,7 @@
         <div>
           <h2 class="section-title">{{ selectedProduct.name }}</h2>
           <p class="muted">
-            v{{ selectedRelease?.display_version }} ·
+            {{ selectedRelease?.display_version }} ·
             {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
             {{ stats.finalized }} finalized · {{ stats.notFinalized }} remaining
           </p>

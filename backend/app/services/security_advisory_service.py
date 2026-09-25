@@ -42,11 +42,9 @@ class SecurityAdvisoryService:
         """Build a release ref, computing display_version like the release schema."""
         user_version = getattr(release, "user_version", None)
         system_version = getattr(release, "system_version", None)
-        version_label = f"v{system_version}"
-        display_version = f"{user_version} ({version_label})" if user_version else version_label
         return AdvisoryReleaseRef(
             id=release.id,
-            display_version=display_version,
+            display_version=user_version or f"v{system_version}",
             release_status=str(getattr(release, "release_status", "")),
         )
 

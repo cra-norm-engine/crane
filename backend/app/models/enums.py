@@ -331,6 +331,7 @@ class SecurityUpdateSeverity(StrEnum):
 
 class LifecycleNotificationType(StrEnum):
     end_of_support_upcoming = "end_of_support_upcoming"
+    component_end_of_support_upcoming = "component_end_of_support_upcoming"
     security_update_available = "security_update_available"
 
 

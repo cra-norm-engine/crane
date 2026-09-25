@@ -8,13 +8,20 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import LifecycleNotificationStatus, LifecycleNotificationType
+
+if TYPE_CHECKING:
+    from app.models.security_update import SecurityUpdate
+    from app.models.supplier_assessment import ThirdPartyComponent
+    from app.models.support_period_record import SupportPeriodRecord
+    from app.models.user import User
 
 
 class LifecycleNotification(UUIDTimestampMixin, Base):
@@ -39,6 +46,15 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
             unique=True,
             postgresql_where=text("security_update_id IS NOT NULL"),
         ),
+        Index(
+            "uq_lifecycle_notif_component_eos",
+            "third_party_component_id",
+            "notification_type",
+            "recipient_user_id",
+            "support_end_date_snapshot",
+            unique=True,
+            postgresql_where=text("third_party_component_id IS NOT NULL"),
+        ),
     )
 
     # Nullable: set for EOS notifications, NULL for security update notifications.
@@ -53,6 +69,10 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
         nullable=True,
         index=True,
     )
+    third_party_component_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("third_party_components.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    support_end_date_snapshot: Mapped[date | None] = mapped_column(nullable=True)
     recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -81,6 +101,9 @@ class LifecycleNotification(UUIDTimestampMixin, Base):
     )
     security_update: Mapped["SecurityUpdate | None"] = relationship(
         "SecurityUpdate",
+    )
+    third_party_component: Mapped["ThirdPartyComponent | None"] = relationship(
+        "ThirdPartyComponent",
     )
     recipient_user: Mapped["User | None"] = relationship(
         "User",

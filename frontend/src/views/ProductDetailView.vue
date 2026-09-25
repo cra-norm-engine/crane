@@ -132,7 +132,7 @@
       <section v-if="authStore.hasPermission('supplier_assessment_read')" id="supply-chain" class="card supply-chain-card">
         <div class="section-header"><div><h2 class="section-title" data-guide="supply-chain">Supply-chain traceability</h2><p class="muted section-sub">Suppliers and third-party components included across this product's releases.</p></div><RouterLink :to="{name:'supplier-assurance'}" class="btn btn-secondary btn-compact">Open supplier assurance</RouterLink></div>
         <div v-if="!productTraceability.length" class="muted">No supplied components are linked to this product.</div>
-        <div v-else class="supply-chain-list"><div v-for="row in productTraceability" :key="row.id" class="supply-chain-row"><div><RouterLink :to="{name:'supplier-assurance',query:{supplierId:row.supplier_id,tab:'traceability'}}" class="supply-chain-supplier">{{ row.supplier_name }}</RouterLink><RouterLink :to="{name:'third-party-component-detail',params:{componentId:row.component_id}}"><strong>{{ row.component_name }} {{ row.component_version||'' }}</strong></RouterLink></div><div><RouterLink :to="{name:'release-gate',params:{releaseId:row.product_release_id}}">{{ row.release_version }}</RouterLink><span>{{ row.is_direct?'Direct':'Transitive' }} · {{ row.criticality }} criticality</span></div><div><span>{{ row.sbom_file_name||'Manual link' }}</span><RouterLink v-if="row.assessment_id" :to="{name:'supplier-assessment-detail',params:{assessmentId:row.assessment_id}}" :class="{'trace-gap':row.reassessment_required}">{{ row.reassessment_required?'Reassessment required':formatReleaseStatus(row.assessment_status||'') }}</RouterLink><span v-else class="trace-gap">Assessment missing</span></div></div></div>
+        <div v-else class="supply-chain-list"><div v-for="row in productTraceability" :key="row.id" class="supply-chain-row"><div><RouterLink :to="{name:'supplier-assurance',query:{supplierId:row.supplier_id,tab:'traceability'}}" class="supply-chain-supplier">{{ row.supplier_name }}</RouterLink><RouterLink :to="{name:'third-party-component-detail',params:{componentId:row.component_id}}"><strong>{{ row.component_name }} {{ row.component_version||'' }}</strong></RouterLink></div><div><RouterLink :to="{name:'release-gate',params:{releaseId:row.product_release_id}}">{{ row.release_version }}</RouterLink><span>{{ row.is_direct?'Direct':'Transitive' }} · {{ row.criticality }} criticality</span></div><div><span>{{ row.sbom_file_name||'Manual link' }}</span><RouterLink v-if="row.assessment_id" :to="{name:'supplier-assessment-detail',params:{assessmentId:row.assessment_id}}" :class="{'trace-gap':row.reassessment_required}">{{ row.reassessment_required?'Reassessment required':formatReleaseStatus(row.assessment_status||'') }}</RouterLink><span v-else class="trace-gap">Assessment missing</span><span :class="{'trace-gap':row.component_support_severity==='critical'||row.component_support_severity==='high'}">{{ formatReleaseStatus(row.component_support_status) }}<template v-if="row.component_support_end_date"> · component EOS {{ formatDate(row.component_support_end_date) }}</template><template v-if="row.support_gap_days"> · {{ row.support_gap_days }} day support gap</template></span></div></div></div>
       </section>
 
       <!-- ── Two-column workspace ──────────────────────── -->
@@ -324,15 +324,20 @@
                   {{ product.releases.length }} release(s) · each has its own evidence workspace.
                 </p>
               </div>
-              <button
-                class="btn btn-primary btn-compact"
-                data-guide="new-release-action"
-                type="button"
-                :disabled="isCreatingRelease"
-                @click="openReleaseModal"
-              >
-                New release
-              </button>
+              <div class="release-actions">
+                <button class="btn btn-secondary btn-compact" type="button" @click="showSystemReleasesModal = true">
+                  System release map
+                </button>
+                <button
+                  class="btn btn-primary btn-compact"
+                  data-guide="new-release-action"
+                  type="button"
+                  :disabled="isCreatingRelease"
+                  @click="openReleaseModal"
+                >
+                  New release
+                </button>
+              </div>
             </div>
 
             <!-- Empty state -->
@@ -652,12 +657,38 @@
         </aside>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
-           MODAL — Edit product
-           Opens when the user clicks "Edit" in the product
-           information card.  All fields are pre-filled via
-           syncEditForm() before the modal opens.
-           ════════════════════════════════════════════════════ -->
+      <!-- MODAL — System release map -->
+      <AppModal v-model="showSystemReleasesModal" title="System release map" size="md">
+        <div class="system-release-note" role="note">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+          <div>
+            <strong>Why CRANE keeps a system version</strong>
+            <p>Commercial version names can follow any scheme. The immutable, incremental system version gives every release a stable order and reference for evidence, audits, and compliance records.</p>
+          </div>
+        </div>
+
+        <p v-if="!product.releases.length" class="muted empty-inline">No releases yet.</p>
+        <ol v-else class="system-release-tree" aria-label="System releases mapped to user-assigned versions">
+          <li v-for="release in product.releases" :key="release.id">
+            <span class="system-release-key">
+              <small>System</small>
+              <strong>v{{ release.system_version }}</strong>
+            </span>
+            <span class="system-release-arrow" aria-hidden="true">→</span>
+            <span class="system-release-user">
+              <small>User-assigned version</small>
+              <strong>{{ release.user_version || "Not assigned" }}</strong>
+              <span>{{ formatReleaseStatus(release.release_status) }}</span>
+            </span>
+          </li>
+        </ol>
+
+        <template #footer>
+          <button class="btn btn-secondary" type="button" @click="showSystemReleasesModal = false">Close</button>
+        </template>
+      </AppModal>
+
+      <!-- MODAL — Edit product -->
       <AppModal v-model="showEditModal" title="Edit product" size="lg">
         <!-- Error inside the modal so the user sees it in context -->
         <div v-if="errorMessage" class="feedback-banner feedback-banner-danger" role="alert">
@@ -936,7 +967,7 @@
                 :key="rel.id"
                 :value="rel.id"
               >
-                v{{ rel.display_version }}
+                {{ rel.display_version }}
                 <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
                 <template v-else> · not yet placed</template>
               </option>
@@ -1340,7 +1371,7 @@
                 :key="rel.id"
                 :value="rel.id"
               >
-                v{{ rel.display_version }}
+                {{ rel.display_version }}
                 <template v-if="rel.placed_on_market_date"> · placed {{ formatDate(rel.placed_on_market_date) }}</template>
               </option>
             </select>
@@ -1385,7 +1416,7 @@
                 :value="c.id"
               >
                 {{ c.title }}
-                <template v-if="c.release_version"> (v{{ c.release_version }})</template>
+                <template v-if="c.release_version"> ({{ c.release_version }})</template>
                 · {{ formatDate(c.change_date) }}
               </option>
             </select>
@@ -2115,6 +2146,7 @@ const isAuditLoading         = ref(false);
 const showEditModal    = ref(false); // Edit product
 const showSupportModal = ref(false); // Support period (create / update)
 const showReleaseModal = ref(false); // New release
+const showSystemReleasesModal = ref(false); // System-to-commercial release map
 const showWizardModal  = ref(false); // CRA scope wizard (bespoke implementation)
 const showDocFields    = ref(false); // Collapsible doc fields inside support modal
 
@@ -3519,6 +3551,102 @@ onBeforeUnmount(() => {
   border: 1px solid var(--color-success-border);
   display: grid;
   place-items: center;
+}
+
+.release-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.system-release-note {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-md, 0.75rem);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.system-release-note svg {
+  flex: 0 0 auto;
+}
+
+.system-release-note p {
+  margin: 0.25rem 0 0;
+  color: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.system-release-tree {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.system-release-tree li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 5rem 1.5rem minmax(0, 1fr);
+  align-items: center;
+  min-height: 4.5rem;
+}
+
+.system-release-tree li::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.5rem;
+  border-left: 2px solid var(--color-border);
+}
+
+.system-release-tree li:first-child::before {
+  top: 50%;
+}
+
+.system-release-tree li:last-child::before {
+  bottom: 50%;
+}
+
+.system-release-key {
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: 3.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.75rem);
+  background: var(--color-surface-elevated);
+}
+
+.system-release-key small,
+.system-release-user small {
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.system-release-arrow {
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.system-release-user {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.75rem);
+  background: var(--color-surface-elevated);
+}
+
+.system-release-user > span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 /* ── Releases compact list ─────────────────────────── */

@@ -13,7 +13,8 @@ export type TaskEntityType =
   | "supplier_reassessment"
   | "maintainer_notification"
   | "manual_task"
-  | "eos_alert";
+  | "eos_alert"
+  | "component_eos_alert";
 
 export interface ManualTaskCreate {
   title: string;

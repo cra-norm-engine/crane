@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.evidence_item import EvidenceItem
+    from app.models.vulnerability_report import VulnerabilityReport
 
 
 class Supplier(UUIDTimestampMixin, Base):
@@ -37,7 +42,17 @@ class ThirdPartyComponent(UUIDTimestampMixin, Base):
     purl: Mapped[str | None] = mapped_column(String(1024), nullable=True, index=True)
     cpe: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     part_number: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    support_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     support_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    support_basis: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    support_scope: Mapped[str | None] = mapped_column(Text, nullable=True)
+    support_reference_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    support_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    support_verified_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    support_notify_before_days: Mapped[int] = mapped_column(Integer, nullable=False, default=180)
+    support_unknown_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     update_channel: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

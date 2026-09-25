@@ -7,15 +7,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import NotFoundException
-from app.models.lifecycle_notification import LifecycleNotification
 from app.models.enums import LifecycleNotificationStatus, LifecycleNotificationType
+from app.models.lifecycle_notification import LifecycleNotification
 from app.repositories.base import BaseRepository
 
 
@@ -27,6 +27,7 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         return (
             selectinload(LifecycleNotification.recipient_user),
             selectinload(LifecycleNotification.support_period_record),
+            selectinload(LifecycleNotification.third_party_component),
         )
 
     def list_all(
@@ -35,6 +36,7 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         status: LifecycleNotificationStatus | None = None,
         notification_type: LifecycleNotificationType | None = None,
         support_period_record_id: UUID | None = None,
+        third_party_component_id: UUID | None = None,
         recipient_user_id: UUID | None = None,
     ) -> list[LifecycleNotification]:
         statement = (
@@ -52,6 +54,11 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
         if support_period_record_id is not None:
             statement = statement.where(
                 LifecycleNotification.support_period_record_id == support_period_record_id
+            )
+
+        if third_party_component_id is not None:
+            statement = statement.where(
+                LifecycleNotification.third_party_component_id == third_party_component_id
             )
 
         if recipient_user_id is not None:
@@ -102,6 +109,17 @@ class LifecycleNotificationRepository(BaseRepository[LifecycleNotification]):
             )
         )
         return self.db.scalar(statement)
+
+    def get_by_component_and_type(
+        self, *, third_party_component_id: UUID, notification_type: LifecycleNotificationType,
+        recipient_user_id: UUID | None, support_end_date_snapshot: date,
+    ) -> LifecycleNotification | None:
+        return self.db.scalar(select(LifecycleNotification).where(
+            LifecycleNotification.third_party_component_id == third_party_component_id,
+            LifecycleNotification.notification_type == notification_type,
+            LifecycleNotification.recipient_user_id == recipient_user_id,
+            LifecycleNotification.support_end_date_snapshot == support_end_date_snapshot,
+        ))
 
     def list_pending_due(self, now: datetime) -> list[LifecycleNotification]:
         statement = (

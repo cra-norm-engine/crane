@@ -89,8 +89,7 @@ def _user_display(user: User | None) -> str | None:
 def _release_display(release: ProductRelease | None) -> str | None:
     if release is None:
         return None
-    system_label = f"v{release.system_version}"
-    return f"{release.user_version} ({system_label})" if release.user_version else system_label
+    return release.user_version or f"v{release.system_version}"
 
 
 def _manual_task_item(
@@ -412,15 +411,27 @@ def list_my_tasks(
         select(LifecycleNotification)
         .where(
             LifecycleNotification.recipient_user_id == current_user.id,
-            LifecycleNotification.notification_type == LifecycleNotificationType.end_of_support_upcoming,
+            LifecycleNotification.notification_type.in_([LifecycleNotificationType.end_of_support_upcoming, LifecycleNotificationType.component_end_of_support_upcoming]),
             LifecycleNotification.status == LifecycleNotificationStatus.pending,
         )
         .options(
             joinedload(LifecycleNotification.support_period_record).joinedload(SupportPeriodRecord.product),
             joinedload(LifecycleNotification.support_period_record).joinedload(SupportPeriodRecord.product_release),
+            joinedload(LifecycleNotification.third_party_component),
         )
     )
     for notif in db.scalars(eos_stmt).unique().all():
+        if notif.notification_type == LifecycleNotificationType.component_end_of_support_upcoming:
+            component = notif.third_party_component
+            support_end_date = notif.support_end_date_snapshot
+            tasks.append(TaskItem(
+                entity_type="component_eos_alert", entity_id=notif.id, title=notif.title,
+                status=notif.status.value, due_date=support_end_date, is_overdue=_is_overdue(support_end_date),
+                product_name=component.name if component else None,
+                release_version=component.version if component else None, severity="high",
+                parent_id=component.id if component else None, created_by_name=None,
+            ))
+            continue
         sp = notif.support_period_record
         product_name = getattr(getattr(sp, "product", None), "name", None) if sp else None
         product_id = getattr(sp, "product_id", None) if sp else None

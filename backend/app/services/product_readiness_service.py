@@ -43,7 +43,7 @@ import logging
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import distinct, exists, func, select
+from sqlalchemy import distinct, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.annex_requirement import AnnexRequirement
@@ -305,14 +305,34 @@ class ProductReadinessService:
         change_action_products = {row[0] for row in change_rows}
 
         supplier_gap_products: set[UUID] = set()
+        active_support_rows = self.db.execute(
+            select(
+                SupportPeriodRecord.product_id,
+                SupportPeriodRecord.product_release_id,
+                SupportPeriodRecord.support_end_date,
+            ).where(SupportPeriodRecord.is_active.is_(True))
+        ).all()
+        support_by_release = {
+            release_id: end_date
+            for _, release_id, end_date in active_support_rows
+            if release_id is not None
+        }
+        support_by_product = {
+            product_id: end_date
+            for product_id, release_id, end_date in active_support_rows
+            if release_id is None
+        }
         due_rows = self.db.execute(
-            select(ProductRelease.product_id, ProductRelease.id, ProductComponentLink.component_id, ThirdPartyComponent.supplier_id)
+            select(ProductRelease.product_id, ProductRelease.id, ProductComponentLink.component_id, ThirdPartyComponent.supplier_id, ThirdPartyComponent.support_end_date)
             .join(ProductComponentLink, ProductComponentLink.product_release_id == ProductRelease.id)
             .join(ThirdPartyComponent, ThirdPartyComponent.id == ProductComponentLink.component_id)
-            .where(ProductComponentLink.criticality.in_(["medium", "high"]))
+            .where(or_(ProductComponentLink.criticality.in_(["medium", "high"]), ProductComponentLink.is_core_function.is_(True)))
         ).all()
         today = date.today()
-        for product_id, release_id, component_id, supplier_id in due_rows:
+        for product_id, release_id, component_id, supplier_id, component_support_end in due_rows:
+            product_support_end = support_by_release.get(release_id) or support_by_product.get(product_id)
+            if product_support_end and (component_support_end is None or component_support_end < product_support_end):
+                supplier_gap_products.add(product_id)
             approved = self.db.scalar(select(SupplierAssessment.id).where(
                 SupplierAssessment.supplier_id == supplier_id,
                 (SupplierAssessment.component_id.is_(None)) | (SupplierAssessment.component_id == component_id),

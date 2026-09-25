@@ -317,7 +317,7 @@
               >
                 <div class="release-item-left">
                   <span class="release-name">{{ rel.product_name ?? '—' }}</span>
-                  <span class="release-display_version muted">v{{ rel.display_version }}</span>
+                  <span class="release-display_version muted">{{ rel.display_version }}</span>
                 </div>
                 <div class="release-item-right">
                   <span

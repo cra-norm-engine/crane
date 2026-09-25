@@ -8,18 +8,23 @@
 from datetime import date
 from uuid import uuid4
 
-from app.models.enums import LifecycleNotificationStatus, ProductClassification, SupportType
-from app.models.product import Product
+from app.core.permissions import ROLE_PRODUCT_OWNER
+from app.models.enums import (
+    LifecycleNotificationStatus,
+    LifecycleNotificationType,
+    ProductClassification,
+    SupportType,
+)
+from app.models.product import Product, ProductRelease
+from app.models.supplier_assessment import ProductComponentLink, Supplier, ThirdPartyComponent
 from app.models.user import Role, User, UserRole
 from app.schemas.support_period_record import SupportPeriodRecordCreate
-from app.core.permissions import ROLE_PRODUCT_OWNER
 from app.services.lifecycle_notification_service import LifecycleNotificationService
 from app.services.support_period_record_service import SupportPeriodRecordService
 
 
 class DummyActor:
-    def __init__(self) -> None:
-        self.id = uuid4()
+    id = None
 
 
 def create_product(db_session) -> Product:
@@ -65,11 +70,13 @@ def create_support_period(
     recipient_user_id,
     support_start_date: date,
     support_end_date: date,
+    product_release_id=None,
 ):
     actor = DummyActor()
     return SupportPeriodRecordService(db_session).create_record(
         SupportPeriodRecordCreate(
             product_id=product.id,
+            product_release_id=product_release_id,
             support_start_date=support_start_date,
             support_end_date=support_end_date,
             notify_before_days=180,
@@ -226,3 +233,51 @@ def test_schedule_eos_notifications_uses_record_specific_lead_time(db_session) -
 
     assert early_run == []
     assert len(due_run) == 1
+
+
+def test_schedule_component_eos_alert_once_for_supported_product_release(db_session) -> None:
+    actor = DummyActor()
+    product = create_product(db_session)
+    recipient = create_notification_recipient(db_session)
+    release = ProductRelease(product_id=product.id, system_version=1, user_version="2.4")
+    supplier = Supplier(name=f"Supplier {uuid4()}", supplier_type="commercial", status="active", owner_user_id=recipient.id)
+    db_session.add_all([release, supplier])
+    db_session.flush()
+    component = ThirdPartyComponent(
+        supplier_id=supplier.id,
+        name="Supported runtime",
+        version="3.2",
+        component_type="software",
+        support_end_date=date(2026, 8, 15),
+        support_notify_before_days=180,
+    )
+    db_session.add(component)
+    db_session.flush()
+    db_session.add(ProductComponentLink(
+        product_release_id=release.id,
+        component_id=component.id,
+        is_direct=True,
+        is_core_function=True,
+        criticality="high",
+        criticality_rationale="Required runtime",
+    ))
+    db_session.flush()
+    create_support_period(
+        db_session,
+        product=product,
+        product_release_id=release.id,
+        recipient_user_id=recipient.id,
+        support_start_date=date(2026, 1, 1),
+        support_end_date=date(2027, 12, 31),
+    )
+
+    service = LifecycleNotificationService(db_session)
+    first_run = service.schedule_end_of_support_notifications(actor=actor, today=date(2026, 3, 1))
+    second_run = service.schedule_end_of_support_notifications(actor=actor, today=date(2026, 3, 1))
+
+    assert len(first_run) == 1
+    assert second_run == []
+    assert first_run[0].notification_type == LifecycleNotificationType.component_end_of_support_upcoming
+    assert first_run[0].third_party_component_id == component.id
+    assert first_run[0].support_end_date_snapshot == component.support_end_date
+    assert product.name in first_run[0].message

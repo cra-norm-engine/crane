@@ -130,7 +130,7 @@
               <td>
                 <span v-if="change.product_name" class="product-cell">
                   <span class="product-name">{{ change.product_name }}</span>
-                  <span v-if="change.release_version" class="release-display_version muted"> v{{ change.release_version }}</span>
+                  <span v-if="change.release_version" class="release-display_version muted"> {{ change.release_version }}</span>
                 </span>
                 <span v-else class="muted">—</span>
               </td>

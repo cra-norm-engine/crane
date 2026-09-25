@@ -41,7 +41,7 @@
                 <template v-else-if="task.entity_type === 'change_compliance_action'">
                   <rect x="3" y="3" width="14" height="14" rx="2"/><path d="M6.5 8h7M6.5 11h5"/>
                 </template>
-                <template v-else-if="task.entity_type === 'eos_alert'">
+                <template v-else-if="task.entity_type === 'eos_alert' || task.entity_type === 'component_eos_alert'">
                   <circle cx="10" cy="10" r="7"/><path d="M10 6.5v3.5l2.5 1.5"/>
                 </template>
                 <template v-else>
@@ -234,7 +234,7 @@
               <template v-else-if="task.entity_type === 'release_gate_item'">
                 Gate item status is updated through evidence review. Open the full record to review evidence and decisions.
               </template>
-              <template v-else-if="task.entity_type === 'eos_alert'">
+              <template v-else-if="task.entity_type === 'eos_alert' || task.entity_type === 'component_eos_alert'">
                 This product's support period is approaching end of life. Open the product record to review the support period details and take action.
               </template>
               <template v-else-if="task.entity_type === 'manual_task'">
@@ -664,6 +664,7 @@ interface DismissAction {
 const dismissAction = computed<DismissAction | null>(() => {
   switch (props.task?.entity_type) {
     case "eos_alert":
+    case "component_eos_alert":
       return {
         label: "Dismiss alert",
         confirmLabel: "Dismiss this end-of-support alert?",
@@ -717,7 +718,7 @@ watch(() => props.task, () => {
 const createdByLabel = computed(() => {
   if (!props.task) return "Created by";
   if (props.task.entity_type === "vulnerability_report") return "Reported by";
-  if (props.task.entity_type === "eos_alert") return "Assigned as";
+  if (["eos_alert", "component_eos_alert"].includes(props.task.entity_type)) return "Assigned as";
   return "Initiated by";
 });
 
@@ -763,6 +764,7 @@ function formatEntityType(type: string): string {
     release_gate_item:   "Gate item",
     risk_item:           "Risk item",
     eos_alert:           "EOL Alert",
+    component_eos_alert: "Component EOS",
     manual_task:         "Task",
   };
   return map[type] ?? type;
@@ -868,6 +870,7 @@ function formatAction(action: string): string {
 .dtp-release_gate_item    { background: var(--color-success-bg); color: var(--color-success-text); }
 .dtp-risk_item            { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .dtp-eos_alert            { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.dtp-component_eos_alert  { background: var(--color-danger-bg); color: var(--color-danger-text); }
 
 /* Severity pill */
 .dw-sev-pill {
