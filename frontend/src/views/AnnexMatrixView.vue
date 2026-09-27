@@ -88,11 +88,11 @@
           <p class="muted">
             {{ selectedRelease?.display_version }} ·
             {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
-            {{ stats.finalized }} finalized · {{ stats.notFinalized }} remaining
+            {{ stats.finalized }} ready for approval · action required on {{ stats.notFinalized }}
           </p>
         </div>
         <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
-          {{ formatLabel(selectedRelease?.release_status) }}
+          <span class="status-key">Release</span>{{ releaseStatusLabel(selectedRelease?.release_status) }}
         </span>
       </div>
 
@@ -104,20 +104,20 @@
       >
         <div class="assessment-banner-info">
           <span class="badge" :class="assessment.is_locked ? 'badge-success' : 'badge-neutral'">
-            {{ assessment.is_locked ? `🔒 Approved · v${assessment.version}` : "Draft" }}
+            {{ assessment.is_locked ? `Assessment · Approved and locked · v${assessment.version}` : "Assessment · Open" }}
           </span>
           <span v-if="assessment.is_locked" class="assessment-meta">
             Approved by <strong>{{ assessment.approved_by_name || "—" }}</strong>
             <template v-if="assessment.approved_at"> on {{ formatDateTime(assessment.approved_at) }}</template>
           </span>
           <span v-else class="assessment-meta">
-            Finalise the assessment to lock it and allow the release gate to be approved.
+            Complete every requirement, then approve and lock this release assessment.
           </span>
           <span
             v-if="!assessment.is_locked && assessment.unfinalized_codes.length"
             class="assessment-warn"
           >
-            {{ assessment.unfinalized_codes.length }} requirement(s) not yet finalized.
+            Requirements requiring action: {{ assessment.unfinalized_codes.length }}.
           </span>
         </div>
         <div class="assessment-banner-actions">
@@ -148,16 +148,33 @@
         <strong>CRA timeline:</strong> Article 14 reporting applies from 11 September 2026; the remaining obligations apply from 11 December 2027.
       </div>
 
+      <section class="workflow-guide" aria-labelledby="workflow-guide-title">
+        <div class="workflow-guide-heading">
+          <div>
+            <h3 id="workflow-guide-title">How to assess each requirement</h3>
+            <p>Open the first row that requires action. CRANE keeps the legal decision, risk rationale, evidence and engineering validation together.</p>
+          </div>
+          <span>Rows are ordered by the next required action</span>
+        </div>
+        <ol>
+          <li><b>1</b><div><strong>Decide scope</strong><small>Use the product cybersecurity risk assessment to decide whether the requirement applies.</small></div></li>
+          <li><b>2</b><div><strong>Link risk and rationale</strong><small>Connect the relevant risk and explain how the requirement addresses it.</small></div></li>
+          <li><b>3</b><div><strong>Attach evidence</strong><small>Link design, implementation or test evidence for applicable requirements.</small></div></li>
+          <li><b>4</b><div><strong>Validate security</strong><small>Confirm through review or testing that the implemented control meets the requirement.</small></div></li>
+        </ol>
+        <p class="workflow-guide-note">If a requirement does not apply, record a clear risk-based rationale. No implementation evidence is then required.</p>
+      </section>
+
       <div class="workflow-summary" aria-label="Requirement workflow progress">
-        <div><strong>{{ stats.decided }}</strong><span>Applicability decided</span></div>
-        <div><strong>{{ stats.traceable }}</strong><span>Risk trace complete</span></div>
+        <div><strong>{{ stats.decided }}</strong><span>Scope decisions recorded</span></div>
+        <div><strong>{{ stats.traceable }}</strong><span>Requirements linked to risk</span></div>
         <div><strong>{{ stats.finalized }}</strong><span>Ready for approval</span></div>
         <div><strong>{{ matrixRows.length }}</strong><span>Total requirements</span></div>
       </div>
 
       <div class="release-coverage-bar">
         <div class="coverage-numbers">
-          <strong>{{ stats.finalized }}</strong> / {{ matrixRows.length }} requirements ready
+          <strong>{{ stats.finalized }}</strong> / {{ matrixRows.length }} ready for assessment approval
           <span class="coverage-pct" :class="coveragePct >= 80 ? 'pct-good' : coveragePct >= 40 ? 'pct-partial' : 'pct-low'">
             {{ coveragePct }}%
           </span>
@@ -182,7 +199,7 @@
             :class="{ active: filters.finalization === 'not_finalized' }"
             @click="toggleNotFinalizedFilter"
           >
-            Needs action · {{ stats.notFinalized }}
+            Action required · {{ stats.notFinalized }}
           </button>
         </div>
         <input
@@ -202,7 +219,7 @@
       <!-- Empty state -->
       <div v-else-if="filteredRows.length === 0" class="state-block">
         <h3>No requirements match these filters</h3>
-        <p class="muted">Try changing the search term or status filter.</p>
+        <p class="muted">Try a different search term or filter.</p>
       </div>
 
       <!-- Compact row list -->
@@ -236,23 +253,23 @@
                 :class="`app-${row.applicability}`"
               >
                 <span v-if="row.applicability === 'needs_decision'" class="pill-dot" aria-hidden="true" />
-                {{ formatApplicability(row.applicability) }}
+                <span class="status-key">Scope</span>{{ formatApplicability(row.applicability) }}
               </span>
               <span
                 v-if="row.applicability === 'applicable'"
                 class="meta-pill"
                 :class="`progress-${row.implementation_status}`"
               >
-                {{ formatLabel(row.implementation_status) }}
+                <span class="status-key">Engineering</span>{{ implementationStatusLabel(row.implementation_status) }}
               </span>
               <span
                 class="meta-pill"
                 :class="row.finalized ? 'finalized-pill' : 'unfinalized-pill'"
               >
-                {{ row.finalized ? "✓ Finalized" : "In progress" }}
+                <span class="status-key">Readiness</span>{{ row.finalized ? "Ready for approval" : "Action required" }}
               </span>
-              <span class="mini-stat">{{ rowRiskCount(row) }} risks</span>
-              <span class="mini-stat">{{ row.artifacts.length }} artifacts</span>
+              <span class="mini-stat">Risk links · {{ rowRiskCount(row) }}</span>
+              <span class="mini-stat">Evidence · {{ row.artifacts.length }}</span>
 
             </div>
           </button>
@@ -298,33 +315,41 @@
         <!-- Compact status header -->
         <div class="detail-status-head">
           <span class="meta-pill" :class="`app-${selectedRow.applicability}`">
-            {{ formatApplicability(selectedRow.applicability) }}
+            <span class="status-key">Scope</span>{{ formatApplicability(selectedRow.applicability) }}
           </span>
           <span
             v-if="selectedRow.applicability === 'applicable'"
             class="meta-pill"
             :class="`progress-${selectedRow.implementation_status}`"
           >
-            {{ formatLabel(selectedRow.implementation_status) }}
+            <span class="status-key">Engineering</span>{{ implementationStatusLabel(selectedRow.implementation_status) }}
           </span>
           <span
             class="meta-pill"
             :class="selectedRow.finalized ? 'finalized-pill' : 'unfinalized-pill'"
           >
-            {{ selectedRow.finalized ? "✓ Finalized" : "In progress" }}
+            <span class="status-key">Readiness</span>{{ selectedRow.finalized ? "Ready for approval" : "Action required" }}
           </span>
         </div>
 
+        <nav class="drawer-step-nav" aria-label="Requirement assessment steps">
+          <a href="#requirement-step-scope">1 · Scope</a>
+          <a href="#requirement-step-risk">2 · Risk rationale</a>
+          <a href="#requirement-step-evidence">3 · Evidence</a>
+          <a href="#requirement-step-validation">4 · Validation</a>
+        </nav>
+
         <!-- ── Applicability assessment ──────────────────────── -->
-        <div class="detail-tab-panel">
+        <div id="requirement-step-scope" class="detail-tab-panel">
           <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
 
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <h3 class="section-title">Applicability decision</h3>
+                <span class="workflow-step-label">Step 1 of 4</span>
+                <h3 class="section-title">Scope and applicability</h3>
                 <p class="muted">Decide applicability from the documented cybersecurity risk assessment.</p>
-                <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This CRA obligation is mandatory for an in-scope product; it cannot be marked not applicable.</p>
+                <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This CRA obligation always applies to an in-scope product; “Does not apply” is unavailable.</p>
               </div>
             </div>
             <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
@@ -344,7 +369,7 @@
                   class="textarea"
                   rows="3"
                   :disabled="isLocked"
-                  placeholder="Explain why this requirement applies or why it is not applicable for this product."
+                  placeholder="Explain how the cybersecurity risk assessment supports this scope decision."
                 />
               </label>
 
@@ -358,11 +383,12 @@
         </div>
 
         <!-- ── Justification by risk ─────────────────────────── -->
-        <div class="detail-tab-panel">
+        <div id="requirement-step-risk" class="detail-tab-panel">
           <section class="trace-section">
             <div class="section-heading tight">
               <div>
-                <h3 class="section-title">Justification by risk</h3>
+                <span class="workflow-step-label">Step 2 of 4</span>
+                <h3 class="section-title">Risk link and rationale</h3>
                 <p class="muted">
                   Link the risk item(s) this requirement addresses and justify how — this is the
                   traceability record and the basis of the compliance report.
@@ -379,13 +405,13 @@
                 <div class="risk-trace-head">
                   <strong>{{ risk.title }}</strong>
                   <span class="badge" :class="riskLevelBadge(risk.risk_level)">
-                    {{ formatLabel(risk.risk_level) }}
+                    Risk level · {{ formatLabel(risk.risk_level) }}
                   </span>
                 </div>
                 <div class="risk-trace-meta">
-                  <span class="mini-stat">Status: {{ formatLabel(risk.status) }}</span>
+                  <span class="mini-stat">Risk status · {{ formatLabel(risk.status) }}</span>
                   <span v-if="risk.residual_risk_level" class="mini-stat">
-                    Residual: {{ formatLabel(risk.residual_risk_level) }}
+                    Residual risk · {{ formatLabel(risk.residual_risk_level) }}
                   </span>
                 </div>
                 <ul class="risk-trace-vias">
@@ -414,8 +440,7 @@
             <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
               <h4>No risk justification yet</h4>
               <p class="muted">
-                Link the risk(s) this requirement addresses and justify how. A risk justification
-                is required to finalize the requirement — even when it is not applicable.
+                Link the risk(s) this requirement addresses and justify how. A risk link and rationale are required before the requirement can be ready for approval — including when it does not apply.
               </p>
             </div>
 
@@ -493,7 +518,7 @@
                   <h3 class="section-title">{{ editingExisting ? "Edit justification" : "New risk justification" }}</h3>
                   <p class="muted">
                     Pick the risk this requirement addresses and explain how it is addressed (or,
-                    for a non-applicable requirement, why the risk does not apply).
+                    when it does not apply, explain the risk-assessment basis).
                   </p>
                 </div>
               </div>
@@ -504,7 +529,7 @@
                   <select v-model="traceForm.risk_item_id" class="select" required>
                     <option value="">Select a risk item…</option>
                     <option v-for="risk in productRiskItems" :key="risk.id" :value="risk.id">
-                      {{ risk.title }} · {{ formatLabel(risk.risk_level) }}
+                      {{ risk.title }} · Risk level · {{ formatLabel(risk.risk_level) }}
                     </option>
                   </select>
                 </label>
@@ -534,7 +559,7 @@
                     v-model.trim="traceForm.evidence_summary"
                     class="textarea"
                     rows="4"
-                    placeholder="Explain how this requirement addresses the selected risk, or why the risk is not applicable."
+                    placeholder="Explain how this requirement addresses the selected risk, or the risk-based reason it does not apply."
                   />
                 </label>
 
@@ -552,14 +577,15 @@
         </div>
 
         <!-- ── Linked artifacts ──────────────────────────────── -->
-        <div class="detail-tab-panel">
+        <div id="requirement-step-evidence" class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <h3 class="section-title">Linked artifacts</h3>
+                <span class="workflow-step-label">Step 3 of 4</span>
+                <h3 class="section-title">Supporting evidence</h3>
                 <p class="muted">
-                  Evidence artifacts attached to this requirement. Applicable requirements need at
-                  least one linked artifact to be finalized.
+                  Link design, implementation, review or test evidence. A requirement that applies needs
+                  at least one evidence artifact before it can be ready for approval.
                 </p>
               </div>
             </div>
@@ -641,23 +667,24 @@
         </div>
 
         <!-- ── Implementation status ─────────────────────────── -->
-        <div class="detail-tab-panel">
+        <div id="requirement-step-validation" class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <h3 class="section-title">Implementation status</h3>
+                <span class="workflow-step-label">Step 4 of 4</span>
+                <h3 class="section-title">Secure implementation and validation</h3>
                 <p class="muted">
-                  Track delivery of this requirement. An applicable requirement must reach
-                  <strong>Validated</strong> (with a risk justification and a linked artifact) to be
-                  finalized. Not-applicable requirements do not need an implementation status.
+                  Track delivery of this requirement. A requirement that applies must reach
+                  <strong>Security validated</strong> (with a risk rationale and linked evidence) to be
+                  ready for approval. Requirements that do not apply need no implementation work.
                 </p>
               </div>
             </div>
 
             <div v-if="selectedRow.applicability === 'not_applicable'" class="state-block compact">
               <p class="muted">
-                This requirement is marked <strong>Not applicable</strong> — no implementation is
-                required. It is finalized once a risk justification is recorded.
+                This requirement <strong>does not apply</strong> — no implementation is required.
+                It becomes ready for approval once the risk-based rationale is recorded.
               </p>
             </div>
 
@@ -673,37 +700,40 @@
                   @click="setImplementationStatus(opt)"
                 >
                   <span class="impl-status-dot" :class="`progress-dot-${opt}`" />
-                  {{ formatLabel(opt) }}
+                  <span class="impl-status-copy">
+                    <strong>{{ implementationStatusLabel(opt) }}</strong>
+                    <small>{{ implementationStatusHelp(opt) }}</small>
+                  </span>
                 </button>
               </div>
 
               <p v-if="selectedRow.applicability === 'needs_decision'" class="assessment-warn">
-                Decide applicability first (Applicability assessment tab).
+                Complete Step 1 before recording implementation progress.
               </p>
 
               <!-- Finalization checklist for applicable requirements -->
               <ul class="finalize-checklist">
                 <li :class="{ done: selectedRow.applicability !== 'needs_decision' }">
                   <span class="check-mark">{{ selectedRow.applicability !== 'needs_decision' ? '✓' : '○' }}</span>
-                  Applicability decided
+                  Scope decision recorded
                 </li>
                 <li :class="{ done: rowRisks(selectedRow).length > 0 }">
                   <span class="check-mark">{{ rowRisks(selectedRow).length > 0 ? '✓' : '○' }}</span>
-                  At least one risk justification
+                  Relevant risk and rationale linked
                 </li>
                 <li :class="{ done: selectedRow.artifacts.length > 0 }">
                   <span class="check-mark">{{ selectedRow.artifacts.length > 0 ? '✓' : '○' }}</span>
-                  At least one linked artifact
+                  Supporting evidence linked
                 </li>
                 <li :class="{ done: selectedRow.implementation_status === 'validated' }">
                   <span class="check-mark">{{ selectedRow.implementation_status === 'validated' ? '✓' : '○' }}</span>
-                  Implementation validated
+                  Security implementation validated
                 </li>
               </ul>
             </template>
 
             <div class="finalize-banner" :class="selectedRow.finalized ? 'is-final' : 'not-final'">
-              {{ selectedRow.finalized ? "✓ This requirement is finalized." : "Not finalized yet." }}
+              {{ selectedRow.finalized ? "✓ Ready for assessment approval." : "Action required: complete the remaining items above." }}
             </div>
           </section>
         </div>
@@ -763,9 +793,9 @@ const approveButtonTitle = computed(() => {
   if (!a) return "";
   if (a.can_approve) return "Approve and lock this assessment";
   if (a.unfinalized_codes.length) {
-    return `Finalize all requirements first — ${a.unfinalized_codes.length} remaining`;
+    return `Complete all requirements first — ${a.unfinalized_codes.length} require action`;
   }
-  return "Finalize all requirements first";
+  return "Complete all requirements first";
 });
 
 const products = ref<ProductSummaryRead[]>([]);
@@ -830,6 +860,30 @@ const applicabilityForm = reactive({
 
 // Per-requirement implementation progress (the new model).
 const progressStatuses: RequirementProgressStatus[] = ["planned", "implemented", "validated"];
+
+const implementationStatusLabels: Record<RequirementProgressStatus, string> = {
+  planned: "Planned",
+  implemented: "Implemented; validation pending",
+  validated: "Security validated",
+};
+
+const implementationStatusDescriptions: Record<RequirementProgressStatus, string> = {
+  planned: "Security work is planned but is not yet ready for validation.",
+  implemented: "The control exists; confirm it through security review or testing.",
+  validated: "Security review or testing confirms the requirement is met.",
+};
+
+const releaseStatusLabels: Record<ProductReleaseRead["release_status"], string> = {
+  draft: "Draft",
+  in_review: "Under review",
+  blocked: "Blocked",
+  approved: "Approved",
+  placed_on_market: "Placed on the EU market",
+  released: "Released",
+  withdrawn: "Withdrawn",
+  recalled: "Recalled",
+  end_of_support: "Support ended",
+};
 
 const applicabilityDecisions: RequirementApplicabilityDecision[] = [
   "undecided",
@@ -980,13 +1034,25 @@ function applicabilityOptions(
 }
 
 function nextAction(row: ProductRequirementMatrixRowRead): string {
-  if (row.applicability === "needs_decision") return "Next: decide applicability from the risk assessment";
-  if (rowRiskCount(row) === 0) return "Next: link a risk and record the justification";
-  if (row.applicability === "not_applicable") return "Complete: non-applicability is justified";
-  if (row.artifacts.length === 0) return "Next: link supporting evidence";
-  if (row.implementation_status === "planned") return "Next: record implementation";
-  if (row.implementation_status === "implemented") return "Next: validate the implementation";
-  return row.finalized ? "Complete: ready for assessment approval" : "Review the remaining evidence";
+  if (row.applicability === "needs_decision") {
+    return "Next action: decide scope using the cybersecurity risk assessment";
+  }
+  if (rowRiskCount(row) === 0) {
+    return "Next action: link the relevant risk and record the rationale";
+  }
+  if (row.applicability === "not_applicable") {
+    return "Ready: non-applicability is supported by a risk-based rationale";
+  }
+  if (row.artifacts.length === 0) {
+    return "Next action: attach design, implementation or test evidence";
+  }
+  if (row.implementation_status === "planned") {
+    return "Next action: implement the security requirement";
+  }
+  if (row.implementation_status === "implemented") {
+    return "Next action: validate the control through security review or testing";
+  }
+  return row.finalized ? "Ready for assessment approval" : "Review the remaining evidence";
 }
 
 function blockerRank(row: ProductRequirementMatrixRowRead): number {
@@ -1041,13 +1107,27 @@ function formatLabel(value?: string | null): string {
 }
 
 function formatApplicability(value: ProductRequirementMatrixRowRead["applicability"]): string {
-  if (value === "not_applicable") return "Not applicable";
-  if (value === "applicable") return "Applicable";
-  return "Needs decision";
+  if (value === "not_applicable") return "Does not apply";
+  if (value === "applicable") return "Applies";
+  return "Decision required";
 }
 
 function formatApplicabilityDecision(value: RequirementApplicabilityDecision): string {
-  return formatLabel(value);
+  if (value === "not_applicable") return "Does not apply — risk rationale required";
+  if (value === "applicable") return "Applies to this release";
+  return "Decision required";
+}
+
+function implementationStatusLabel(value: RequirementProgressStatus): string {
+  return implementationStatusLabels[value];
+}
+
+function implementationStatusHelp(value: RequirementProgressStatus): string {
+  return implementationStatusDescriptions[value];
+}
+
+function releaseStatusLabel(value?: ProductReleaseRead["release_status"] | null): string {
+  return value ? releaseStatusLabels[value] : "Unknown";
 }
 
 /* ── UI interaction ───────────────────────────────── */
@@ -1380,7 +1460,7 @@ async function saveApplicabilityDecision(): Promise<void> {
     applicabilityForm.applicability_decision === "not_applicable" &&
     !applicabilityForm.rationale.trim()
   ) {
-    errorMessage.value = "Explain why the requirement is not applicable based on the risk assessment.";
+    errorMessage.value = "Explain the risk-based reason this requirement does not apply.";
     return;
   }
 
@@ -1426,7 +1506,7 @@ async function setImplementationStatus(status: RequirementProgressStatus): Promi
     applyRow(updatedRow);
     // Reaching/leaving "validated" can flip the finalized state, so refresh the banner.
     await loadAssessment(selectedReleaseId.value);
-    successMessage.value = `Implementation status set to ${formatLabel(status)}.`;
+    successMessage.value = `Engineering status set to ${implementationStatusLabel(status)}.`;
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to update implementation status.";
   } finally {
@@ -2253,17 +2333,17 @@ onMounted(async () => {
 
 /* ── Implementation tab: status picker ────────────── */
 .impl-status-picker {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
-  flex-wrap: wrap;
   margin-bottom: 1rem;
 }
 .impl-status-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border-radius: 12px;
   border: 1px solid rgba(233, 238, 252, 0.12);
   background: rgba(255, 255, 255, 0.03);
   color: inherit;
@@ -2281,8 +2361,25 @@ onMounted(async () => {
 .impl-status-dot {
   width: 0.6rem;
   height: 0.6rem;
+  margin-top: 0.25rem;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: currentColor;
+}
+.impl-status-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+.impl-status-copy strong {
+  font-size: var(--text-sm);
+}
+.impl-status-copy small {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.35;
 }
 .progress-dot-planned     { color: #94a3b8; }
 .progress-dot-implemented { color: #60a5fa; }
@@ -2428,6 +2525,109 @@ onMounted(async () => {
   font-size: var(--text-xs);
 }
 
+.workflow-guide {
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-elevated);
+}
+
+.workflow-guide-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.workflow-guide-heading h3,
+.workflow-guide-heading p,
+.workflow-guide-note {
+  margin: 0;
+}
+
+.workflow-guide-heading h3 {
+  font-size: var(--text-base);
+}
+
+.workflow-guide-heading p,
+.workflow-guide-note,
+.workflow-guide small {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.workflow-guide-heading p {
+  margin-top: 0.2rem;
+}
+
+.workflow-guide-heading > span {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.workflow-guide ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0.8rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-guide li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.workflow-guide li b {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-size: var(--text-xs);
+}
+
+.workflow-guide li strong,
+.workflow-guide li small {
+  display: block;
+}
+
+.workflow-guide-note {
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.workflow-step-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.status-key {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.status-key::after {
+  content: " · ";
+}
+
 .workflow-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2549,6 +2749,32 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.drawer-step-nav {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.drawer-step-nav a {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.drawer-step-nav a:hover,
+.drawer-step-nav a:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
 .requirement-drawer .detail-modal-body {
   padding: 1rem;
 }
@@ -2559,6 +2785,7 @@ onMounted(async () => {
   overflow: visible;
   padding: 1rem 0;
   border-top: 1px solid var(--color-border);
+  scroll-margin-top: 7rem;
 }
 
 .requirement-drawer .detail-tab-panel:first-of-type {
@@ -2567,7 +2794,9 @@ onMounted(async () => {
 
 /* ── Responsive ───────────────────────────────────── */
 @media (max-width: 900px) {
+  .workflow-guide ol,
   .workflow-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .impl-status-picker { grid-template-columns: 1fr; }
   .matrix-toolbar { align-items: stretch; flex-direction: column; }
   .matrix-search { width: 100%; }
   .selector-grid,
@@ -2588,6 +2817,8 @@ onMounted(async () => {
 
 @media (max-width: 640px) {
   .sticky-scope { position: static; }
+  .workflow-guide-heading { flex-direction: column; }
+  .workflow-guide ol { grid-template-columns: 1fr; }
   .workflow-summary { grid-template-columns: 1fr 1fr; }
   .drawer-header { flex-direction: column; }
   .drawer-actions { justify-content: flex-end; }
