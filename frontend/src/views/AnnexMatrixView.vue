@@ -11,20 +11,13 @@
     <!-- ── Header ────────────────────────────────────────── -->
     <header class="page-header" data-guide="annex-header">
       <div>
-        <h1 class="page-title">CRA requirements</h1>
-        <p class="muted">Select a product, review every CRA Annex I requirement, and trace each one to risk items, rationale, and supporting artifacts.</p>
+        <h1 class="page-title">CRA essential requirements</h1>
+        <p class="muted">Assess Annex I against one product release, resolve the next blocker, and keep the legal rationale and evidence together.</p>
       </div>
       <div class="page-actions">
         <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
-        <AppButton variant="secondary" type="button" @click="showFilterModal = true">
-          Filter matrix
-          <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-        </AppButton>
       </div>
     </header>
-
-    <!-- ── Compliance readiness overview (all products) ───── -->
-    <div data-guide="annex-readiness"><ProductReadinessPanel @select="onReadinessSelect" /></div>
 
     <!-- ── Alerts ─────────────────────────────────────────── -->
     <transition name="fade">
@@ -35,35 +28,25 @@
     </transition>
 
     <!-- ── Product selector ───────────────────────────────── -->
-    <article class="card selector-card" data-guide="annex-scope">
+    <article class="card selector-card sticky-scope" data-guide="annex-scope">
       <div class="section-heading">
         <div>
           <h2 class="section-title">Product scope</h2>
         </div>
       </div>
 
-      <div class="selector-grid">
-        <label class="field">
-          <span>Search products</span>
-          <input
-            v-model.trim="productQuery"
-            class="input"
-            type="search"
-            placeholder="Search by product name or code"
-          />
-        </label>
-
+      <div class="selector-grid scope-selector-grid">
         <label class="field">
           <span>Select product</span>
           <select v-model="selectedProductId" class="select">
             <option value="">Choose a product</option>
-            <option v-for="product in filteredProducts" :key="product.id" :value="product.id">
+            <option v-for="product in products" :key="product.id" :value="product.id">
               {{ product.name }} · {{ product.product_code }}
             </option>
           </select>
         </label>
 
-        <label class="field field-full">
+        <label class="field">
           <span>Select release <span class="field-hint">— requirement mappings are per release</span></span>
           <select
             v-model="selectedReleaseId"
@@ -78,6 +61,24 @@
         </label>
       </div>
     </article>
+
+    <!-- The portfolio request and its DOM are skipped until the user asks for it. -->
+    <details class="readiness-disclosure" @toggle="onReadinessToggle">
+      <summary>Portfolio readiness by release</summary>
+      <div v-if="showPortfolioReadiness" data-guide="annex-readiness">
+        <ProductReadinessPanel @select="onReadinessSelect" />
+      </div>
+    </details>
+
+    <nav v-if="selectedProduct && selectedReleaseId" class="related-obligations" aria-label="Related CRA obligations">
+      <span>Related CRA work</span>
+      <RouterLink :to="{ name: 'risk-assessments' }">Risk assessment</RouterLink>
+      <RouterLink :to="{ name: 'sbom-records' }">SBOM</RouterLink>
+      <RouterLink :to="{ name: 'vulnerability-handling' }">Vulnerability handling</RouterLink>
+      <RouterLink :to="{ name: 'support-hub' }">Support period</RouterLink>
+      <RouterLink :to="{ name: 'declarations' }">EU declaration</RouterLink>
+      <RouterLink :to="{ name: 'release-report', params: { releaseId: selectedReleaseId } }">Technical dossier</RouterLink>
+    </nav>
 
     <!-- ── Matrix list ─────────────────────────────────────── -->
     <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card" data-guide="annex-matrix">
@@ -143,24 +144,23 @@
         </div>
       </div>
 
-      <!-- Coverage bar -->
+      <div class="cra-timeline" role="note">
+        <strong>CRA timeline:</strong> Article 14 reporting applies from 11 September 2026; the remaining obligations apply from 11 December 2027.
+      </div>
+
+      <div class="workflow-summary" aria-label="Requirement workflow progress">
+        <div><strong>{{ stats.decided }}</strong><span>Applicability decided</span></div>
+        <div><strong>{{ stats.traceable }}</strong><span>Risk trace complete</span></div>
+        <div><strong>{{ stats.finalized }}</strong><span>Ready for approval</span></div>
+        <div><strong>{{ matrixRows.length }}</strong><span>Total requirements</span></div>
+      </div>
+
       <div class="release-coverage-bar">
         <div class="coverage-numbers">
-          <strong>{{ stats.finalized }}</strong> / {{ filteredRows.length }} requirements finalized
+          <strong>{{ stats.finalized }}</strong> / {{ matrixRows.length }} requirements ready
           <span class="coverage-pct" :class="coveragePct >= 80 ? 'pct-good' : coveragePct >= 40 ? 'pct-partial' : 'pct-low'">
             {{ coveragePct }}%
           </span>
-          <button
-            v-if="stats.notFinalized > 0"
-            type="button"
-            class="needs-decision-chip"
-            :class="{ active: filters.finalization === 'not_finalized' }"
-            :title="filters.finalization === 'not_finalized' ? 'Show all requirements' : 'Show only requirements that are not finalized'"
-            @click="toggleNotFinalizedFilter"
-          >
-            <span class="pill-dot" aria-hidden="true" />
-            {{ stats.notFinalized }} not finalized
-          </button>
         </div>
         <div class="progress-track">
           <div
@@ -169,6 +169,29 @@
             :style="{ width: `${coveragePct}%` }"
           />
         </div>
+      </div>
+
+      <div class="matrix-toolbar" aria-label="Requirement filters">
+        <div class="part-tabs">
+          <button type="button" :class="{ active: !filters.annexPart }" @click="filters.annexPart = ''">All</button>
+          <button type="button" :class="{ active: filters.annexPart === 'part_i' }" @click="filters.annexPart = 'part_i'">Part I · Product security</button>
+          <button type="button" :class="{ active: filters.annexPart === 'part_ii' }" @click="filters.annexPart = 'part_ii'">Part II · Vulnerability handling</button>
+          <button
+            v-if="stats.notFinalized"
+            type="button"
+            :class="{ active: filters.finalization === 'not_finalized' }"
+            @click="toggleNotFinalizedFilter"
+          >
+            Needs action · {{ stats.notFinalized }}
+          </button>
+        </div>
+        <input
+          v-model.trim="filters.search"
+          class="input matrix-search"
+          type="search"
+          aria-label="Search requirements"
+          placeholder="Search requirements, risks, evidence…"
+        />
       </div>
 
       <!-- Loading skeleton -->
@@ -201,11 +224,12 @@
           >
             <!-- Code + title -->
             <div class="row-left">
-              <span class="requirement-code">{{ row.annex_requirement.code }}</span>
+              <span class="requirement-code">{{ legalReference(row.annex_requirement.code) }}</span>
               <strong class="row-title">{{ row.annex_requirement.title }}</strong>
+              <span class="row-next-action">{{ nextAction(row) }}</span>
             </div>
 
-            <!-- Pills + expand button -->
+            <!-- Requirement status -->
             <div class="row-right">
               <span
                 class="meta-pill applicability-pill"
@@ -230,43 +254,9 @@
               <span class="mini-stat">{{ rowRiskCount(row) }} risks</span>
               <span class="mini-stat">{{ row.artifacts.length }} artifacts</span>
 
-              <!-- Expand-description toggle (does not open modal) -->
-              <span
-                class="expand-btn"
-                role="button"
-                tabindex="0"
-                :title="expandedRowIds.has(row.annex_requirement.id) ? 'Collapse description' : 'Show description'"
-                :aria-expanded="expandedRowIds.has(row.annex_requirement.id)"
-                @click.stop="toggleExpand(row.annex_requirement.id)"
-                @keydown.enter.stop.prevent="toggleExpand(row.annex_requirement.id)"
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="14"
-                  height="14"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                  :class="{ 'chevron-open': expandedRowIds.has(row.annex_requirement.id) }"
-                >
-                  <polyline points="3,5 8,11 13,5" />
-                </svg>
-              </span>
             </div>
           </button>
 
-          <!-- Inline description panel (expand-in-place) -->
-          <transition name="expand">
-            <div
-              v-if="expandedRowIds.has(row.annex_requirement.id)"
-              class="row-description-panel"
-            >
-              <p>{{ row.annex_requirement.description }}</p>
-            </div>
-          </transition>
         </div>
       </div>
     </section>
@@ -279,59 +269,24 @@
       </p>
     </section>
 
-    <!-- ── Filter modal ────────────────────────────────────── -->
-    <AppModal v-model="showFilterModal" title="Filter matrix" size="sm">
-      <div class="filter-grid">
-        <label class="field">
-          <span>Annex part</span>
-          <select v-model="filters.annexPart" class="select">
-            <option value="">All parts</option>
-            <option value="part_i">Part I</option>
-            <option value="part_ii">Part II</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Status</span>
-          <select v-model="filters.status" class="select">
-            <option value="">All statuses</option>
-            <option value="unmapped">Unmapped</option>
-            <option v-for="status in implementationStatuses" :key="status" :value="status">
-              {{ formatLabel(status) }}
-            </option>
-          </select>
-        </label>
-
-        <label class="field field-full">
-          <span>Search requirements</span>
-          <input
-            v-model.trim="filters.search"
-            class="input"
-            type="search"
-            placeholder="Search requirement text, risk title, engineering ref, notes, or artifacts"
-          />
-        </label>
-      </div>
-
-      <template #footer>
-        <AppButton
-          variant="secondary"
-          type="button"
-          @click="resetFilters(); showFilterModal = false"
-        >
-          Clear all
-        </AppButton>
-        <AppButton variant="primary" type="button" @click="showFilterModal = false">Apply</AppButton>
-      </template>
-    </AppModal>
-
-    <!-- ── Requirement detail modal ────────────────────────── -->
-    <AppModal
-      v-if="selectedRow"
-      v-model="showDetailModal"
-      :title="`${selectedRow.annex_requirement.code} — ${selectedRow.annex_requirement.title}`"
-      size="lg"
+    <!-- Only the selected requirement is mounted, keeping the page lightweight. -->
+    <aside
+      v-if="selectedRow && showDetailModal"
+      class="requirement-drawer"
+      :aria-label="`${selectedRow.annex_requirement.code} — ${selectedRow.annex_requirement.title}`"
     >
+      <header class="drawer-header">
+        <div>
+          <span class="requirement-code">{{ legalReference(selectedRow.annex_requirement.code) }}</span>
+          <h2>{{ selectedRow.annex_requirement.title }}</h2>
+          <p class="drawer-next-action">{{ nextAction(selectedRow) }}</p>
+        </div>
+        <div class="drawer-actions">
+          <AppButton variant="secondary" size="sm" type="button" :disabled="!hasPreviousRequirement" @click="selectAdjacentRequirement(-1)">Previous</AppButton>
+          <AppButton variant="secondary" size="sm" type="button" :disabled="!hasNextRequirement" @click="selectAdjacentRequirement(1)">Next</AppButton>
+          <button type="button" class="drawer-close" aria-label="Close requirement details" @click="showDetailModal = false">×</button>
+        </div>
+      </header>
       <div class="detail-modal-body">
 
         <!-- Locked notice -->
@@ -360,39 +315,23 @@
           </span>
         </div>
 
-        <!-- Tab strip -->
-        <div class="detail-tabs" role="tablist">
-          <button
-            v-for="tab in detailTabs"
-            :key="tab.id"
-            type="button"
-            role="tab"
-            class="detail-tab"
-            :class="{ active: activeTab === tab.id }"
-            :aria-selected="activeTab === tab.id"
-            @click="activeTab = tab.id"
-          >
-            {{ tab.label }}
-            <span v-if="tab.count !== undefined" class="detail-tab-count">{{ tab.count }}</span>
-          </button>
-        </div>
-
-        <!-- ── TAB 1: Applicability assessment ───────────────── -->
-        <div v-show="activeTab === 'applicability'" class="detail-tab-panel" role="tabpanel">
+        <!-- ── Applicability assessment ──────────────────────── -->
+        <div class="detail-tab-panel">
           <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
 
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
                 <h3 class="section-title">Applicability decision</h3>
-                <p class="muted">Decide explicitly whether this requirement applies to the selected product.</p>
+                <p class="muted">Decide applicability from the documented cybersecurity risk assessment.</p>
+                <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This CRA obligation is mandatory for an in-scope product; it cannot be marked not applicable.</p>
               </div>
             </div>
             <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
               <label class="field">
                 <span>Decision</span>
                 <select v-model="applicabilityForm.applicability_decision" class="select" :disabled="isLocked">
-                  <option v-for="option in applicabilityDecisions" :key="option" :value="option">
+                  <option v-for="option in applicabilityOptions(selectedRow)" :key="option" :value="option">
                     {{ formatApplicabilityDecision(option) }}
                   </option>
                 </select>
@@ -418,8 +357,8 @@
           </section>
         </div>
 
-        <!-- ── TAB 2: Justification by risk ──────────────────── -->
-        <div v-show="activeTab === 'risk'" class="detail-tab-panel" role="tabpanel">
+        <!-- ── Justification by risk ─────────────────────────── -->
+        <div class="detail-tab-panel">
           <section class="trace-section">
             <div class="section-heading tight">
               <div>
@@ -612,8 +551,8 @@
           </section>
         </div>
 
-        <!-- ── TAB 3: Linked artifacts ───────────────────────── -->
-        <div v-show="activeTab === 'artifacts'" class="detail-tab-panel" role="tabpanel">
+        <!-- ── Linked artifacts ──────────────────────────────── -->
+        <div class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
@@ -701,8 +640,8 @@
           </section>
         </div>
 
-        <!-- ── TAB 4: Implementation status ──────────────────── -->
-        <div v-show="activeTab === 'implementation'" class="detail-tab-panel" role="tabpanel">
+        <!-- ── Implementation status ─────────────────────────── -->
+        <div class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
@@ -770,7 +709,7 @@
         </div>
 
       </div>
-    </AppModal>
+    </aside>
 
   </section>
 </template>
@@ -779,7 +718,6 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import AppModal from "@/components/AppModal.vue";
 import AppButton from "@/components/AppButton.vue";
 import ProductReadinessPanel from "@/components/ProductReadinessPanel.vue";
 import { artifactService } from "@/services/artifact-service";
@@ -835,7 +773,6 @@ const matrixRows = ref<ProductRequirementMatrixRowRead[]>([]);
 const productRiskItems = ref<RiskItemRead[]>([]);
 const productArtifacts = ref<ArtifactListRead[]>([]);
 
-const productQuery = ref("");
 const selectedProductId = ref("");
 const selectedReleaseId = ref("");
 
@@ -845,6 +782,10 @@ const selectedReleaseId = ref("");
  * releases to arrive, then selects the requested release. Scrolls the matrix
  * into view so the deep-dive is visible below the overview.
  */
+function onReadinessToggle(event: Event): void {
+  if ((event.currentTarget as HTMLDetailsElement).open) showPortfolioReadiness.value = true;
+}
+
 async function onReadinessSelect(productId: string, releaseId: string): Promise<void> {
   if (selectedProductId.value !== productId) {
     selectedProductId.value = productId;
@@ -862,21 +803,12 @@ const selectedTraceId = ref("");
 /* ── Release-level data ───────────────────────────── */
 const productReleases = ref<ProductReleaseRead[]>([]);
 
-/* ── Modal visibility ─────────────────────────────── */
-const showFilterModal = ref(false);
+/* ── Optional UI surfaces ─────────────────────────── */
 const showDetailModal = ref(false);
-
-/* ── Detail modal tabs ────────────────────────────── */
-type DetailTabId = "applicability" | "risk" | "artifacts" | "implementation";
-const activeTab = ref<DetailTabId>("applicability");
-
-/* ── Expanded description rows ────────────────────── */
-const expandedRowIds = ref(new Set<string>());
+const showPortfolioReadiness = ref(false);
 
 const filters = reactive({
   annexPart: "" as AnnexPart | "",
-  /* "unmapped" is a UI-only sentinel for rows with no trace record */
-  status: "" as RequirementImplementationStatus | "unmapped" | "",
   /* quick filter for the "not finalized" chip */
   finalization: "" as "not_finalized" | "",
   search: "",
@@ -895,14 +827,6 @@ const applicabilityForm = reactive({
   applicability_decision: "undecided" as RequirementApplicabilityDecision,
   rationale: "",
 });
-
-const implementationStatuses: RequirementImplementationStatus[] = [
-  "planned",
-  "in_progress",
-  "implemented",
-  "verified",
-  "not_applicable",
-];
 
 // Per-requirement implementation progress (the new model).
 const progressStatuses: RequirementProgressStatus[] = ["planned", "implemented", "validated"];
@@ -926,14 +850,6 @@ const sdlActivities: SdlActivity[] = [
 
 /* ── Computed ─────────────────────────────────────── */
 
-const filteredProducts = computed(() => {
-  const term = productQuery.value.trim().toLowerCase();
-  if (!term) return products.value;
-  return products.value.filter((product: ProductSummaryRead) =>
-    [product.name, product.product_code].some((value: string) => value.toLowerCase().includes(term)),
-  );
-});
-
 const selectedProduct = computed(
   () => products.value.find((product: ProductSummaryRead) => product.id === selectedProductId.value) ?? null,
 );
@@ -941,17 +857,13 @@ const selectedProduct = computed(
 const filteredRows = computed(() => {
   const term = filters.search.trim().toLowerCase();
   return [...matrixRows.value]
-    .sort((a: ProductRequirementMatrixRowRead, b: ProductRequirementMatrixRowRead) =>
-      compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code),
+    .sort(
+      (a: ProductRequirementMatrixRowRead, b: ProductRequirementMatrixRowRead) =>
+        blockerRank(a) - blockerRank(b) ||
+        compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code),
     )
     .filter((row: ProductRequirementMatrixRowRead) => {
       if (filters.annexPart && row.annex_requirement.annex_part !== filters.annexPart) {
-        return false;
-      }
-      /* "unmapped" = rows where no trace record exists yet */
-      if (filters.status === "unmapped") {
-        if (row.overall_status) return false;
-      } else if (filters.status && row.overall_status !== filters.status) {
         return false;
       }
       if (filters.finalization === "not_finalized" && row.finalized) {
@@ -984,41 +896,38 @@ const selectedRow = computed(
 
 const editingExisting = computed(() => Boolean(traceForm.id));
 
-// Tabs for the requirement detail modal, with live counts on the relevant ones.
-const detailTabs = computed(() => {
-  const row = selectedRow.value;
-  return [
-    { id: "applicability" as DetailTabId, label: "Applicability", count: undefined as number | undefined },
-    {
-      id: "risk" as DetailTabId,
-      label: "Justification by risk",
-      count: row ? rowRiskCount(row) : 0,
-    },
-    {
-      id: "artifacts" as DetailTabId,
-      label: "Linked artifacts",
-      count: row?.artifacts.length ?? 0,
-    },
-    { id: "implementation" as DetailTabId, label: "Implementation", count: undefined as number | undefined },
-  ];
-});
+const navigationRows = computed(() =>
+  filteredRows.value.length
+    ? filteredRows.value
+    : [...matrixRows.value].sort((a, b) =>
+        compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code),
+      ),
+);
+const selectedNavigationIndex = computed(() =>
+  navigationRows.value.findIndex(
+    (row) => row.annex_requirement.id === selectedRequirementId.value,
+  ),
+);
+const hasPreviousRequirement = computed(() => selectedNavigationIndex.value > 0);
+const hasNextRequirement = computed(
+  () =>
+    selectedNavigationIndex.value >= 0 &&
+    selectedNavigationIndex.value < navigationRows.value.length - 1,
+);
 
-const stats = computed(() => ({
-  finalized: filteredRows.value.filter((row: ProductRequirementMatrixRowRead) => row.finalized).length,
-  // Count from the full set so the "not finalized" chip always reflects the true
-  // total even while the chip's own filter is active.
-  notFinalized: matrixRows.value.filter((row: ProductRequirementMatrixRowRead) => !row.finalized).length,
-  needsDecision: matrixRows.value.filter((row: ProductRequirementMatrixRowRead) => row.applicability === "needs_decision").length,
-}));
+function selectAdjacentRequirement(direction: -1 | 1): void {
+  const target = navigationRows.value[selectedNavigationIndex.value + direction];
+  if (target) selectRow(target);
+}
 
-/** Number of active non-empty filters — shown as a badge on the Filter button. */
-const activeFilterCount = computed(() => {
-  let count = 0;
-  if (filters.annexPart) count++;
-  if (filters.status) count++;
-  if (filters.finalization) count++;
-  if (filters.search) count++;
-  return count;
+const stats = computed(() => {
+  const rows = matrixRows.value;
+  return {
+    decided: rows.filter((row) => row.applicability !== "needs_decision").length,
+    traceable: rows.filter((row) => rowRiskCount(row) > 0).length,
+    finalized: rows.filter((row) => row.finalized).length,
+    notFinalized: rows.filter((row) => !row.finalized).length,
+  };
 });
 
 /** Toggle the "not finalized" quick filter from the coverage chip. */
@@ -1031,11 +940,10 @@ const selectedRelease = computed(
   () => productReleases.value.find((r: ProductReleaseRead) => r.id === selectedReleaseId.value) ?? null,
 );
 
-/** Percentage of visible requirements that are finalized for the current release. */
+/** Percentage of all requirements finalized for the current release. */
 const coveragePct = computed(() => {
-  const total = filteredRows.value.length;
-  if (total === 0) return 0;
-  return Math.round((stats.value.finalized / total) * 100);
+  const total = matrixRows.value.length;
+  return total === 0 ? 0 : Math.round((stats.value.finalized / total) * 100);
 });
 
 /* ── Helpers ──────────────────────────────────────── */
@@ -1056,6 +964,46 @@ function rowRisks(row: ProductRequirementMatrixRowRead): RiskItemSummaryRead[] {
 
 function rowRiskCount(row: ProductRequirementMatrixRowRead): number {
   return rowRisks(row).length;
+}
+
+function isMandatoryRequirement(row: ProductRequirementMatrixRowRead): boolean {
+  return row.annex_requirement.annex_part === "part_ii" ||
+    row.annex_requirement.code === "ANNEX-I-PART-I-1";
+}
+
+function applicabilityOptions(
+  row: ProductRequirementMatrixRowRead,
+): RequirementApplicabilityDecision[] {
+  return isMandatoryRequirement(row)
+    ? applicabilityDecisions.filter((decision) => decision !== "not_applicable")
+    : applicabilityDecisions;
+}
+
+function nextAction(row: ProductRequirementMatrixRowRead): string {
+  if (row.applicability === "needs_decision") return "Next: decide applicability from the risk assessment";
+  if (rowRiskCount(row) === 0) return "Next: link a risk and record the justification";
+  if (row.applicability === "not_applicable") return "Complete: non-applicability is justified";
+  if (row.artifacts.length === 0) return "Next: link supporting evidence";
+  if (row.implementation_status === "planned") return "Next: record implementation";
+  if (row.implementation_status === "implemented") return "Next: validate the implementation";
+  return row.finalized ? "Complete: ready for assessment approval" : "Review the remaining evidence";
+}
+
+function blockerRank(row: ProductRequirementMatrixRowRead): number {
+  if (row.applicability === "needs_decision") return 0;
+  if (rowRiskCount(row) === 0) return 1;
+  if (row.applicability === "applicable" && row.artifacts.length === 0) return 2;
+  if (row.applicability === "applicable" && row.implementation_status !== "validated") return 3;
+  return row.finalized ? 5 : 4;
+}
+
+function legalReference(code: string): string {
+  const match = code.match(/ANNEX-I-PART-(I|II)-(\d+)/);
+  if (!match) return code;
+  const number = Number(match[2]);
+  if (match[1] === "II") return `Annex I · Part II · point ${number}`;
+  if (number === 1) return "Annex I · Part I · point 1";
+  return `Annex I · Part I · point 2(${"abcdefghijklm"[number - 2]})`;
 }
 
 /** Trace records on a requirement that link to the given risk id. */
@@ -1104,13 +1052,6 @@ function formatApplicabilityDecision(value: RequirementApplicabilityDecision): s
 
 /* ── UI interaction ───────────────────────────────── */
 
-function resetFilters(): void {
-  filters.annexPart = "";
-  filters.status = "";
-  filters.finalization = "";
-  filters.search = "";
-}
-
 function resetEditor(): void {
   traceForm.id = "";
   traceForm.risk_item_id = "";
@@ -1118,20 +1059,7 @@ function resetEditor(): void {
   traceForm.sdl_activity = "requirements";
   traceForm.engineering_requirement_ref = "";
   traceForm.evidence_summary = "";
-  applicabilityForm.applicability_decision = "undecided";
-  applicabilityForm.rationale = "";
   selectedTraceId.value = "";
-}
-
-/** Toggle the inline description panel for a row without opening the detail modal. */
-function toggleExpand(reqId: string): void {
-  const next = new Set(expandedRowIds.value);
-  if (next.has(reqId)) {
-    next.delete(reqId);
-  } else {
-    next.add(reqId);
-  }
-  expandedRowIds.value = next;
 }
 
 /** Populate the detail forms from the selected row. */
@@ -1148,10 +1076,9 @@ function selectRow(row: ProductRequirementMatrixRowRead): void {
   resetEditor();
 }
 
-/** Open the requirement detail modal for the given row. */
+/** Open the requirement drawer for the given row. */
 function openDetail(row: ProductRequirementMatrixRowRead): void {
   selectRow(row);
-  activeTab.value = "applicability";
   showDetailModal.value = true;
 }
 
@@ -1449,6 +1376,13 @@ async function downloadArtifact(artifact: ArtifactListRead): Promise<void> {
 
 async function saveApplicabilityDecision(): Promise<void> {
   if (!selectedRow.value || !selectedReleaseId.value) return;
+  if (
+    applicabilityForm.applicability_decision === "not_applicable" &&
+    !applicabilityForm.rationale.trim()
+  ) {
+    errorMessage.value = "Explain why the requirement is not applicable based on the risk assessment.";
+    return;
+  }
 
   busy.value = true;
   errorMessage.value = "";
@@ -2423,8 +2357,219 @@ onMounted(async () => {
   to   { background-position: -200% 0; }
 }
 
+
+/* ── Focused CRA workflow ─────────────────────────── */
+.sticky-scope {
+  position: sticky;
+  top: 68px;
+  z-index: 30;
+}
+
+.scope-selector-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.readiness-disclosure {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.readiness-disclosure > summary {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.readiness-disclosure[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.readiness-disclosure > div {
+  padding: 0.75rem;
+}
+
+.related-obligations {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+.related-obligations span {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.related-obligations a {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.related-obligations a:hover {
+  border-color: var(--color-primary);
+}
+
+.cra-timeline,
+.legal-guardrail {
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.workflow-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0;
+}
+
+.workflow-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+}
+
+.workflow-summary strong {
+  font-size: 1.1rem;
+}
+
+.workflow-summary span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.matrix-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.part-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.part-tabs button {
+  padding: 0.42rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.part-tabs button.active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-text);
+}
+
+.matrix-search {
+  width: min(300px, 100%);
+}
+
+.row-next-action {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.requirement-drawer {
+  position: fixed;
+  z-index: 1100;
+  top: 70px;
+  right: 16px;
+  bottom: 16px;
+  width: min(720px, calc(100vw - 32px));
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+}
+
+.drawer-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.drawer-header h2 {
+  margin: 0.2rem 0;
+  font-size: 1.05rem;
+}
+
+.drawer-next-action {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.drawer-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.drawer-close {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.requirement-drawer .detail-modal-body {
+  padding: 1rem;
+}
+
+.requirement-drawer .detail-tab-panel {
+  display: block !important;
+  height: auto;
+  overflow: visible;
+  padding: 1rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.requirement-drawer .detail-tab-panel:first-of-type {
+  border-top: 0;
+}
+
 /* ── Responsive ───────────────────────────────────── */
 @media (max-width: 900px) {
+  .workflow-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .matrix-toolbar { align-items: stretch; flex-direction: column; }
+  .matrix-search { width: 100%; }
   .selector-grid,
   .filter-grid,
   .editor-grid,
@@ -2442,6 +2587,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
+  .sticky-scope { position: static; }
+  .workflow-summary { grid-template-columns: 1fr 1fr; }
+  .drawer-header { flex-direction: column; }
+  .drawer-actions { justify-content: flex-end; }
   .row-title {
     white-space: normal;
   }

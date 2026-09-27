@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.annex_i_catalog import sync_annex_i_requirements
-from app.core.exceptions import AppException, ConflictException
+from app.core.exceptions import AppException, ConflictException, ValidationException
 from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import (
     AuditActionType,
@@ -39,6 +39,24 @@ from app.schemas.annex_matrix import ProductRequirementDecisionUpdate, ProductRe
 from app.schemas.requirement_mapping import RequirementMappingCreate, RequirementMappingUpdate
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_applicability_decision(
+    requirement_code: str,
+    decision: RequirementApplicabilityDecision,
+    rationale: str | None,
+) -> None:
+    """Apply CRA applicability guardrails before persisting a decision."""
+    if decision != RequirementApplicabilityDecision.not_applicable:
+        return
+    if requirement_code == "ANNEX-I-PART-I-1" or requirement_code.startswith(
+        "ANNEX-I-PART-II-"
+    ):
+        raise ValidationException("This CRA requirement is mandatory and cannot be marked not applicable.")
+    if not rationale or not rationale.strip():
+        raise ValidationException(
+            "A clear risk-based rationale is required for a non-applicable requirement."
+        )
 
 
 class RequirementMappingService:
@@ -248,6 +266,11 @@ class RequirementMappingService:
         requirement = self.annex_requirement_repository.get_by_id(annex_requirement_id)
         if requirement is None:
             raise ValueError("Annex requirement not found.")
+        _validate_applicability_decision(
+            requirement.code,
+            payload.applicability_decision,
+            payload.rationale,
+        )
 
         existing = next(
             (
