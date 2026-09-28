@@ -19,6 +19,7 @@ from app.api.routes.external_findings import router as external_findings_router
 from app.api.routes.lifecycle_notifications import router as lifecycle_notifications_router
 from app.api.routes.product_releases import router as product_releases_router
 from app.api.routes.products import router as products_router
+from app.api.routes.product_data import router as product_data_router
 from app.api.routes.release_gates import router as release_gates_router
 from app.api.routes.remote_processing_elements import router as remote_processing_elements_router
 from app.api.routes.requirement_mappings import router as requirement_mappings_router
@@ -50,6 +51,7 @@ api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(audit_router)
 
 api_router.include_router(products_router, prefix="/products", tags=["products"])
+api_router.include_router(product_data_router, prefix="/product-data", tags=["product-data"])
 api_router.include_router(product_releases_router, prefix="/product-releases", tags=["product-releases"])
 api_router.include_router(release_gates_router, tags=["release-gates"])
 api_router.include_router(artifacts_router, prefix="/artifacts", tags=["artifacts"])

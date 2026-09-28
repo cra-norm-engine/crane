@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # --- Security ---
     secret_key: str = Field(alias="BACKEND_SECRET_KEY")
     audit_hmac_key: str = Field(default="", alias="BACKEND_AUDIT_HMAC_KEY")
+    # Optional shared key for authenticating product-data bundles exchanged
+    # between trusted CRANE installations. Empty keeps exports checksummed but unsigned.
+    product_data_hmac_key: str = Field(default="", alias="BACKEND_PRODUCT_DATA_HMAC_KEY")
 
     # --- Initial admin bootstrap ---
     # Email of the seeded admin account.

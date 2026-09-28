@@ -25,6 +25,8 @@ class Permission(StrEnum):
     task_assign = "task_assign"
     product_read = "product_read"
     product_write = "product_write"
+    product_data_export = "product_data_export"
+    product_data_import = "product_data_import"
 
     release_read = "release_read"
     release_write = "release_write"

@@ -56,13 +56,32 @@
     <div class="topbar-right">
 
       <div class="task-notification-wrap">
-        <button class="notification-button" aria-label="Task notifications" @click="toggleNotifications">🔔<span v-if="unreadCount">{{ unreadCount }}</span></button>
-        <div v-if="showNotifications" class="notification-menu">
-          <strong>Task notifications</strong>
-          <button v-for="item in notifications" :key="item.id" @click="openNotification(item)">
+        <button
+          class="notification-button"
+          type="button"
+          aria-label="Notifications"
+          :aria-expanded="showNotifications"
+          @click="toggleNotifications"
+        >
+          🔔<span v-if="notificationCount">{{ notificationCount }}</span>
+        </button>
+        <div v-if="showNotifications" class="notification-menu" role="region" aria-label="Notifications">
+          <strong>Notifications</strong>
+          <button
+            v-if="systemUpdateVisible"
+            class="system-update-notification"
+            :class="`severity-${systemUpdateStatus!.manifest!.severity}`"
+            type="button"
+            @click="openSystemUpdate"
+          >
+            <span>{{ systemUpdateTitle }}</span>
+            <small>Installed: {{ systemUpdateStatus!.installed_version }} · {{ systemUpdateMessage }}</small>
+          </button>
+          <small v-if="notifications.length" class="notification-section-label">Tasks</small>
+          <button v-for="item in notifications" :key="item.id" type="button" @click="openNotification(item)">
             <span>{{ item.title }}</span><small>{{ item.message }}</small>
           </button>
-          <p v-if="!notifications.length">No notifications.</p>
+          <p v-if="!systemUpdateVisible && !notifications.length">No notifications.</p>
         </div>
       </div>
 
@@ -99,9 +118,11 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import { adminService } from "@/services/admin-service";
+import { taskService } from "@/services/task-service";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
-import { taskService } from "@/services/task-service";
+import type { SystemUpdateStatus } from "@/types/admin";
 import type { TaskNotification } from "@/types/task";
 
 /* ── Stores ──────────────────────────────────────────── */
@@ -109,11 +130,39 @@ const appStore  = useAppStore();
 const authStore = useAuthStore();
 const router = useRouter();
 const notifications = ref<TaskNotification[]>([]);
+const systemUpdateStatus = ref<SystemUpdateStatus | null>(null);
 const showNotifications = ref(false);
 const unreadCount = computed(() => notifications.value.filter((item) => !item.read_at).length);
+const systemUpdateVisible = computed(() => {
+  if (!authStore.hasPermission("admin_manage_users") || !systemUpdateStatus.value?.update_available) {
+    return false;
+  }
+  const postponed = systemUpdateStatus.value.policy.postponed_until;
+  return systemUpdateStatus.value.manifest?.severity === "critical" ||
+    !postponed ||
+    new Date(postponed) <= new Date();
+});
+const notificationCount = computed(() => unreadCount.value + (systemUpdateVisible.value ? 1 : 0));
+const systemUpdateTitle = computed(() => {
+  const manifest = systemUpdateStatus.value?.manifest;
+  if (!manifest) return "CRANE update available";
+  return `${manifest.update_type === "security" ? "Security update" : "CRANE update"} ${manifest.version} is available`;
+});
+const systemUpdateMessage = computed(() => {
+  const manifest = systemUpdateStatus.value?.manifest;
+  if (!manifest) return "";
+  return manifest.update_type === "security"
+    ? `${manifest.severity.toUpperCase()} severity; review without delay.`
+    : "Review compatibility and release notes.";
+});
 
 async function loadNotifications(): Promise<void> {
   notifications.value = await taskService.notifications().catch(() => []);
+}
+
+async function loadSystemUpdate(): Promise<void> {
+  if (!authStore.hasPermission("admin_manage_users")) return;
+  systemUpdateStatus.value = await adminService.getSystemUpdates().catch(() => null);
 }
 
 async function toggleNotifications(): Promise<void> {
@@ -128,7 +177,15 @@ async function openNotification(item: TaskNotification): Promise<void> {
   await loadNotifications();
 }
 
-onMounted(loadNotifications);
+async function openSystemUpdate(): Promise<void> {
+  showNotifications.value = false;
+  await router.push({ name: "settings", hash: "#system-updates" });
+}
+
+onMounted(() => {
+  void loadNotifications();
+  void loadSystemUpdate();
+});
 
 /* ── Emitted events ──────────────────────────────────── */
 /* Parent (AppLayout) listens to this to toggle the sidebar overlay */
@@ -217,6 +274,10 @@ const greeting = computed(() => {
 .notification-menu > strong { display: block; margin-bottom: 0.5rem; }
 .notification-menu button { display: grid; width: 100%; gap: 0.15rem; padding: 0.65rem; border: 0; border-bottom: 1px solid var(--color-border); background: none; color: var(--color-text); text-align: left; cursor: pointer; }
 .notification-menu small, .notification-menu p { color: var(--color-text-muted); }
+.notification-section-label { display: block; padding: .65rem .65rem .25rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.notification-menu .system-update-notification { border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); }
+.notification-menu .system-update-notification.severity-high,
+.notification-menu .system-update-notification.severity-critical { border-color: var(--color-danger); }
 
 /* ── Hamburger button — mobile only ───────────── */
 .hamburger {

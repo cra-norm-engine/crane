@@ -184,16 +184,26 @@
     <template v-else-if="assessment">
       <!-- Assessment Overview Card -->
       <article class="panel" data-guide="risk-approval">
-        <div class="panel-header">
-          <div>
+        <div class="panel-header assessment-overview-header">
+          <div class="overview-heading">
+            <p class="overview-kicker">Threat modelling and risk assessment</p>
             <h2>Assessment Overview</h2>
+            <p class="overview-description">Review the assessment context and manage this version.</p>
           </div>
-          <div class="overview-actions">
-            <span class="count-badge">{{ assessment.display_version }}</span>
-            <div class="assessment-actions">
-              <button class="button secondary" type="button" @click="showEditModal = true">Edit assessment</button>
-              <button class="button danger" type="button" :disabled="deletingAssessment" @click="deleteAssessment">{{ deletingAssessment ? "Deleting…" : "Delete assessment" }}</button>
-            </div>
+          <div class="assessment-version">
+            <span>Current version</span>
+            <strong>{{ assessment.display_version }}</strong>
+          </div>
+        </div>
+
+        <div class="assessment-toolbar" aria-label="Assessment actions">
+          <div class="assessment-toolbar-copy">
+            <strong>Assessment actions</strong>
+            <small>Changes apply to this assessment version.</small>
+          </div>
+          <div class="assessment-toolbar-buttons">
+            <button class="button secondary" type="button" @click="showEditModal = true">Edit assessment</button>
+            <button class="button danger" type="button" :disabled="deletingAssessment" @click="deleteAssessment">{{ deletingAssessment ? "Deleting…" : "Delete assessment" }}</button>
           </div>
         </div>
 
@@ -1052,17 +1062,6 @@ onMounted(async () => {
     width: 100%;
   }
 
-  .overview-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .assessment-actions { width: 100%; flex-direction: column; }
-
-  .overview-actions .button {
-    width: 100%;
-  }
 }
 
 .details-grid {
@@ -1144,15 +1143,81 @@ onMounted(async () => {
 }
 
 /* ── Overview Actions ────────────────────────────────────────────────────────── */
-.overview-actions {
+.assessment-overview-header {
+  align-items: flex-start;
+}
+
+.overview-heading {
+  min-width: 0;
+}
+
+.overview-kicker,
+.overview-description {
+  margin: 0;
+}
+
+.overview-kicker {
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overview-description {
+  margin-top: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.assessment-version {
+  display: grid;
+  gap: 0.15rem;
+  max-width: min(24rem, 100%);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  text-align: right;
+}
+
+.assessment-version span,
+.assessment-toolbar-copy small {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.assessment-version strong {
+  overflow-wrap: anywhere;
+}
+
+.assessment-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
 }
-.assessment-actions { display: flex; align-items: center; gap: .5rem; }
-.assessment-actions .button { min-height: 38px; padding: .55rem .8rem; white-space: nowrap; }
+
+.assessment-toolbar-copy {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.assessment-toolbar-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.assessment-toolbar-buttons .button {
+  min-height: 38px;
+  white-space: nowrap;
+}
 
 .detail-full {
   grid-column: 1 / -1;
@@ -1381,6 +1446,25 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .assessment-version {
+    max-width: none;
+    text-align: left;
+  }
+
+  .assessment-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assessment-toolbar-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .assessment-toolbar-buttons .button {
+    width: 100%;
+  }
+
   .overview-grid,
   .details-grid,
   .form-grid,

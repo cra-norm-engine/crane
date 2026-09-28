@@ -264,6 +264,7 @@ const routes: RouteRecordRaw[] = [
         path: "product-data",
         name: "product-data",
         component: () => import("@/views/ProductDataView.vue"),
+        meta: { permissions: ["product_data_export", "product_data_import"] },
       },
       {
         path: "settings",

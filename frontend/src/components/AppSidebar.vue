@@ -278,7 +278,7 @@ const groups = computed<NavGroup[]>(() => [
       { label: "Declarations", route: "declarations", icon: ICONS.document, allowed: can("release_read") },
       { label: "Certifications", route: "certification-records", icon: ICONS.certification, allowed: can("certification_record_read") },
       { label: "Audit history", route: "audit-history", icon: ICONS.audit, allowed: can("audit_read") },
-      { label: "Data export / import", route: "product-data", icon: ICONS.data },
+      { label: "Product data transfer", route: "product-data", icon: ICONS.data, allowed: can("product_data_export") || can("product_data_import") },
     ],
   },
   {

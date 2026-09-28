@@ -1,723 +1,247 @@
-<!--
-  CRANE — CRA Norm Engine
-  Copyright (C) 2026 Ali Mohammad Hosseini
-  SPDX-License-Identifier: AGPL-3.0-or-later
-  This file is part of CRANE, free software under the GNU AGPL v3.0 or later.
-  See <https://www.gnu.org/licenses/>.
--->
 <template>
-  <section class="page">
-
-    <!-- ── Page header ── -->
+  <section class="transfer-page">
     <header class="page-header" data-guide="data-header">
       <div>
-        <h1 class="page-title">Data export / import</h1>
-        <p class="muted page-subtitle">
-          Export a complete product record as a portable JSON file, or import one to create a new product with all its data.
-        </p>
+        <p class="eyebrow">Controlled data exchange</p>
+        <h1 class="page-title">Product data transfer</h1>
+        <p class="page-subtitle">Export or import versioned CRANE records with validation, integrity checks and an audit trail.</p>
       </div>
-      <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
+      <AppButton variant="secondary" @click="startGuide">? Guide</AppButton>
     </header>
 
-    <!-- ── Two-panel layout ── -->
-    <div class="panels">
+    <nav class="mode-tabs" aria-label="Product data transfer sections">
+      <button v-if="canExport" :class="{ active: mode === 'export' }" @click="mode = 'export'">Export</button>
+      <button v-if="canImport" :class="{ active: mode === 'import' }" @click="mode = 'import'">Import</button>
+      <button v-if="canExport" :class="{ active: mode === 'history' }" @click="openHistory">Transfer history</button>
+    </nav>
 
-      <!-- ══════════════════════════════════════════
-           EXPORT PANEL
-           ══════════════════════════════════════════ -->
-      <div class="panel card" data-guide="data-export">
-        <div class="panel-header">
-          <div class="panel-icon icon-export">
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L9 11.586V3a1 1 0 0 1 1-1zM3 17a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1z"/>
-            </svg>
-          </div>
-          <div>
-            <h2 class="panel-title section-title">Export product</h2>
-            <p class="muted panel-desc">
-              Select a product to download all its data as a single JSON file — including releases, risk assessments, CVD policies, advisories, SBOMs, certifications, and more.
-            </p>
-          </div>
+    <div v-if="!canExport && !canImport" class="notice error">You do not have product-data export or import permission.</div>
+
+    <div v-else-if="mode === 'export'" class="workspace" data-guide="data-export">
+      <main class="card flow-card">
+        <div class="section-heading">
+          <span class="step-number">1</span>
+          <div><h2>Select the product and release scope</h2><p>The exported file creates a new product when imported. Existing products are never changed.</p></div>
         </div>
 
-        <div class="panel-body">
+        <label class="field">
+          <span>Product</span>
+          <select v-model="exportProductId" :disabled="exportBusy" @change="loadReleases">
+            <option value="">Choose a product</option>
+            <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }} · {{ product.product_code }}</option>
+          </select>
+        </label>
 
-          <!-- Product selector -->
-          <label class="field">
-            <span class="field-label">Select product <span class="required">*</span></span>
-            <select v-model="exportProductId" class="select" :disabled="isExporting">
-              <option value="">— choose a product —</option>
-              <option v-for="p in products" :key="p.id" :value="p.id">
-                {{ p.name }} <span v-if="p.product_code">({{ p.product_code }})</span>
-              </option>
-            </select>
-          </label>
-
-          <!-- Export progress -->
-          <div v-if="isExporting" class="progress-box">
-            <div class="spinner" />
-            <span class="progress-label">{{ exportStep }}</span>
-          </div>
-
-          <!-- Errors -->
-          <p v-if="exportError" class="form-error">{{ exportError }}</p>
-
-          <!-- Export button -->
-          <AppButton
-            variant="primary"
-            type="button"
-            style="width:100%"
-            :disabled="!exportProductId || isExporting"
-            @click="runExport"
-          >
-            <svg viewBox="0 0 16 16" fill="currentColor" style="width:1rem;height:1rem">
-              <path d="M8 1a1 1 0 0 1 1 1v6.586l1.793-1.793a1 1 0 1 1 1.414 1.414l-3.5 3.5a1 1 0 0 1-1.414 0l-3.5-3.5a1 1 0 1 1 1.414-1.414L7 8.586V2a1 1 0 0 1 1-1zM2 14a1 1 0 0 1 1-1h10a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1z"/>
-            </svg>
-            {{ isExporting ? "Building export…" : "Download JSON" }}
-          </AppButton>
-
-          <!-- Schema info -->
-          <div class="schema-info" data-guide="data-schema">
-            <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.85rem;height:0.85rem;flex-shrink:0;margin-top:0.05rem">
-              <path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14zm.93-9.412-3 .75a.75.75 0 0 0 .36 1.456l1.061-.265-.812 3.25a.75.75 0 0 0 1.454.363l1-4a.75.75 0 0 0-.563-.9l-.5-.124V5.588zm.07-1.838a.75.75 0 0 0 0-1.5.75.75 0 0 0 0 1.5z" clip-rule="evenodd"/>
-            </svg>
-            <div class="schema-info-body">
-              <span>Schema v<strong>{{ EXPORT_SCHEMA_VERSION }}</strong> · Includes all product entities except file attachments.</span>
-              <button class="schema-dl-link" type="button" @click="downloadSchemaReference">
-                Download schema reference (JSON)
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══════════════════════════════════════════
-           IMPORT PANEL
-           ══════════════════════════════════════════ -->
-      <div class="panel card" data-guide="data-import">
-        <div class="panel-header">
-          <div class="panel-icon icon-import">
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 18a1 1 0 0 1-1-1V8.414l-2.293 2.293a1 1 0 1 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 0 1-1.414 1.414L11 8.414V17a1 1 0 0 1-1 1zM3 3a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1z"/>
-            </svg>
-          </div>
-          <div>
-            <h2 class="panel-title section-title">Import product</h2>
-            <p class="muted panel-desc">
-              Upload a CRANE export JSON file to create a new product with all its associated data.
-              A preview is shown before any data is written.
-            </p>
-          </div>
-        </div>
-
-        <div class="panel-body">
-
-          <!-- File drop zone -->
-          <div
-            v-if="!importBundle"
-            class="drop-zone"
-            data-guide="data-drop"
-            :class="{ 'drop-zone-hover': isDragging }"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onFileDrop"
-            @click="fileInput?.click()"
-          >
-            <input ref="fileInput" type="file" accept=".json,application/json" class="hidden-input" @change="onFileChange" />
-            <div class="drop-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <p class="drop-label">Drop a CRANE export JSON here</p>
-            <p class="muted drop-sub">or <span class="link">click to browse</span></p>
-          </div>
-
-          <!-- Parse error -->
-          <p v-if="parseError" class="form-error">{{ parseError }}</p>
-
-          <!-- ── Import preview ── -->
-          <template v-if="importBundle && importSummary">
-
-            <div class="preview-card">
-              <div class="preview-header">
-                <div class="preview-product">
-                  <div class="preview-avatar">{{ productInitials(importSummary.product_name) }}</div>
-                  <div>
-                    <div class="preview-name">{{ importSummary.product_name }}</div>
-                    <div class="preview-meta muted">
-                      Exported {{ formatDate(importSummary.exported_at) }} ·
-                      Schema v{{ importSummary.schema_version }}
-                    </div>
-                  </div>
-                </div>
-                <button class="btn-icon" type="button" title="Clear" @click="clearImport">
-                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 3.5 8 8l4.5-4.5 1 1L9 9l4.5 4.5-1 1L8 10l-4.5 4.5-1-1L7 9 2.5 4.5z"/></svg>
-                </button>
-              </div>
-
-              <!-- Count grid -->
-              <div class="count-grid">
-                <div v-for="item in countItems" :key="item.label" class="count-cell">
-                  <span class="count-num">{{ item.value }}</span>
-                  <span class="count-lbl muted">{{ item.label }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Optional: rename product on import -->
-            <label class="field">
-              <span class="field-label">Import as product name</span>
-              <input
-                v-model="importProductName"
-                class="input"
-                maxlength="255"
-                :placeholder="importSummary.product_name"
-              />
-              <span class="field-hint muted">Leave blank to keep the original name.</span>
+        <fieldset v-if="releases.length" class="release-scope">
+          <legend>Release scope</legend>
+          <label><input v-model="selectedOnly" type="radio" :value="false"> All releases ({{ releases.length }})</label>
+          <label><input v-model="selectedOnly" type="radio" :value="true"> Selected releases</label>
+          <div v-if="selectedOnly" class="release-list">
+            <label v-for="release in releases" :key="release.id">
+              <input v-model="selectedReleaseIds" type="checkbox" :value="release.id">
+              <span><strong>{{ release.display_version }}</strong><small>{{ label(release.release_status) }}</small></span>
             </label>
+          </div>
+        </fieldset>
 
-            <!-- Warnings -->
-            <div class="warning-box">
-              <svg viewBox="0 0 16 16" fill="currentColor" style="width:0.9rem;flex-shrink:0;margin-top:0.1rem">
-                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-              </svg>
-              <div>
-                <strong>This will create a new product</strong> — existing products are never modified.
-                File attachments, user assignments, and approved workflow states are not transferred.
-                Changes linked to unmapped releases will be skipped.
-              </div>
-            </div>
-
-            <!-- Import progress -->
-            <div v-if="isImporting" class="progress-box">
-              <div class="spinner" />
-              <div class="progress-right">
-                <span class="progress-label">{{ importProgress.step }}</span>
-                <div class="progress-bar-wrap">
-                  <div
-                    class="progress-bar-fill"
-                    :style="{ width: `${importPct}%` }"
-                  />
-                </div>
-                <span class="progress-pct muted">{{ importProgress.done }} / {{ importProgress.total }}</span>
-              </div>
-            </div>
-
-            <p v-if="importError" class="form-error">{{ importError }}</p>
-
-            <div v-if="importedProductId" class="success-box">
-              <svg viewBox="0 0 16 16" fill="currentColor" style="width:1rem;flex-shrink:0">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-              </svg>
-              <div>
-                Import complete!
-                <RouterLink :to="{ name: 'product-detail', params: { productId: importedProductId } }" class="link">
-                  Open the new product →
-                </RouterLink>
-              </div>
-            </div>
-
-            <AppButton
-              v-if="!importedProductId"
-              variant="primary"
-              type="button"
-              style="width:100%"
-              :disabled="isImporting"
-              @click="runImport"
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" style="width:1rem;height:1rem">
-                <path d="M8 17a1 1 0 0 1-1-1V9.414l-1.793 1.793a1 1 0 0 1-1.414-1.414l3.5-3.5a1 1 0 0 1 1.414 0l3.5 3.5a1 1 0 0 1-1.414 1.414L9 9.414V16a1 1 0 0 1-1 1zM3 3a1 1 0 0 1 1-1h8a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1z"/>
-              </svg>
-              {{ isImporting ? "Importing…" : "Start import" }}
-            </AppButton>
-          </template>
-
+        <div class="section-heading compact">
+          <span class="step-number">2</span>
+          <div><h2>Protect the transfer</h2><p>Choose the sensitivity and the minimum data needed by the recipient.</p></div>
         </div>
-      </div>
+        <div class="form-grid">
+          <label class="field"><span>Sensitivity</span><select v-model="sensitivity"><option value="internal">Internal</option><option value="confidential">Confidential</option><option value="restricted">Restricted</option></select></label>
+          <label class="check"><input v-model="redactPersonalData" type="checkbox"><span><strong>Remove reporter personal data</strong><small>Recommended for data minimisation.</small></span></label>
+          <label class="check"><input v-model="includeEmbargoed" type="checkbox"><span><strong>Include embargoed advisories</strong><small>Only for an authorised recipient and secure channel.</small></span></label>
+        </div>
 
+        <div class="action-row">
+          <p v-if="exportError" class="form-error">{{ exportError }}</p>
+          <AppButton variant="primary" :disabled="!exportReady || exportBusy" @click="runExport">{{ exportBusy ? 'Preparing secure export…' : 'Download CRANE bundle' }}</AppButton>
+        </div>
+      </main>
+
+      <aside class="card manifest" data-guide="data-schema">
+        <div class="manifest-title"><div><h2>Transfer manifest</h2><p>Schema v{{ EXPORT_SCHEMA_VERSION }}</p></div><AppButton size="sm" variant="ghost" @click="productDataService.downloadSchema">Schema</AppButton></div>
+        <h3>Included</h3>
+        <ul><li v-for="item in included" :key="item">✓ {{ item }}</li></ul>
+        <h3>Not included</h3>
+        <ul class="excluded"><li v-for="item in excluded" :key="item">— {{ item }}</li></ul>
+        <div class="security-note"><strong>Sensitive security information</strong><span>Store and send the downloaded file through an access-controlled, encrypted channel.</span></div>
+      </aside>
     </div>
 
+    <div v-else-if="mode === 'import'" class="import-flow" data-guide="data-import">
+      <ol class="stepper" aria-label="Import progress">
+        <li :class="{ active: importStep === 1, done: importStep > 1 }">1 <span>Select file</span></li>
+        <li :class="{ active: importStep === 2, done: importStep > 2 }">2 <span>Validate</span></li>
+        <li :class="{ active: importStep === 3, done: importStep > 3 }">3 <span>Review</span></li>
+        <li :class="{ active: importStep === 4 }">4 <span>Complete</span></li>
+      </ol>
+
+      <main class="card import-card">
+        <label v-if="!importFile" class="drop-zone" data-guide="data-drop" @dragover.prevent @drop.prevent="dropFile">
+          <input ref="fileInput" class="sr-only" type="file" accept=".json,application/json" @change="chooseFile">
+          <span class="upload-mark">↑</span><h2>Select a CRANE JSON bundle</h2><p>Drop a file here or press Enter to browse · maximum 50 MB</p>
+        </label>
+
+        <template v-else>
+          <div class="file-row"><div><strong>{{ importFile.name }}</strong><small>{{ fileSize(importFile.size) }}</small></div><AppButton size="sm" variant="ghost" :disabled="importBusy" @click="clearImport">Choose another</AppButton></div>
+          <div v-if="validating" class="working"><span class="spinner" /> Validating structure, relationships, permissions and integrity…</div>
+          <p v-if="importError" class="form-error">{{ importError }}</p>
+
+          <template v-if="validation">
+            <div class="validation-head" :class="validation.valid ? 'valid' : 'invalid'">
+              <div><strong>{{ validation.valid ? 'Validation passed' : 'Import blocked' }}</strong><span>Schema {{ validation.schema_version }} · {{ signatureLabel }}</span></div>
+              <code :title="validation.digest">{{ validation.digest.slice(0, 12) }}…</code>
+            </div>
+
+            <div class="form-grid identity-grid">
+              <label class="field"><span>Import as product name</span><input v-model="importName" maxlength="255" @input="reviewStale = true"></label>
+              <label class="field"><span>Unique product code</span><input v-model="importCode" maxlength="100" @input="reviewStale = true"></label>
+            </div>
+            <div v-if="reviewStale" class="notice warning">Name or code changed. Validate again before importing. <AppButton size="sm" @click="validateImport">Validate again</AppButton></div>
+
+            <section class="review-section">
+              <h2>Records found</h2>
+              <div class="count-grid"><div v-for="entry in counts" :key="entry[0]"><strong>{{ entry[1] }}</strong><span>{{ label(entry[0]) }}</span></div></div>
+            </section>
+
+            <section class="review-section">
+              <h2>Validation findings</h2>
+              <div v-for="group in issueGroups" :key="group.level" class="issue-group" :class="group.level">
+                <h3>{{ issueHeading(group.level) }} <span>{{ group.items.length }}</span></h3>
+                <div v-for="issue in group.items" :key="`${issue.path}-${issue.message}`" class="issue-row"><code>{{ issue.path }}</code><span>{{ issue.message }}</span></div>
+              </div>
+            </section>
+
+            <details class="manifest-details"><summary>Included and excluded data</summary><div class="manifest-columns"><div><h3>Included</h3><ul><li v-for="item in validation.included" :key="item">{{ item }}</li></ul></div><div><h3>Excluded</h3><ul><li v-for="item in validation.excluded" :key="item">{{ item }}</li></ul></div></div></details>
+
+            <label class="check confirmation"><input v-model="confirmed" type="checkbox" :disabled="!validation.valid || reviewStale"><span><strong>Create this as a new product</strong><small>I understand that imported workflows start in safe review states and the transaction will roll back if any write fails.</small></span></label>
+            <div class="action-row"><AppButton variant="primary" :disabled="!validation.valid || reviewStale || !confirmed || importBusy" @click="runImport">{{ importBusy ? 'Importing atomically…' : 'Import validated product' }}</AppButton></div>
+          </template>
+        </template>
+
+        <div v-if="importResult" class="success-card"><span>✓</span><div><h2>Import complete</h2><p>{{ totalImported }} records created in one transaction · {{ importResult.adjusted }} adjusted · {{ importResult.skipped }} skipped.</p><RouterLink :to="{ name: 'product-detail', params: { productId: importResult.product_id } }">Open product →</RouterLink></div></div>
+      </main>
+    </div>
+
+    <div v-else class="card history-card">
+      <div class="manifest-title"><div><h2>Transfer history</h2><p>Product-data exports and imports recorded in CRANE’s audit ledger.</p></div><AppButton size="sm" :disabled="historyBusy" @click="loadHistory">Refresh</AppButton></div>
+      <div v-if="historyBusy" class="working"><span class="spinner" /> Loading transfer history…</div>
+      <div v-else-if="!history.length" class="empty">No recorded transfers yet.</div>
+      <div v-else class="table-wrap"><table><thead><tr><th>When</th><th>Action</th><th>Product</th><th>Records</th><th>Digest</th></tr></thead><tbody><tr v-for="item in history" :key="`${item.occurred_at}-${item.bundle_id}`"><td>{{ formatDate(item.occurred_at) }}</td><td><span class="action-chip">{{ item.action }}</span></td><td>{{ item.product_name || 'Unknown product' }}</td><td>{{ Object.values(item.counts).reduce((sum, value) => sum + value, 0) }}</td><td><code>{{ item.digest?.slice(0, 12) || '—' }}</code></td></tr></tbody></table></div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
-
 import AppButton from "@/components/AppButton.vue";
-function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
+import { productDataService, MAX_IMPORT_BYTES } from "@/services/export-service";
+import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
-import {
-  buildExportBundle,
-  downloadBundleAsJson,
-  parseBundleFile,
-  summariseBundle,
-  importBundle as executeImport,
-  MAX_IMPORT_BYTES,
-} from "@/services/export-service";
+import { useAuthStore } from "@/stores/auth";
 import { EXPORT_SCHEMA_VERSION } from "@/types/export";
+import type { ProductDataHistoryItem, ProductDataImportResult, ProductDataIssueLevel, ProductDataValidation } from "@/types/export";
 import type { ProductSummaryRead } from "@/types/product";
-import type { ProductExportBundle, ImportSummary, ImportProgress } from "@/types/export";
+import type { ProductReleaseRead } from "@/types/release-gate";
 
-/* ─── State ─────────────────────────────────────────── */
-const products       = ref<ProductSummaryRead[]>([]);
+const auth = useAuthStore();
+const canExport = computed(() => auth.hasPermission("product_data_export"));
+const canImport = computed(() => auth.hasPermission("product_data_import"));
+const mode = ref<"export" | "import" | "history">(canExport.value ? "export" : "import");
+const products = ref<ProductSummaryRead[]>([]);
+const releases = ref<ProductReleaseRead[]>([]);
 const exportProductId = ref("");
-const isExporting    = ref(false);
-const exportStep     = ref("");
-const exportError    = ref("");
+const selectedOnly = ref(false);
+const selectedReleaseIds = ref<string[]>([]);
+const sensitivity = ref<"internal" | "confidential" | "restricted">("confidential");
+const redactPersonalData = ref(true);
+const includeEmbargoed = ref(false);
+const exportBusy = ref(false);
+const exportError = ref("");
+const included = ["Product record", "Selected releases", "Risk assessments and risk items", "Vulnerability, advisory, update and SBOM records", "CVD, support, certification and change records"];
+const excluded = ["Attachments and artifact binaries", "Users, roles, assignments and approvals", "Audit entries and system settings", "Release-gate signatures"];
+const exportReady = computed(() => exportProductId.value && (!selectedOnly.value || selectedReleaseIds.value.length > 0));
 
-const fileInput      = ref<HTMLInputElement | null>(null);
-const isDragging     = ref(false);
-const parseError     = ref("");
-const importBundleRef = ref<ProductExportBundle | null>(null);
-const importBundle   = importBundleRef;
-const importSummary  = ref<ImportSummary | null>(null);
-const importProductName = ref("");
-const isImporting    = ref(false);
-const importError    = ref("");
-const importedProductId = ref<string | null>(null);
-const importProgress = ref<ImportProgress>({ step: "", done: 0, total: 0 });
+const fileInput = ref<HTMLInputElement | null>(null);
+const importFile = ref<File | null>(null);
+const validation = ref<ProductDataValidation | null>(null);
+const importResult = ref<ProductDataImportResult | null>(null);
+const importName = ref("");
+const importCode = ref("");
+const validating = ref(false);
+const importBusy = ref(false);
+const importError = ref("");
+const reviewStale = ref(false);
+const confirmed = ref(false);
+const importStep = computed(() => importResult.value ? 4 : validation.value ? 3 : importFile.value ? 2 : 1);
+const counts = computed(() => Object.entries(validation.value?.counts ?? {}).filter(([, value]) => value > 0));
+const totalImported = computed(() => Object.values(importResult.value?.counts ?? {}).reduce((sum, value) => sum + value, 1));
+const signatureLabel = computed(() => ({ verified: "authenticated bundle", unsigned: "checksum only", unverified: "signature not verifiable here", invalid: "integrity failure" }[validation.value?.signature_status ?? "unsigned"]));
+const issueGroups = computed(() => (["must_fix", "will_adjust", "will_skip", "ready"] as ProductDataIssueLevel[]).map(level => ({ level, items: validation.value?.issues.filter(issue => issue.level === level) ?? [] })).filter(group => group.items.length));
 
-/* ─── Computed ──────────────────────────────────────── */
-const importPct = computed(() => {
-  const { done, total } = importProgress.value;
-  if (!total) return 0;
-  return Math.round((done / total) * 100);
-});
+const history = ref<ProductDataHistoryItem[]>([]);
+const historyBusy = ref(false);
 
-const countItems = computed(() => {
-  if (!importSummary.value) return [];
-  const c = importSummary.value.counts;
-  return [
-    { label: "Releases",        value: c.releases },
-    { label: "Risk assessments", value: c.risk_assessments },
-    { label: "Risk items",      value: c.risk_items },
-    { label: "Vuln. reports",   value: c.vulnerability_reports },
-    { label: "Advisories",      value: c.security_advisories },
-    { label: "Security updates", value: c.security_updates },
-    { label: "SBOMs",           value: c.sbom_records },
-    { label: "CVD policies",    value: c.cvd_policies },
-    { label: "Support periods", value: c.support_periods },
-    { label: "Certifications",  value: c.certification_records },
-    { label: "Changes",         value: c.changes },
-  ];
-});
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
+function label(value: string): string { return value.replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase()); }
+function issueHeading(level: ProductDataIssueLevel): string { return ({ must_fix: "Must fix", will_adjust: "Will be adjusted", will_skip: "Will be skipped", ready: "Ready" })[level]; }
+function fileSize(bytes: number): string { return `${(bytes / 1024 / 1024).toFixed(1)} MB`; }
+function formatDate(value: string): string { return new Date(value).toLocaleString(); }
 
-const schemaSections = [
-  { key: "_meta",                label: "Export metadata",      hint: "Schema display_version, timestamp, exporting user, tool name." },
-  { key: "product",              label: "Product record",        hint: "Core product fields — name, code, classification, scope status, manufacturer." },
-  { key: "releases[]",           label: "Product releases",      hint: "All releases with their status, dates, conformity route, and four nested entity types below." },
-  { key: "releases[].vulnerability_reports", label: "Vulnerability reports", hint: "Per-release PSIRT intake records with lifecycle status and severity." },
-  { key: "security_advisories",  label: "Security advisories",   hint: "Product-scoped advisories (each lists its affected releases) with CVE IDs, affected versions, and remediation steps." },
-  { key: "releases[].security_updates",     label: "Security updates",      hint: "Patch records with CVSS scores, distribution mechanism, and CVE links." },
-  { key: "releases[].sbom_records",         label: "SBOM records",          hint: "Software bill-of-materials in CycloneDX, SPDX, or SWID format." },
-  { key: "risk_assessments[]",   label: "Risk assessments",     hint: "Assessment records with nested risk items (threats, likelihood, impact, mitigation)." },
-  { key: "cvd_policies[]",       label: "CVD policies",          hint: "Coordinated vulnerability disclosure contacts and disclosure window." },
-  { key: "support_periods[]",    label: "Support periods",       hint: "CRA Art. 13(8) support commitments with start/end dates and justification text." },
-  { key: "certification_records[]", label: "Certifications",    hint: "Third-party certification records with scheme, body, certificate number, and expiry." },
-  { key: "changes[]",            label: "Substantial changes",   hint: "Change log entries with type, date, and title (draft status, no workflow state)." },
-];
-
-/* ─── Helpers ───────────────────────────────────────── */
-function productInitials(name: string): string {
-  return name.trim().split(/\s+/).map((p: string) => p[0]?.toUpperCase() ?? "").slice(0, 2).join("");
+async function loadReleases(): Promise<void> {
+  selectedReleaseIds.value = [];
+  releases.value = exportProductId.value ? await productReleaseService.list(exportProductId.value) : [];
 }
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
-}
-
-/* ─── Export ─────────────────────────────────────────── */
 async function runExport(): Promise<void> {
-  if (!exportProductId.value) return;
-  isExporting.value = true;
-  exportError.value = "";
-  exportStep.value  = "Preparing…";
-
+  if (!exportReady.value) return;
+  exportBusy.value = true; exportError.value = "";
   try {
-    const bundle = await buildExportBundle(exportProductId.value, (step: string) => {
-      exportStep.value = step;
-    });
-    downloadBundleAsJson(bundle);
-  } catch (err) {
-    exportError.value = err instanceof Error ? err.message : "Export failed.";
-  } finally {
-    isExporting.value = false;
-    exportStep.value  = "";
-  }
+    await productDataService.export(exportProductId.value, { releaseIds: selectedOnly.value ? selectedReleaseIds.value : undefined, redactPersonalData: redactPersonalData.value, includeEmbargoed: includeEmbargoed.value, sensitivity: sensitivity.value });
+  } catch (error) { exportError.value = error instanceof Error ? error.message : "Export failed."; }
+  finally { exportBusy.value = false; }
 }
-
-/* ─── Import — file handling ─────────────────────────── */
-function onFileChange(event: Event): void {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (file) readFile(file);
-}
-
-function onFileDrop(event: DragEvent): void {
-  isDragging.value = false;
-  const file = event.dataTransfer?.files[0];
-  if (file) readFile(file);
-}
-
-function readFile(file: File): void {
-  parseError.value = "";
+function chooseFile(event: Event): void { const file = (event.target as HTMLInputElement).files?.[0]; if (file) void acceptFile(file); }
+function dropFile(event: DragEvent): void { const file = event.dataTransfer?.files[0]; if (file) void acceptFile(file); }
+async function acceptFile(file: File): Promise<void> {
   clearImport();
-
-  /* Reject files that exceed the size limit before reading into memory. */
-  if (file.size > MAX_IMPORT_BYTES) {
-    parseError.value = `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_IMPORT_BYTES / 1024 / 1024} MB.`;
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const text = e.target?.result as string;
-      /* parseBundleFile validates structure AND sanitizes all fields. */
-      const bundle = parseBundleFile(text);
-      importBundleRef.value = bundle;
-      importSummary.value   = summariseBundle(bundle);
-    } catch (err) {
-      parseError.value = err instanceof Error ? err.message : "Failed to parse file.";
-    }
-  };
-  reader.readAsText(file);
+  if (file.size > MAX_IMPORT_BYTES) { importError.value = "The file exceeds the 50 MB import limit."; return; }
+  if (!file.name.toLowerCase().endsWith(".json")) { importError.value = "Select a CRANE JSON export file."; return; }
+  importFile.value = file;
+  await validateImport(true);
 }
-
+async function validateImport(initial = false): Promise<void> {
+  if (!importFile.value) return;
+  validating.value = true; importError.value = ""; confirmed.value = false;
+  try {
+    const result = await productDataService.validate(importFile.value, initial ? undefined : importName.value, initial ? undefined : importCode.value);
+    validation.value = result;
+    if (initial) { importName.value = result.source_product_name; importCode.value = result.suggested_product_code; }
+    reviewStale.value = false;
+  } catch (error) { validation.value = null; importError.value = error instanceof Error ? error.message : "Validation failed."; }
+  finally { validating.value = false; }
+}
+async function runImport(): Promise<void> {
+  if (!importFile.value || !validation.value?.valid || reviewStale.value || !confirmed.value) return;
+  importBusy.value = true; importError.value = "";
+  try {
+    importResult.value = await productDataService.import(importFile.value, importName.value, importCode.value);
+    if (canExport.value) void loadHistory();
+  } catch (error) { importError.value = error instanceof Error ? error.message : "Import failed and was rolled back."; }
+  finally { importBusy.value = false; }
+}
 function clearImport(): void {
-  importBundleRef.value = null;
-  importSummary.value   = null;
-  importProductName.value = "";
-  importError.value     = "";
-  importedProductId.value = null;
-  importProgress.value  = { step: "", done: 0, total: 0 };
+  importFile.value = null; validation.value = null; importResult.value = null; importName.value = ""; importCode.value = ""; importError.value = ""; confirmed.value = false; reviewStale.value = false;
   if (fileInput.value) fileInput.value.value = "";
 }
+async function loadHistory(): Promise<void> { historyBusy.value = true; try { history.value = await productDataService.history(); } finally { historyBusy.value = false; } }
+function openHistory(): void { mode.value = "history"; void loadHistory(); }
 
-/* ─── Import — execution ─────────────────────────────── */
-async function runImport(): Promise<void> {
-  if (!importBundleRef.value) return;
-  isImporting.value  = true;
-  importError.value  = "";
-
-  try {
-    const newId = await executeImport(
-      importBundleRef.value,
-      { productName: importProductName.value.trim() || undefined },
-      (p: ImportProgress) => { importProgress.value = p; },
-    );
-    importedProductId.value = newId;
-    /* Refresh product list so export dropdown reflects the new product. */
-    products.value = await productService.list();
-  } catch (err) {
-    importError.value = err instanceof Error ? err.message : "Import failed.";
-  } finally {
-    isImporting.value = false;
-  }
-}
-
-/* ─── Data loading ──────────────────────────────────── */
-async function loadProducts(): Promise<void> {
-  try {
-    products.value = await productService.list();
-  } catch {
-    /* Non-fatal — user can still import. */
-  }
-}
-
-onMounted(() => { void loadProducts(); });
-
-/* ─── Schema reference download ──────────────────────── */
-function downloadSchemaReference(): void {
-  const schemaDoc = {
-    schema_version: EXPORT_SCHEMA_VERSION,
-    description: "CRANE export bundle schema reference",
-    note: "Includes all product entities except file attachments.",
-    sections: schemaSections,
-  };
-  const blob = new Blob([JSON.stringify(schemaDoc, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `crane-export-schema-v${EXPORT_SCHEMA_VERSION}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+onMounted(async () => { if (canExport.value) products.value = await productService.list(); });
 </script>
 
 <style scoped>
-/* ── Layout ─────────────────────────────────────────── */
-.page { display: grid; gap: 1rem; }
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.page-title    { margin: 0; }
-.page-subtitle { margin-top: 0.35rem; font-size: var(--text-sm); }
-
-/* Equal-height side-by-side panels */
-.panels {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  align-items: stretch;
-}
-
-/* ── Panel ───────────────────────────────────────────── */
-.panel {
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1.4rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--color-border, rgba(148,163,184,0.18));
-}
-
-.panel-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.panel-icon svg { width: 1.25rem; height: 1.25rem; }
-.icon-export { background: rgba(99,102,241,0.15); color: #818cf8; }
-.icon-import { background: rgba(16,185,129,0.15); color: #6ee7b7; }
-
-/* panel-title uses global section-title class; override margin only */
-.panel-title { margin: 0; }
-.panel-desc  { margin-top: 0.3rem; font-size: var(--text-sm); }
-
-.panel-body {
-  padding: 1.25rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 1rem;
-}
-
-/* ── Form elements ───────────────────────────────────── */
-.field { display: grid; gap: 0.4rem; }
-.field-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted, #94a3b8);
-}
-.field-hint  { font-size: var(--text-xs); }
-.required    { color: #f87171; }
-
-.select, .input {
-  padding: 0.55rem 0.8rem;
-  background: var(--color-surface-soft, rgba(15,23,42,0.4));
-  border: 1px solid var(--color-border, rgba(148,163,184,0.18));
-  border-radius: 0.55rem;
-  color: inherit;
-  font-size: var(--text-sm);
-  width: 100%;
-  box-sizing: border-box;
-  outline: none;
-}
-.select:focus, .input:focus { border-color: var(--color-primary, #6366f1); }
-
-/* ── Icon close button ───────────────────────────────── */
-.btn-icon {
-  width: 1.8rem; height: 1.8rem;
-  display: flex; align-items: center; justify-content: center;
-  border: none; background: transparent; cursor: pointer; color: inherit;
-  border-radius: 0.4rem; opacity: 0.6; transition: opacity 0.12s; flex-shrink: 0;
-}
-.btn-icon:hover { opacity: 1; }
-.btn-icon svg { width: 0.85rem; height: 0.85rem; }
-
-/* ── Spinner ─────────────────────────────────────────── */
-.spinner {
-  width: 1.3rem; height: 1.3rem; flex-shrink: 0;
-  border: 2px solid var(--color-border, rgba(148,163,184,0.2));
-  border-top-color: var(--color-primary, #6366f1);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Progress ────────────────────────────────────────── */
-.progress-box {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  background: var(--color-surface-soft, rgba(148,163,184,0.07));
-  border-radius: 0.65rem;
-  border: 1px solid var(--color-border, rgba(148,163,184,0.15));
-}
-.progress-right  { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
-.progress-label  { font-size: var(--text-sm); }
-.progress-pct    { font-size: var(--text-xs); }
-.progress-bar-wrap { height: 4px; background: var(--color-border, rgba(148,163,184,0.2)); border-radius: 2px; overflow: hidden; }
-.progress-bar-fill { height: 100%; background: var(--color-primary, #6366f1); border-radius: 2px; transition: width 0.2s; }
-
-/* ── Schema info ─────────────────────────────────────── */
-.schema-info {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted, #94a3b8);
-  padding: 0.65rem 0.85rem;
-  background: var(--color-surface-soft, rgba(148,163,184,0.06));
-  border-radius: 0.55rem;
-}
-.schema-info-body { display: flex; flex-direction: column; gap: 0.3rem; }
-.schema-dl-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--color-primary, #818cf8);
-  font-size: var(--text-xs);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.schema-dl-link:hover { opacity: 0.8; }
-
-/* ── Errors / warnings / success ─────────────────────── */
-.form-error {
-  color: #fda4af;
-  font-size: var(--text-sm);
-  margin: 0;
-}
-
-.warning-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
-  background: rgba(251,191,36,0.07);
-  border: 1px solid rgba(251,191,36,0.25);
-  border-radius: 0.65rem;
-  font-size: var(--text-sm);
-  color: #fbbf24;
-  line-height: 1.5;
-}
-
-.success-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
-  background: rgba(52,211,153,0.1);
-  border: 1px solid rgba(52,211,153,0.25);
-  border-radius: 0.65rem;
-  font-size: var(--text-sm);
-  color: #86efac;
-}
-
-/* ── Drop zone ───────────────────────────────────────── */
-.drop-zone {
-  border: 2px dashed var(--color-border, rgba(148,163,184,0.3));
-  border-radius: 0.85rem;
-  padding: 2.5rem 1rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-.drop-zone:hover, .drop-zone-hover {
-  border-color: var(--color-primary, #6366f1);
-  background: rgba(99,102,241,0.05);
-}
-.drop-icon {
-  width: 2.5rem; height: 2.5rem;
-  color: var(--color-text-muted, #94a3b8);
-  opacity: 0.6;
-}
-.drop-icon svg { width: 100%; height: 100%; }
-.drop-label { font-size: var(--text-sm); font-weight: 600; }
-.drop-sub   { font-size: var(--text-xs); }
-.hidden-input { display: none; }
-.link { color: var(--color-primary, #818cf8); cursor: pointer; text-decoration: underline; }
-
-/* ── Import preview card ─────────────────────────────── */
-.preview-card {
-  border: 1px solid var(--color-border, rgba(148,163,184,0.18));
-  border-radius: 0.75rem;
-  overflow: hidden;
-}
-.preview-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: var(--color-surface-soft, rgba(148,163,184,0.05));
-  border-bottom: 1px solid var(--color-border, rgba(148,163,184,0.18));
-}
-.preview-product { display: flex; align-items: center; gap: 0.75rem; }
-.preview-avatar {
-  width: 2.5rem; height: 2.5rem;
-  border-radius: 0.5rem;
-  background: rgba(99,102,241,0.2); color: #818cf8;
-  display: flex; align-items: center; justify-content: center;
-  font-size: var(--text-sm); font-weight: 700; flex-shrink: 0;
-}
-.preview-name { font-size: var(--text-base); font-weight: 700; }
-.preview-meta { font-size: var(--text-xs); margin-top: 0.2rem; }
-
-.count-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 0.75rem;
-  gap: 0.5rem;
-}
-.count-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  background: var(--color-surface-soft, rgba(148,163,184,0.05));
-  gap: 0.15rem;
-}
-.count-num { font-size: var(--text-xl); font-weight: 700; }
-.count-lbl { font-size: var(--text-xs); text-align: center; }
-
-/* ── Responsive ──────────────────────────────────────── */
-@media (max-width: 860px) {
-  .panels     { grid-template-columns: 1fr; }
-  .count-grid { grid-template-columns: repeat(3, 1fr); }
-}
-</style>
-
-<style>
-:root[data-theme="light"] .icon-export { background: rgba(79,70,229,0.1); color: #4f46e5; }
-:root[data-theme="light"] .icon-import { background: rgba(5,150,105,0.1); color: #059669; }
-:root[data-theme="light"] .warning-box { background: rgba(180,130,0,0.07); color: #92400e; border-color: rgba(180,130,0,0.25); }
-:root[data-theme="light"] .success-box { background: rgba(21,128,61,0.08); color: #15803d; border-color: rgba(21,128,61,0.25); }
-:root[data-theme="light"] .link { color: #4f46e5; }
+.transfer-page{max-width:1280px;margin:0 auto;display:grid;gap:20px}.page-header,.manifest-title,.file-row,.validation-head,.action-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.eyebrow{margin:0 0 5px;color:var(--color-primary);font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.page-title{margin:0;font-size:30px;letter-spacing:-.035em}.page-subtitle,.section-heading p,.manifest p,.manifest-title p{margin:6px 0 0;color:var(--color-text-muted);font-size:13px}.mode-tabs{display:flex;gap:4px;border-bottom:1px solid var(--color-border)}.mode-tabs button{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font:650 13px/1 inherit;cursor:pointer}.mode-tabs button.active{border-bottom-color:var(--color-primary);color:var(--color-text)}.workspace{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(290px,.8fr);gap:18px;align-items:start}.card{padding:22px;border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);box-shadow:0 10px 30px rgba(0,0,0,.04)}.flow-card,.import-card{display:grid;gap:20px}.section-heading{display:grid;grid-template-columns:30px 1fr;gap:12px}.section-heading.compact{margin-top:8px}.section-heading h2,.manifest h2,.review-section h2,.success-card h2,.history-card h2{margin:0;font-size:16px}.step-number{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--color-primary) 14%,var(--color-surface));color:var(--color-primary);font-size:12px;font-weight:750}.field{display:grid;gap:7px}.field>span,.release-scope legend{color:var(--color-text-muted);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}.field input,.field select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface);color:inherit;font:inherit;font-size:13px}.release-scope{display:grid;gap:10px;margin:0;padding:15px;border:1px solid var(--color-border);border-radius:10px}.release-scope>label{display:flex;gap:8px;font-size:13px}.release-list{max-height:220px;display:grid;gap:5px;overflow:auto;padding:8px;border-radius:8px;background:var(--color-surface-elevated)}.release-list label{display:flex;align-items:center;gap:9px;padding:6px}.release-list span{display:grid}.release-list small,.file-row small,.check small{color:var(--color-text-muted);font-size:11px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.check{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid var(--color-border);border-radius:9px;font-size:12px}.check input{margin-top:2px}.check span{display:grid;gap:3px}.action-row{justify-content:flex-end}.form-error{margin:0 auto 0 0;color:var(--color-danger-text);font-size:12px}.manifest{position:sticky;top:16px}.manifest h3,.manifest-details h3{margin:18px 0 7px;font-size:11px;text-transform:uppercase;letter-spacing:.06em}.manifest ul,.manifest-details ul{display:grid;gap:7px;margin:0;padding:0;list-style:none;color:var(--color-text-muted);font-size:12px}.manifest .excluded{color:var(--color-text-muted)}.security-note{display:grid;gap:4px;margin-top:20px;padding:12px;border:1px solid var(--color-warning-border);border-radius:9px;background:var(--color-warning-bg);color:var(--color-warning-text);font-size:12px}.security-note span{line-height:1.5}.stepper{display:grid;grid-template-columns:repeat(4,1fr);margin:0;padding:0;list-style:none}.stepper li{position:relative;display:grid;place-items:center;gap:6px;color:var(--color-text-muted);font-size:11px}.stepper li:before{position:absolute;z-index:-1;top:13px;right:50%;left:-50%;height:2px;background:var(--color-border);content:""}.stepper li:first-child:before{display:none}.stepper li.active,.stepper li.done{color:var(--color-primary);font-weight:700}.stepper li.done:before,.stepper li.active:before{background:var(--color-primary)}.import-flow{max-width:960px;width:100%;display:grid;gap:20px;margin:0 auto}.drop-zone{display:grid;place-items:center;padding:60px 20px;border:2px dashed var(--color-border);border-radius:12px;text-align:center;cursor:pointer}.drop-zone:hover{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 4%,var(--color-surface))}.drop-zone h2{margin:12px 0 5px;font-size:17px}.drop-zone p{margin:0;color:var(--color-text-muted);font-size:12px}.upload-mark{width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:var(--color-surface-elevated);font-size:24px}.file-row{padding-bottom:15px;border-bottom:1px solid var(--color-border)}.file-row>div{display:grid;gap:4px}.working{display:flex;align-items:center;gap:9px;padding:13px;border-radius:9px;background:var(--color-surface-elevated);font-size:12px}.spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}.validation-head{padding:14px;border:1px solid;border-radius:10px}.validation-head.valid{border-color:var(--color-success-border);background:var(--color-success-bg)}.validation-head.invalid{border-color:var(--color-danger-border);background:var(--color-danger-bg)}.validation-head>div{display:grid;gap:4px}.validation-head span{font-size:11px}.validation-head code,.history-card code{font-size:11px}.notice{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border:1px solid;border-radius:9px;font-size:12px}.notice.warning{border-color:var(--color-warning-border);background:var(--color-warning-bg);color:var(--color-warning-text)}.notice.error{border-color:var(--color-danger-border);background:var(--color-danger-bg);color:var(--color-danger-text)}.review-section{display:grid;gap:10px;padding-top:4px}.count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.count-grid div{display:grid;gap:3px;padding:10px;border:1px solid var(--color-border);border-radius:8px}.count-grid strong{font-size:18px}.count-grid span{color:var(--color-text-muted);font-size:10px}.issue-group{overflow:hidden;border:1px solid var(--color-border);border-radius:9px}.issue-group h3{display:flex;justify-content:space-between;margin:0;padding:9px 11px;background:var(--color-surface-elevated);font-size:11px}.issue-group.must_fix{border-color:var(--color-danger-border)}.issue-group.will_adjust{border-color:var(--color-warning-border)}.issue-row{display:grid;grid-template-columns:minmax(120px,.6fr) 1.4fr;gap:10px;padding:9px 11px;border-top:1px solid var(--color-border);font-size:11px}.issue-row code{overflow-wrap:anywhere;color:var(--color-text-muted)}.manifest-details{padding:12px;border:1px solid var(--color-border);border-radius:9px;font-size:12px}.manifest-details summary{cursor:pointer;font-weight:650}.manifest-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.confirmation{background:var(--color-surface-elevated)}.success-card{display:flex;gap:14px;padding:18px;border:1px solid var(--color-success-border);border-radius:11px;background:var(--color-success-bg);color:var(--color-success-text)}.success-card>span{font-size:22px}.success-card p{margin:5px 0;font-size:12px}.success-card a{color:inherit;font-weight:700}.history-card{display:grid;gap:18px}.table-wrap{overflow:auto;border:1px solid var(--color-border);border-radius:10px}table{width:100%;border-collapse:collapse}th,td{padding:11px 13px;text-align:left;white-space:nowrap}th{background:var(--color-surface-elevated);color:var(--color-text-muted);font-size:10px;text-transform:uppercase}td{border-top:1px solid var(--color-border);font-size:12px}.action-chip{padding:3px 7px;border-radius:6px;background:var(--color-surface-elevated);text-transform:capitalize}.empty{padding:35px;color:var(--color-text-muted);text-align:center}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:850px){.workspace{grid-template-columns:1fr}.manifest{position:static}.form-grid,.manifest-columns{grid-template-columns:1fr}.count-grid{grid-template-columns:repeat(2,1fr)}.issue-row{grid-template-columns:1fr}.page-header{align-items:flex-start}.stepper li span{display:none}}
 </style>
