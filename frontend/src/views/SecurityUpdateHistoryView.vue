@@ -8,7 +8,7 @@
 <template>
   <section class="page">
     <header class="page-header" data-guide="security-header">
-      <div>
+      <div class="page-heading">
         <h1 class="page-title">Security updates</h1>
         <p class="muted page-subtitle">
           Track security updates issued for a product release, including CVEs addressed,
@@ -16,8 +16,9 @@
         </p>
       </div>
 
+      <AppButton class="embedded-guide-trigger" variant="secondary" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
       <div class="page-actions">
-        <label class="field">
+        <label class="field" data-guide="security-search">
           <span class="field-label">Search products</span>
           <input
             v-model.trim="productQuery"
@@ -26,7 +27,7 @@
           />
         </label>
 
-        <label class="field">
+        <label class="field" data-guide="security-product">
           <span class="field-label">Product</span>
           <select v-model="selectedProductId" :disabled="isLoadingProducts || filteredProducts.length === 0">
             <option value="">{{ isLoadingProducts ? "Loading products..." : "All products" }}</option>
@@ -36,7 +37,7 @@
           </select>
         </label>
 
-        <label class="field">
+        <label class="field" data-guide="security-release">
           <span class="field-label">Release display_version</span>
           <select
             v-model="selectedReleaseId"
@@ -61,6 +62,7 @@
 
         <button
           class="button"
+          data-guide="security-create"
           type="button"
           :disabled="!selectedReleaseId"
           :title="!selectedReleaseId ? 'Select a product and release first' : ''"
@@ -500,6 +502,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import AppButton from "@/components/AppButton.vue";
 import AppModal from "@/components/AppModal.vue";
 import { apiClient } from "@/services/api";
 import { productReleaseService } from "@/services/product-release-service";
@@ -515,6 +518,7 @@ import type {
   SecurityUpdateSeverity,
 } from "@/types/product";
 
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 const updates = ref<SecurityUpdateRead[]>([]);
 const detailItem = ref<SecurityUpdateRead | null>(null);
 const showCreateModal = ref(false);
@@ -840,6 +844,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.page-heading { flex: 1 1 20rem; min-width: 0; }
 .page {
   display: grid;
   gap: 1rem;

@@ -9,13 +9,14 @@
   <section class="page">
     <!-- Page header with filters and create button -->
     <header class="page-header">
-      <div>
+      <div class="page-heading">
         <h1 class="page-title">Substantial changes</h1>
         <p class="muted page-subtitle">
           Record, assess, and track modifications to products under CRA substantial modification rules (Art. 3(4)).
         </p>
       </div>
 
+      <AppButton class="embedded-guide-trigger" variant="secondary" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
       <div class="page-actions">
         <!-- Status filter -->
         <label class="field">
@@ -296,6 +297,7 @@ import type { ChangeCreate, ChangeListParams, ChangeSummary, ChangeType, ChangeS
 import type { ProductSummaryRead } from "@/types/product";
 import type { ProductReleaseRead } from "@/types/release-gate";
 
+function startGuide(): void { window.dispatchEvent(new Event("crane-guide-start")); }
 const router = useRouter();
 
 // ---------------------------------------------------------------------------
@@ -511,6 +513,7 @@ function formatLabel(value: string): string {
 </script>
 
 <style scoped>
+.page-heading { flex: 1 1 20rem; min-width: 0; }
 .page {
   display: grid;
   gap: 1rem;
@@ -518,7 +521,9 @@ function formatLabel(value: string): string {
 
 .page-header {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -532,6 +537,7 @@ function formatLabel(value: string): string {
 }
 
 .page-actions {
+  width: 100%;
   display: flex;
   align-items: flex-end;
   gap: 0.75rem;

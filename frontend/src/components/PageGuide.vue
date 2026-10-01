@@ -1,5 +1,5 @@
 <template>
-  <AppButton v-if="enabled" variant="secondary" class="page-guide-trigger" :class="{ 'page-guide-trigger-embedded': ['compliance-journey', 'security-updates', 'lifecycle-notifications'].includes(String(route.name)) }" @click="start">
+  <AppButton v-if="enabled" variant="secondary" class="page-guide-trigger" :class="{ 'page-guide-trigger-embedded': route.name === 'compliance-journey' }" @click="start">
     <span aria-hidden="true">?</span> Guide
   </AppButton>
   <Teleport to="body">
@@ -44,7 +44,7 @@ const hintOpen = ref(false);
 const hintStyle = ref<Record<string, string>>({});
 const hintArrowStyle = ref<Record<string, string>>({});
 let hintTarget: HTMLElement | null = null;
-const excluded = new Set(["dashboard", "products", "product-detail", "release-gate", "my-tasks", "lifecycle-notifications", "security-updates", "release-report", "declarations", "risk-assessments", "risk-assessment-detail", "supplier-assurance", "third-party-component-detail", "annex-matrix", "certification-records", "support-hub", "audit-history", "sbom-records", "vulnerability-handling", "product-data", "settings", "maturity", "admin-users", "admin-ldap", "admin-roles", "login", "change-password", "not-found"]);
+const excluded = new Set(["changes", "dashboard", "products", "product-detail", "release-gate", "my-tasks", "lifecycle-notifications", "security-updates", "release-report", "declarations", "risk-assessments", "risk-assessment-detail", "supplier-assurance", "third-party-component-detail", "annex-matrix", "certification-records", "support-hub", "audit-history", "sbom-records", "vulnerability-handling", "product-data", "settings", "maturity", "admin-users", "admin-ldap", "admin-roles", "login", "change-password", "not-found"]);
 const pageCopy: Record<string, { title: string; intro: string; work: string; next: string }> = {
   "my-tasks": { title: "Task management", intro: "See work assigned to you, delegated work you track, and completed history.", work: "Use the board, filters, comments, assignments, and due dates to keep compliance work moving.", next: "Link tasks to a product, release, or Jira issue when work needs traceability." },
   "compliance-journey": { title: "Compliance journey", intro: "Follow the recommended CRA order for one product and release.", work: "Select a product and release, then open each phase to understand its evidence and next action.", next: "Use the linked action on each phase to jump to the exact workspace." },
@@ -52,7 +52,7 @@ const pageCopy: Record<string, { title: string; intro: string; work: string; nex
   "declarations": { title: "Declarations of Conformity", intro: "Track Declaration of Conformity status across releases.", work: "Filter releases, inspect declaration state, and open the declaration workflow for a specific version.", next: "Keep the declaration aligned with the approved release evidence." },
   "release-declaration": { title: "Declaration of Conformity", intro: "Prepare the EU Declaration of Conformity for this release.", work: "Complete the declaration details, verify the covered product and version, and review the generated document.", next: "Only publish the declaration after the corresponding release gate is approved." },
   "security-updates": { title: "Security update history", intro: "Review security updates and their lifecycle status.", work: "Filter updates, inspect affected products and releases, and confirm communication and resolution details.", next: "Use product and release links to investigate overdue or incomplete updates." },
-  "lifecycle-notifications": { title: "Lifecycle notifications", intro: "Monitor support-period and end-of-support notifications.", work: "Review pending, sent, and failed notifications and their recipient history.", next: "Correct support periods from the product or release workspace." },
+  "lifecycle-notifications": { title: "Lifecycle notifications", intro: "Monitor support-period and end-of-support notifications.", work: "Review notifications awaiting review, recorded as sent, or dismissed, alongside support coverage.", next: "Correct support periods from the product or release workspace." },
   "risk-assessments": { title: "Risk assessments", intro: "Manage product and release cybersecurity risk assessments.", work: "Create, review, approve, archive, and filter assessments by product, release, framework, and status.", next: "Open an assessment to document threats, likelihood, impact, and treatments." },
   "risk-assessment-detail": { title: "Risk assessment", intro: "Work through one assessment and its risk items.", work: "Record threats, assets, likelihood, impact, mitigations, owners, and approval evidence.", next: "Approve only after residual risk and treatment decisions are documented." },
   "supplier-assurance": { title: "Supplier assurance", intro: "Coordinate third-party supplier and component assurance.", work: "Review suppliers, assessments, component traceability, and reassessment needs.", next: "Open a supplier or component to maintain evidence and follow-up tasks." },
@@ -86,14 +86,20 @@ const configuredSteps = computed(() => {
     { target: '[data-guide="cj-action"]', title: "Open the work area", text: "Use the step action to jump to the exact CRANE page where the evidence or decision is recorded.", why: "Recording work in the linked workspace preserves end-to-end traceability." },
   ];
   if (route.name === "security-updates") return [
-    { target: '[data-guide="security-header"]', title: "Select the affected release", text: "Search products, choose a product and release, then create or review an update.", why: "Security communications must identify affected versions." },
-    { target: '[data-guide="security-history"]', title: "Review update history", text: "Open a row to inspect addressed CVEs, affected versions, distribution, and retention evidence.", why: "The history provides an auditable record of remediation." },
+    { target: '[data-guide="security-header"]', title: "Manage security updates", text: "Record security fixes for a specific product release and review the updates already issued.", why: "The update record connects remediation and communication to the affected version." },
+    { target: '[data-guide="security-search"]', title: "Find the product", text: "Search by product name or code to narrow the Product selector. Searching alone does not change the update history.", why: "Choosing the correct product prevents updates being recorded against the wrong scope." },
+    { target: '[data-guide="security-product"]', title: "Choose the product", text: "Select a product to load its releases and update history. All products returns to the complete history available to you.", why: "Product selection defines which releases you can choose next." },
+    { target: '[data-guide="security-release"]', title: "Select the exact release", text: "Choose the release display version to narrow the history and enable creation of a new update. Select a product first if this control is disabled.", why: "Remediation evidence needs to identify the version being maintained." },
+    { target: '[data-guide="security-create"]', title: "Prepare an update record", text: "Use New security update after selecting a release. Record the title, severity, addressed CVEs, affected versions, distribution, integrity information, and availability dates. Review the form before saving.", why: "Complete update records help teams communicate fixes and maintain availability evidence." },
+    { target: '[data-guide="security-history"]', title: "Review issued updates", text: "Compare severity, security-only or mixed updates, CVEs, release dates, and availability. Open a row with a click or Enter to inspect the full details. An empty history means no updates match this selection.", why: "The history helps you check what was fixed, how it is distributed, and how long it remains available." },
   ];
   if (route.name === "lifecycle-notifications") return [
-    { target: '[data-guide="lifecycle-header"]', title: "Run the EOS analysis", text: "Run the check to refresh lifecycle alerts from current product support periods.", why: "Current support data drives reliable customer notifications." },
-    { target: '[data-guide="lifecycle-filters"]', title: "Filter the alerts", text: "Search and filter by threshold, classification, EOS state, and sort order.", why: "Prioritising approaching or expired support focuses remediation." },
-    { target: '[data-guide="lifecycle-summary"]', title: "Read the summary", text: "Use the summary cards to understand how many products have support and which need attention.", why: "A quick overview helps teams allocate follow-up work." },
-    { target: '[data-guide="lifecycle-results"]', title: "Open affected products", text: "Review the detailed rows and follow links to update support commitments and notification readiness.", why: "The product record is the source of truth for lifecycle obligations." },
+    { target: '[data-guide="lifecycle-header"]', title: "Check support deadlines", text: "Refresh the data or, if you have write access, use Check support deadlines to create due notifications from each support record's settings. Display filters do not change those settings.", why: "The check creates queue entries; it does not send messages." },
+    { target: '[data-guide="lifecycle-summary"]', title: "Choose what needs attention", text: "Select a summary card to review your pending notifications, ended or upcoming support periods, or component coverage risks. A dash means data is loading or unavailable.", why: "Counts distinguish notifications, support periods, and component–release relationships." },
+    { target: '[data-guide="lifecycle-queue"]', title: "Review and record communication", text: "Read each notification and follow its source link. Record as sent only after communication has taken place outside CRANE. Dismiss removes a notification from the review queue but keeps its history. Both actions require confirmation and write access.", why: "Recording or dismissing a notification does not resolve the underlying support risk." },
+    { target: '[data-guide="lifecycle-filters"]', title: "Find notifications and history", text: "Search the queue and filter by notification type or status: Awaiting review, Recorded as sent, or Dismissed. Reset filters shows all statuses. Use Previous and Next when there are more than 20 results.", why: "Focused views let you review outstanding work without losing completed history." },
+    { target: '[data-guide="lifecycle-products"]', title: "Review product and release support", text: "Use the support window and classification filters to find ended, upcoming, or missing support records. Each active product-wide or release-specific record appears separately. Open the product or release to review support and recipients.", why: "Support planning must stay tied to the correct product version and commitment." },
+    { target: '[data-guide="lifecycle-components"]', title: "Review supplier coverage gaps", text: "Review missing dates, support gaps, ended support, and support ending soon. Each row represents a component used by a product release. Follow the suggested next step and open the component to investigate.", why: "A supplier's support ending does not shorten your product's support commitment." },
   ];
   if (route.name === "release-report") return [
     { target: '[data-guide="report-identity"]', title: "Confirm release identity", text: "Start with the product, version, manufacturer, generated status, and coverage meter.", why: "A report is only meaningful when its release scope is unambiguous." },
@@ -165,7 +171,7 @@ async function updateTarget(): Promise<void> {
   el.classList.add("page-guide-target", "page-guide-section");
 }
 function start(): void {
-  settingsTour.value = route.name === 'settings'
+  settingsTour.value = ['settings', 'lifecycle-notifications', 'security-updates'].includes(String(route.name))
     ? configuredSteps.value.filter(item => document.querySelector(`main ${item.target}`))
     : null;
   if (!steps.value.length) return;
@@ -185,7 +191,7 @@ function move(direction: number): void {
   if (direction > 0) close();
 }
 watch(() => route.name, close);
-function onExternalStart(): void { if (["lifecycle-notifications", "security-updates", "release-report", "declarations", "risk-assessments", "risk-assessment-detail", "supplier-assurance", "third-party-component-detail", "annex-matrix", "certification-records", "support-hub", "audit-history", "sbom-records", "vulnerability-handling", "product-data", "settings", "maturity", "admin-users", "admin-ldap", "admin-roles"].includes(String(route.name))) start(); }
+function onExternalStart(): void { if (["changes", "lifecycle-notifications", "security-updates", "release-report", "declarations", "risk-assessments", "risk-assessment-detail", "supplier-assurance", "third-party-component-detail", "annex-matrix", "certification-records", "support-hub", "audit-history", "sbom-records", "vulnerability-handling", "product-data", "settings", "maturity", "admin-users", "admin-ldap", "admin-roles"].includes(String(route.name))) start(); }
 function hideHint(): void { hintOpen.value = false; hintTarget?.classList.remove("guide-hint-target"); hintTarget = null; }
 function openHintedGuide(): void { const target = hintTarget; hideHint(); target?.click(); }
 function showHint(): void {

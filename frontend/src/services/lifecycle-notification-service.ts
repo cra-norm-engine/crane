@@ -32,7 +32,7 @@ export const lifecycleNotificationService = {
     return data;
   },
 
-  async scheduleEosCheck(_params?: { threshold_days?: number }): Promise<LifecycleNotificationRead[]> {
+  async scheduleEosCheck(): Promise<LifecycleNotificationRead[]> {
     const { data } = await apiClient.post<LifecycleNotificationRead[]>(
       "/lifecycle-notifications/schedule-eos-check",
     );
