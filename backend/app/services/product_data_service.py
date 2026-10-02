@@ -25,7 +25,7 @@ from app.models.advisory_release import AdvisoryRelease
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
 from app.models.change import Change
-from app.models.cvd_policy import CvdPolicy
+from app.models.cvd_policy import CvdPolicy, CvdPolicyProduct
 from app.models.enums import (
     AdvisoryStatus,
     AuditStatus,
@@ -46,6 +46,7 @@ from app.models.security_advisory import SecurityAdvisory
 from app.models.security_update import SecurityUpdate
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.vulnerability_report import VulnerabilityReport
+from app.repositories.cvd_policy_repository import CvdPolicyRepository
 from app.schemas.certification_record import CertificationRecordCreate
 from app.schemas.change import ChangeCreate
 from app.schemas.cvd_policy import CvdPolicyCreate
@@ -319,7 +320,7 @@ class ProductDataService:
 
         for index, policy in enumerate(bundle.cvd_policies):
             payload = dict(policy)
-            payload.update({"product_id": UUID(int=0), "status": CvdPolicyStatus.draft})
+            payload.update({"organization_wide": False, "product_ids": [UUID(int=0)], "status": CvdPolicyStatus.draft})
             valid = self._validated(CvdPolicyCreate, payload, f"cvd_policies[{index}]", result)
             if valid:
                 result.policies.append(valid)
@@ -536,7 +537,12 @@ class ProductDataService:
                     self.db.add(RiskItem(**item_data))
 
             for payload in prepared.policies:
-                self.db.add(CvdPolicy(**{**payload, "product_id": product.id}))
+                data = dict(payload)
+                data.pop("product_ids", None)
+                data["organization_wide"] = False
+                policy = CvdPolicy(**data)
+                policy.product_links = [CvdPolicyProduct(product_id=product.id)]
+                self.db.add(policy)
             for payload, source_release_id in prepared.support_periods:
                 data = dict(payload)
                 data.pop("recipient_user_ids", None)
@@ -677,7 +683,13 @@ class ProductDataService:
             ]
             exported_advisories.append(item)
 
-        policies = self._snapshots(select(CvdPolicy).where(CvdPolicy.product_id == product_id))
+        policies = []
+        for policy in CvdPolicyRepository(self.db).list_all(product_id=product_id):
+            item = snapshot_model(policy)
+            # Product bundles are portable: importing must not broaden policy scope.
+            item["organization_wide"] = False
+            item["product_ids"] = [str(product_id)]
+            policies.append(item)
         periods_models = list(self.db.scalars(select(SupportPeriodRecord).where(SupportPeriodRecord.product_id == product_id)))
         if release_ids:
             periods_models = [p for p in periods_models if p.product_release_id is None or p.product_release_id in selected_ids]

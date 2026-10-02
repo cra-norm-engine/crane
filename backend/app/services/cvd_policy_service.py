@@ -13,8 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
-from app.core.exceptions import ConflictException
-from app.models.cvd_policy import CvdPolicy
+from app.core.exceptions import ConflictException, ValidationException
+from app.models.cvd_policy import CvdPolicy, CvdPolicyProduct
 from app.models.enums import AuditStatus, EntityType
 from app.repositories.cvd_policy_repository import CvdPolicyRepository
 from app.repositories.product_repository import ProductRepository
@@ -35,8 +35,11 @@ class CvdPolicyService:
         return CvdPolicyRead.model_validate(self.repository.get_or_404(policy_id))
 
     def create_cvd_policy(self, payload: CvdPolicyCreate, actor: object) -> CvdPolicyRead:
-        self.product_repository.get_or_404(payload.product_id)
-        policy = CvdPolicy(**payload.model_dump())
+        self._validate_products(payload.product_ids)
+        policy = CvdPolicy(**payload.model_dump(exclude={"product_ids"}))
+        policy.product_links = [
+            CvdPolicyProduct(product_id=product_id) for product_id in payload.product_ids
+        ]
         try:
             self.repository.add(policy)
             create_audit_event(
@@ -46,7 +49,11 @@ class CvdPolicyService:
                 entity_type=EntityType.cvd_policy,
                 entity_id=policy.id,
                 status=AuditStatus.success,
-                details_json={"product_id": str(policy.product_id), "status": policy.status},
+                details_json={
+                    "organization_wide": policy.organization_wide,
+                    "product_ids": [str(product_id) for product_id in policy.product_ids],
+                    "status": policy.status,
+                },
             )
             self.db.commit()
             self.db.refresh(policy)
@@ -60,6 +67,17 @@ class CvdPolicyService:
     ) -> CvdPolicyRead:
         policy = self.repository.get_or_404(policy_id)
         updates = payload.model_dump(exclude_unset=True)
+        product_ids = updates.pop("product_ids", None)
+        organization_wide = updates.get("organization_wide", policy.organization_wide)
+        effective_product_ids = product_ids if product_ids is not None else policy.product_ids
+        if organization_wide == bool(effective_product_ids):
+            raise ValidationException("Choose organization-wide scope or at least one product")
+        if product_ids is not None:
+            product_ids = list(dict.fromkeys(product_ids))
+            self._validate_products(product_ids)
+            policy.product_links = [
+                CvdPolicyProduct(product_id=product_id) for product_id in product_ids
+            ]
         for field, value in updates.items():
             setattr(policy, field, value)
         try:
@@ -71,7 +89,13 @@ class CvdPolicyService:
                 entity_type=EntityType.cvd_policy,
                 entity_id=policy.id,
                 status=AuditStatus.success,
-                details_json={"product_id": str(policy.product_id), "updated_fields": sorted(updates.keys())},
+                details_json={
+                    "organization_wide": policy.organization_wide,
+                    "product_ids": [str(product_id) for product_id in policy.product_ids],
+                    "updated_fields": sorted(
+                        [*updates.keys(), *(["product_ids"] if product_ids is not None else [])]
+                    ),
+                },
             )
             self.db.commit()
             self.db.refresh(policy)
@@ -90,6 +114,13 @@ class CvdPolicyService:
             entity_type=EntityType.cvd_policy,
             entity_id=policy_id,
             status=AuditStatus.success,
-            details_json={"product_id": str(policy.product_id)},
+            details_json={
+                "organization_wide": policy.organization_wide,
+                "product_ids": [str(product_id) for product_id in policy.product_ids],
+            },
         )
         self.db.commit()
+
+    def _validate_products(self, product_ids: list[UUID]) -> None:
+        for product_id in product_ids:
+            self.product_repository.get_or_404(product_id)

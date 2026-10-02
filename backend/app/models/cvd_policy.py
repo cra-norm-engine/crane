@@ -8,30 +8,30 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import CvdPolicyStatus
 
+if TYPE_CHECKING:
+    from app.models.product import Product
+
 
 class CvdPolicy(UUIDTimestampMixin, Base):
     """
     Gap 2 — Annex I Part II §5: manufacturers must have a Coordinated Vulnerability
-    Disclosure (CVD) policy. One policy record per product; versioned by creating a new
-    record and archiving the previous one.
+    Disclosure (CVD) policy. A policy can cover the organization or selected products;
+    policies are versioned by creating a new record and archiving the previous one.
 
     Fields follow ISO/IEC 29147, RFC 9116 (security.txt), and ENISA CRA guidance.
     """
 
     __tablename__ = "cvd_policies"
 
-    product_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("products.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    organization_wide: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     status: Mapped[CvdPolicyStatus] = mapped_column(
         nullable=False,
@@ -87,7 +87,32 @@ class CvdPolicy(UUIDTimestampMixin, Base):
     # Full policy text stored here for offline / compliance-package reference.
     policy_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    product: Mapped["Product"] = relationship(
-        "Product",
-        back_populates="cvd_policies",
+    product_links: Mapped[list[CvdPolicyProduct]] = relationship(
+        "CvdPolicyProduct",
+        back_populates="policy",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
+
+    @property
+    def product_ids(self) -> list[uuid.UUID]:
+        return [link.product_id for link in self.product_links]
+
+
+class CvdPolicyProduct(UUIDTimestampMixin, Base):
+    __tablename__ = "cvd_policy_products"
+    __table_args__ = (
+        UniqueConstraint(
+            "cvd_policy_id", "product_id", name="uq_cvd_policy_products_policy_product"
+        ),
+    )
+
+    cvd_policy_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("cvd_policies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    policy: Mapped[CvdPolicy] = relationship("CvdPolicy", back_populates="product_links")
+    product: Mapped[Product] = relationship("Product", back_populates="cvd_policy_links")

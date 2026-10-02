@@ -10,7 +10,19 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,7 +38,6 @@ from app.models.enums import (
     RemoteProcessingClassification,
     RemoteProcessingElementType,
 )
-
 
 # M2M association table — links each release to the remote processing elements
 # that are in scope for that specific release version.
@@ -243,12 +254,11 @@ class Product(UUIDTimestampMixin, Base):
         passive_deletes=True,
         order_by="desc(CertificationRecord.created_at)",
     )
-    cvd_policies: Mapped[list["CvdPolicy"]] = relationship(
-        "CvdPolicy",
+    cvd_policy_links: Mapped[list["CvdPolicyProduct"]] = relationship(
+        "CvdPolicyProduct",
         back_populates="product",
         cascade="all, delete-orphan",
         passive_deletes=True,
-        order_by="desc(CvdPolicy.created_at)",
     )
 
 

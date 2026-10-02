@@ -603,7 +603,8 @@ export type CvdPolicyStatus = "draft" | "active" | "archived";
 
 export interface CvdPolicyRead {
   id: string;
-  product_id: string;
+  organization_wide: boolean;
+  product_ids: string[];
   status: CvdPolicyStatus;
   // Contact & reporting channels
   contact_email: string | null;
@@ -628,7 +629,8 @@ export interface CvdPolicyRead {
 }
 
 export interface CvdPolicyCreate {
-  product_id: string;
+  organization_wide: boolean;
+  product_ids: string[];
   status?: CvdPolicyStatus;
   contact_email?: string | null;
   pgp_key_url?: string | null;
@@ -647,6 +649,8 @@ export interface CvdPolicyCreate {
 
 export interface CvdPolicyUpdate {
   status?: CvdPolicyStatus;
+  organization_wide?: boolean;
+  product_ids?: string[];
   contact_email?: string | null;
   pgp_key_url?: string | null;
   security_txt_url?: string | null;

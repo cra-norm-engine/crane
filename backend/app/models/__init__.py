@@ -5,26 +5,38 @@
 # This file is part of CRANE, free software under the GNU Affero General Public
 # License v3.0 or later. See <https://www.gnu.org/licenses/>.
 
+from app.models.advisory_release import AdvisoryRelease
 from app.models.annex_requirement import AnnexRequirement
-from app.models.comment import Comment
-from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
-from app.models.cvd_policy import CvdPolicy
+from app.models.change import Change, ChangeComplianceAction, SubstantialModificationAssessment
+from app.models.comment import Comment
+from app.models.cvd_policy import CvdPolicy, CvdPolicyProduct
+from app.models.dependency_track import DependencyTrackConnection
 from app.models.evidence_item import EvidenceItem
-from app.models.lifecycle_notification import LifecycleNotification
-from app.models.market_action import MarketAction
-from app.models.manual_task import ManualTask, ManualTaskArtifactLink, TaskNotification
+from app.models.incident_report import IncidentReport
+from app.models.ingestion_key import IngestionKey
 from app.models.jira_integration import JiraConnection, JiraSyncEvent, JiraTaskLink, JiraUserMapping
-from app.models.maturity import MaturityAssessment, MaturityEvidenceLink, MaturityImprovementAction, MaturityModelVersion, MaturityResponse
+from app.models.lifecycle_notification import LifecycleNotification
+from app.models.manual_task import ManualTask, ManualTaskArtifactLink, TaskNotification
+from app.models.market_action import MarketAction
+from app.models.maturity import (
+    MaturityAssessment,
+    MaturityEvidenceLink,
+    MaturityImprovementAction,
+    MaturityModelVersion,
+    MaturityResponse,
+)
 from app.models.permission import Permission
+from app.models.placeholders import DomainPlaceholder
 from app.models.product import (
     Product,
     ProductRelease,
     ProductScopeEvaluation,
     RemoteProcessingElement,
 )
+from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
 from app.models.requirement_assessment import (
     ReleaseRequirementAssessment,
     ReleaseRequirementAssessmentSnapshot,
@@ -34,28 +46,32 @@ from app.models.requirement_mapping import (
     RequirementMapping,
     RequirementMappingArtifactLink,
 )
-from app.models.release_gate import ReleaseGate, ReleaseGateEvidenceLink, ReleaseGateItem
 from app.models.revoked_token import RevokedToken
 from app.models.risk_assessment import RiskAssessment
 from app.models.risk_item import RiskItem
 from app.models.role_permission import RolePermission
 from app.models.sbom_record import SbomRecord
+from app.models.sbom_scan_run import SbomScanRun
+from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
 from app.models.security_advisory import SecurityAdvisory
 from app.models.security_update import SecurityUpdate
+from app.models.supplier_assessment import (
+    AssessmentEvidenceLink,
+    AssessmentResponse,
+    ComponentMaintainerNotification,
+    ProductComponentLink,
+    Supplier,
+    SupplierAssessment,
+    SupplierFinding,
+    ThirdPartyComponent,
+)
 from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
+from app.models.system_setting import SystemSetting
 from app.models.user import Role, User, UserRole
 from app.models.user_preference import UserPreference
-from app.models.system_setting import SystemSetting
-from app.models.ingestion_key import IngestionKey
-from app.models.dependency_track import DependencyTrackConnection
-from app.models.vulnerability_report import VulnerabilityReport
-from app.models.vulnerability_priority_policy import VulnerabilityPriorityPolicy
 from app.models.vulnerability_priority_evaluation import VulnerabilityPriorityEvaluation
-from app.models.incident_report import IncidentReport
-from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
-from app.models.sbom_scan_run import SbomScanRun
-from app.models.advisory_release import AdvisoryRelease
-from app.models.supplier_assessment import (AssessmentEvidenceLink, AssessmentResponse, ComponentMaintainerNotification, ProductComponentLink, Supplier, SupplierAssessment, SupplierFinding, ThirdPartyComponent)
+from app.models.vulnerability_priority_policy import VulnerabilityPriorityPolicy
+from app.models.vulnerability_report import VulnerabilityReport
 
 __all__ = [
     "AnnexRequirement",
@@ -69,6 +85,7 @@ __all__ = [
     "AuditLogEvent",
     "CertificationRecord",
     "CvdPolicy",
+    "CvdPolicyProduct",
     "EvidenceItem",
     "LifecycleNotification",
     "MarketAction",
@@ -85,6 +102,7 @@ __all__ = [
     "MaturityModelVersion",
     "MaturityResponse",
     "Permission",
+    "DomainPlaceholder",
     "Product",
     "ProductRelease",
     "ProductScopeEvaluation",

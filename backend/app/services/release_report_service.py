@@ -37,7 +37,6 @@ from app.models.annex_requirement import AnnexRequirement
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
 from app.models.change import Change, SubstantialModificationAssessment
-from app.models.cvd_policy import CvdPolicy
 from app.models.incident_report import IncidentReport
 from app.models.product import Product, ProductRelease, ProductScopeEvaluation
 from app.models.release_gate import ReleaseGate, ReleaseGateItem
@@ -50,10 +49,15 @@ from app.models.risk_assessment import RiskAssessment
 from app.models.sbom_record import SbomRecord
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
 from app.models.security_update import SecurityUpdate
+from app.models.supplier_assessment import (
+    ProductComponentLink,
+    SupplierAssessment,
+    ThirdPartyComponent,
+)
 from app.models.support_period_record import SupportPeriodRecord
 from app.models.user import User
 from app.models.vulnerability_report import VulnerabilityReport
-from app.models.supplier_assessment import ProductComponentLink, SupplierAssessment, ThirdPartyComponent
+from app.repositories.cvd_policy_repository import CvdPolicyRepository
 
 logger = logging.getLogger(__name__)
 
@@ -551,9 +555,7 @@ class ReleaseReportService:
         return rows
 
     def _cvd_section(self, product_id: UUID, release_id: UUID) -> dict:
-        policy = self.db.scalar(
-            select(CvdPolicy).where(CvdPolicy.product_id == product_id).order_by(CvdPolicy.created_at.desc())
-        )
+        policy = CvdPolicyRepository(self.db).get_effective_active(product_id)
         incidents = self.db.scalars(
             select(IncidentReport)
             .where(IncidentReport.product_release_id == release_id)

@@ -10,13 +10,14 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import CvdPolicyStatus
 
 
 class CvdPolicyBase(BaseModel):
-    product_id: UUID
+    organization_wide: bool = False
+    product_ids: list[UUID] = Field(default_factory=list)
     status: CvdPolicyStatus = CvdPolicyStatus.draft
 
     # Contact & reporting channels
@@ -42,6 +43,13 @@ class CvdPolicyBase(BaseModel):
     policy_url: str | None = Field(default=None, max_length=2048)
     policy_text: str | None = None
 
+    @model_validator(mode="after")
+    def validate_scope(self) -> CvdPolicyBase:
+        self.product_ids = list(dict.fromkeys(self.product_ids))
+        if self.organization_wide == bool(self.product_ids):
+            raise ValueError("Choose organization-wide scope or at least one product")
+        return self
+
 
 class CvdPolicyCreate(CvdPolicyBase):
     pass
@@ -49,6 +57,8 @@ class CvdPolicyCreate(CvdPolicyBase):
 
 class CvdPolicyUpdate(BaseModel):
     status: CvdPolicyStatus | None = None
+    organization_wide: bool | None = None
+    product_ids: list[UUID] | None = None
 
     contact_email: str | None = Field(default=None, max_length=320)
     pgp_key_url: str | None = Field(default=None, max_length=2048)

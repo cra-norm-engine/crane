@@ -11,7 +11,7 @@
       <div>
         <h1 class="page-title">CVD policies</h1>
         <p class="muted page-subtitle">
-          Manage Coordinated Vulnerability Disclosure policies per product.
+          Manage Coordinated Vulnerability Disclosure policies across the organization or selected products.
           An active CVD policy with a published URL is required under CRA Annex I Part II §5.
         </p>
       </div>
@@ -65,7 +65,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Product</th>
+              <th>Applies to</th>
               <th>Status</th>
               <th>Contact</th>
               <th>Disclosure window</th>
@@ -85,7 +85,7 @@
               tabindex="0"
               @keydown.enter="openDetail(p)"
             >
-              <td>{{ productName(p.product_id) }}</td>
+              <td>{{ policyScopeLabel(p) }}</td>
               <td>
                 <span class="policy-status-badge" :class="`policy-status-${p.status}`">
                   {{ p.status }}
@@ -117,19 +117,16 @@
   <AppModal v-model="showCreateModal" title="New CVD policy" size="lg" :persistent="true">
     <form id="cvd-create-form" class="modal-form" @submit.prevent="createPolicy">
 
-      <!-- Product -->
+      <!-- Coverage -->
       <div class="form-section">
-        <div class="form-section-title">General</div>
+        <div class="form-section-title">Coverage &amp; status</div>
         <div class="form-grid">
-          <div class="field field-span-2">
-            <span class="field-label">Product <span class="req">*</span></span>
-            <select v-model="createForm.product_id" required>
-              <option value="">— Select a product —</option>
-              <option v-for="p in products" :key="p.id" :value="p.id">
-                {{ p.name }} ({{ p.product_code }})
-              </option>
-            </select>
-          </div>
+          <CvdScopePicker
+            v-model:organization-wide="createForm.organization_wide"
+            v-model:product-ids="createForm.product_ids"
+            :products="products"
+            class="field-span-2"
+          />
 
           <label class="field">
             <span class="field-label">Status</span>
@@ -258,7 +255,7 @@
 
     <template #footer>
       <button class="btn btn-secondary" :disabled="isCreating" @click="showCreateModal = false">Cancel</button>
-      <button class="btn btn-primary" type="submit" form="cvd-create-form" :disabled="isCreating || !createForm.product_id">
+      <button class="btn btn-primary" type="submit" form="cvd-create-form" :disabled="isCreating || invalidPolicyScope(createForm)">
         {{ isCreating ? "Saving…" : "Create policy" }}
       </button>
     </template>
@@ -269,12 +266,14 @@
     <form id="cvd-edit-form" class="modal-form" @submit.prevent="saveEdit">
 
       <div class="form-section">
-        <div class="form-section-title">General</div>
+        <div class="form-section-title">Coverage &amp; status</div>
         <div class="form-grid">
-          <div class="field field-span-2">
-            <span class="field-label">Product</span>
-            <input :value="productName(detailItem.product_id)" disabled />
-          </div>
+          <CvdScopePicker
+            v-model:organization-wide="editForm.organization_wide"
+            v-model:product-ids="editForm.product_ids"
+            :products="products"
+            class="field-span-2"
+          />
 
           <label class="field">
             <span class="field-label">Status</span>
@@ -393,7 +392,7 @@
         {{ isDeleting ? "Deleting…" : "Delete" }}
       </button>
       <button class="btn btn-secondary" @click="showDetailModal = false">Cancel</button>
-      <button class="btn btn-primary" type="submit" form="cvd-edit-form" :disabled="isSaving">
+      <button class="btn btn-primary" type="submit" form="cvd-edit-form" :disabled="isSaving || invalidPolicyScope(editForm)">
         {{ isSaving ? "Saving…" : "Save changes" }}
       </button>
     </template>
@@ -404,6 +403,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
+import CvdScopePicker from "@/components/CvdScopePicker.vue";
 import { apiClient } from "@/services/api";
 import { cvdPolicyService } from "@/services/cvd-policy-service";
 import type {
@@ -432,7 +432,8 @@ const selectedProductId = ref("");
 
 function blankCreateForm() {
   return {
-    product_id: "",
+    organization_wide: false,
+    product_ids: [] as string[],
     status: "draft" as CvdPolicyStatus,
     // Contact & channels
     contact_email: "",
@@ -461,6 +462,8 @@ const editForm = reactive({
   status: "draft" as CvdPolicyStatus,
   contact_email: "",
   pgp_key_url: "",
+  organization_wide: false,
+  product_ids: [] as string[],
   security_txt_url: "",
   bug_bounty_url: "",
   response_sla_hours: 48,
@@ -483,15 +486,19 @@ const filteredProducts = computed(() => {
   );
 });
 
-const productsWithActivePolicy = computed(() => new Set(
-  policies.value.filter((p) => p.status === "active").map((p) => p.product_id),
-));
+const productsWithActivePolicy = computed(() => {
+  const active = policies.value.filter((p) => p.status === "active");
+  return new Set(active.some((p) => p.organization_wide) ? products.value.map((p) => p.id) : active.flatMap((p) => p.product_ids));
+});
 
-const productsWithoutActivePolicy = computed(() =>
-  products.value
+const productsWithoutActivePolicy = computed(() => {
+  const scopedProducts = selectedProductId.value
+    ? products.value.filter((p) => p.id === selectedProductId.value)
+    : products.value;
+  return scopedProducts
     .filter((p) => !productsWithActivePolicy.value.has(p.id))
-    .map((p) => p.name),
-);
+    .map((p) => p.name);
+});
 
 function productName(id: string): string {
   return products.value.find((p) => p.id === id)?.name ?? id;
@@ -503,6 +510,16 @@ function formatDate(val: string): string {
 
 function nullify(v: string | undefined | null): string | null {
   return v?.trim() || null;
+}
+
+function policyScopeLabel(policy: Pick<CvdPolicyRead, "organization_wide" | "product_ids">): string {
+  if (policy.organization_wide) return "Organization-wide";
+  const names = policy.product_ids.map(productName);
+  return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2} more` : names.join(", ");
+}
+
+function invalidPolicyScope(scope: { organization_wide: boolean; product_ids: string[] }): boolean {
+  return !scope.organization_wide && scope.product_ids.length === 0;
 }
 
 async function loadProducts(): Promise<void> {
@@ -537,7 +554,8 @@ async function createPolicy(): Promise<void> {
   errorMessage.value = "";
   try {
     const payload: CvdPolicyCreate = {
-      product_id: createForm.product_id,
+      organization_wide: createForm.organization_wide,
+      product_ids: createForm.organization_wide ? [] : createForm.product_ids,
       status: createForm.status,
       contact_email: nullify(createForm.contact_email),
       pgp_key_url: nullify(createForm.pgp_key_url),
@@ -574,6 +592,8 @@ function openDetail(item: CvdPolicyRead): void {
     bug_bounty_url: item.bug_bounty_url ?? "",
     response_sla_hours: item.response_sla_hours,
     disclosure_window_days: item.disclosure_window_days,
+    organization_wide: item.organization_wide,
+    product_ids: [...item.product_ids],
     safe_harbor: item.safe_harbor,
     acknowledgement_offered: item.acknowledgement_offered,
     scope_description: item.scope_description ?? "",
@@ -598,6 +618,8 @@ async function saveEdit(): Promise<void> {
       bug_bounty_url: nullify(editForm.bug_bounty_url),
       response_sla_hours: editForm.response_sla_hours,
       disclosure_window_days: editForm.disclosure_window_days,
+      organization_wide: editForm.organization_wide,
+      product_ids: editForm.organization_wide ? [] : editForm.product_ids,
       safe_harbor: editForm.safe_harbor,
       acknowledgement_offered: editForm.acknowledgement_offered,
       scope_description: nullify(editForm.scope_description),
