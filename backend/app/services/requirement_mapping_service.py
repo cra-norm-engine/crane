@@ -12,11 +12,12 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.annex_i_catalog import sync_annex_i_requirements
 from app.core.exceptions import AppException, ConflictException, ValidationException
 from app.models.audit_log_event import AuditLogEvent
+from app.models.annex_requirement import AnnexRequirement, ReleaseRequirementBaseline
 from app.models.enums import (
     AuditActionType,
     AuditStatus,
@@ -42,17 +43,15 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_applicability_decision(
-    requirement_code: str,
+    is_mandatory: bool,
     decision: RequirementApplicabilityDecision,
     rationale: str | None,
 ) -> None:
     """Apply CRA applicability guardrails before persisting a decision."""
     if decision != RequirementApplicabilityDecision.not_applicable:
         return
-    if requirement_code == "ANNEX-I-PART-I-1" or requirement_code.startswith(
-        "ANNEX-I-PART-II-"
-    ):
-        raise ValidationException("This CRA requirement is mandatory and cannot be marked not applicable.")
+    if is_mandatory:
+        raise ValidationException("This requirement is mandatory and cannot be marked not applicable.")
     if not rationale or not rationale.strip():
         raise ValidationException(
             "A clear risk-based rationale is required for a non-applicable requirement."
@@ -123,7 +122,15 @@ class RequirementMappingService:
         self._ensure_catalog_seeded()
 
         artifact_traceability_available = self._artifact_links_available()
-        requirements = list(self.annex_requirement_repository.list_active())
+        requirements = list(self.db.scalars(
+            select(AnnexRequirement)
+            .join(ReleaseRequirementBaseline, ReleaseRequirementBaseline.requirement_id == AnnexRequirement.id)
+            .where(ReleaseRequirementBaseline.product_release_id == release_id)
+            .options(selectinload(AnnexRequirement.source))
+            .order_by(AnnexRequirement.source_id, AnnexRequirement.code)
+        ).all())
+        if not requirements:
+            requirements = list(self.annex_requirement_repository.list_active())
         mappings = self.requirement_mapping_repository.list_by_release(release_id)
         decisions = self.requirement_mapping_repository.list_release_decisions(release_id)
 
@@ -267,7 +274,7 @@ class RequirementMappingService:
         if requirement is None:
             raise ValueError("Annex requirement not found.")
         _validate_applicability_decision(
-            requirement.code,
+            requirement.is_mandatory,
             payload.applicability_decision,
             payload.rationale,
         )

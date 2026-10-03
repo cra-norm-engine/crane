@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, ValidationException
+from app.models.annex_requirement import AnnexRequirement, ReleaseRequirementBaseline, RequirementSource, RequirementSourceProduct
 from app.models.enums import AuditStatus, ComplianceActionStatus, ComplianceActionType, EntityType, ReleaseStatus
 from app.models.product import ProductRelease, RemoteProcessingElement
 from app.repositories.change_repository import ChangeRepository
@@ -113,6 +114,8 @@ class ProductReleaseService:
                     target_release_id=release.id,
                 )
 
+            self._create_requirement_baseline(release)
+
             # If this release is linked to a substantial change, automatically
             # mark the re_release_product compliance action as completed.
             # This closes the CRA Art. 13(8) loop without requiring a separate manual step.
@@ -128,6 +131,38 @@ class ProductReleaseService:
             raise ConflictException("Unable to create release due to uniqueness conflict") from exc
 
         return ProductReleaseRead.model_validate(release)
+
+    def _create_requirement_baseline(self, release: ProductRelease) -> None:
+        if release.parent_release_id:
+            parent_rows = self.db.scalars(select(ReleaseRequirementBaseline).where(
+                ReleaseRequirementBaseline.product_release_id == release.parent_release_id
+            )).all()
+            for row in parent_rows:
+                self.db.add(ReleaseRequirementBaseline(
+                    product_release_id=release.id,
+                    requirement_id=row.requirement_id,
+                    requirement_revision=row.requirement_revision,
+                ))
+            if parent_rows:
+                return
+
+        requirements = self.db.scalars(
+            select(AnnexRequirement)
+            .join(RequirementSource, RequirementSource.id == AnnexRequirement.source_id)
+            .outerjoin(RequirementSourceProduct, RequirementSourceProduct.source_id == RequirementSource.id)
+            .where(
+                RequirementSource.status == "published",
+                AnnexRequirement.status == "published",
+                (RequirementSource.organization_wide.is_(True)) |
+                (RequirementSourceProduct.product_id == release.product_id),
+            ).distinct()
+        ).all()
+        for requirement in requirements:
+            self.db.add(ReleaseRequirementBaseline(
+                product_release_id=release.id,
+                requirement_id=requirement.id,
+                requirement_revision=requirement.revision,
+            ))
 
     def update_release(self, release_id: UUID, payload: ProductReleaseUpdate, actor: object) -> ProductReleaseRead:
         release = self.repository.get_or_404(release_id)

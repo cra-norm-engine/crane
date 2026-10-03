@@ -307,6 +307,11 @@ class ReleaseReportService:
             entry = {
                 "code": req.code,
                 "title": req.title,
+                "source_identifier": req.source_identifier,
+                "source_title": req.source_title,
+                "source_edition": req.source.edition if req.source else None,
+                "clause_reference": req.clause_reference,
+                "revision": req.revision,
                 "status": _COVERAGE_LABEL[bucket],
                 "bucket": bucket,
                 "evidence": mapping.evidence_summary or "—",

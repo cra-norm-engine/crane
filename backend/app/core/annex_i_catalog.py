@@ -11,7 +11,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
-from app.models.annex_requirement import AnnexRequirement
+from app.models.annex_requirement import AnnexRequirement, RequirementSource
 from app.models.enums import AnnexPart
 
 
@@ -159,6 +159,7 @@ def sync_annex_i_requirements(db: Session) -> bool:
     callers can decide whether a flush/commit is necessary. This avoids issuing
     22 redundant UPDATEs on every read of the requirement matrix.
     """
+    source = db.query(RequirementSource).filter(RequirementSource.identifier == "CRA-ANNEX-I").one()
     existing_by_code = {
         requirement.code: requirement for requirement in db.query(AnnexRequirement).all()
     }
@@ -175,6 +176,10 @@ def sync_annex_i_requirements(db: Session) -> bool:
                     description=item["description"],
                     annex_part=item["annex_part"],
                     is_active=True,
+                    source_id=source.id,
+                    clause_reference=code,
+                    status="published",
+                    is_mandatory=(item["annex_part"] == AnnexPart.part_ii or code == "ANNEX-I-PART-I-1"),
                 )
             )
             changed = True
@@ -187,11 +192,18 @@ def sync_annex_i_requirements(db: Session) -> bool:
             or requirement.description != item["description"]
             or requirement.annex_part != item["annex_part"]
             or requirement.is_active is not True
+            or requirement.source_id != source.id
+            or requirement.clause_reference != code
+            or requirement.status != "published"
         ):
             requirement.title = item["title"]
             requirement.description = item["description"]
             requirement.annex_part = item["annex_part"]
             requirement.is_active = True
+            requirement.source_id = source.id
+            requirement.clause_reference = code
+            requirement.status = "published"
+            requirement.is_mandatory = item["annex_part"] == AnnexPart.part_ii or code == "ANNEX-I-PART-I-1"
             changed = True
 
     return changed

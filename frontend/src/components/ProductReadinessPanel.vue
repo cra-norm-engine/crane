@@ -14,62 +14,55 @@
 -->
 <template>
   <div class="readiness-panel">
-    <div class="readiness-head">
-      <h2 class="rp-title">Readiness by release</h2>
-      <span class="rp-hint">Met % of Annex I Part I requirements · click a release to open it</span>
-      <span class="rp-legend">
-        <span class="rp-lg"><span class="rr-dot dot-onmarket"></span>On market</span>
-        <span class="rp-lg"><span class="rr-dot dot-internal"></span>Not on market</span>
-      </span>
-    </div>
-
-    <div v-if="loading" class="readiness-empty">Calculating…</div>
-    <div v-else-if="!products.length" class="readiness-empty">
-      No products yet.
-    </div>
+    <div v-if="loading" class="readiness-empty">Calculating readiness…</div>
+    <div v-else-if="!products.length" class="readiness-empty">No products yet.</div>
 
     <div v-else class="readiness-groups">
-      <section v-for="product in products" :key="product.product_id" class="rg-group">
-        <!-- Product header (compact) -->
-        <div class="rg-head">
-          <span class="rg-name">{{ product.name }}</span>
-          <span class="rg-scope" :class="`scope-${product.scope_status}`">{{ formatScope(product.scope_status) }}</span>
-          <span v-if="product.is_conformant" class="rg-conformant" title="Latest released version is approved">✓</span>
-          <!-- one muted dot per active secondary flag, detail on hover -->
-          <span
-            v-if="hasFlags(product)"
-            class="rg-flagdot"
-            :title="flagSummary(product)"
-          >⚠ {{ flagCount(product) }}</span>
-        </div>
+      <article v-for="product in products" :key="product.product_id" class="product-group">
+        <header class="product-head">
+          <div class="product-identity">
+            <strong>{{ product.name }}</strong>
+            <span>{{ product.product_code }}</span>
+          </div>
+          <div class="product-badges">
+            <span class="scope-badge" :class="'scope-' + product.scope_status">{{ formatScope(product.scope_status) }}</span>
+            <span v-if="product.is_conformant" class="conformant-badge">Conformant</span>
+          </div>
+        </header>
 
-        <!-- Per-release rows: one compact line each -->
-        <div v-if="!product.releases.length" class="rg-norel">No releases yet.</div>
-        <ul v-else class="release-list">
-          <li
+        <p v-if="!product.releases.length" class="readiness-empty compact">No releases yet.</p>
+        <div v-else class="release-list">
+          <button
             v-for="rel in product.releases"
             :key="rel.release_id"
+            type="button"
             class="release-row"
-            :class="{ 'is-representative': rel.release_id === product.representative_release_id }"
-            tabindex="0"
-            role="button"
-            :title="`${rel.coverage.met}/${rel.coverage.total} met · ${rel.coverage.assessed}/${rel.coverage.total} assessed`"
+            :class="{ representative: rel.release_id === product.representative_release_id }"
             @click="$emit('select', product.product_id, rel.release_id)"
-            @keydown.enter="$emit('select', product.product_id, rel.release_id)"
           >
-            <span class="rr-version">{{ rel.version_label }}</span>
-            <span class="rr-dot" :class="rel.is_released ? 'dot-onmarket' : 'dot-internal'" :title="formatReleaseStatus(rel.release_status)"></span>
+            <span class="release-identity">
+              <strong>{{ rel.version_label }}</strong>
+              <span>{{ formatReleaseStatus(rel.release_status) }}</span>
+            </span>
 
-            <div class="rr-bar">
-              <div class="rr-bar-met" :style="{ width: rel.coverage.met_pct + '%', background: barColor(rel) }"></div>
-            </div>
-            <span class="rr-pct" :style="{ color: barColor(rel) }">{{ rel.coverage.met_pct }}%</span>
+            <span class="release-progress">
+              <span class="progress-meta">
+                <span>Readiness</span>
+                <span>{{ rel.coverage.met }} / {{ rel.coverage.total }}</span>
+              </span>
+              <span class="progress-track">
+                <span class="progress-fill" :class="readinessTone(rel)" :style="{ width: rel.coverage.met_pct + '%' }" />
+              </span>
+            </span>
 
-            <span v-if="rel.is_approved" class="rr-approved" title="Assessment approved">✓</span>
-            <svg class="rr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-          </li>
-        </ul>
-      </section>
+            <strong class="release-percent">{{ rel.coverage.met_pct }}%</strong>
+            <span class="approval-badge" :class="{ approved: rel.is_approved }">
+              {{ rel.is_approved ? "Approved" : "Open" }}
+            </span>
+            <svg class="release-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </article>
     </div>
   </div>
 </template>
@@ -98,12 +91,10 @@ async function load(): Promise<void> {
 onMounted(load);
 defineExpose({ reload: load });
 
-/** Bar fill colour driven by a release's Met %. */
-function barColor(rel: ReleaseReadinessRead): string {
-  const pct = rel.coverage.met_pct;
-  if (pct >= 80) return "oklch(0.48 0.092 150)";
-  if (pct >= 40) return "oklch(0.74 0.135 75)";
-  return "oklch(0.58 0.175 25)";
+function readinessTone(rel: ReleaseReadinessRead): string {
+  if (rel.coverage.met_pct >= 80) return "tone-good";
+  if (rel.coverage.met_pct >= 40) return "tone-progress";
+  return "tone-low";
 }
 
 function formatScope(scope: string): string {
@@ -115,101 +106,227 @@ function formatScope(scope: string): string {
 }
 
 function formatReleaseStatus(status: string): string {
-  return status.replace(/_/g, " ");
-}
-
-// ── Secondary flags collapsed to a single hover-summary chip ──
-function flagCount(p: ProductReadinessRead): number {
-  return (
-    (p.has_open_critical_vuln ? 1 : 0) +
-    (p.risk_unapproved ? 1 : 0) +
-    (p.support_expired ? 1 : 0) +
-    (p.change_action_required ? 1 : 0)
-  );
-}
-function hasFlags(p: ProductReadinessRead): boolean {
-  return flagCount(p) > 0;
-}
-function flagSummary(p: ProductReadinessRead): string {
-  const parts: string[] = [];
-  if (p.has_open_critical_vuln) parts.push(`${p.open_critical_vuln_count} critical vuln`);
-  if (p.risk_unapproved) parts.push("risk unapproved");
-  if (p.support_expired) parts.push("support expired");
-  if (p.change_action_required) parts.push("change action required");
-  return parts.join(" · ");
+  return status.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 </script>
 
 <style scoped>
 .readiness-panel {
-  padding: 0.9rem 1rem;
-  background: var(--color-surface);
+  padding: 0.25rem;
+}
+
+.readiness-groups {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.product-group {
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 12px;
+  background: var(--color-surface);
 }
-.readiness-head {
-  display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-}
-.rp-title { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--color-text); }
-.rp-hint { font-size: 0.7rem; color: var(--color-text-muted); }
-.rp-legend { display: inline-flex; gap: 0.75rem; margin-left: auto; }
-.rp-lg { display: inline-flex; align-items: center; gap: 5px; font-size: 0.66rem; color: var(--color-text-muted); }
 
-.readiness-empty { padding: 0.9rem; text-align: center; color: var(--color-text-muted); font-size: 0.8rem; }
-
-.readiness-groups { display: flex; flex-direction: column; }
-
-/* Product group — a labelled block, no heavy borders */
-.rg-group { padding: 0.35rem 0; border-top: 1px solid var(--color-border); }
-.rg-group:first-child { border-top: none; }
-.rg-head {
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.15rem 0.25rem;
-}
-.rg-name { font-size: 0.78rem; font-weight: 600; color: var(--color-text); }
-.rg-scope { font-size: 0.58rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
-.scope-in_scope { color: var(--color-success-text); }
-.rg-conformant { font-size: 0.68rem; font-weight: 700; color: var(--color-success-text); }
-.rg-flagdot { margin-left: auto; font-size: 0.62rem; font-weight: 600; color: var(--color-warning-text); cursor: help; }
-
-.rg-norel { padding: 0.2rem 0.5rem; font-size: 0.7rem; color: var(--color-text-muted); }
-
-/* Compact single-line release rows */
-.release-list { list-style: none; margin: 0; padding: 0; }
-.release-row {
-  display: grid;
-  grid-template-columns: minmax(56px, auto) 6px 90px 30px 10px 10px;
+.product-head {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.12rem 0.4rem;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background 0.1s;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
 }
-.release-row:hover { background: var(--color-surface-elevated); }
-.release-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
-.release-row.is-representative .rr-version { font-weight: 700; }
 
-.rr-version { font-size: 0.7rem; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rr-dot { width: 6px; height: 6px; border-radius: 50%; }
-.dot-onmarket { background: var(--color-success); }
-.dot-internal { background: var(--color-border-strong, #c9d2cc); }
+.product-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
 
-/* Thin progress bar — fixed narrow width. The track uses a real theme token so
-   it stays visible against the white surface in light mode. A hairline border
-   keeps a 0% bar legible as a control. */
-.rr-bar {
-  height: 4px;
-  background: var(--color-surface-elevated-strong, #e2e8e4);
+.product-identity strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-identity span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.product-badges {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.scope-badge,
+.conformant-badge,
+.approval-badge {
+  padding: 0.25rem 0.55rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
 }
-.rr-bar-met { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
 
-.rr-pct { font-size: 0.64rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; text-align: right; }
-.rr-approved { font-size: 0.66rem; font-weight: 700; color: var(--color-success-text); text-align: center; }
-.rr-chev { width: 10px; height: 10px; color: var(--color-text-muted); opacity: 0; }
-.release-row:hover .rr-chev { opacity: 1; }
+.scope-in_scope,
+.conformant-badge,
+.approval-badge.approved {
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  color: var(--color-success-text);
+}
+
+.release-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.release-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1.4fr) 3.5rem auto 1rem;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--t-fast, 120ms);
+}
+
+.release-row:last-child {
+  border-bottom: 0;
+}
+
+.release-row:hover,
+.release-row:focus-visible {
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+.release-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.release-row.representative .release-identity strong::after {
+  content: "Current";
+  margin-left: 0.45rem;
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.release-identity,
+.release-progress {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.release-identity {
+  gap: 0.2rem;
+}
+
+.release-identity strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.release-identity span,
+.progress-meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.release-progress {
+  gap: 0.4rem;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+}
+
+.progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-elevated-strong, var(--color-border));
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.tone-good { background: var(--color-success); }
+.tone-progress { background: var(--color-warning); }
+.tone-low { background: var(--color-danger); }
+
+.release-percent {
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.release-chevron {
+  width: 1rem;
+  color: var(--color-text-muted);
+}
+
+.readiness-empty {
+  padding: 1.25rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.readiness-empty.compact {
+  margin: 0;
+  padding: 1rem;
+}
+
+@media (max-width: 720px) {
+  .release-row {
+    grid-template-columns: minmax(0, 1fr) auto 1rem;
+    gap: 0.6rem;
+  }
+
+  .release-progress {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .release-percent {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .approval-badge {
+    display: none;
+  }
+
+  .release-chevron {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 </style>

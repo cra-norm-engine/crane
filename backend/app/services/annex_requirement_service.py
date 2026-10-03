@@ -11,7 +11,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.annex_requirement import AnnexRequirement
+from app.core.exceptions import ConflictException
+from app.models.annex_requirement import AnnexRequirement, RequirementSource
 from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import AnnexPart, AuditActionType, AuditStatus, EntityType
 from app.repositories.annex_requirement_repository import AnnexRequirementRepository
@@ -65,12 +66,27 @@ class AnnexRequirementService:
         if existing is not None:
             raise ValueError(f"Annex requirement with code '{payload.code}' already exists.")
 
+        source = None
+        if payload.source_id:
+            source = self.db.get(RequirementSource, payload.source_id)
+            if source is None:
+                raise ValueError("Requirement source not found.")
+            if source.is_system_managed or source.status != "draft":
+                raise ConflictException("Requirements can only be added to a custom draft source.")
+
         requirement = AnnexRequirement(
             code=payload.code,
             title=payload.title,
             description=payload.description,
             annex_part=payload.annex_part,
-            is_active=payload.is_active,
+            is_active=payload.is_active if source is None else False,
+            source_id=payload.source_id,
+            clause_reference=payload.clause_reference,
+            applicability_guidance=payload.applicability_guidance,
+            verification_guidance=payload.verification_guidance,
+            expected_evidence=payload.expected_evidence,
+            is_mandatory=payload.is_mandatory,
+            status="draft" if source else "published",
         )
         requirement = self.annex_requirement_repository.add(requirement)
 
@@ -99,6 +115,8 @@ class AnnexRequirementService:
         user_agent: str | None = None,
     ) -> AnnexRequirement:
         requirement = self.get_by_id(requirement_id)
+        if requirement.source and (requirement.source.is_system_managed or requirement.source.status != "draft"):
+            raise ConflictException("Only requirements in a custom draft source can be edited.")
         before = self._snapshot(requirement)
 
         update_data = payload.model_dump(exclude_unset=True)

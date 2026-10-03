@@ -250,7 +250,8 @@ const groups = computed<NavGroup[]>(() => [
       { label: "Products", route: "products", icon: ICONS.products },
       { label: "SBOMs & components", route: "sbom-records", icon: ICONS.sbom, allowed: can("security_update_read") },
       { label: "Risk assessments", route: "risk-assessments", icon: ICONS.risk, allowed: can("risk_assessment_read") },
-      { label: "CRA requirements", route: "annex-matrix", icon: ICONS.requirements, allowed: canViewAnnexMatrix.value },
+      { label: "Requirement library", route: "requirement-library", icon: ICONS.requirements, allowed: can("annex_requirement_read") },
+      { label: "Product requirements", route: "annex-matrix", icon: ICONS.requirements, allowed: canViewAnnexMatrix.value },
     ],
   },
   {

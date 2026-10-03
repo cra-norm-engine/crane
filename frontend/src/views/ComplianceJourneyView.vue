@@ -246,15 +246,17 @@ import type { ProductSummaryRead } from "@/types/product";
 // ── Static journey metadata ───────────────────────────────────────────────────
 const PHASE_DEFS: { id: number; name: string; stepIds: string[] }[] = [
   { id: 1, name: "Product setup", stepIds: ["remote_processing", "cra_scope", "support_period"] },
-  { id: 2, name: "Release preparation", stepIds: ["create_release", "risk_assessment", "annex_mapping"] },
-  { id: 3, name: "Evidence & documentation", stepIds: ["artifact_submission", "technical_documentation", "declaration_of_conformity"] },
-  { id: 4, name: "Conformity & placement", stepIds: ["approve_release", "placement_date"] },
+  { id: 2, name: "Requirements definition", stepIds: ["requirement_collection"] },
+  { id: 3, name: "Release preparation", stepIds: ["create_release", "risk_assessment", "annex_mapping"] },
+  { id: 4, name: "Evidence & documentation", stepIds: ["artifact_submission", "technical_documentation", "declaration_of_conformity"] },
+  { id: 5, name: "Conformity & placement", stepIds: ["approve_release", "placement_date"] },
 ];
 
 const CRA_REFS: Record<string, string> = {
   remote_processing: "Art. 3(2)",
   cra_scope: "Art. 3",
   support_period: "Art. 13(8)",
+  requirement_collection: "Art. 13(2)",
   risk_assessment: "Annex I",
   annex_mapping: "Annex I",
   artifact_submission: "Annex VII",
@@ -268,9 +270,10 @@ const WHY_TEXT: Record<string, string> = {
   remote_processing: "Remote data processing can pull an otherwise-exempt product into CRA scope, so it must be identified and classified first.",
   cra_scope: "If the product falls outside CRA scope the journey ends here. If it's in scope, this decision sets every obligation that follows.",
   support_period: "The security support period defines how long you must provide updates — a core CRA obligation customers rely on.",
+  requirement_collection: "A release can only baseline requirements that have already been collected, scoped and published for the product.",
   create_release: "Conformity is assessed per version placed on the market, so each release carries its own journey.",
   risk_assessment: "The risk assessment drives which Annex I requirements apply and what evidence the release gate will need.",
-  annex_mapping: "Mapping each Annex I requirement to a decision and evidence is what demonstrates conformity.",
+  annex_mapping: "Assessing every requirement in the release baseline connects its scope, risks, evidence and validation to the conformity decision.",
   artifact_submission: "The release gate only approves once the required evidence is attached and reviewed.",
   technical_documentation: "Technical documentation (Annex VII) must exist and be accepted before the product can be placed on the market.",
   declaration_of_conformity: "The EU Declaration of Conformity is the manufacturer's formal statement that the product meets the CRA.",
@@ -319,6 +322,18 @@ const STEP_GUIDE: Record<string, StepGuide> = {
       { q: "What must happen during the support period?", a: "Handle vulnerabilities and distribute security updates free of charge and without undue delay." },
     ],
   },
+  requirement_collection: {
+    requirements: [
+      "Collect the applicable CRA essential requirements, harmonized standards, internal policies and contractual requirements.",
+      "Scope each source to the whole organization or the products that use it.",
+      "Store only content your organization is authorized to reproduce; otherwise record clause references and internal implementation objectives.",
+      "Review and publish the source before creating a release so its requirements enter the release baseline.",
+    ],
+    faqs: [
+      { q: "Must I copy a licensed standard into CRANE?", a: "No. Record an authorized requirement, an internal implementation objective, or a clause reference without reproducing restricted text." },
+      { q: "Can one source apply to multiple products?", a: "Yes. Make it organization-wide or select the relevant products; new releases snapshot the published requirements in scope." },
+    ],
+  },
   create_release: {
     requirements: [
       "Treat each version placed on the market as its own conformity scope.",
@@ -341,12 +356,12 @@ const STEP_GUIDE: Record<string, StepGuide> = {
   },
   annex_mapping: {
     requirements: [
-      "Work through the Annex I Part I essential requirements (secure by design and by default, no known exploitable vulnerabilities, secure configuration, data protection, minimal attack surface, etc.).",
-      "For each, record applicable / not applicable with a justification and link the supporting evidence.",
-      "Base any 'not applicable' decision on the documented risk assessment.",
+      "Work through every CRA, standard and organization-defined requirement in the release baseline.",
+      "Record whether it applies, link the relevant risk and rationale, and attach supporting evidence.",
+      "Validate the implementation before marking an applicable requirement ready for approval.",
     ],
     faqs: [
-      { q: "Can a requirement be marked not applicable?", a: "Yes, where justified by the risk assessment — but the justification must be documented." },
+      { q: "Can a requirement be marked not applicable?", a: "Yes, where the source allows it and the risk-based justification is documented. Mandatory requirements cannot be excluded." },
     ],
   },
   artifact_submission: {
@@ -406,9 +421,10 @@ const STEP_GUIDE: Record<string, StepGuide> = {
 const DEST_LABELS: Record<string, string> = {
   "product-detail": "the product page",
   "release-gate": "the release gate",
+  "requirement-library": "the requirement library",
   "risk-assessments": "the risk assessments list",
   "risk-assessment-detail": "the risk assessment",
-  "annex-matrix": "the Annex I matrix",
+  "annex-matrix": "Product requirements",
   "vulnerability-handling": "PSIRT vulnerability handling",
 };
 

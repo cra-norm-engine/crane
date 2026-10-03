@@ -10,6 +10,7 @@ from app.api.routes.dependency_track import router as dependency_track_router
 
 from app.api.routes.admin import router as admin_router
 from app.api.routes.annex_requirements import router as annex_requirements_router
+from app.api.routes.requirement_sources import router as requirement_sources_router
 from app.api.routes.artifacts import router as artifacts_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.auth import router as auth_router
@@ -91,6 +92,11 @@ api_router.include_router(
     risk_items_router,
     prefix="/risk-items",
     tags=["risk-items"],
+)
+api_router.include_router(
+    requirement_sources_router,
+    prefix="/requirement-sources",
+    tags=["requirement-sources"],
 )
 api_router.include_router(
     annex_requirements_router,

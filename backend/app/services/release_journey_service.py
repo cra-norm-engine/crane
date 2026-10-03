@@ -22,8 +22,9 @@ import logging
 from uuid import UUID
 
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, load_only, selectinload
 
+from app.models.annex_requirement import AnnexRequirement, RequirementSource, RequirementSourceProduct
 from app.models.enums import (
     ArtifactReviewDecision,
     ReleaseGateItemCode,
@@ -75,12 +76,14 @@ _STEP_CATALOG: list[dict[str, str]] = [
      "description": "Decide whether the product is in scope of the CRA."},
     {"id": "support_period", "title": "Support period", "level": "product",
      "description": "Define the security support period (CRA Art. 13(8))."},
+    {"id": "requirement_collection", "title": "Define requirement set", "level": "product",
+     "description": "Collect and publish CRA, standards and organization requirements."},
     {"id": "create_release", "title": "Create release candidate", "level": "release",
      "description": "Create the release/version to take through conformity."},
     {"id": "risk_assessment", "title": "Perform risk assessment", "level": "release",
      "description": "Complete and approve a risk assessment for the release."},
-    {"id": "annex_mapping", "title": "Annex I mapping", "level": "release",
-     "description": "Decide applicability and evidence for each Annex I requirement."},
+    {"id": "annex_mapping", "title": "Assess product requirements", "level": "release",
+     "description": "Decide applicability, risk, evidence and validation for the release baseline."},
     {"id": "artifact_submission", "title": "Artifact submission", "level": "release",
      "description": "Attach evidence to the release gate checklist items."},
     {"id": "technical_documentation", "title": "Compile technical documentation", "level": "release",
@@ -117,7 +120,9 @@ def _step(
     )
 
 
-def _product_steps(product: Product) -> tuple[list[JourneyStep], bool]:
+def _product_steps(
+    product: Product, requirement_status: JourneyStepStatus
+) -> tuple[list[JourneyStep], bool]:
     """
     Compute the four product-level steps. Returns the steps plus a flag telling
     whether the product is explicitly out of scope (which makes every release
@@ -156,6 +161,14 @@ def _product_steps(product: Product) -> tuple[list[JourneyStep], bool]:
                        "Define support period", "product-detail", pid,
                        route_hash="#support-periods"))
 
+    requirement_action = (
+        "Review requirement sources"
+        if requirement_status == JourneyStepStatus.complete
+        else "Define or collect requirements"
+    )
+    steps.append(_step(spec_by_id["requirement_collection"], requirement_status,
+                       requirement_action, "requirement-library", {}))
+
     return steps, out_of_scope
 
 
@@ -163,6 +176,48 @@ def _rpe_unassessed(element: RemoteProcessingElement) -> bool:
     """True when a remote processing element still needs classification."""
     # classification is stored as the enum value "not_assessed" until evaluated.
     return str(element.classification) in ("not_assessed", "RemoteProcessingClassification.not_assessed")
+
+
+def _requirement_collection_status(
+    sources: list[RequirementSource],
+) -> JourneyStepStatus:
+    """Resolve whether an applicable requirement set is ready for release baselines."""
+    if any(
+        source.status == "published"
+        and any(req.status == "published" and req.is_active for req in source.requirements)
+        for source in sources
+    ):
+        return JourneyStepStatus.complete
+    if any(source.status in {"draft", "published"} for source in sources):
+        return JourneyStepStatus.in_progress
+    return JourneyStepStatus.todo
+
+
+def _requirement_collection_statuses(
+    db: Session, product_ids: set[UUID]
+) -> dict[UUID, JourneyStepStatus]:
+    if not product_ids:
+        return {}
+    sources = list(
+        db.scalars(
+            select(RequirementSource).options(
+                load_only(RequirementSource.status, RequirementSource.organization_wide),
+                selectinload(RequirementSource.requirements).load_only(
+                    AnnexRequirement.status, AnnexRequirement.is_active
+                ),
+                selectinload(RequirementSource.product_links).load_only(
+                    RequirementSourceProduct.product_id
+                ),
+            )
+        ).unique().all()
+    )
+    return {
+        product_id: _requirement_collection_status([
+            source for source in sources
+            if source.organization_wide or product_id in source.product_ids
+        ])
+        for product_id in product_ids
+    }
 
 
 def _release_steps(
@@ -219,7 +274,7 @@ def _release_steps(
     else:
         annex_status = JourneyStepStatus.complete
     steps.append(_step(spec_by_id["annex_mapping"], annex_status,
-                       "Map Annex I requirements", "annex-matrix", {},
+                       "Assess product requirements", "annex-matrix", {},
                        route_query={
                            "product_id": str(release.product_id),
                            "release_id": str(release.id),
@@ -328,9 +383,10 @@ def _assemble_journey(
     release: ProductRelease | None,
     annex_total: int,
     annex_undecided: int,
+    requirement_status: JourneyStepStatus,
 ) -> ReleaseJourney:
     """Combine product + release steps into a single ordered journey object."""
-    product_steps, out_of_scope = _product_steps(product)
+    product_steps, out_of_scope = _product_steps(product, requirement_status)
 
     if release is not None:
         release_steps = _release_steps(
@@ -433,12 +489,18 @@ def _journeys_from_releases(
 ) -> list[ReleaseJourney]:
     """Assemble a journey for each release, sharing one Annex-count query."""
     total, undecided = _annex_counts(db, [r.id for r in releases])
+    requirement_statuses = _requirement_collection_statuses(
+        db, {r.product_id for r in releases}
+    )
     return [
         _assemble_journey(
             product=r.product,
             release=r,
             annex_total=total.get(r.id, 0),
             annex_undecided=undecided.get(r.id, 0),
+            requirement_status=requirement_statuses.get(
+                r.product_id, JourneyStepStatus.todo
+            ),
         )
         for r in releases
     ]
@@ -460,7 +522,13 @@ def _release_less_product_journey(db: Session, product_id: UUID) -> list[Release
     )
     if product is None:
         return []
-    return [_assemble_journey(product=product, release=None, annex_total=0, annex_undecided=0)]
+    requirement_status = _requirement_collection_statuses(db, {product.id}).get(
+        product.id, JourneyStepStatus.todo
+    )
+    return [_assemble_journey(
+        product=product, release=None, annex_total=0, annex_undecided=0,
+        requirement_status=requirement_status,
+    )]
 
 
 def list_journeys(
@@ -549,11 +617,18 @@ def list_active_release_journeys(db: Session, limit: int = 5) -> list[ReleaseJou
                 selectinload(Product.support_period_records),
             )
         )
-        for product in db.execute(product_stmt).unique().scalars().all():
+        products = list(db.execute(product_stmt).unique().scalars().all())
+        requirement_statuses = _requirement_collection_statuses(
+            db, {product.id for product in products}
+        )
+        for product in products:
             if product.id in products_with_release:
                 continue
             journeys.append(_assemble_journey(
                 product=product, release=None, annex_total=0, annex_undecided=0,
+                requirement_status=requirement_statuses.get(
+                    product.id, JourneyStepStatus.todo
+                ),
             ))
 
     return journeys[:limit]

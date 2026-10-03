@@ -15,7 +15,6 @@
   <section class="page declarations-page">
     <header class="page-header" data-guide="declarations-header">
       <div>
-        <span class="eyebrow">Cyber Resilience Act · Article 28</span>
         <h1 class="page-title">Declarations of Conformity</h1>
         <p class="muted page-subtitle">
           Draw up and sign the EU Declaration of Conformity for each product release, and

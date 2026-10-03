@@ -18,6 +18,11 @@ export type Maybe = string | null;
 export interface AnnexRow {
   code: string;
   title: string;
+  source_identifier: string;
+  source_title: string;
+  source_edition: string | null;
+  clause_reference: string | null;
+  revision: number;
   status: string;
   bucket: "compliant" | "partial" | "gap" | "na";
   evidence: string;

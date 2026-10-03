@@ -19,8 +19,14 @@ class AnnexRequirementCreate(BaseModel):
     code: str = Field(min_length=1, max_length=100)
     title: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=1)
-    annex_part: AnnexPart
+    annex_part: AnnexPart = AnnexPart.part_i
     is_active: bool = True
+    source_id: UUID | None = None
+    clause_reference: str | None = Field(default=None, max_length=100)
+    applicability_guidance: str | None = None
+    verification_guidance: str | None = None
+    expected_evidence: str | None = None
+    is_mandatory: bool = False
 
 
 class AnnexRequirementUpdate(BaseModel):
@@ -28,6 +34,11 @@ class AnnexRequirementUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1)
     annex_part: AnnexPart | None = None
     is_active: bool | None = None
+    clause_reference: str | None = Field(default=None, max_length=100)
+    applicability_guidance: str | None = None
+    verification_guidance: str | None = None
+    expected_evidence: str | None = None
+    is_mandatory: bool | None = None
 
 
 class AnnexRequirementRead(TimestampedRead):
@@ -36,6 +47,16 @@ class AnnexRequirementRead(TimestampedRead):
     description: str
     annex_part: AnnexPart
     is_active: bool
+    source_id: UUID | None
+    source_identifier: str
+    source_title: str
+    clause_reference: str | None
+    applicability_guidance: str | None
+    verification_guidance: str | None
+    expected_evidence: str | None
+    revision: int
+    status: str
+    is_mandatory: bool
 
 
 class AnnexRequirementSummaryRead(ORMBaseModel):

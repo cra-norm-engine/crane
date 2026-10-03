@@ -511,7 +511,7 @@ const AnnexTable: FunctionalComponent<{ rows: AnnexRow[] }> = (p) =>
         h("thead", h("tr", [h("th", "Ref"), h("th", "Requirement"), h("th", "Status"), h("th", "Evidence")])),
         h("tbody", p.rows.map((r) =>
           h("tr", [
-            h("td", h("code", { class: "cite" }, r.code)),
+            h("td", [h("code", { class: "cite" }, r.clause_reference || r.code), h("div", { class: "muted sm" }, `${r.source_identifier}${r.source_edition ? ` · ${r.source_edition}` : ""} · rev ${r.revision}`)]),
             h("td", [
               r.title,
               !isPh(r.rationale)

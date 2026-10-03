@@ -11,8 +11,7 @@
     <!-- ── Header ────────────────────────────────────────── -->
     <header class="page-header" data-guide="annex-header">
       <div>
-        <h1 class="page-title">CRA essential requirements</h1>
-        <p class="muted">Assess Annex I against one product release, resolve the next blocker, and keep the legal rationale and evidence together.</p>
+        <h1 class="page-title">Product requirements</h1>
       </div>
       <div class="page-actions">
         <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
@@ -37,7 +36,7 @@
 
       <div class="selector-grid scope-selector-grid">
         <label class="field">
-          <span>Select product</span>
+          <span>Product</span>
           <select v-model="selectedProductId" class="select">
             <option value="">Choose a product</option>
             <option v-for="product in products" :key="product.id" :value="product.id">
@@ -47,7 +46,7 @@
         </label>
 
         <label class="field">
-          <span>Select release <span class="field-hint">— requirement mappings are per release</span></span>
+          <span>Release</span>
           <select
             v-model="selectedReleaseId"
             class="select"
@@ -70,16 +69,6 @@
       </div>
     </details>
 
-    <nav v-if="selectedProduct && selectedReleaseId" class="related-obligations" aria-label="Related CRA obligations">
-      <span>Related CRA work</span>
-      <RouterLink :to="{ name: 'risk-assessments' }">Risk assessment</RouterLink>
-      <RouterLink :to="{ name: 'sbom-records' }">SBOM</RouterLink>
-      <RouterLink :to="{ name: 'vulnerability-handling' }">Vulnerability handling</RouterLink>
-      <RouterLink :to="{ name: 'support-hub' }">Support period</RouterLink>
-      <RouterLink :to="{ name: 'declarations' }">EU declaration</RouterLink>
-      <RouterLink :to="{ name: 'release-report', params: { releaseId: selectedReleaseId } }">Technical dossier</RouterLink>
-    </nav>
-
     <!-- ── Matrix list ─────────────────────────────────────── -->
     <section v-if="selectedProduct && selectedReleaseId" class="card matrix-card" data-guide="annex-matrix">
       <div class="section-heading">
@@ -87,8 +76,7 @@
           <h2 class="section-title">{{ selectedProduct.name }}</h2>
           <p class="muted">
             {{ selectedRelease?.display_version }} ·
-            {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }} shown ·
-            {{ stats.finalized }} ready for approval · action required on {{ stats.notFinalized }}
+            {{ filteredRows.length }} requirement{{ filteredRows.length === 1 ? "" : "s" }}
           </p>
         </div>
         <span class="meta-pill release-status-pill" :class="`status-${selectedRelease?.release_status}`">
@@ -111,7 +99,7 @@
             <template v-if="assessment.approved_at"> on {{ formatDateTime(assessment.approved_at) }}</template>
           </span>
           <span v-else class="assessment-meta">
-            Complete every requirement, then approve and lock this release assessment.
+            Complete all requirements to approve this assessment.
           </span>
           <span
             v-if="!assessment.is_locked && assessment.unfinalized_codes.length"
@@ -144,34 +132,6 @@
         </div>
       </div>
 
-      <div class="cra-timeline" role="note">
-        <strong>CRA timeline:</strong> Article 14 reporting applies from 11 September 2026; the remaining obligations apply from 11 December 2027.
-      </div>
-
-      <section class="workflow-guide" aria-labelledby="workflow-guide-title">
-        <div class="workflow-guide-heading">
-          <div>
-            <h3 id="workflow-guide-title">How to assess each requirement</h3>
-            <p>Open the first row that requires action. CRANE keeps the legal decision, risk rationale, evidence and engineering validation together.</p>
-          </div>
-          <span>Rows are ordered by the next required action</span>
-        </div>
-        <ol>
-          <li><b>1</b><div><strong>Decide scope</strong><small>Use the product cybersecurity risk assessment to decide whether the requirement applies.</small></div></li>
-          <li><b>2</b><div><strong>Link risk and rationale</strong><small>Connect the relevant risk and explain how the requirement addresses it.</small></div></li>
-          <li><b>3</b><div><strong>Attach evidence</strong><small>Link design, implementation or test evidence for applicable requirements.</small></div></li>
-          <li><b>4</b><div><strong>Validate security</strong><small>Confirm through review or testing that the implemented control meets the requirement.</small></div></li>
-        </ol>
-        <p class="workflow-guide-note">If a requirement does not apply, record a clear risk-based rationale. No implementation evidence is then required.</p>
-      </section>
-
-      <div class="workflow-summary" aria-label="Requirement workflow progress">
-        <div><strong>{{ stats.decided }}</strong><span>Scope decisions recorded</span></div>
-        <div><strong>{{ stats.traceable }}</strong><span>Requirements linked to risk</span></div>
-        <div><strong>{{ stats.finalized }}</strong><span>Ready for approval</span></div>
-        <div><strong>{{ matrixRows.length }}</strong><span>Total requirements</span></div>
-      </div>
-
       <div class="release-coverage-bar">
         <div class="coverage-numbers">
           <strong>{{ stats.finalized }}</strong> / {{ matrixRows.length }} ready for assessment approval
@@ -189,6 +149,7 @@
       </div>
 
       <div class="matrix-toolbar" aria-label="Requirement filters">
+        <label class="field source-filter"><span>Requirement source</span><select v-model="filters.source" class="select"><option value="">All sources</option><option v-for="source in sourceOptions" :key="source" :value="source">{{ source }}</option></select></label>
         <div class="part-tabs">
           <button type="button" :class="{ active: !filters.annexPart }" @click="filters.annexPart = ''">All</button>
           <button type="button" :class="{ active: filters.annexPart === 'part_i' }" @click="filters.annexPart = 'part_i'">Part I · Product security</button>
@@ -241,9 +202,8 @@
           >
             <!-- Code + title -->
             <div class="row-left">
-              <span class="requirement-code">{{ legalReference(row.annex_requirement.code) }}</span>
+              <span class="requirement-code">{{ row.annex_requirement.source_identifier }} · {{ row.annex_requirement.clause_reference || legalReference(row.annex_requirement.code) }}</span>
               <strong class="row-title">{{ row.annex_requirement.title }}</strong>
-              <span class="row-next-action">{{ nextAction(row) }}</span>
             </div>
 
             <!-- Requirement status -->
@@ -256,20 +216,11 @@
                 <span class="status-key">Scope</span>{{ formatApplicability(row.applicability) }}
               </span>
               <span
-                v-if="row.applicability === 'applicable'"
-                class="meta-pill"
-                :class="`progress-${row.implementation_status}`"
-              >
-                <span class="status-key">Engineering</span>{{ implementationStatusLabel(row.implementation_status) }}
-              </span>
-              <span
                 class="meta-pill"
                 :class="row.finalized ? 'finalized-pill' : 'unfinalized-pill'"
               >
                 <span class="status-key">Readiness</span>{{ row.finalized ? "Ready for approval" : "Action required" }}
               </span>
-              <span class="mini-stat">Risk links · {{ rowRiskCount(row) }}</span>
-              <span class="mini-stat">Evidence · {{ row.artifacts.length }}</span>
 
             </div>
           </button>
@@ -294,7 +245,7 @@
     >
       <header class="drawer-header">
         <div>
-          <span class="requirement-code">{{ legalReference(selectedRow.annex_requirement.code) }}</span>
+          <span class="requirement-code">{{ selectedRow.annex_requirement.source_title }} · {{ selectedRow.annex_requirement.clause_reference || legalReference(selectedRow.annex_requirement.code) }} · revision {{ selectedRow.annex_requirement.revision }}</span>
           <h2>{{ selectedRow.annex_requirement.title }}</h2>
           <p class="drawer-next-action">{{ nextAction(selectedRow) }}</p>
         </div>
@@ -333,23 +284,27 @@
         </div>
 
         <nav class="drawer-step-nav" aria-label="Requirement assessment steps">
-          <a href="#requirement-step-scope">1 · Scope</a>
-          <a href="#requirement-step-risk">2 · Risk rationale</a>
-          <a href="#requirement-step-evidence">3 · Evidence</a>
-          <a href="#requirement-step-validation">4 · Validation</a>
+          <button v-for="item in detailSteps" :key="item.id" type="button" :class="{ active: activeDetailStep === item.id }" @click="activeDetailStep = item.id">
+            {{ item.label }}
+          </button>
         </nav>
 
         <!-- ── Applicability assessment ──────────────────────── -->
-        <div id="requirement-step-scope" class="detail-tab-panel">
-          <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
+        <div v-show="activeDetailStep === 'scope'" id="requirement-step-scope" class="detail-tab-panel">
+          <details class="requirement-context">
+            <summary>Requirement details</summary>
+            <p class="detail-description">{{ selectedRow.annex_requirement.description }}</p>
+            <p v-if="selectedRow.annex_requirement.applicability_guidance" class="muted"><strong>Applicability:</strong> {{ selectedRow.annex_requirement.applicability_guidance }}</p>
+            <p v-if="selectedRow.annex_requirement.verification_guidance" class="muted"><strong>Verification:</strong> {{ selectedRow.annex_requirement.verification_guidance }}</p>
+            <p v-if="selectedRow.annex_requirement.expected_evidence" class="muted"><strong>Evidence:</strong> {{ selectedRow.annex_requirement.expected_evidence }}</p>
+          </details>
 
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
                 <span class="workflow-step-label">Step 1 of 4</span>
                 <h3 class="section-title">Scope and applicability</h3>
-                <p class="muted">Decide applicability from the documented cybersecurity risk assessment.</p>
-                <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This CRA obligation always applies to an in-scope product; “Does not apply” is unavailable.</p>
+                <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This requirement is mandatory for the assigned product; “Does not apply” is unavailable.</p>
               </div>
             </div>
             <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
@@ -383,48 +338,16 @@
         </div>
 
         <!-- ── Justification by risk ─────────────────────────── -->
-        <div id="requirement-step-risk" class="detail-tab-panel">
+        <div v-show="activeDetailStep === 'risk'" id="requirement-step-risk" class="detail-tab-panel">
           <section class="trace-section">
             <div class="section-heading tight">
               <div>
                 <span class="workflow-step-label">Step 2 of 4</span>
                 <h3 class="section-title">Risk link and rationale</h3>
-                <p class="muted">
-                  Link the risk item(s) this requirement addresses and justify how — this is the
-                  traceability record and the basis of the compliance report.
-                </p>
               </div>
               <AppButton v-if="!isLocked" variant="secondary" type="button" @click="startCreateTrace">
                 New justification
               </AppButton>
-            </div>
-
-            <!-- Report-style summary of all risk justifications -->
-            <div v-if="rowRisks(selectedRow).length" class="risk-trace-list risk-summary">
-              <article v-for="risk in rowRisks(selectedRow)" :key="`sum-${risk.id}`" class="risk-trace-card">
-                <div class="risk-trace-head">
-                  <strong>{{ risk.title }}</strong>
-                  <span class="badge" :class="riskLevelBadge(risk.risk_level)">
-                    Risk level · {{ formatLabel(risk.risk_level) }}
-                  </span>
-                </div>
-                <div class="risk-trace-meta">
-                  <span class="mini-stat">Risk status · {{ formatLabel(risk.status) }}</span>
-                  <span v-if="risk.residual_risk_level" class="mini-stat">
-                    Residual risk · {{ formatLabel(risk.residual_risk_level) }}
-                  </span>
-                </div>
-                <ul class="risk-trace-vias">
-                  <li
-                    v-for="trace in tracesForRisk(selectedRow, risk.id)"
-                    :key="trace.id"
-                    class="risk-trace-via"
-                  >
-                    <template v-if="trace.evidence_summary">{{ trace.evidence_summary }}</template>
-                    <em v-else class="muted">No justification note</em>
-                  </li>
-                </ul>
-              </article>
             </div>
 
             <div
@@ -439,9 +362,7 @@
 
             <div v-if="selectedRow.trace_records.length === 0" class="state-block compact">
               <h4>No risk justification yet</h4>
-              <p class="muted">
-                Link the risk(s) this requirement addresses and justify how. A risk link and rationale are required before the requirement can be ready for approval — including when it does not apply.
-              </p>
+              <p class="muted">Add a risk and rationale to continue.</p>
             </div>
 
             <div v-else class="section-heading tight detail-subhead">
@@ -516,10 +437,6 @@
               <div class="section-heading tight">
                 <div>
                   <h3 class="section-title">{{ editingExisting ? "Edit justification" : "New risk justification" }}</h3>
-                  <p class="muted">
-                    Pick the risk this requirement addresses and explain how it is addressed (or,
-                    when it does not apply, explain the risk-assessment basis).
-                  </p>
                 </div>
               </div>
 
@@ -577,16 +494,12 @@
         </div>
 
         <!-- ── Linked artifacts ──────────────────────────────── -->
-        <div id="requirement-step-evidence" class="detail-tab-panel">
+        <div v-show="activeDetailStep === 'evidence'" id="requirement-step-evidence" class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
                 <span class="workflow-step-label">Step 3 of 4</span>
                 <h3 class="section-title">Supporting evidence</h3>
-                <p class="muted">
-                  Link design, implementation, review or test evidence. A requirement that applies needs
-                  at least one evidence artifact before it can be ready for approval.
-                </p>
               </div>
             </div>
 
@@ -667,17 +580,12 @@
         </div>
 
         <!-- ── Implementation status ─────────────────────────── -->
-        <div id="requirement-step-validation" class="detail-tab-panel">
+        <div v-show="activeDetailStep === 'validation'" id="requirement-step-validation" class="detail-tab-panel">
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
                 <span class="workflow-step-label">Step 4 of 4</span>
                 <h3 class="section-title">Secure implementation and validation</h3>
-                <p class="muted">
-                  Track delivery of this requirement. A requirement that applies must reach
-                  <strong>Security validated</strong> (with a risk rationale and linked evidence) to be
-                  ready for approval. Requirements that do not apply need no implementation work.
-                </p>
               </div>
             </div>
 
@@ -700,10 +608,7 @@
                   @click="setImplementationStatus(opt)"
                 >
                   <span class="impl-status-dot" :class="`progress-dot-${opt}`" />
-                  <span class="impl-status-copy">
-                    <strong>{{ implementationStatusLabel(opt) }}</strong>
-                    <small>{{ implementationStatusHelp(opt) }}</small>
-                  </span>
+                  <strong>{{ implementationStatusLabel(opt) }}</strong>
                 </button>
               </div>
 
@@ -836,9 +741,18 @@ const productReleases = ref<ProductReleaseRead[]>([]);
 /* ── Optional UI surfaces ─────────────────────────── */
 const showDetailModal = ref(false);
 const showPortfolioReadiness = ref(false);
+type DetailStep = "scope" | "risk" | "evidence" | "validation";
+const activeDetailStep = ref<DetailStep>("scope");
+const detailSteps: { id: DetailStep; label: string }[] = [
+  { id: "scope", label: "1 · Scope" },
+  { id: "risk", label: "2 · Risk" },
+  { id: "evidence", label: "3 · Evidence" },
+  { id: "validation", label: "4 · Validation" },
+];
 
 const filters = reactive({
   annexPart: "" as AnnexPart | "",
+  source: "",
   /* quick filter for the "not finalized" chip */
   finalization: "" as "not_finalized" | "",
   search: "",
@@ -867,11 +781,6 @@ const implementationStatusLabels: Record<RequirementProgressStatus, string> = {
   validated: "Security validated",
 };
 
-const implementationStatusDescriptions: Record<RequirementProgressStatus, string> = {
-  planned: "Security work is planned but is not yet ready for validation.",
-  implemented: "The control exists; confirm it through security review or testing.",
-  validated: "Security review or testing confirms the requirement is met.",
-};
 
 const releaseStatusLabels: Record<ProductReleaseRead["release_status"], string> = {
   draft: "Draft",
@@ -917,6 +826,7 @@ const filteredRows = computed(() => {
         compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code),
     )
     .filter((row: ProductRequirementMatrixRowRead) => {
+      if (filters.source && row.annex_requirement.source_identifier !== filters.source) return false;
       if (filters.annexPart && row.annex_requirement.annex_part !== filters.annexPart) {
         return false;
       }
@@ -929,6 +839,7 @@ const filteredRows = computed(() => {
         row.annex_requirement.code,
         row.annex_requirement.title,
         row.annex_requirement.description,
+        row.annex_requirement.source_title,
         ...row.risk_items.map((risk: RiskItemSummaryRead) => risk.title),
         ...row.artifacts.map((artifact: ArtifactListRead) => artifact.title),
         ...row.engineering_requirement_refs,
@@ -977,8 +888,6 @@ function selectAdjacentRequirement(direction: -1 | 1): void {
 const stats = computed(() => {
   const rows = matrixRows.value;
   return {
-    decided: rows.filter((row) => row.applicability !== "needs_decision").length,
-    traceable: rows.filter((row) => rowRiskCount(row) > 0).length,
     finalized: rows.filter((row) => row.finalized).length,
     notFinalized: rows.filter((row) => !row.finalized).length,
   };
@@ -1020,9 +929,10 @@ function rowRiskCount(row: ProductRequirementMatrixRowRead): number {
   return rowRisks(row).length;
 }
 
+const sourceOptions = computed(() => [...new Set(matrixRows.value.map((row) => row.annex_requirement.source_identifier))].sort());
+
 function isMandatoryRequirement(row: ProductRequirementMatrixRowRead): boolean {
-  return row.annex_requirement.annex_part === "part_ii" ||
-    row.annex_requirement.code === "ANNEX-I-PART-I-1";
+  return row.annex_requirement.is_mandatory;
 }
 
 function applicabilityOptions(
@@ -1072,23 +982,6 @@ function legalReference(code: string): string {
   return `Annex I · Part I · point 2(${"abcdefghijklm"[number - 2]})`;
 }
 
-/** Trace records on a requirement that link to the given risk id. */
-function tracesForRisk(
-  row: ProductRequirementMatrixRowRead,
-  riskId: string,
-): RequirementMappingMatrixRead[] {
-  return row.trace_records.filter((trace) => trace.risk_item?.id === riskId);
-}
-
-/** Map a risk level to a semantic badge class. */
-function riskLevelBadge(level: string): string {
-  if (level === "critical") return "badge-danger";
-  if (level === "high") return "badge-danger";
-  if (level === "medium") return "badge-warning";
-  if (level === "low") return "badge-success";
-  return "badge-neutral";
-}
-
 function compareRequirementCodes(a: string, b: string): number {
   const aMatch = a.match(/PART-(I|II)-(\d+)/);
   const bMatch = b.match(/PART-(I|II)-(\d+)/);
@@ -1122,9 +1015,6 @@ function implementationStatusLabel(value: RequirementProgressStatus): string {
   return implementationStatusLabels[value];
 }
 
-function implementationStatusHelp(value: RequirementProgressStatus): string {
-  return implementationStatusDescriptions[value];
-}
 
 function releaseStatusLabel(value?: ProductReleaseRead["release_status"] | null): string {
   return value ? releaseStatusLabels[value] : "Unknown";
@@ -1158,6 +1048,7 @@ function selectRow(row: ProductRequirementMatrixRowRead): void {
 
 /** Open the requirement drawer for the given row. */
 function openDetail(row: ProductRequirementMatrixRowRead): void {
+  activeDetailStep.value = "scope";
   selectRow(row);
   showDetailModal.value = true;
 }
@@ -2489,124 +2380,12 @@ onMounted(async () => {
   padding: 0.75rem;
 }
 
-.related-obligations {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-  white-space: nowrap;
-  font-size: var(--text-xs);
-}
-
-.related-obligations span {
-  color: var(--color-text-muted);
-  font-weight: 700;
-}
-
-.related-obligations a {
-  padding: 0.35rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.related-obligations a:hover {
-  border-color: var(--color-primary);
-}
-
-.cra-timeline,
 .legal-guardrail {
   padding: 0.65rem 0.8rem;
   border-left: 3px solid var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
-}
-
-.workflow-guide {
-  margin-top: 0.9rem;
-  padding: 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-elevated);
-}
-
-.workflow-guide-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.workflow-guide-heading h3,
-.workflow-guide-heading p,
-.workflow-guide-note {
-  margin: 0;
-}
-
-.workflow-guide-heading h3 {
-  font-size: var(--text-base);
-}
-
-.workflow-guide-heading p,
-.workflow-guide-note,
-.workflow-guide small {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  line-height: 1.45;
-}
-
-.workflow-guide-heading p {
-  margin-top: 0.2rem;
-}
-
-.workflow-guide-heading > span {
-  flex-shrink: 0;
-  padding: 0.3rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-.workflow-guide ol {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin: 0.8rem 0;
-  padding: 0;
-  list-style: none;
-}
-
-.workflow-guide li {
-  display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: start;
-}
-
-.workflow-guide li b {
-  display: grid;
-  place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: var(--color-surface);
-  font-size: var(--text-xs);
-}
-
-.workflow-guide li strong,
-.workflow-guide li small {
-  display: block;
-}
-
-.workflow-guide-note {
-  padding-top: 0.65rem;
-  border-top: 1px solid var(--color-border);
 }
 
 .workflow-step-label {
@@ -2626,32 +2405,6 @@ onMounted(async () => {
 
 .status-key::after {
   content: " · ";
-}
-
-.workflow-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin: 0.9rem 0;
-}
-
-.workflow-summary > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-surface-elevated);
-}
-
-.workflow-summary strong {
-  font-size: 1.1rem;
-}
-
-.workflow-summary span {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
 }
 
 .matrix-toolbar {
@@ -2689,10 +2442,6 @@ onMounted(async () => {
   width: min(300px, 100%);
 }
 
-.row-next-action {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-}
 
 .requirement-drawer {
   position: fixed;
@@ -2701,7 +2450,9 @@ onMounted(async () => {
   right: 16px;
   bottom: 16px;
   width: min(720px, calc(100vw - 32px));
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface);
@@ -2759,7 +2510,7 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.drawer-step-nav a {
+.drawer-step-nav button {
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -2767,35 +2518,49 @@ onMounted(async () => {
   font-size: var(--text-xs);
   font-weight: 700;
   text-decoration: none;
+  background: transparent;
+  cursor: pointer;
 }
 
-.drawer-step-nav a:hover,
-.drawer-step-nav a:focus-visible {
+.drawer-step-nav button:hover,
+.drawer-step-nav button:focus-visible,
+.drawer-step-nav button.active {
   border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   color: var(--color-text);
 }
 
 .requirement-drawer .detail-modal-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   padding: 1rem;
 }
 
 .requirement-drawer .detail-tab-panel {
-  display: block !important;
+  flex: 1;
+  min-height: 0;
   height: auto;
-  overflow: visible;
-  padding: 1rem 0;
-  border-top: 1px solid var(--color-border);
-  scroll-margin-top: 7rem;
+  overflow-y: auto;
+  padding: 1rem 0.25rem 1rem 0;
 }
 
-.requirement-drawer .detail-tab-panel:first-of-type {
-  border-top: 0;
+.requirement-context {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
 }
+.requirement-context summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.requirement-context[open] summary { margin-bottom: 0.75rem; }
+.requirement-context p:last-child { margin-bottom: 0; }
 
 /* ── Responsive ───────────────────────────────────── */
 @media (max-width: 900px) {
-  .workflow-guide ol,
-  .workflow-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .impl-status-picker { grid-template-columns: 1fr; }
   .matrix-toolbar { align-items: stretch; flex-direction: column; }
   .matrix-search { width: 100%; }
@@ -2817,9 +2582,6 @@ onMounted(async () => {
 
 @media (max-width: 640px) {
   .sticky-scope { position: static; }
-  .workflow-guide-heading { flex-direction: column; }
-  .workflow-guide ol { grid-template-columns: 1fr; }
-  .workflow-summary { grid-template-columns: 1fr 1fr; }
   .drawer-header { flex-direction: column; }
   .drawer-actions { justify-content: flex-end; }
   .row-title {

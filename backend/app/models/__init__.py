@@ -6,7 +6,7 @@
 # License v3.0 or later. See <https://www.gnu.org/licenses/>.
 
 from app.models.advisory_release import AdvisoryRelease
-from app.models.annex_requirement import AnnexRequirement
+from app.models.annex_requirement import AnnexRequirement, ReleaseRequirementBaseline, RequirementSource, RequirementSourceProduct
 from app.models.artifact import Artifact, ArtifactProductLink, ArtifactRevision
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
@@ -75,6 +75,9 @@ from app.models.vulnerability_report import VulnerabilityReport
 
 __all__ = [
     "AnnexRequirement",
+    "RequirementSource",
+    "RequirementSourceProduct",
+    "ReleaseRequirementBaseline",
     "Comment",
     "Change",
     "ChangeComplianceAction",

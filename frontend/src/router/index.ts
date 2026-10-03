@@ -170,6 +170,14 @@ const routes: RouteRecordRaw[] = [
         meta: { permissions: ["supplier_assessment_read"] },
       },
       {
+        path: "requirement-library",
+        name: "requirement-library",
+        component: () => import("@/views/RequirementLibraryView.vue"),
+        meta: {
+          permissions: ["annex_requirement_read"],
+        },
+      },
+      {
         path: "annex-matrix",
         name: "annex-matrix",
         component: AnnexMatrixView,

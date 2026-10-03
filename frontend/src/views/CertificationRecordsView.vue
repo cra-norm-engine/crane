@@ -17,27 +17,29 @@
           third-party conformity assessment.
         </p>
       </div>
-
-      <div class="filter-row">
+      <div class="header-actions">
         <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
-        <label class="field">
-          <span class="field-label">Filter by product</span>
-          <select v-model="selectedProductId">
-            <option value="">All products</option>
-            <option v-for="p in products" :key="p.id" :value="p.id">
-              {{ p.name }} ({{ p.product_code }})
-            </option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Filter by status</span>
-          <select v-model="selectedStatus">
-            <option value="">All statuses</option>
-            <option v-for="(label, value) in STATUS_LABELS" :key="value" :value="value">{{ label }}</option>
-          </select>
-        </label>
       </div>
     </header>
+
+    <div class="filter-row">
+      <label class="field">
+        <span class="field-label">Filter by product</span>
+        <select v-model="selectedProductId">
+          <option value="">All products</option>
+          <option v-for="p in products" :key="p.id" :value="p.id">
+            {{ p.name }} ({{ p.product_code }})
+          </option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Filter by status</span>
+        <select v-model="selectedStatus">
+          <option value="">All statuses</option>
+          <option v-for="(label, value) in STATUS_LABELS" :key="value" :value="value">{{ label }}</option>
+        </select>
+      </label>
+    </div>
 
     <!-- ── Feedback banners ── -->
     <div v-if="errorMessage" class="card feedback feedback-error">{{ errorMessage }}</div>
@@ -723,11 +725,15 @@ onMounted(async () => {
 
 .page-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .header-text {
+  flex: 1 1 36rem;
+  max-width: 760px;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -740,6 +746,12 @@ onMounted(async () => {
 .page-subtitle,
 .section-subtitle {
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .filter-row {
@@ -1303,6 +1315,11 @@ textarea:focus {
 
 /* ── Responsive ── */
 @media (max-width: 800px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }

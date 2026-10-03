@@ -13,6 +13,16 @@ export interface AnnexRequirementRead {
   description: string;
   annex_part: AnnexPart;
   is_active: boolean;
+  source_id: string | null;
+  source_identifier: string;
+  source_title: string;
+  clause_reference: string | null;
+  applicability_guidance: string | null;
+  verification_guidance: string | null;
+  expected_evidence: string | null;
+  revision: number;
+  status: string;
+  is_mandatory: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -6,16 +6,18 @@
   See <https://www.gnu.org/licenses/>.
 -->
 <template>
-  <section class="page">
-    <div class="page-header" data-guide="audit-header">
+  <section class="page audit-page">
+    <header class="page-header" data-guide="audit-header">
       <div>
-        <h1 class="page-title">Audit History</h1>
-        <p class="muted">
+        <h1 class="page-title">Audit history</h1>
+        <p class="muted page-subtitle">
           Choose a product, product release, or managed user and follow its full audit timeline.
         </p>
       </div>
-      <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
-    </div>
+      <div class="header-actions">
+        <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
+      </div>
+    </header>
 
     <section class="card filters-card" data-guide="audit-filters">
       <div class="filters-grid">
@@ -267,6 +269,35 @@ watch(
 </script>
 
 <style scoped>
+.audit-page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-4);
+}
+
+.page-header {
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.page-title {
+  margin: 0;
+}
+
+.page-subtitle {
+  max-width: 760px;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .filters-card {
   display: grid;
   gap: 1rem;
@@ -295,6 +326,11 @@ watch(
 }
 
 @media (max-width: 960px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .filters-grid {
     grid-template-columns: 1fr;
   }
