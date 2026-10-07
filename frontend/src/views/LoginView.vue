@@ -218,6 +218,14 @@
           <p class="admin-note">Need access? Contact your CRANE administrator.</p>
         </div>
 
+        <RouterLink class="learning-link" to="/learn-cra">
+          <span class="learning-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4M8 13l8 4"/></svg>
+          </span>
+          <span><strong>Explore the CRA knowledge graph</strong><small>Learn visually — no sign-in required</small></span>
+          <span aria-hidden="true">→</span>
+        </RouterLink>
+
         <p class="security-note">
           <svg class="bp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
           Protected access · Activity is recorded for auditability
@@ -758,6 +766,34 @@ function handleSso(): void {
   font-size: 11.5px;
   text-align: center;
 }
+
+.learning-link {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
+  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-fast);
+}
+
+.learning-link:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  transform: translateY(-1px);
+}
+
+.learning-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.learning-link strong, .learning-link small { display: block; }
+.learning-link strong { font-size: 12.5px; }
+.learning-link small { margin-top: 2px; color: var(--color-text-muted); font-size: 10.5px; }
+.learning-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+.learning-icon svg { width: 17px; height: 17px; stroke-width: 1.7; }
 
 /* ═══════════════ Responsive ═══════════════ */
 @media (max-width: 860px) {

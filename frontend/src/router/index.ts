@@ -46,6 +46,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    path: "/learn-cra",
+    name: "cra-learning",
+    component: () => import("@/views/public/CraLearningGraphView.vue"),
+    meta: { public: true },
+  },
+  {
     path: "/change-password",
     name: "change-password",
     component: ChangePasswordView,

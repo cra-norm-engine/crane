@@ -263,6 +263,8 @@ body {
     radial-gradient(1200px 640px at 18% 10%, var(--color-page-glow-1), transparent 52%),
     radial-gradient(900px 620px at 82% 14%, var(--color-page-glow-2), transparent 50%),
     linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-secondary) 100%);
+  /* Keep the glows in place when tab content changes the document height. */
+  background-attachment: fixed;
   color: var(--color-text);
   transition: background 0.25s ease, color 0.25s ease;
 }
