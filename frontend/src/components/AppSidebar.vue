@@ -346,8 +346,8 @@ async function loadSidebarData(): Promise<void> {
     }),
   ];
   if (can("security_update_read")) {
-    requests.push(vulnerabilityReportService.list().then((items) => {
-      vulnerabilityCount.value = items.filter((item) => item.status !== "retired").length;
+    requests.push(vulnerabilityReportService.summary().then((summary) => {
+      vulnerabilityCount.value = summary.total - (summary.lifecycle.retired ?? 0);
     }));
   }
   if (can("lifecycle_notification_read")) {
