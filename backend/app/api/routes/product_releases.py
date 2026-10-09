@@ -22,6 +22,7 @@ from app.schemas.annex_matrix import (
     ProductRequirementDecisionUpdate,
     ProductRequirementMatrixRowRead,
     RequirementImplementationStatusUpdate,
+    RequirementBaselineUpdate,
 )
 from app.schemas.declaration import (
     DeclarationApproveRequest,
@@ -161,6 +162,34 @@ def update_release_requirement_status(
         annex_requirement_id,
         payload.implementation_status,
         actor_user_id=current_user.id,
+        validation_notes=payload.validation_notes,
+        verification_result=payload.verification_result,
+    )
+
+
+@router.post("/{release_id}/requirement-baseline", response_model=list[ProductRequirementMatrixRowRead])
+def select_release_requirements(
+    release_id: UUID,
+    payload: RequirementBaselineUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+):
+    return RequirementMappingService(db).select_requirements(
+        release_id, payload.requirement_ids, actor_user_id=current_user.id,
+        essential_requirement_id=payload.essential_requirement_id,
+        contribution_notes=payload.contribution_notes,
+    )
+
+
+@router.delete("/{release_id}/requirement-baseline/{requirement_id}", response_model=list[ProductRequirementMatrixRowRead])
+def deselect_release_requirement(
+    release_id: UUID,
+    requirement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions_dependency(Permission.release_write)),
+):
+    return RequirementMappingService(db).deselect_requirement(
+        release_id, requirement_id, actor_user_id=current_user.id,
     )
 
 

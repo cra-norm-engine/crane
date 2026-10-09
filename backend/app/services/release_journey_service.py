@@ -17,24 +17,25 @@ from __future__ import annotations
 # The 12 steps mirror the real manufacturer workflow:
 #   product setup (1-4) → release work (5-12). Steps 1-4 read from the parent
 # product, so they show as already done for an established product line.
-
 import logging
 from uuid import UUID
 
-from sqlalchemy import case, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, load_only, selectinload
 
-from app.models.annex_requirement import AnnexRequirement, RequirementSource, RequirementSourceProduct
+from app.models.annex_requirement import (
+    AnnexRequirement,
+    RequirementSource,
+    RequirementSourceProduct,
+)
 from app.models.enums import (
     ArtifactReviewDecision,
     ReleaseGateItemCode,
     ReleaseGateWorkflowStatus,
     ReleaseStatus,
-    RequirementApplicabilityDecision,
     RiskAssessmentStatus,
 )
 from app.models.product import Product, ProductRelease, RemoteProcessingElement
-from app.models.requirement_mapping import ProductRequirementDecision
 from app.schemas.release_journey import (
     JourneyStep,
     JourneyStepStatus,
@@ -454,34 +455,16 @@ def _release_load_options() -> tuple:
 def _annex_counts(
     db: Session, release_ids: list[UUID]
 ) -> tuple[dict[UUID, int], dict[UUID, int]]:
-    """Bulk-load Annex I requirement-decision totals/undecided counts per release."""
-    total: dict[UUID, int] = {}
-    undecided: dict[UUID, int] = {}
-    if not release_ids:
-        return total, undecided
-    rows = db.execute(
-        select(
-            ProductRequirementDecision.product_release_id,
-            func.count().label("total"),
-            # Count rows still left undecided for this release.
-            func.sum(
-                case(
-                    (
-                        ProductRequirementDecision.applicability_decision
-                        == RequirementApplicabilityDecision.undecided,
-                        1,
-                    ),
-                    else_=0,
-                )
-            ).label("undecided"),
-        )
-        .where(ProductRequirementDecision.product_release_id.in_(release_ids))
-        .group_by(ProductRequirementDecision.product_release_id)
-    ).all()
-    for release_id, total_count, undecided_count in rows:
-        total[release_id] = int(total_count or 0)
-        undecided[release_id] = int(undecided_count or 0)
-    return total, undecided
+    """Keep the workflow step consistent with selected, reviewed requirements."""
+    from app.services.requirement_mapping_service import RequirementMappingService
+
+    service = RequirementMappingService(db)
+    total, pending = {}, {}
+    for release_id in release_ids:
+        rows = service.release_matrix(release_id)
+        total[release_id] = len(rows)
+        pending[release_id] = sum(not row.finalized for row in rows)
+    return total, pending
 
 
 def _journeys_from_releases(

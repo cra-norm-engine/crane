@@ -161,7 +161,7 @@ def sync_annex_i_requirements(db: Session) -> bool:
     """
     source = db.query(RequirementSource).filter(RequirementSource.identifier == "CRA-ANNEX-I").one()
     existing_by_code = {
-        requirement.code: requirement for requirement in db.query(AnnexRequirement).all()
+        requirement.code: requirement for requirement in db.query(AnnexRequirement).filter(AnnexRequirement.source_id == source.id).all()
     }
 
     changed = False

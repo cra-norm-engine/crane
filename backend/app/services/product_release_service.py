@@ -15,14 +15,30 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import create_audit_event
 from app.core.exceptions import ConflictException, ValidationException
-from app.models.annex_requirement import AnnexRequirement, ReleaseRequirementBaseline, RequirementSource, RequirementSourceProduct
-from app.models.enums import AuditStatus, ComplianceActionStatus, ComplianceActionType, EntityType, ReleaseStatus
+from app.models.annex_requirement import (
+    AnnexRequirement,
+    ReleaseRequirementBaseline,
+    RequirementSource,
+    RequirementSourceProduct,
+)
+from app.models.enums import (
+    AuditStatus,
+    ComplianceActionStatus,
+    ComplianceActionType,
+    EntityType,
+    ReleaseStatus,
+)
 from app.models.product import ProductRelease, RemoteProcessingElement
 from app.repositories.change_repository import ChangeRepository
 from app.repositories.product_release_repository import ProductReleaseRepository
 from app.repositories.product_repository import ProductRepository
 from app.repositories.requirement_mapping_repository import RequirementMappingRepository
-from app.schemas.product_release import ProductReleaseCreate, ProductReleaseRead, ProductReleaseUpdate
+from app.schemas.annex_requirement import AnnexRequirementRead
+from app.schemas.product_release import (
+    ProductReleaseCreate,
+    ProductReleaseRead,
+    ProductReleaseUpdate,
+)
 
 
 class ProductReleaseService:
@@ -142,6 +158,7 @@ class ProductReleaseService:
                     product_release_id=release.id,
                     requirement_id=row.requirement_id,
                     requirement_revision=row.requirement_revision,
+                    requirement_snapshot=row.requirement_snapshot,
                 ))
             if parent_rows:
                 return
@@ -152,6 +169,7 @@ class ProductReleaseService:
             .outerjoin(RequirementSourceProduct, RequirementSourceProduct.source_id == RequirementSource.id)
             .where(
                 RequirementSource.status == "published",
+                RequirementSource.is_system_managed.is_(True),
                 AnnexRequirement.status == "published",
                 (RequirementSource.organization_wide.is_(True)) |
                 (RequirementSourceProduct.product_id == release.product_id),
@@ -162,6 +180,7 @@ class ProductReleaseService:
                 product_release_id=release.id,
                 requirement_id=requirement.id,
                 requirement_revision=requirement.revision,
+                requirement_snapshot=AnnexRequirementRead.model_validate(requirement).model_dump(mode="json"),
             ))
 
     def update_release(self, release_id: UUID, payload: ProductReleaseUpdate, actor: object) -> ProductReleaseRead:

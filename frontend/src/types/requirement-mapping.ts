@@ -77,12 +77,27 @@ export interface ProductRequirementMatrixRowRead {
   implementation_status: RequirementProgressStatus;
   /** True when the requirement is fully handled for this release. */
   finalized: boolean;
+  validation_notes: string | null;
+  verification_result: "pass" | "fail" | "inconclusive" | null;
+  validated_by_user_id: string | null;
+  validated_at: string | null;
+  supporting_requirements: {
+    requirement: AnnexRequirementRead;
+    contribution: string;
+    applicability_decision: RequirementApplicabilityDecision;
+    implementation_status: RequirementProgressStatus;
+    finalized: boolean;
+  }[];
+  supporting_artifacts: ArtifactListRead[];
+  blockers: string[];
 }
 
 export type RequirementProgressStatus = "planned" | "implemented" | "validated";
 
 export interface RequirementImplementationStatusUpdate {
   implementation_status: RequirementProgressStatus;
+  validation_notes?: string | null;
+  verification_result?: "pass" | "fail" | "inconclusive" | null;
 }
 
 export interface ProductRequirementDecisionUpdate {

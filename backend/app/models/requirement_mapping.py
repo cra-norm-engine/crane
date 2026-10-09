@@ -8,8 +8,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -19,6 +21,13 @@ from app.models.enums import (
     RequirementProgressStatus,
     SdlActivity,
 )
+
+if TYPE_CHECKING:
+    from app.models.annex_requirement import AnnexRequirement
+    from app.models.artifact import Artifact, ArtifactRevision
+    from app.models.evidence_item import EvidenceItem
+    from app.models.product import ProductRelease
+    from app.models.risk_item import RiskItem
 
 
 class RequirementMapping(UUIDTimestampMixin, Base):
@@ -99,6 +108,10 @@ class RequirementMappingArtifactLink(UUIDTimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    artifact_revision_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("artifact_revisions.id", ondelete="RESTRICT"), nullable=True,
+    )
+    artifact_revision: Mapped["ArtifactRevision | None"] = relationship("ArtifactRevision")
 
     requirement_mapping: Mapped["RequirementMapping"] = relationship(
         "RequirementMapping",
@@ -133,6 +146,10 @@ class ProductRequirementDecision(UUIDTimestampMixin, Base):
         index=True,
     )
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verification_result: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    validated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Per-requirement implementation progress (planned → implemented → validated).
     implementation_status: Mapped[RequirementProgressStatus] = mapped_column(
         nullable=False,

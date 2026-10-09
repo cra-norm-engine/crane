@@ -7,9 +7,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import (
     RequirementApplicabilityDecision,
@@ -49,6 +51,27 @@ class ProductRequirementMatrixRowRead(BaseModel):
     implementation_status: RequirementProgressStatus
     # True when the requirement is fully handled for this release (see finalize rule).
     finalized: bool
+    validation_notes: str | None = None
+    verification_result: Literal["pass", "fail", "inconclusive"] | None = None
+    validated_by_user_id: UUID | None = None
+    validated_at: datetime | None = None
+    supporting_requirements: list["SupportingRequirementRead"] = []
+    supporting_artifacts: list[ArtifactListRead] = []
+    blockers: list[str] = []
+
+
+class SupportingRequirementRead(BaseModel):
+    requirement: AnnexRequirementRead
+    contribution: str
+    applicability_decision: RequirementApplicabilityDecision
+    implementation_status: RequirementProgressStatus
+    finalized: bool
+
+
+class RequirementBaselineUpdate(BaseModel):
+    requirement_ids: list[UUID] = Field(min_length=1, max_length=200)
+    essential_requirement_id: UUID | None = None
+    contribution_notes: dict[UUID, str] = Field(default_factory=dict, max_length=200)
 
 
 class ProductRequirementDecisionUpdate(BaseModel):
@@ -58,3 +81,5 @@ class ProductRequirementDecisionUpdate(BaseModel):
 
 class RequirementImplementationStatusUpdate(BaseModel):
     implementation_status: RequirementProgressStatus
+    validation_notes: str | None = Field(default=None, max_length=10000)
+    verification_result: Literal["pass", "fail", "inconclusive"] | None = None

@@ -12,6 +12,7 @@
     <header class="page-header" data-guide="annex-header">
       <div>
         <h1 class="page-title">Product requirements</h1>
+        <p class="muted">Demonstrate each CRA essential through technical requirements, risk assessment and verified evidence.</p>
       </div>
       <div class="page-actions">
         <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
@@ -20,10 +21,10 @@
 
     <!-- ── Alerts ─────────────────────────────────────────── -->
     <transition name="fade">
-      <div v-if="errorMessage" class="alert error" role="alert">{{ errorMessage }}</div>
+      <div v-if="errorMessage && !showDetailModal" class="alert error" role="alert">{{ errorMessage }}</div>
     </transition>
     <transition name="fade">
-      <div v-if="successMessage" class="alert success" role="status">{{ successMessage }}</div>
+      <div v-if="successMessage && !showDetailModal" class="alert success" role="status">{{ successMessage }}</div>
     </transition>
 
     <!-- ── Product selector ───────────────────────────────── -->
@@ -109,8 +110,10 @@
           </span>
         </div>
         <div class="assessment-banner-actions">
+          <AppButton variant="secondary" size="sm" :disabled="loading || !matrixRows.length" @click="exportTraceability">Export traceability (JSON)</AppButton>
+          <AppButton v-if="!isReadOnly" variant="secondary" size="sm" :disabled="busy || loading" @click="openRequirementPicker()">Choose technical requirements</AppButton>
           <AppButton
-            v-if="!assessment.is_locked"
+            v-if="!assessment.is_locked && canEditRelease"
             variant="primary"
             size="sm"
             :disabled="!assessment.can_approve || assessmentBusy"
@@ -120,7 +123,7 @@
             {{ assessmentBusy ? "Approving…" : "Approve assessment" }}
           </AppButton>
           <AppButton
-            v-else
+            v-else-if="assessment.is_locked && canEditRelease"
             variant="secondary"
             size="sm"
             :disabled="assessmentBusy"
@@ -149,11 +152,15 @@
       </div>
 
       <div class="matrix-toolbar" aria-label="Requirement filters">
-        <label class="field source-filter"><span>Requirement source</span><select v-model="filters.source" class="select"><option value="">All sources</option><option v-for="source in sourceOptions" :key="source" :value="source">{{ source }}</option></select></label>
+        <div class="requirement-view-tabs" aria-label="Requirement view">
+          <button type="button" :aria-pressed="filters.kind === 'essential'" :class="{ active: filters.kind === 'essential' }" @click="changeRequirementView('essential')">CRA essentials · {{ essentialRows.length }}</button>
+          <button type="button" :aria-pressed="filters.kind === 'technical'" :class="{ active: filters.kind === 'technical' }" @click="changeRequirementView('technical')">Technical requirements · {{ technicalRows.length }}</button>
+        </div>
+        <label v-if="filters.kind === 'technical'" class="field source-filter"><span>Requirement source</span><select v-model="filters.source" class="select"><option value="">All sources</option><option v-for="source in sourceOptions" :key="source.id" :value="source.id">{{ source.label }}</option></select></label>
         <div class="part-tabs">
           <button type="button" :class="{ active: !filters.annexPart }" @click="filters.annexPart = ''">All</button>
-          <button type="button" :class="{ active: filters.annexPart === 'part_i' }" @click="filters.annexPart = 'part_i'">Part I · Product security</button>
-          <button type="button" :class="{ active: filters.annexPart === 'part_ii' }" @click="filters.annexPart = 'part_ii'">Part II · Vulnerability handling</button>
+          <button v-if="filters.kind === 'essential'" type="button" :class="{ active: filters.annexPart === 'part_i' }" @click="filters.annexPart = 'part_i'">Part I · Product security</button>
+          <button v-if="filters.kind === 'essential'" type="button" :class="{ active: filters.annexPart === 'part_ii' }" @click="filters.annexPart = 'part_ii'">Part II · Vulnerability handling</button>
           <button
             v-if="stats.notFinalized"
             type="button"
@@ -181,6 +188,7 @@
       <div v-else-if="filteredRows.length === 0" class="state-block">
         <h3>No requirements match these filters</h3>
         <p class="muted">Try a different search term or filter.</p>
+        <AppButton v-if="filters.kind === 'technical' && !isReadOnly" variant="secondary" @click="openRequirementPicker()">Choose technical requirements</AppButton>
       </div>
 
       <!-- Compact row list -->
@@ -204,6 +212,7 @@
             <div class="row-left">
               <span class="requirement-code">{{ row.annex_requirement.source_identifier }} · {{ row.annex_requirement.clause_reference || legalReference(row.annex_requirement.code) }}</span>
               <strong class="row-title">{{ row.annex_requirement.title }}</strong>
+              <small v-if="row.supporting_requirements?.length" class="row-support-summary">{{ row.supporting_requirements.filter((r) => r.finalized && r.applicability_decision === 'applicable').length }} / {{ row.supporting_requirements.length }} technical requirements validated</small>
             </div>
 
             <!-- Requirement status -->
@@ -248,6 +257,7 @@
           <span class="requirement-code">{{ selectedRow.annex_requirement.source_title }} · {{ selectedRow.annex_requirement.clause_reference || legalReference(selectedRow.annex_requirement.code) }} · revision {{ selectedRow.annex_requirement.revision }}</span>
           <h2>{{ selectedRow.annex_requirement.title }}</h2>
           <p class="drawer-next-action">{{ nextAction(selectedRow) }}</p>
+          <button v-if="returnToEssentialId && selectedRow.annex_requirement.kind === 'technical'" type="button" class="trace-back-link" @click="returnToEssential">← Back to CRA objective</button>
         </div>
         <div class="drawer-actions">
           <AppButton variant="secondary" size="sm" type="button" :disabled="!hasPreviousRequirement" @click="selectAdjacentRequirement(-1)">Previous</AppButton>
@@ -263,6 +273,9 @@
           Use <strong>Amend</strong> on the matrix to make changes.
         </div>
 
+        <div v-if="!canEditRelease && !isLocked" class="alert info" role="status">This assessment is available for review. Editing requires release write access.</div>
+        <div v-if="errorMessage" class="alert error" role="alert">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="alert success" role="status">{{ successMessage }}</div>
         <!-- Compact status header -->
         <div class="detail-status-head">
           <span class="meta-pill" :class="`app-${selectedRow.applicability}`">
@@ -302,7 +315,7 @@
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <span class="workflow-step-label">Step 1 of 4</span>
+                <span class="workflow-step-label">{{ stepLabel('scope') }}</span>
                 <h3 class="section-title">Scope and applicability</h3>
                 <p v-if="isMandatoryRequirement(selectedRow)" class="legal-guardrail">This requirement is mandatory for the assigned product; “Does not apply” is unavailable.</p>
               </div>
@@ -310,7 +323,7 @@
             <form id="applicability-form" class="editor-grid" @submit.prevent="saveApplicabilityDecision">
               <label class="field">
                 <span>Decision</span>
-                <select v-model="applicabilityForm.applicability_decision" class="select" :disabled="isLocked">
+                <select v-model="applicabilityForm.applicability_decision" class="select" :disabled="isReadOnly">
                   <option v-for="option in applicabilityOptions(selectedRow)" :key="option" :value="option">
                     {{ formatApplicabilityDecision(option) }}
                   </option>
@@ -323,12 +336,12 @@
                   v-model.trim="applicabilityForm.rationale"
                   class="textarea"
                   rows="3"
-                  :disabled="isLocked"
+                  :disabled="isReadOnly"
                   placeholder="Explain how the cybersecurity risk assessment supports this scope decision."
                 />
               </label>
 
-              <div v-if="!isLocked" class="editor-actions">
+              <div v-if="!isReadOnly" class="editor-actions">
                 <AppButton variant="primary" type="submit" :disabled="busy">
                   {{ busy ? "Saving..." : "Save decision" }}
                 </AppButton>
@@ -337,15 +350,33 @@
           </section>
         </div>
 
+        <div v-if="selectedRow.annex_requirement.kind === 'essential'" v-show="activeDetailStep === 'technical'" class="detail-tab-panel">
+          <section class="detail-section">
+            <div class="section-heading tight">
+              <div><span class="workflow-step-label">{{ stepLabel('technical') }}</span><h3 class="section-title">Technical approach</h3></div>
+              <AppButton v-if="!isReadOnly" variant="secondary" size="sm" :disabled="busy" @click="openRequirementPicker(selectedRow.annex_requirement.id)">Choose requirements</AppButton>
+            </div>
+            <p class="muted">These selected requirements contribute to this CRA objective. Review their combined scope and any remaining gaps before recording fulfillment.</p>
+            <div v-if="!selectedRow.supporting_requirements?.length" class="state-block compact"><h4>No technical requirements selected</h4><p class="muted">Choose requirements from a published source, or demonstrate this essential directly with evidence.</p></div>
+            <div v-else class="supporting-requirement-list">
+              <article v-for="support in selectedRow.supporting_requirements" :key="support.requirement.id" class="supporting-requirement-card">
+                <div class="section-heading tight"><span class="requirement-code">{{ support.requirement.source_identifier }} · {{ support.requirement.source_edition }} · {{ support.requirement.code }}</span><span class="meta-pill" :class="support.finalized ? 'finalized-pill' : 'unfinalized-pill'">{{ support.applicability_decision === 'not_applicable' ? 'Does not contribute · N/A' : support.finalized ? 'Validated' : 'Action required' }}</span></div>
+                <h4>{{ support.requirement.title }}</h4><p>{{ support.contribution }}</p>
+                <AppButton variant="secondary" size="sm" @click="openSupportingRequirement(support.requirement.id)">{{ isLocked ? 'View demonstration' : 'Assess requirement' }}</AppButton>
+              </article>
+            </div>
+          </section>
+        </div>
+
         <!-- ── Justification by risk ─────────────────────────── -->
         <div v-show="activeDetailStep === 'risk'" id="requirement-step-risk" class="detail-tab-panel">
           <section class="trace-section">
             <div class="section-heading tight">
               <div>
-                <span class="workflow-step-label">Step 2 of 4</span>
+                <span class="workflow-step-label">{{ stepLabel('risk') }}</span>
                 <h3 class="section-title">Risk link and rationale</h3>
               </div>
-              <AppButton v-if="!isLocked" variant="secondary" type="button" @click="startCreateTrace">
+              <AppButton v-if="!isReadOnly" variant="secondary" type="button" @click="startCreateTrace">
                 New justification
               </AppButton>
             </div>
@@ -375,7 +406,7 @@
                 class="trace-card"
                 :class="{ selected: selectedTraceId === trace.id }"
               >
-                <button class="trace-top" type="button" :disabled="isLocked" @click="editTrace(trace)">
+                <button class="trace-top" type="button" :disabled="isReadOnly" @click="editTrace(trace)">
                   <div>
                     <strong>{{ trace.risk_item?.title || "Direct requirement rationale" }}</strong>
                     <p class="trace-subline">
@@ -392,7 +423,7 @@
                 <div class="artifact-strip">
                   <article
                     v-for="artifact in trace.artifacts"
-                    :key="artifact.id"
+                    :key="`${artifact.id}-${artifact.latest_revision?.id}`"
                     class="artifact-card"
                   >
                     <div class="artifact-info">
@@ -421,7 +452,7 @@
                   </article>
                 </div>
 
-                <div v-if="!isLocked" class="trace-actions">
+                <div v-if="!isReadOnly" class="trace-actions">
                   <AppButton variant="secondary" :disabled="busy" @click="editTrace(trace)">
                     Edit
                   </AppButton>
@@ -433,7 +464,7 @@
             </div>
 
             <!-- Risk justification editor (hidden when locked) -->
-            <section v-if="!isLocked" class="editor-card">
+            <section v-if="!isReadOnly" class="editor-card">
               <div class="section-heading tight">
                 <div>
                   <h3 class="section-title">{{ editingExisting ? "Edit justification" : "New risk justification" }}</h3>
@@ -498,9 +529,19 @@
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <span class="workflow-step-label">Step 3 of 4</span>
+                <span class="workflow-step-label">{{ stepLabel('evidence') }}</span>
                 <h3 class="section-title">Supporting evidence</h3>
               </div>
+            </div>
+
+            <div v-if="selectedRow.supporting_artifacts?.length" class="inherited-evidence">
+              <h4>Evidence from validated technical requirements</h4>
+              <p class="muted">This proof is available for the overall CRA fulfillment review. Direct evidence below can address additional aspects.</p>
+              <article v-for="artifact in selectedRow.supporting_artifacts" :key="`${artifact.id}-${artifact.latest_revision?.id}`" class="compact-item compact-item-actions">
+                <div><strong>{{ artifact.title }}</strong><small class="muted"> · revision {{ artifact.latest_revision?.revision_number }}</small></div>
+                <AppButton v-if="artifact.latest_revision?.storage_path" variant="secondary" size="sm" @click="downloadArtifact(artifact)">Download</AppButton>
+                <a v-else-if="artifact.latest_revision?.external_url" :href="artifact.latest_revision.external_url" target="_blank" rel="noreferrer">Open evidence</a>
+              </article>
             </div>
 
             <!-- Currently linked artifacts -->
@@ -510,7 +551,7 @@
             <div v-else class="compact-list">
               <article
                 v-for="artifact in selectedRow.artifacts"
-                :key="artifact.id"
+                :key="`${artifact.id}-${artifact.latest_revision?.id}`"
                 class="compact-item compact-item-actions"
               >
                 <div class="artifact-info">
@@ -540,7 +581,7 @@
             </div>
 
             <!-- Artifact selector (manage links here) -->
-            <div v-if="!isLocked" class="artifact-link-editor">
+            <div v-if="!isReadOnly" class="artifact-link-editor">
               <div class="section-heading tight detail-subhead">
                 <h4 class="section-title">Select artifacts</h4>
               </div>
@@ -584,8 +625,8 @@
           <section class="detail-section">
             <div class="section-heading tight">
               <div>
-                <span class="workflow-step-label">Step 4 of 4</span>
-                <h3 class="section-title">Secure implementation and validation</h3>
+                <span class="workflow-step-label">{{ stepLabel('validation') }}</span>
+                <h3 class="section-title">{{ selectedRow.annex_requirement.kind === 'essential' ? 'Review CRA fulfillment' : 'Verify the technical requirement' }}</h3>
               </div>
             </div>
 
@@ -599,12 +640,12 @@
             <template v-else>
               <div class="impl-status-picker">
                 <button
-                  v-for="opt in progressStatuses"
+                  v-for="opt in progressStatuses.filter((s) => s !== 'validated')"
                   :key="opt"
                   type="button"
                   class="impl-status-option"
                   :class="{ active: selectedRow.implementation_status === opt }"
-                  :disabled="isLocked || busy || selectedRow.applicability === 'needs_decision'"
+                  :disabled="isReadOnly || busy || selectedRow.applicability === 'needs_decision'"
                   @click="setImplementationStatus(opt)"
                 >
                   <span class="impl-status-dot" :class="`progress-dot-${opt}`" />
@@ -616,6 +657,16 @@
                 Complete Step 1 before recording implementation progress.
               </p>
 
+              <div class="validation-review">
+                <p v-if="selectedRow.annex_requirement.acceptance_criteria" class="acceptance-criteria"><strong>Acceptance criteria</strong><span>{{ selectedRow.annex_requirement.acceptance_criteria }}</span></p>
+                <p v-else-if="selectedRow.annex_requirement.verification_guidance" class="acceptance-criteria"><strong>Verification guidance</strong><span>{{ selectedRow.annex_requirement.verification_guidance }}</span></p>
+                <p class="muted">{{ selectedRow.annex_requirement.kind === 'essential' ? 'Review the full CRA objective, the selected contributions and any direct evidence. Explain why the combined demonstration covers the applicable scope.' : 'Record the method, tested product or process scope, acceptance results, and the evidence that supports your conclusion.' }}</p>
+                <label class="field"><span>Review outcome</span><select v-model="validationForm.verification_result" class="select" :disabled="isReadOnly || busy"><option value="pass">{{ selectedRow.annex_requirement.kind === 'essential' ? 'Fulfillment demonstrated' : 'Pass · criteria met' }}</option><option value="fail">Fail · changes needed</option><option value="inconclusive">Inconclusive · further evidence needed</option></select></label>
+                <label class="field"><span>Validation conclusion</span><textarea v-model.trim="validationForm.validation_notes" class="textarea" rows="4" :disabled="isReadOnly || busy" placeholder="Describe what was reviewed, the scope covered, results and supporting evidence. Explain any remaining limitations." /></label>
+                <p v-if="selectedRow.validated_at" class="muted">Review recorded {{ formatDateTime(selectedRow.validated_at) }} · {{ formatLabel(selectedRow.verification_result) }}</p>
+                <AppButton v-if="!isReadOnly" variant="primary" :disabled="busy || selectedRow.applicability !== 'applicable' || !validationForm.validation_notes.trim()" @click="saveValidation">{{ busy ? 'Saving…' : selectedRow.annex_requirement.kind === 'essential' ? 'Save fulfillment review' : 'Save validation' }}</AppButton>
+              </div>
+
               <!-- Finalization checklist for applicable requirements -->
               <ul class="finalize-checklist">
                 <li :class="{ done: selectedRow.applicability !== 'needs_decision' }">
@@ -626,25 +677,47 @@
                   <span class="check-mark">{{ rowRisks(selectedRow).length > 0 ? '✓' : '○' }}</span>
                   Relevant risk and rationale linked
                 </li>
-                <li :class="{ done: selectedRow.artifacts.length > 0 }">
-                  <span class="check-mark">{{ selectedRow.artifacts.length > 0 ? '✓' : '○' }}</span>
+                <li :class="{ done: selectedRow.artifacts.length + (selectedRow.supporting_artifacts?.length || 0) > 0 }">
+                  <span class="check-mark">{{ selectedRow.artifacts.length + (selectedRow.supporting_artifacts?.length || 0) > 0 ? '✓' : '○' }}</span>
                   Supporting evidence linked
                 </li>
                 <li :class="{ done: selectedRow.implementation_status === 'validated' }">
                   <span class="check-mark">{{ selectedRow.implementation_status === 'validated' ? '✓' : '○' }}</span>
-                  Security implementation validated
+                  {{ selectedRow.annex_requirement.kind === 'essential' ? 'Overall fulfillment reviewed' : 'Acceptance criteria validated' }}
                 </li>
               </ul>
+              <ul v-if="selectedRow.blockers?.length" class="review-blockers"><li v-for="blocker in selectedRow.blockers" :key="blocker">{{ blocker }}</li></ul>
             </template>
 
             <div class="finalize-banner" :class="selectedRow.finalized ? 'is-final' : 'not-final'">
               {{ selectedRow.finalized ? "✓ Ready for assessment approval." : "Action required: complete the remaining items above." }}
             </div>
+            <AppButton v-if="selectedRow.annex_requirement.kind === 'technical' && !isReadOnly" variant="secondary" size="sm" :disabled="busy" @click="removeSelectedRequirement(selectedRow.annex_requirement.id)">Remove from this release</AppButton>
           </section>
         </div>
 
       </div>
     </aside>
+
+    <div v-if="showRequirementPicker" class="requirement-picker-backdrop" @click.self="showRequirementPicker = false" @keydown.esc="showRequirementPicker = false">
+      <section class="requirement-picker" @keydown.tab="trapPickerFocus" role="dialog" aria-modal="true" aria-labelledby="requirement-picker-title">
+        <header class="section-heading"><div><h2 id="requirement-picker-title">Choose technical requirements</h2><p class="muted">{{ pickerEssentialId ? 'Mapped suggestions appear first. Choose an existing requirement and explain its contribution to this CRA essential.' : 'Choose published technical requirements available for this product and release.' }}</p><p v-if="pickerEssentialId" class="muted">For: {{ matrixRows.find((row) => row.annex_requirement.id === pickerEssentialId)?.annex_requirement.title }}</p></div><button class="drawer-close" aria-label="Close requirement picker" @click="showRequirementPicker = false">×</button></header>
+        <div class="picker-filters"><input v-model.trim="pickerSearch" class="input" type="search" aria-label="Search technical requirements" placeholder="Search sources, clauses or objectives…" /><label v-if="pickerEssentialId" class="picker-toggle"><input v-model="pickerOnlyMapped" type="checkbox" />Only show mapped suggestions</label></div>
+        <div v-if="pickerError" class="alert error" role="alert">{{ pickerError }}</div>
+        <p v-if="pickerLoading" role="status">Loading published requirements…</p>
+        <div v-else class="picker-requirements">
+          <p v-if="!filteredAvailableRequirements.length" class="muted">{{ availableRequirements.length ? 'No requirements match these filters. Clear the search or turn off mapped suggestions.' : 'No published technical requirements are available for this product. Publish a source in the Requirement library and check its product scope.' }}</p>
+          <article v-for="requirement in filteredAvailableRequirements" :key="requirement.id" class="picker-requirement" :class="{ selected: pickerSelection.includes(requirement.id) || isPickerRequirementSelected(requirement) }">
+            <label class="picker-requirement-choice">
+              <input v-model="pickerSelection" type="checkbox" :value="requirement.id" :disabled="busy || isPickerRequirementSelected(requirement)" />
+              <span><small class="requirement-code">{{ requirement.source_identifier }} · {{ requirement.source_edition }} · {{ requirement.code }}</small><strong>{{ requirement.title }}</strong><span>{{ requirement.description }}</span><small class="muted">{{ isPickerRequirementSelected(requirement) ? 'Already selected for this CRA essential or release' : hasPickerContribution(requirement) ? 'Mapped suggestion for this CRA essential' : pickerEssentialId ? 'Explain its contribution when selecting' : 'Additional product obligation' }}</small><span v-for="link in pickerContributions(requirement).filter((c) => !pickerEssentialId || c.essential_requirement_id === pickerEssentialId)" :key="link.essential_requirement_id" class="picker-contribution">{{ link.contribution }}</span></span>
+            </label>
+            <label v-if="pickerEssentialId && pickerSelection.includes(requirement.id) && !hasPickerContribution(requirement)" class="field"><span>How does this requirement support the CRA essential?</span><textarea v-model.trim="pickerContributionNotes[requirement.id]" class="textarea" rows="3" maxlength="10000" :aria-label="`Contribution of ${requirement.code}`" placeholder="Explain the aspect covered and any limitations for this release." :disabled="busy" /><small class="muted">This link applies to this release. The published library stays unchanged.</small></label>
+          </article>
+        </div>
+        <footer><span class="muted">{{ pickerSelection.length }} selected {{ pickerEssentialId ? 'to link' : 'to add' }}</span><AppButton variant="secondary" :disabled="busy" @click="showRequirementPicker = false">Cancel</AppButton><AppButton variant="primary" :disabled="busy || pickerLoading || !canAddPickerSelection" @click="addSelectedRequirements">{{ busy ? 'Adding…' : pickerEssentialId ? 'Add to CRA essential' : 'Add to release' }}</AppButton></footer>
+      </section>
+    </div>
 
   </section>
 </template>
@@ -653,11 +726,14 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
+import { useAuthStore } from "@/stores/auth";
 import AppButton from "@/components/AppButton.vue";
 import ProductReadinessPanel from "@/components/ProductReadinessPanel.vue";
 import { artifactService } from "@/services/artifact-service";
 import { productReleaseService } from "@/services/product-release-service";
 import { productService } from "@/services/product-service";
+import { requirementSourceService } from "@/services/requirement-source-service";
+import type { LibraryRequirement } from "@/types/requirement-source";
 import { requirementMappingService } from "@/services/requirement-mapping-service";
 import { riskAssessmentService } from "@/services/risk-assessment-service";
 import { riskItemService } from "@/services/risk-item-service";
@@ -681,6 +757,8 @@ import type { RiskAssessmentRead } from "@/types/risk-assessment";
 import type { RiskItemRead, RiskItemSummaryRead } from "@/types/risk-item";
 import type { ProductReleaseRead } from "@/types/release-gate";
 
+const authStore = useAuthStore();
+const canEditRelease = computed(() => authStore.hasPermission("release_write"));
 const loading = ref(false);
 const busy = ref(false);
 const errorMessage = ref("");
@@ -691,6 +769,7 @@ const assessment = ref<RequirementAssessmentRead | null>(null);
 const assessmentBusy = ref(false);
 // Convenience: is the matrix locked (assessment approved) → forms become read-only.
 const isLocked = computed(() => assessment.value?.is_locked === true);
+const isReadOnly = computed(() => isLocked.value || !canEditRelease.value);
 
 // Tooltip explaining why the Approve button is enabled/disabled.
 const approveButtonTitle = computed(() => {
@@ -741,16 +820,135 @@ const productReleases = ref<ProductReleaseRead[]>([]);
 /* ── Optional UI surfaces ─────────────────────────── */
 const showDetailModal = ref(false);
 const showPortfolioReadiness = ref(false);
-type DetailStep = "scope" | "risk" | "evidence" | "validation";
+type DetailStep = "scope" | "technical" | "risk" | "evidence" | "validation";
 const activeDetailStep = ref<DetailStep>("scope");
-const detailSteps: { id: DetailStep; label: string }[] = [
-  { id: "scope", label: "1 · Scope" },
-  { id: "risk", label: "2 · Risk" },
-  { id: "evidence", label: "3 · Evidence" },
-  { id: "validation", label: "4 · Validation" },
-];
+const detailSteps = computed<{ id: DetailStep; label: string }[]>(() => {
+  const steps: { id: DetailStep; label: string }[] = [{ id: "scope", label: "Scope" }];
+  if (selectedRow.value?.annex_requirement.kind === "essential") steps.push({ id: "technical", label: "Technical approach" });
+  steps.push({ id: "risk", label: "Risk" }, { id: "evidence", label: "Evidence" }, { id: "validation", label: "Review" });
+  return steps.map((step, index) => ({ ...step, label: `${index + 1} · ${step.label}` }));
+});
+function stepLabel(id: DetailStep): string { return `Step ${detailSteps.value.findIndex((step) => step.id === id) + 1} of ${detailSteps.value.length}`; }
+const returnToEssentialId = ref("");
+const validationForm = reactive({ validation_notes: "", verification_result: "pass" as "pass" | "fail" | "inconclusive" });
+const showRequirementPicker = ref(false);
+const pickerLoading = ref(false);
+const pickerError = ref("");
+const pickerEssentialId = ref("");
+const pickerOnlyMapped = ref(false);
+const pickerSearch = ref("");
+const pickerSelection = ref<string[]>([]);
+const availableRequirements = ref<LibraryRequirement[]>([]);
+const filteredAvailableRequirements = computed(() => availableRequirements.value.filter((requirement) => {
+  if (pickerEssentialId.value && pickerOnlyMapped.value && !hasPickerContribution(requirement)) return false;
+  const term = pickerSearch.value.toLowerCase();
+  return [requirement.title, requirement.code, requirement.description, requirement.source_identifier, requirement.source_edition].join(" ").toLowerCase().includes(term);
+}).sort((a, b) => Number(hasPickerContribution(b)) - Number(hasPickerContribution(a))));
+const pickerContributionNotes = reactive<Record<string, string>>({});
+function pickerContributions(requirement: LibraryRequirement) {
+  return matrixRows.value.find((row) => row.annex_requirement.id === requirement.id)?.annex_requirement.contributions ?? requirement.contributions;
+}
+function hasPickerContribution(requirement: LibraryRequirement): boolean {
+  return pickerContributions(requirement).some((link) => link.essential_requirement_id === pickerEssentialId.value);
+}
+function isPickerRequirementSelected(requirement: LibraryRequirement): boolean {
+  return matrixRows.value.some((row) => row.annex_requirement.id === requirement.id) && (!pickerEssentialId.value || hasPickerContribution(requirement));
+}
+const pickerNeedsNotes = computed(() => availableRequirements.value.filter((requirement) =>
+  pickerEssentialId.value && pickerSelection.value.includes(requirement.id) && !hasPickerContribution(requirement)));
+const canAddPickerSelection = computed(() => pickerSelection.value.length > 0 && pickerNeedsNotes.value.every((requirement) => pickerContributionNotes[requirement.id]?.trim()));
+function changeRequirementView(kind: "essential" | "technical"): void {
+  filters.kind = kind;
+  filters.source = "";
+  filters.annexPart = "";
+}
+function openSupportingRequirement(id: string): void {
+  const row = matrixRows.value.find((r) => r.annex_requirement.id === id);
+  if (!row) return;
+  returnToEssentialId.value = selectedRow.value?.annex_requirement.id || "";
+  openDetail(row);
+}
+function returnToEssential(): void {
+  const row = matrixRows.value.find((r) => r.annex_requirement.id === returnToEssentialId.value);
+  if (row) { openDetail(row); activeDetailStep.value = "technical"; }
+  returnToEssentialId.value = "";
+}
+let pickerPreviousFocus: HTMLElement | null = null;
+function trapPickerFocus(event: KeyboardEvent) {
+  const elements = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]'));
+  const first = elements[0];
+  const last = elements[elements.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+}
+watch(showRequirementPicker, (open) => { if (!open) pickerPreviousFocus?.focus(); });
+async function openRequirementPicker(essentialId = ""): Promise<void> {
+  const productId = selectedProductId.value;
+  const releaseId = selectedReleaseId.value;
+  pickerPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  pickerEssentialId.value = essentialId;
+  pickerSelection.value = [];
+  Object.keys(pickerContributionNotes).forEach((key) => delete pickerContributionNotes[key]);
+  pickerSearch.value = "";
+  pickerOnlyMapped.value = false;
+  pickerError.value = "";
+  availableRequirements.value = [];
+  showRequirementPicker.value = true;
+  pickerLoading.value = true;
+  await nextTick();
+  document.querySelector<HTMLInputElement>('.picker-filters input')?.focus();
+  try {
+    const sources = await requirementSourceService.list();
+    const scopedSources = sources.filter((source) => !source.is_system_managed && source.status === "published" && (source.organization_wide || source.product_ids.includes(productId)));
+    const requirements = await Promise.all(scopedSources.map((source) => requirementSourceService.requirements(source.id)));
+    if (releaseId === selectedReleaseId.value) availableRequirements.value = requirements.flat();
+  } catch (error: any) { pickerError.value = error?.message || "Could not load published requirements."; }
+  finally { pickerLoading.value = false; }
+}
+async function addSelectedRequirements(): Promise<void> {
+  busy.value = true;
+  pickerError.value = "";
+  try {
+    const notes = Object.fromEntries(pickerNeedsNotes.value.map((requirement) => [requirement.id, pickerContributionNotes[requirement.id].trim()]));
+    matrixRows.value = await requirementMappingService.selectRequirements(selectedReleaseId.value, pickerSelection.value, pickerEssentialId.value || undefined, notes);
+    await loadAssessment(selectedReleaseId.value);
+    showRequirementPicker.value = false;
+    successMessage.value = pickerEssentialId.value ? "Technical requirements linked to this CRA essential. Review their applicability and evidence." : "Technical requirements added. Review their applicability and evidence for this release.";
+  } catch (error: any) { pickerError.value = error?.message || "Could not add requirements."; }
+  finally { busy.value = false; }
+}
+async function removeSelectedRequirement(id: string): Promise<void> {
+  busy.value = true;
+  errorMessage.value = "";
+  try {
+    matrixRows.value = await requirementMappingService.deselectRequirement(selectedReleaseId.value, id);
+    showDetailModal.value = false;
+    await loadAssessment(selectedReleaseId.value);
+    successMessage.value = "Requirement removed from this release. Its CRA conclusions need review again.";
+  } catch (error: any) { errorMessage.value = error?.message || "Could not remove this requirement."; }
+  finally { busy.value = false; }
+}
+async function saveValidation(): Promise<void> {
+  await setImplementationStatus(validationForm.verification_result === "pass" ? "validated" : "implemented", true);
+}
+function exportTraceability(): void {
+  const report = {
+    product: selectedProduct.value?.name,
+    release: selectedRelease.value?.display_version,
+    assessment: assessment.value,
+    exported_at: new Date().toISOString(),
+    requirements: matrixRows.value,
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `requirement-traceability-${selectedReleaseId.value}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const filters = reactive({
+  kind: "essential" as "essential" | "technical",
   annexPart: "" as AnnexPart | "",
   source: "",
   /* quick filter for the "not finalized" chip */
@@ -826,7 +1024,8 @@ const filteredRows = computed(() => {
         compareRequirementCodes(a.annex_requirement.code, b.annex_requirement.code),
     )
     .filter((row: ProductRequirementMatrixRowRead) => {
-      if (filters.source && row.annex_requirement.source_identifier !== filters.source) return false;
+      if (row.annex_requirement.kind !== filters.kind) return false;
+      if (filters.source && row.annex_requirement.source_id !== filters.source) return false;
       if (filters.annexPart && row.annex_requirement.annex_part !== filters.annexPart) {
         return false;
       }
@@ -842,6 +1041,7 @@ const filteredRows = computed(() => {
         row.annex_requirement.source_title,
         ...row.risk_items.map((risk: RiskItemSummaryRead) => risk.title),
         ...row.artifacts.map((artifact: ArtifactListRead) => artifact.title),
+        ...(row.supporting_requirements || []).flatMap((support) => [support.requirement.title, support.requirement.code, support.contribution]),
         ...row.engineering_requirement_refs,
         ...row.notes,
       ]
@@ -882,8 +1082,11 @@ const hasNextRequirement = computed(
 
 function selectAdjacentRequirement(direction: -1 | 1): void {
   const target = navigationRows.value[selectedNavigationIndex.value + direction];
-  if (target) selectRow(target);
+  if (target) { selectRow(target); activeDetailStep.value = "scope"; }
 }
+
+const essentialRows = computed(() => matrixRows.value.filter((row) => row.annex_requirement.kind === "essential"));
+const technicalRows = computed(() => matrixRows.value.filter((row) => row.annex_requirement.kind === "technical"));
 
 const stats = computed(() => {
   const rows = matrixRows.value;
@@ -929,7 +1132,9 @@ function rowRiskCount(row: ProductRequirementMatrixRowRead): number {
   return rowRisks(row).length;
 }
 
-const sourceOptions = computed(() => [...new Set(matrixRows.value.map((row) => row.annex_requirement.source_identifier))].sort());
+const sourceOptions = computed(() => [...new Map(technicalRows.value.map((row) => [row.annex_requirement.source_id, {
+  id: row.annex_requirement.source_id || "", label: `${row.annex_requirement.source_identifier} ${row.annex_requirement.source_edition || ""}`.trim(),
+}])).values()]);
 
 function isMandatoryRequirement(row: ProductRequirementMatrixRowRead): boolean {
   return row.annex_requirement.is_mandatory;
@@ -953,7 +1158,7 @@ function nextAction(row: ProductRequirementMatrixRowRead): string {
   if (row.applicability === "not_applicable") {
     return "Ready: non-applicability is supported by a risk-based rationale";
   }
-  if (row.artifacts.length === 0) {
+  if (row.artifacts.length + (row.supporting_artifacts?.length || 0) === 0) {
     return "Next action: attach design, implementation or test evidence";
   }
   if (row.implementation_status === "planned") {
@@ -962,7 +1167,7 @@ function nextAction(row: ProductRequirementMatrixRowRead): string {
   if (row.implementation_status === "implemented") {
     return "Next action: validate the control through security review or testing";
   }
-  return row.finalized ? "Ready for assessment approval" : "Review the remaining evidence";
+  return row.finalized ? "Ready for assessment approval" : row.blockers?.[0] || "Review the remaining evidence";
 }
 
 function blockerRank(row: ProductRequirementMatrixRowRead): number {
@@ -1012,7 +1217,7 @@ function formatApplicabilityDecision(value: RequirementApplicabilityDecision): s
 }
 
 function implementationStatusLabel(value: RequirementProgressStatus): string {
-  return implementationStatusLabels[value];
+  return value === "validated" && selectedRow.value?.annex_requirement.kind === "essential" ? "Fulfillment demonstrated" : implementationStatusLabels[value];
 }
 
 
@@ -1035,6 +1240,8 @@ function resetEditor(): void {
 /** Populate the detail forms from the selected row. */
 function selectRow(row: ProductRequirementMatrixRowRead): void {
   selectedRequirementId.value = row.annex_requirement.id;
+  validationForm.validation_notes = row.validation_notes || "";
+  validationForm.verification_result = row.verification_result || "pass";
   applicabilityForm.applicability_decision = row.applicability_decision;
   applicabilityForm.rationale = row.applicability_rationale ?? "";
   if (row.trace_records.length > 0) {
@@ -1049,6 +1256,7 @@ function selectRow(row: ProductRequirementMatrixRowRead): void {
 /** Open the requirement drawer for the given row. */
 function openDetail(row: ProductRequirementMatrixRowRead): void {
   activeDetailStep.value = "scope";
+  if (row.annex_requirement.kind === "essential") returnToEssentialId.value = "";
   selectRow(row);
   showDetailModal.value = true;
 }
@@ -1256,12 +1464,9 @@ function applyRow(row: ProductRequirementMatrixRowRead): void {
 }
 
 /** Refresh just the affected requirement row from the server. */
-async function refreshRow(annexRequirementId: string): Promise<void> {
-  const row = await requirementMappingService.releaseRequirementRow(
-    selectedReleaseId.value,
-    annexRequirementId,
-  );
-  applyRow(row);
+async function refreshRow(_annexRequirementId: string): Promise<void> {
+  // A technical change can invalidate several essential conclusions.
+  await loadReleaseMatrix(selectedReleaseId.value);
 }
 
 async function saveTrace(): Promise<void> {
@@ -1322,6 +1527,7 @@ async function removeTrace(traceId: string): Promise<void> {
     successMessage.value = "Trace record deleted.";
     if (annexRequirementId) {
       await refreshRow(annexRequirementId);
+      await loadAssessment(selectedReleaseId.value);
     }
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to delete trace record.";
@@ -1370,6 +1576,7 @@ async function saveApplicabilityDecision(): Promise<void> {
     );
     // Apply the server's authoritative row in place — no full matrix reload.
     applyRow(updatedRow);
+    await refreshRow(updatedRow.annex_requirement.id);
     // Deciding a requirement can flip can_approve / undecided_codes, so refresh
     // the assessment banner state.
     await loadAssessment(selectedReleaseId.value);
@@ -1381,9 +1588,9 @@ async function saveApplicabilityDecision(): Promise<void> {
   }
 }
 
-async function setImplementationStatus(status: RequirementProgressStatus): Promise<void> {
+async function setImplementationStatus(status: RequirementProgressStatus, recordReview = false): Promise<void> {
   if (!selectedRow.value || !selectedReleaseId.value) return;
-  if (selectedRow.value.implementation_status === status) return;
+  if (selectedRow.value.implementation_status === status && !recordReview) return;
 
   busy.value = true;
   errorMessage.value = "";
@@ -1392,12 +1599,13 @@ async function setImplementationStatus(status: RequirementProgressStatus): Promi
     const updatedRow = await requirementMappingService.updateReleaseRequirementStatus(
       selectedReleaseId.value,
       selectedRow.value.annex_requirement.id,
-      { implementation_status: status },
+      { implementation_status: status, ...(recordReview ? { validation_notes: validationForm.validation_notes, verification_result: validationForm.verification_result } : {}) },
     );
     applyRow(updatedRow);
+    await refreshRow(updatedRow.annex_requirement.id);
     // Reaching/leaving "validated" can flip the finalized state, so refresh the banner.
     await loadAssessment(selectedReleaseId.value);
-    successMessage.value = `Engineering status set to ${implementationStatusLabel(status)}.`;
+    successMessage.value = recordReview ? "Review recorded. CRA fulfillment and assessment readiness updated." : `Engineering status set to ${implementationStatusLabel(status)}.`;
   } catch (error: any) {
     errorMessage.value = error?.message ?? "Failed to update implementation status.";
   } finally {
@@ -1408,6 +1616,9 @@ async function setImplementationStatus(status: RequirementProgressStatus): Promi
 /* ── Watchers ─────────────────────────────────────── */
 
 watch(selectedProductId, async (productId) => {
+  showRequirementPicker.value = false;
+  showDetailModal.value = false;
+  returnToEssentialId.value = "";
   selectedReleaseId.value = "";
   productReleases.value = [];
   matrixRows.value = [];
@@ -1418,6 +1629,9 @@ watch(selectedProductId, async (productId) => {
 });
 
 watch(selectedReleaseId, async () => {
+  showRequirementPicker.value = false;
+  showDetailModal.value = false;
+  returnToEssentialId.value = "";
   await loadMatrix();
 });
 
@@ -1451,6 +1665,39 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.matrix-toolbar { flex-wrap: wrap; }
+.requirement-view-tabs { flex-basis: 100%; display: flex; gap: 6px; width: 100%; flex-wrap: wrap; }
+.requirement-view-tabs button { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 10px 16px; background: var(--color-inset-surface); color: var(--color-text-muted); font: inherit; font-weight: 700; cursor: pointer; }
+.requirement-view-tabs button.active { color: var(--color-status-text); border-color: var(--color-status-border); background: var(--color-status-bg); }
+.row-support-summary { color: var(--color-text-muted); margin-top: 5px; }
+.trace-back-link { border: 0; background: transparent; color: var(--color-status-text); cursor: pointer; font: inherit; padding: 6px 0; }
+.supporting-requirement-list { display: grid; gap: 12px; }
+.supporting-requirement-card { border: 1px solid var(--color-border); background: var(--color-inset-surface); border-radius: var(--radius-md); padding: 16px; }
+.supporting-requirement-card h4 { margin: 10px 0 6px; }
+.supporting-requirement-card p { color: var(--color-text-muted); white-space: pre-wrap; }
+.validation-review { display: grid; gap: 14px; margin: 20px 0; }
+.acceptance-criteria { display: grid; gap: 8px; padding: 16px; background: var(--color-inset-surface); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); }
+.acceptance-criteria span { white-space: pre-wrap; }
+.review-blockers { color: var(--color-warning-text); padding-left: 20px; line-height: 1.7; }
+.inherited-evidence { margin-bottom: 24px; }
+.requirement-picker-backdrop { position: fixed; inset: 0; z-index: 1300; background: var(--color-modal-backdrop); display: grid; place-items: center; padding: 20px; }
+.requirement-picker { background: var(--color-modal-bg); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-lg); width: min(860px, 100%); max-height: 90dvh; display: flex; flex-direction: column; padding: 24px; box-shadow: var(--shadow-lg); gap: 16px; }
+.requirement-picker h2 { margin: 0; }
+.requirement-picker .section-heading { align-items: flex-start; margin: 0; }
+.picker-filters { display: grid; gap: 10px; }
+.picker-toggle { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); }
+.picker-requirements { overflow-y: auto; display: grid; gap: 10px; min-height: 0; }
+.picker-requirement { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-inset-surface); }
+.picker-requirement-choice { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.picker-requirement.selected { border-color: var(--color-status-border); background: var(--color-status-bg); }
+.picker-requirement input { margin-top: 4px; }
+.picker-requirement-choice > span { display: grid; gap: 7px; min-width: 0; }
+.picker-requirement-choice > span > span { font-size: var(--text-sm); color: var(--color-text-muted); }
+.picker-contribution { padding-left: 10px; border-left: 2px solid var(--color-primary); }
+.requirement-picker footer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.requirement-picker footer > span { margin-right: auto; }
+@media (max-width: 600px) { .requirement-picker { padding: 16px; } .requirement-picker-backdrop { padding: 8px; } }
+
 /* ── Page layout ──────────────────────────────────── */
 .annex-page {
   display: flex;

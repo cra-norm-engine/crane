@@ -1,3 +1,5 @@
+import type { AnnexRequirementRead } from "@/types/annex-requirement";
+
 export type RequirementSourceStatus = "draft" | "published" | "retired";
 
 export interface RequirementSourceRead {
@@ -30,21 +32,4 @@ export interface RequirementSourceCreate {
   product_ids: string[];
 }
 
-export interface LibraryRequirement {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  annex_part: "part_i" | "part_ii";
-  is_active: boolean;
-  source_id: string | null;
-  source_identifier: string;
-  source_title: string;
-  clause_reference: string | null;
-  applicability_guidance: string | null;
-  verification_guidance: string | null;
-  expected_evidence: string | null;
-  revision: number;
-  status: string;
-  is_mandatory: boolean;
-}
+export type LibraryRequirement = AnnexRequirementRead;

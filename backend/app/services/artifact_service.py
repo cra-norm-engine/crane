@@ -29,6 +29,8 @@ from app.models.enums import (
     EvidenceType,
     ReleaseGateWorkflowStatus,
 )
+from app.models.requirement_assessment import ReleaseRequirementAssessmentSnapshot
+from app.models.requirement_mapping import RequirementMappingArtifactLink
 from app.repositories.artifact_repository import ArtifactRepository, ArtifactRevisionRepository
 
 logger = logging.getLogger(__name__)
@@ -484,6 +486,18 @@ class ArtifactService:
                     raise ConflictException(
                         "Artifact is evidence on an approved (frozen) release gate and cannot be deleted."
                     )
+
+        retained = self.db.scalar(select(ReleaseRequirementAssessmentSnapshot.id).where(
+            ReleaseRequirementAssessmentSnapshot.snapshot_json["matrix"].contains(
+                [{"artifacts": [{"id": str(artifact_id)}]}]
+            )
+        ).limit(1))
+        if retained:
+            raise ConflictException("Artifact is retained in an approved requirement assessment snapshot and cannot be deleted.")
+        if self.db.scalar(select(RequirementMappingArtifactLink.id).where(
+            RequirementMappingArtifactLink.artifact_id == artifact_id
+        ).limit(1)):
+            raise ConflictException("Unlink this artifact from requirement assessments before deleting it.")
 
         # Capture file paths before the DB rows are removed.
         stored_paths = [

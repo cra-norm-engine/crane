@@ -40,6 +40,8 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
             options.extend(
                 [
                     selectinload(RequirementMapping.artifact_links)
+                    .selectinload(RequirementMappingArtifactLink.artifact_revision),
+                    selectinload(RequirementMapping.artifact_links)
                     .selectinload(RequirementMappingArtifactLink.artifact)
                     .selectinload(Artifact.revisions),
                     selectinload(RequirementMapping.artifact_links)
@@ -70,6 +72,7 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
         stmt = (
             select(RequirementMapping)
             .where(RequirementMapping.product_release_id == release_id)
+            .execution_options(populate_existing=True)
             .options(*self._matrix_options())
             .order_by(RequirementMapping.created_at.desc())
         )
@@ -87,6 +90,7 @@ class RequirementMappingRepository(BaseRepository[RequirementMapping]):
         stmt = (
             select(RequirementMapping)
             .where(RequirementMapping.id == mapping_id)
+            .execution_options(populate_existing=True)
             .options(*self._matrix_options())
         )
         return self.db.scalar(stmt)

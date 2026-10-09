@@ -18,6 +18,18 @@ import type {
 } from "@/types/requirement-mapping";
 
 export const requirementMappingService = {
+  async selectRequirements(releaseId: string, requirementIds: string[], essentialRequirementId?: string, contributionNotes: Record<string, string> = {}): Promise<ProductRequirementMatrixRowRead[]> {
+    const { data } = await apiClient.post<ProductRequirementMatrixRowRead[]>(
+      `/product-releases/${releaseId}/requirement-baseline`, { requirement_ids: requirementIds, ...(essentialRequirementId ? { essential_requirement_id: essentialRequirementId, contribution_notes: contributionNotes } : {}) },
+    );
+    return data;
+  },
+  async deselectRequirement(releaseId: string, requirementId: string): Promise<ProductRequirementMatrixRowRead[]> {
+    const { data } = await apiClient.delete<ProductRequirementMatrixRowRead[]>(
+      `/product-releases/${releaseId}/requirement-baseline/${requirementId}`,
+    );
+    return data;
+  },
   async list(params?: {
     risk_item_id?: string;
     annex_requirement_id?: string;

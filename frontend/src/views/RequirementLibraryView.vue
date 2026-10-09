@@ -3,11 +3,11 @@
     <header class="page-header" data-guide="library-header">
       <div>
         <h1 class="page-title">Requirement library</h1>
-        <p class="muted page-subtitle">Govern standards and internal requirements here, then assess them with risks, evidence and validation in Product requirements.</p>
+        <p class="muted page-subtitle">Define technical requirements, trace them to CRA essentials, then select and verify them for each product release.</p>
       </div>
       <div class="header-actions">
         <AppButton class="embedded-guide-trigger" variant="secondary" type="button" @click="startGuide"><span aria-hidden="true">?</span> Guide</AppButton>
-        <AppButton data-guide="library-create" variant="primary" @click="openSourceForm">Create requirement source</AppButton>
+        <AppButton v-if="canManageLibrary" data-guide="library-create" variant="primary" @click="openSourceForm">Create requirement source</AppButton>
       </div>
     </header>
 
@@ -72,7 +72,7 @@
             <label><span>Publisher or owner</span><input v-model.trim="sourceForm.publisher" class="input" placeholder="Standards body or internal owner" /></label>
             <label class="full"><span>External reference</span><input v-model.trim="sourceForm.reference_url" class="input" type="url" placeholder="Link to the authorized source" /></label>
           </div>
-          <fieldset class="scope-box"><legend>Product coverage</legend><label class="scope-choice"><input v-model="sourceForm.organization_wide" type="checkbox" /><span><strong>Organization-wide</strong><small>Include this source in every product release.</small></span></label><div v-if="!sourceForm.organization_wide" class="product-picker"><span>Select products</span><label v-for="product in products" :key="product.id"><input v-model="sourceForm.product_ids" type="checkbox" :value="product.id" />{{ product.name }} <small>{{ product.product_code }}</small></label></div></fieldset>
+          <fieldset class="scope-box"><legend>Product coverage</legend><label class="scope-choice"><input v-model="sourceForm.organization_wide" type="checkbox" /><span><strong>Organization-wide</strong><small>Make this source available to teams for every product.</small></span></label><div v-if="!sourceForm.organization_wide" class="product-picker"><span>Select products</span><label v-for="product in products" :key="product.id"><input v-model="sourceForm.product_ids" type="checkbox" :value="product.id" />{{ product.name }} <small>{{ product.product_code }}</small></label></div></fieldset>
           <p class="license-note">CRANE stores only content your organization is authorized to use. Prefer clause references and organization-authored implementation objectives when licensed wording cannot be reproduced.</p>
           <footer><AppButton type="button" variant="secondary" @click="showSourceForm = false">Cancel</AppButton><AppButton type="submit" variant="primary" :disabled="busy">{{ busy ? "Creating…" : "Create draft source" }}</AppButton></footer>
         </form>
@@ -82,48 +82,92 @@
     <aside v-if="selectedSource" class="source-drawer" aria-label="Requirement source details">
       <header class="drawer-header"><div><span class="source-code">{{ selectedSource.identifier }}<template v-if="selectedSource.edition"> · {{ selectedSource.edition }}</template></span><h2>{{ selectedSource.title }}</h2><p>{{ scopeLabel(selectedSource) }} · {{ selectedSource.requirement_count }} requirements</p></div><button class="close" aria-label="Close" @click="selectedSource = null">×</button></header>
       <div class="drawer-body">
-        <div class="governance-strip"><span class="status-badge" :class="`badge-${selectedSource.status}`">{{ selectedSource.status }}</span><p v-if="selectedSource.status === 'draft'">Build and review this source before publication. Draft content never enters product assessments.</p><p v-else-if="selectedSource.status === 'published'">Published requirements are available in assigned product release baselines.</p><p v-else>This edition is retained for historical assessments and no longer assigned to new releases.</p></div>
-        <div class="drawer-toolbar"><div><h3>Requirements</h3><p>Use focused requirement cards; product teams complete them in the conformity workflow.</p></div><AppButton v-if="canEditSelected" variant="secondary" size="sm" @click="showRequirementForm = !showRequirementForm">{{ showRequirementForm ? "Cancel" : "Add requirement" }}</AppButton></div>
+        <div v-if="errorMessage" class="alert error" role="alert">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="alert success" role="status">{{ successMessage }}</div>
+        <div class="governance-strip"><span class="status-badge" :class="`badge-${selectedSource.status}`">{{ selectedSource.status }}</span><p v-if="selectedSource.status === 'draft'">Build and review this source before publication. Draft content never enters product assessments.</p><p v-else-if="selectedSource.status === 'published'">Published requirements can be selected for eligible product releases. Existing baselines stay unchanged.</p><p v-else>This edition is retained for historical assessments and no longer assigned to new releases.</p></div>
+        <div class="drawer-toolbar"><div><h3>{{ selectedSource.is_system_managed ? "CRA essential requirements" : "Technical requirements" }}</h3><p>{{ selectedSource.is_system_managed ? "The compliance objectives every release must assess." : "Define testable objectives and show which CRA essentials they support." }}</p></div><AppButton v-if="canEditSelected" variant="secondary" size="sm" @click="toggleRequirementForm">{{ showRequirementForm ? "Cancel" : "Add requirement" }}</AppButton></div>
         <form v-if="showRequirementForm" class="requirement-form" @submit.prevent="createRequirement">
+          <h3 class="full">{{ editingRequirementId ? "Edit technical requirement" : "New technical requirement" }}</h3>
           <label><span>Internal code</span><input v-model.trim="requirementForm.code" class="input" placeholder="SEC-001" required /></label>
           <label><span>Clause reference</span><input v-model.trim="requirementForm.clause_reference" class="input" placeholder="Clause 5.2.1" /></label>
           <label class="full"><span>Short title</span><input v-model.trim="requirementForm.title" class="input" required /></label>
           <label class="full"><span>Requirement objective</span><textarea v-model.trim="requirementForm.description" class="textarea" rows="3" required /></label>
           <label class="full"><span>Applicability guidance</span><textarea v-model.trim="requirementForm.applicability_guidance" class="textarea" rows="2" placeholder="When does this apply to a product or release?" /></label>
-          <label class="full"><span>Verification and acceptance criteria</span><textarea v-model.trim="requirementForm.verification_guidance" class="textarea" rows="2" placeholder="How should the team demonstrate that it is met?" /></label>
+          <label class="full"><span>Acceptance criteria</span><textarea v-model.trim="requirementForm.acceptance_criteria" class="textarea" rows="3" required placeholder="Describe the observable outcome needed to pass, including relevant limits and conditions." /></label>
+          <label class="full"><span>Verification method</span><textarea v-model.trim="requirementForm.verification_guidance" class="textarea" rows="2" placeholder="How should the team demonstrate that it is met?" /></label>
           <label class="full"><span>Expected evidence</span><textarea v-model.trim="requirementForm.expected_evidence" class="textarea" rows="2" placeholder="Design review, test report, configuration record…" /></label>
-          <label class="mandatory"><input v-model="requirementForm.is_mandatory" type="checkbox" /><span><strong>Mandatory for assigned products</strong><small>Users cannot mark this requirement as not applicable.</small></span></label>
+          <fieldset class="full contribution-picker">
+            <legend>Supports CRA essential requirements</legend>
+            <p class="muted">Select the essentials this requirement helps fulfill. Explain its contribution; one technical requirement may cover only part of an essential.</p>
+            <div class="essential-options">
+              <label v-for="essential in essentials" :key="essential.id" class="essential-option">
+                <input type="checkbox" :checked="hasContribution(essential.id)" @change="toggleContribution(essential.id)" />
+                <span><strong>{{ essential.title }}</strong><small>{{ essential.code }}</small></span>
+              </label>
+            </div>
+            <label v-for="link in requirementForm.contributions" :key="link.essential_requirement_id" class="contribution-rationale">
+              <span>{{ essentialTitle(link.essential_requirement_id) }}</span>
+              <textarea v-model.trim="link.contribution" class="textarea" rows="2" required placeholder="Which aspect does this address? What remains outside its scope?" />
+            </label>
+            <small v-if="!requirementForm.contributions.length" class="muted">Without a CRA mapping, this remains an additional product obligation.</small>
+          </fieldset>
+          <label class="mandatory"><input v-model="requirementForm.is_mandatory" type="checkbox" /><span><strong>Always applicable when selected</strong><small>Otherwise, teams can record a justified non-applicability decision.</small></span></label>
           <div class="full form-actions"><AppButton type="submit" variant="primary" size="sm" :disabled="busy">Save requirement</AppButton></div>
         </form>
         <div v-if="requirements.length === 0" class="empty-state compact"><strong>No requirements yet</strong><span>Add concise, testable requirements before publishing this source.</span></div>
         <div v-else class="requirement-list">
-          <article v-for="requirement in requirements" :key="requirement.id" class="requirement-card"><div><span class="requirement-code">{{ requirement.code }}<template v-if="requirement.clause_reference"> · {{ requirement.clause_reference }}</template></span><h4>{{ requirement.title }}</h4><p>{{ requirement.description }}</p></div><div class="requirement-tags"><span>Revision {{ requirement.revision }}</span><span v-if="requirement.is_mandatory">Mandatory</span><span>{{ requirement.status }}</span></div><details v-if="requirement.verification_guidance || requirement.expected_evidence"><summary>Implementation guidance</summary><p v-if="requirement.applicability_guidance"><strong>Applicability:</strong> {{ requirement.applicability_guidance }}</p><p v-if="requirement.verification_guidance"><strong>Verification:</strong> {{ requirement.verification_guidance }}</p><p v-if="requirement.expected_evidence"><strong>Expected evidence:</strong> {{ requirement.expected_evidence }}</p></details></article>
+          <article v-for="requirement in requirements" :key="requirement.id" class="requirement-card"><div><span class="requirement-code">{{ requirement.code }}<template v-if="requirement.clause_reference"> · {{ requirement.clause_reference }}</template></span><h4>{{ requirement.title }}</h4><p>{{ requirement.description }}</p></div><div class="requirement-tags"><span>{{ requirement.kind === "essential" ? "CRA essential" : "Technical requirement" }}</span><span>Revision {{ requirement.revision }}</span><span v-if="requirement.is_mandatory">Mandatory</span><span>{{ requirement.status }}</span></div><div v-if="requirement.contributions?.length" class="requirement-contributions"><strong>Supports {{ requirement.contributions.length }} CRA essential{{ requirement.contributions.length === 1 ? "" : "s" }}</strong><div v-for="link in requirement.contributions" :key="link.essential_requirement_id"><span>{{ essentialTitle(link.essential_requirement_id) }}</span><p>{{ link.contribution }}</p></div></div>
+          <AppButton v-if="canEditSelected" variant="secondary" size="sm" @click="editRequirement(requirement)">Edit requirement</AppButton>
+          <details v-if="requirement.acceptance_criteria || requirement.verification_guidance || requirement.expected_evidence"><summary>Acceptance criteria and guidance</summary><p v-if="requirement.acceptance_criteria"><strong>Acceptance:</strong> {{ requirement.acceptance_criteria }}</p><p v-if="requirement.applicability_guidance"><strong>Applicability:</strong> {{ requirement.applicability_guidance }}</p><p v-if="requirement.verification_guidance"><strong>Verification:</strong> {{ requirement.verification_guidance }}</p><p v-if="requirement.expected_evidence"><strong>Expected evidence:</strong> {{ requirement.expected_evidence }}</p></details></article>
         </div>
       </div>
-      <footer v-if="!selectedSource.is_system_managed" class="drawer-footer"><span v-if="selectedSource.status === 'draft'">Publication freezes this edition and assigns it to product baselines.</span><AppButton v-if="selectedSource.status === 'draft'" variant="primary" :disabled="busy || requirements.length === 0" @click="setStatus('published')">Publish source</AppButton><AppButton v-else-if="selectedSource.status === 'published'" variant="secondary" :disabled="busy" @click="setStatus('retired')">Retire edition</AppButton></footer>
+      <footer v-if="canManageLibrary && !selectedSource.is_system_managed" class="drawer-footer"><span v-if="selectedSource.status === 'draft'">Publication freezes this edition. Product teams choose which requirements to adopt into a release.</span><AppButton v-if="selectedSource.status === 'draft'" variant="primary" :disabled="busy || requirements.length === 0" @click="setStatus('published')">Publish source</AppButton><AppButton v-else-if="selectedSource.status === 'published'" variant="secondary" :disabled="busy" @click="setStatus('retired')">Retire edition</AppButton></footer>
     </aside>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useAuthStore } from "@/stores/auth";
 import AppButton from "@/components/AppButton.vue";
 import { productService } from "@/services/product-service";
 import { requirementSourceService } from "@/services/requirement-source-service";
+import type { RequirementContribution } from "@/types/annex-requirement";
 import type { LibraryRequirement, RequirementSourceCreate, RequirementSourceRead } from "@/types/requirement-source";
 
+const authStore = useAuthStore();
+const canManageLibrary = computed(() => authStore.hasPermission("annex_requirement_write"));
 const sources = ref<RequirementSourceRead[]>([]), requirements = ref<LibraryRequirement[]>([]), products = ref<any[]>([]);
 const selectedSource = ref<RequirementSourceRead | null>(null), loading = ref(true), busy = ref(false), showSourceForm = ref(false), showRequirementForm = ref(false);
 const errorMessage = ref(""), successMessage = ref(""), search = ref(""), statusFilter = ref("all");
 const statusOptions = [{ value: "all", label: "All" }, { value: "published", label: "Published" }, { value: "draft", label: "Drafts" }, { value: "retired", label: "Retired" }];
 const emptySource = (): RequirementSourceCreate => ({ identifier: "", title: "", source_type: "harmonized_standard", edition: "", publisher: "", reference_url: "", license_note: "", organization_wide: true, product_ids: [] });
 const sourceForm = reactive(emptySource());
-const emptyRequirement = () => ({ code: "", title: "", description: "", clause_reference: "", applicability_guidance: "", verification_guidance: "", expected_evidence: "", is_mandatory: false });
+const emptyRequirement = () => ({ code: "", title: "", description: "", clause_reference: "", applicability_guidance: "", verification_guidance: "", expected_evidence: "", acceptance_criteria: "", contributions: [] as RequirementContribution[], is_mandatory: false });
 const requirementForm = reactive(emptyRequirement());
+const essentials = ref<LibraryRequirement[]>([]);
+const editingRequirementId = ref("");
+function hasContribution(id: string) { return requirementForm.contributions.some((link) => link.essential_requirement_id === id); }
+function essentialTitle(id: string) { return essentials.value.find((r) => r.id === id)?.title || "CRA essential requirement"; }
+function toggleContribution(id: string) {
+  const index = requirementForm.contributions.findIndex((link) => link.essential_requirement_id === id);
+  if (index >= 0) requirementForm.contributions.splice(index, 1);
+  else requirementForm.contributions.push({ essential_requirement_id: id, contribution: "" });
+}
+function toggleRequirementForm() {
+  showRequirementForm.value = !showRequirementForm.value;
+  editingRequirementId.value = "";
+  Object.assign(requirementForm, emptyRequirement());
+}
+function editRequirement(requirement: LibraryRequirement) {
+  Object.assign(requirementForm, emptyRequirement(), requirement, { contributions: requirement.contributions.map((link) => ({ ...link })) });
+  editingRequirementId.value = requirement.id;
+  showRequirementForm.value = true;
+}
 const publishedCount = computed(() => sources.value.filter((s) => s.status === "published").length);
 const draftCount = computed(() => sources.value.filter((s) => s.status === "draft").length);
 const requirementCount = computed(() => sources.value.reduce((sum, source) => sum + source.requirement_count, 0));
-const canEditSelected = computed(() => selectedSource.value?.status === "draft" && !selectedSource.value.is_system_managed);
+const canEditSelected = computed(() => canManageLibrary.value && selectedSource.value?.status === "draft" && !selectedSource.value.is_system_managed);
 const filteredSources = computed(() => sources.value.filter((source) => (statusFilter.value === "all" || source.status === statusFilter.value) && [source.identifier, source.title, source.edition, source.publisher].some((value) => value?.toLowerCase().includes(search.value.toLowerCase()))));
 
 function sourceIcon(type: string) { return type === "harmonized_standard" ? "EN" : type === "internal_policy" ? "IP" : type === "contract" ? "CT" : type === "regulation" ? "EU" : "ST"; }
@@ -132,11 +176,27 @@ function scopeLabel(source: RequirementSourceRead) { return source.organization_
 function resetMessages() { errorMessage.value = ""; successMessage.value = ""; }
 function startGuide() { window.dispatchEvent(new Event("crane-guide-start")); }
 function openSourceForm() { Object.assign(sourceForm, emptySource()); showSourceForm.value = true; resetMessages(); }
-async function loadSources() { sources.value = await requirementSourceService.list(); }
-async function openSource(source: RequirementSourceRead) { selectedSource.value = source; showRequirementForm.value = false; requirements.value = await requirementSourceService.requirements(source.id); }
-async function createSource() { busy.value = true; resetMessages(); try { const created = await requirementSourceService.create(sourceForm); await loadSources(); showSourceForm.value = false; successMessage.value = "Draft requirement source created."; await openSource(created); } catch (error: any) { errorMessage.value = error?.message ?? "Failed to create source."; } finally { busy.value = false; } }
-async function createRequirement() { if (!selectedSource.value) return; busy.value = true; resetMessages(); try { await requirementSourceService.createRequirement(selectedSource.value.id, { ...requirementForm, source_id: selectedSource.value.id }); Object.assign(requirementForm, emptyRequirement()); showRequirementForm.value = false; requirements.value = await requirementSourceService.requirements(selectedSource.value.id); await loadSources(); selectedSource.value = sources.value.find((s) => s.id === selectedSource.value?.id) ?? null; successMessage.value = "Requirement added to the draft source."; } catch (error: any) { errorMessage.value = error?.message ?? "Failed to create requirement."; } finally { busy.value = false; } }
-async function setStatus(status: "published" | "retired") { if (!selectedSource.value) return; busy.value = true; resetMessages(); try { const updated = await requirementSourceService.setStatus(selectedSource.value.id, status); await loadSources(); selectedSource.value = updated; requirements.value = await requirementSourceService.requirements(updated.id); successMessage.value = status === "published" ? "Source published and assigned to product release baselines." : "Source retired. Historical assessments remain unchanged."; } catch (error: any) { errorMessage.value = error?.message ?? `Failed to ${status} source.`; } finally { busy.value = false; } }
+async function loadSources() {
+  sources.value = await requirementSourceService.list();
+  const cra = sources.value.find((source) => source.is_system_managed);
+  essentials.value = cra ? await requirementSourceService.requirements(cra.id) : [];
+}
+async function openSource(source: RequirementSourceRead) {
+  resetMessages();
+  try {
+    const items = await requirementSourceService.requirements(source.id);
+    selectedSource.value = source;
+    requirements.value = items;
+    showRequirementForm.value = false;
+    editingRequirementId.value = "";
+  } catch (error: any) { errorMessage.value = error?.message || "Could not open requirement source."; }
+}
+async function createSource() { busy.value = true; resetMessages(); try { const created = await requirementSourceService.create(sourceForm); await loadSources(); showSourceForm.value = false; await openSource(created); successMessage.value = "Draft requirement source created."; } catch (error: any) { errorMessage.value = error?.message ?? "Failed to create source."; } finally { busy.value = false; } }
+async function createRequirement() { if (!selectedSource.value) return; busy.value = true; resetMessages(); try { const payload = { ...requirementForm, source_id: selectedSource.value.id };
+  if (editingRequirementId.value) await requirementSourceService.updateRequirement(editingRequirementId.value, payload);
+  else await requirementSourceService.createRequirement(selectedSource.value.id, payload);
+  editingRequirementId.value = ""; Object.assign(requirementForm, emptyRequirement()); showRequirementForm.value = false; requirements.value = await requirementSourceService.requirements(selectedSource.value.id); await loadSources(); selectedSource.value = sources.value.find((s) => s.id === selectedSource.value?.id) ?? null; successMessage.value = "Technical requirement saved with its CRA mappings."; } catch (error: any) { errorMessage.value = error?.message ?? "Failed to create requirement."; } finally { busy.value = false; } }
+async function setStatus(status: "published" | "retired") { if (!selectedSource.value) return; busy.value = true; resetMessages(); try { const updated = await requirementSourceService.setStatus(selectedSource.value.id, status); await loadSources(); selectedSource.value = updated; requirements.value = await requirementSourceService.requirements(updated.id); successMessage.value = status === "published" ? "Source published. Its requirements are now available for product teams to select." : "Source retired. Historical assessments remain unchanged."; } catch (error: any) { errorMessage.value = error?.message ?? `Failed to ${status} source.`; } finally { busy.value = false; } }
 onMounted(async () => { try { await Promise.all([loadSources(), productService.list().then((data) => { products.value = data; })]); } catch (error: any) { errorMessage.value = error?.message ?? "Failed to load requirement library."; } finally { loading.value = false; } });
 </script>
 
@@ -249,7 +309,7 @@ onMounted(async () => { try { await Promise.all([loadSources(), productService.l
 .badge-retired { background: var(--color-slate-bg); color: var(--color-slate-text); border: 1px solid var(--color-slate-border); }
 .source-code,.requirement-code { color: var(--color-status-text); }
 .source-card h2 { color: var(--color-text); font-size: var(--text-lg); line-height: 1.35; }
-.source-meta { border-color: var(--color-divider); }
+.source-meta { margin-top: auto; border-color: var(--color-divider); }
 .text-action { color: var(--color-status-text); font-size: var(--text-sm); }
 .text-action:hover { color: var(--color-primary-2); }
 
@@ -309,5 +369,18 @@ onMounted(async () => { try { await Promise.all([loadSources(), productService.l
 .requirement-tags span { background: var(--color-slate-bg); color: var(--color-slate-text); border: 1px solid var(--color-slate-border); }
 .drawer-footer { background: var(--color-modal-bg); border-color: var(--color-modal-header-border); }
 
+.contribution-picker { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; min-width: 0; }
+.contribution-picker legend { font-weight: 700; padding: 0 6px; }
+.contribution-picker > p { font-size: var(--text-sm); margin-top: 0; }
+.essential-options { display: grid; gap: 8px; max-height: 240px; overflow: auto; padding: 4px; }
+.essential-option { flex-direction: row !important; align-items: flex-start; font-weight: 400 !important; padding: 8px; background: var(--color-inset-surface); border-radius: 8px; }
+.essential-option input { margin-top: 3px; }
+.essential-option span { display: grid; gap: 3px; }
+.essential-option small { color: var(--color-text-muted); }
+.contribution-rationale { margin-top: 16px; }
+.requirement-contributions { margin: 14px 0; font-size: var(--text-sm); }
+.requirement-contributions > div { border-left: 2px solid var(--color-primary); padding-left: 12px; margin-top: 12px; }
+.requirement-contributions p { margin: 5px 0; white-space: pre-wrap; }
+.requirement-form h3 { margin: 0; }
 @media(max-width:760px){.library-page{padding:18px}.page-header,.library-toolbar{align-items:stretch;flex-direction:column}.library-summary{grid-template-columns:1fr 1fr}.filter-pills{width:100%;overflow:auto}.form-grid,.requirement-form,.product-picker{grid-template-columns:1fr}.full{grid-column:auto}}
 </style>

@@ -8,21 +8,27 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
 from app.models.enums import AnnexPart
 
+if TYPE_CHECKING:
+    from app.models.requirement_mapping import RequirementMapping
+
 
 class RequirementSource(UUIDTimestampMixin, Base):
     __tablename__ = "requirement_sources"
+    __table_args__ = (UniqueConstraint("identifier", "edition", name="uq_requirement_source_edition"),)
 
-    identifier: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    identifier: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    edition: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    edition: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     publisher: Mapped[str | None] = mapped_column(String(255), nullable=True)
     reference_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     license_note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,12 +64,23 @@ class ReleaseRequirementBaseline(UUIDTimestampMixin, Base):
     product_release_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("product_releases.id", ondelete="CASCADE"), nullable=False, index=True)
     requirement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("annex_requirements.id", ondelete="RESTRICT"), nullable=False, index=True)
     requirement_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    requirement_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class RequirementContribution(UUIDTimestampMixin, Base):
+    __tablename__ = "requirement_contributions"
+    __table_args__ = (UniqueConstraint("technical_requirement_id", "essential_requirement_id", name="uq_requirement_contribution"),)
+
+    technical_requirement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("annex_requirements.id", ondelete="CASCADE"), nullable=False, index=True)
+    essential_requirement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("annex_requirements.id", ondelete="RESTRICT"), nullable=False, index=True)
+    contribution: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class AnnexRequirement(UUIDTimestampMixin, Base):
     __tablename__ = "annex_requirements"
+    __table_args__ = (UniqueConstraint("source_id", "code", name="uq_requirement_source_code"),)
 
-    code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     annex_part: Mapped[AnnexPart] = mapped_column(nullable=False, index=True)
@@ -77,6 +94,11 @@ class AnnexRequirement(UUIDTimestampMixin, Base):
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="published", index=True)
     is_mandatory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    acceptance_criteria: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contributions: Mapped[list["RequirementContribution"]] = relationship(
+        foreign_keys="RequirementContribution.technical_requirement_id",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
 
     source: Mapped["RequirementSource | None"] = relationship("RequirementSource", back_populates="requirements")
 
@@ -87,6 +109,14 @@ class AnnexRequirement(UUIDTimestampMixin, Base):
     @property
     def source_title(self) -> str:
         return self.source.title if self.source else "CRA Annex I essential requirements"
+
+    @property
+    def source_edition(self) -> str:
+        return self.source.edition if self.source else ""
+
+    @property
+    def kind(self) -> str:
+        return "essential" if self.source is None or self.source.is_system_managed else "technical"
 
     requirement_mappings: Mapped[list["RequirementMapping"]] = relationship(
         "RequirementMapping",

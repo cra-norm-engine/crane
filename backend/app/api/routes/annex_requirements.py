@@ -56,7 +56,7 @@ def get_annex_requirement(
     require_permissions(current_user, {Permission.annex_requirement_read})
 
     service = AnnexRequirementService(db)
-    return service.get(annex_requirement_id)
+    return service.get_by_id(annex_requirement_id)
 
 
 @router.post("", response_model=AnnexRequirementRead, status_code=status.HTTP_201_CREATED)

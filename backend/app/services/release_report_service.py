@@ -29,26 +29,19 @@ from pathlib import Path
 from uuid import UUID
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import NotFoundException
-from app.models.annex_requirement import AnnexRequirement
 from app.models.audit_log_event import AuditLogEvent
 from app.models.certification_record import CertificationRecord
-from app.models.change import Change, SubstantialModificationAssessment
+from app.models.change import Change
 from app.models.incident_report import IncidentReport
 from app.models.product import Product, ProductRelease, ProductScopeEvaluation
 from app.models.release_gate import ReleaseGate, ReleaseGateItem
-from app.models.requirement_mapping import (
-    ProductRequirementDecision,
-    RequirementMapping,
-    RequirementMappingArtifactLink,
-)
 from app.models.risk_assessment import RiskAssessment
 from app.models.sbom_record import SbomRecord
 from app.models.sbom_vulnerability_finding import SbomVulnerabilityFinding
-from app.models.security_update import SecurityUpdate
 from app.models.supplier_assessment import (
     ProductComponentLink,
     SupplierAssessment,
@@ -67,14 +60,6 @@ _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 # yet (surfaced in the report as an honest "Not recorded in CRANE" placeholder).
 _PLACEHOLDER = "__placeholder__"
 
-# Map a per-requirement implementation status to a coverage bucket.
-_IMPL_TO_COVERAGE = {
-    "verified": "compliant",
-    "implemented": "compliant",
-    "in_progress": "partial",
-    "planned": "gap",
-    "not_applicable": "na",
-}
 _COVERAGE_LABEL = {"compliant": "Compliant", "partial": "Partial", "gap": "Gap", "na": "N/A"}
 
 # Severity ordering for picking the "top" vulnerabilities to surface.
@@ -269,60 +254,42 @@ class ReleaseReportService:
         }
 
     def _annex_sections(self, release_id: UUID) -> dict:
-        rows = self.db.execute(
-            select(RequirementMapping, AnnexRequirement)
-            .join(AnnexRequirement, RequirementMapping.annex_requirement_id == AnnexRequirement.id)
-            .where(RequirementMapping.product_release_id == release_id)
-            .options(selectinload(RequirementMapping.artifact_links).selectinload(
-                RequirementMappingArtifactLink.artifact
-            ))
-            # Natural order (Part I before II, then by trailing number) — length
-            # before code keeps 1–9 ahead of 10+.
-            .order_by(
-                AnnexRequirement.annex_part.asc(),
-                func.length(AnnexRequirement.code).asc(),
-                AnnexRequirement.code.asc(),
-            )
-        ).all()
-        # Applicability decisions for this release, keyed by annex_requirement_id,
-        # so each requirement row can show its applicability + rationale alongside
-        # the existing implementation-status coverage.
-        decisions = {
-            d.annex_requirement_id: d
-            for d in self.db.scalars(
-                select(ProductRequirementDecision).where(
-                    ProductRequirementDecision.product_release_id == release_id
-                )
-            ).all()
-        }
-        part1: list[dict] = []
-        part2: list[dict] = []
-        for mapping, req in rows:
-            impl = str(mapping.implementation_status)
-            bucket = _IMPL_TO_COVERAGE.get(impl, "partial")
-            decision = decisions.get(req.id)
-            linked_artifacts = [
-                link.artifact.title for link in mapping.artifact_links if link.artifact is not None
-            ]
+        # Use the same reviewed, versioned proof as the release assessment.
+        from app.services.requirement_mapping_service import RequirementMappingService
+
+        part1, part2 = [], []
+        rows = RequirementMappingService(self.db).release_matrix(release_id)
+        for row in sorted(rows, key=lambda r: (r.annex_requirement.annex_part, len(r.annex_requirement.code), r.annex_requirement.code)):
+            req = row.annex_requirement
+            if req.kind != "essential":
+                continue
+            bucket = "gap"
+            if row.finalized:
+                bucket = "na" if row.applicability_decision.value == "not_applicable" else "compliant"
+            elif row.applicability_decision.value == "applicable" and (row.artifacts or row.supporting_requirements or row.implementation_status.value != "planned"):
+                bucket = "partial"
+            demonstration = []
+            if row.validation_notes:
+                demonstration.append(f"Conclusion: {row.validation_notes}")
+            for child in row.supporting_requirements:
+                status = "N/A - no contribution" if child.applicability_decision.value == "not_applicable" else "validated" if child.finalized else "pending"
+                demonstration.append(f"{child.requirement.source_identifier} {child.requirement.source_edition}, {child.requirement.code} ({status}): {child.contribution}")
+            demonstration.extend(row.notes)
+            if row.blockers:
+                demonstration.append("Remaining actions: " + " ".join(row.blockers))
+            artifacts = row.artifacts + row.supporting_artifacts
+            linked_artifacts = list(dict.fromkeys(f"{a.title} (revision {a.latest_revision.revision_number})" if a.latest_revision else f"{a.title} (revision missing)" for a in artifacts))
             entry = {
-                "code": req.code,
-                "title": req.title,
-                "source_identifier": req.source_identifier,
-                "source_title": req.source_title,
-                "source_edition": req.source.edition if req.source else None,
-                "clause_reference": req.clause_reference,
-                "revision": req.revision,
-                "status": _COVERAGE_LABEL[bucket],
-                "bucket": bucket,
-                "evidence": mapping.evidence_summary or "—",
-                "applicability": _fmt_status(str(decision.applicability_decision)) if decision else _PLACEHOLDER,
-                "rationale": decision.rationale if decision and decision.rationale else _PLACEHOLDER,
+                "code": req.code, "title": req.title,
+                "source_identifier": req.source_identifier, "source_title": req.source_title,
+                "source_edition": req.source_edition, "clause_reference": req.clause_reference,
+                "revision": req.revision, "status": _COVERAGE_LABEL[bucket], "bucket": bucket,
+                "evidence": " ".join(demonstration) or "—",
+                "applicability": _fmt_status(row.applicability_decision.value),
+                "rationale": row.applicability_rationale or _PLACEHOLDER,
                 "linked_artifacts": linked_artifacts,
             }
-            if str(req.annex_part) == "part_ii":
-                part2.append(entry)
-            else:
-                part1.append(entry)
+            (part2 if str(req.annex_part) == "part_ii" else part1).append(entry)
         return {"part1": part1, "part2": part2}
 
     def _coverage(self, entries: list[dict]) -> dict:

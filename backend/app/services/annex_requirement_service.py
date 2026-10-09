@@ -8,16 +8,25 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictException
-from app.models.annex_requirement import AnnexRequirement, RequirementSource
+from app.core.exceptions import ConflictException, ValidationException
+from app.models.annex_requirement import (
+    AnnexRequirement,
+    RequirementContribution,
+    RequirementSource,
+)
 from app.models.audit_log_event import AuditLogEvent
 from app.models.enums import AnnexPart, AuditActionType, AuditStatus, EntityType
 from app.repositories.annex_requirement_repository import AnnexRequirementRepository
-from app.schemas.annex_requirement import AnnexRequirementCreate, AnnexRequirementUpdate
-from uuid import UUID
+from app.schemas.annex_requirement import (
+    AnnexRequirementCreate,
+    AnnexRequirementRead,
+    AnnexRequirementUpdate,
+)
 
 
 class AnnexRequirementService:
@@ -62,7 +71,11 @@ class AnnexRequirementService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> AnnexRequirement:
-        existing = self.annex_requirement_repository.get_by_code(payload.code)
+        if payload.source_id and payload.code.upper().startswith("ANNEX-I-"):
+            raise ValidationException("CRA clause codes are reserved. Use an internal technical requirement code.")
+        existing = self.db.scalar(select(AnnexRequirement).where(
+            AnnexRequirement.code == payload.code.strip(), AnnexRequirement.source_id == payload.source_id,
+        ))
         if existing is not None:
             raise ValueError(f"Annex requirement with code '{payload.code}' already exists.")
 
@@ -87,7 +100,9 @@ class AnnexRequirementService:
             expected_evidence=payload.expected_evidence,
             is_mandatory=payload.is_mandatory,
             status="draft" if source else "published",
+            acceptance_criteria=payload.acceptance_criteria,
         )
+        self._set_contributions(requirement, payload.contributions)
         requirement = self.annex_requirement_repository.add(requirement)
 
         self._write_audit_log(
@@ -119,7 +134,9 @@ class AnnexRequirementService:
             raise ConflictException("Only requirements in a custom draft source can be edited.")
         before = self._snapshot(requirement)
 
-        update_data = payload.model_dump(exclude_unset=True)
+        update_data = payload.model_dump(exclude_unset=True, exclude={"contributions"})
+        if payload.contributions is not None:
+            self._set_contributions(requirement, payload.contributions)
         for field_name, value in update_data.items():
             setattr(requirement, field_name, value)
 
@@ -145,15 +162,29 @@ class AnnexRequirementService:
         self.db.refresh(requirement)
         return requirement
 
+    def _set_contributions(self, requirement: AnnexRequirement, contributions) -> None:
+        if not contributions:
+            requirement.contributions = []
+            return
+        source = self.db.get(RequirementSource, requirement.source_id) if requirement.source_id else None
+        if source is None or source.is_system_managed:
+            raise ValidationException("Only technical requirements can support CRA essentials.")
+        target_ids = [item.essential_requirement_id for item in contributions]
+        if len(set(target_ids)) != len(target_ids):
+            raise ValidationException("Select each CRA essential requirement only once.")
+        targets = list(self.db.scalars(select(AnnexRequirement).where(AnnexRequirement.id.in_(target_ids))))
+        if len(targets) != len(target_ids) or any(target.kind != "essential" for target in targets):
+            raise ValidationException("Choose valid CRA essential requirements as mapping targets.")
+        existing = {link.essential_requirement_id: link for link in requirement.contributions}
+        links = []
+        for item in contributions:
+            link = existing.get(item.essential_requirement_id) or RequirementContribution(essential_requirement_id=item.essential_requirement_id)
+            link.contribution = item.contribution
+            links.append(link)
+        requirement.contributions = links
+
     def _snapshot(self, requirement: AnnexRequirement) -> dict[str, Any]:
-        return {
-            "id": str(requirement.id),
-            "code": requirement.code,
-            "title": requirement.title,
-            "description": requirement.description,
-            "annex_part": requirement.annex_part.value,
-            "is_active": requirement.is_active,
-        }
+        return AnnexRequirementRead.model_validate(requirement).model_dump(mode="json")
 
     def _write_audit_log(
         self,

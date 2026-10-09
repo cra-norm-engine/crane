@@ -1,5 +1,6 @@
 import { apiClient } from "@/services/api";
 import type { LibraryRequirement, RequirementSourceCreate, RequirementSourceRead } from "@/types/requirement-source";
+import type { RequirementContribution } from "@/types/annex-requirement";
 
 export interface LibraryRequirementCreate {
   code: string;
@@ -11,6 +12,8 @@ export interface LibraryRequirementCreate {
   verification_guidance?: string | null;
   expected_evidence?: string | null;
   is_mandatory: boolean;
+  acceptance_criteria?: string | null;
+  contributions?: RequirementContribution[];
 }
 
 export const requirementSourceService = {
@@ -36,6 +39,10 @@ export const requirementSourceService = {
   },
   async createRequirement(id: string, payload: LibraryRequirementCreate): Promise<LibraryRequirement> {
     const { data } = await apiClient.post<LibraryRequirement>(`/requirement-sources/${id}/requirements`, payload);
+    return data;
+  },
+  async updateRequirement(id: string, payload: Partial<LibraryRequirementCreate>): Promise<LibraryRequirement> {
+    const { data } = await apiClient.patch<LibraryRequirement>(`/annex-requirements/${id}`, payload);
     return data;
   },
 };

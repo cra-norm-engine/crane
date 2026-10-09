@@ -6,6 +6,11 @@
 
 export type AnnexPart = "part_i" | "part_ii";
 
+export interface RequirementContribution {
+  essential_requirement_id: string;
+  contribution: string;
+}
+
 export interface AnnexRequirementRead {
   id: string;
   code: string;
@@ -16,6 +21,10 @@ export interface AnnexRequirementRead {
   source_id: string | null;
   source_identifier: string;
   source_title: string;
+  source_edition: string;
+  kind: "essential" | "technical";
+  acceptance_criteria: string | null;
+  contributions: RequirementContribution[];
   clause_reference: string | null;
   applicability_guidance: string | null;
   verification_guidance: string | null;
