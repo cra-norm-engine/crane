@@ -18,6 +18,14 @@
     <div class="settings-cols">
       <!-- Focus on one category while preserving unsaved form values. -->
       <nav class="settings-nav" data-guide="settings-nav" aria-label="Settings sections">
+        <label class="mobile-section-picker" for="settings-section">
+          <span>Settings section</span>
+          <select id="settings-section" class="select" :value="activeSection" @change="scrollTo(($event.target as HTMLSelectElement).value)">
+            <optgroup v-for="group in navGroups" :key="group.label" :label="group.label">
+              <option v-for="item in group.items" :key="item.id" :value="item.id">{{ item.label }}{{ sectionHasChanges(item.id) ? ' · Unsaved changes' : '' }}</option>
+            </optgroup>
+          </select>
+        </label>
         <div v-for="group in navGroups" :key="group.label" class="snav-group" :class="{ 'snav-about': group.label === 'About CRANE' }">
         <p class="snav-group-title">{{ group.label }}</p>
         <button
@@ -31,7 +39,9 @@
           @click="scrollTo(item.id)"
         >
           <span class="snav-ic" aria-hidden="true" v-html="item.icon" />
-          {{ item.label }}
+          <span class="snav-text">{{ item.label }}<small>{{ navDescriptions[item.id] }}</small></span>
+          <span v-if="sectionHasChanges(item.id)" class="unsaved-dot" role="img" aria-label="Unsaved changes" />
+          <svg v-else-if="activeSection === item.id" class="snav-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7" /></svg>
         </button>
         </div>
       </nav>
@@ -41,7 +51,7 @@
         <!-- Account -->
         <section v-show="activeSection === 'account'" id="account" class="s-card" data-guide="settings-account">
           <div class="s-card-head">
-            <h2 class="s-card-title">Account</h2>
+            <h2 class="s-card-title" tabindex="-1">Account</h2>
             <p class="muted">Your identity and access within CRANE.</p>
           </div>
 
@@ -68,24 +78,27 @@
 
             <div class="s-row">
               <div class="s-label"><div class="s-label-t">Profile photo</div><div class="s-label-h">Optional JPEG, PNG, or WebP image up to 2 MB. It appears beside your assigned tasks.</div></div>
-              <div class="s-control avatar-actions"><input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp" @change="uploadAvatar" /><AppButton v-if="authStore.user?.avatar_data" variant="secondary" size="sm" :disabled="avatarBusy" @click="removeAvatar">Remove</AppButton></div>
+              <div class="s-control avatar-actions"><input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Profile photo" :disabled="avatarBusy" @change="uploadAvatar" /><span v-if="avatarBusy" class="preview-note" role="status">Updating photo…</span><AppButton v-if="authStore.user?.avatar_data" variant="secondary" size="sm" :disabled="avatarBusy" @click="removeAvatar">Remove</AppButton></div>
             </div>
 
             <div class="s-row">
               <div class="s-label">
-                <div class="s-label-t">Full name</div>
-                <div class="s-label-h">The name shown across CRANE.</div>
+                <label class="s-label-t" for="settings-full-name">Full name</label>
+                <div id="full-name-help" class="s-label-h">{{ isLocalUser ? 'The name shown across CRANE.' : 'Managed by your identity provider.' }}</div>
               </div>
               <div class="s-control grow">
                 <input
                   v-model.trim="fullName"
+                  id="settings-full-name"
                   class="input"
                   type="text"
                   maxlength="255"
                   autocomplete="name"
-                  aria-label="Full name"
-                  :disabled="!isLocalUser"
+                  aria-describedby="full-name-help full-name-error"
+                  :aria-invalid="fullNameDirty && !fullName.trim()"
+                  :disabled="!isLocalUser || profileState.isLoading.value"
                 />
+                <span id="full-name-error" class="field-error"><template v-if="fullNameDirty && !fullName.trim()">Enter your full name before saving.</template></span>
               </div>
             </div>
 
@@ -111,13 +124,15 @@
           </div>
 
           <div v-if="isLocalUser" class="s-card-foot">
+            <span v-if="fullNameDirty" class="save-note" role="status"><span class="unsaved-dot" aria-hidden="true" />Unsaved changes</span>
             <Transition name="fade">
-              <span v-if="accountSaved" class="saved-tag">
+              <span v-if="accountSaved && !fullNameDirty" class="saved-tag" role="status">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Saved
               </span>
             </Transition>
             <span class="foot-spacer" />
+            <AppButton v-if="fullNameDirty" variant="secondary" size="sm" :disabled="profileState.isLoading.value" @click="resetProfile">Discard</AppButton>
             <AppButton
               variant="primary"
               size="sm"
@@ -127,12 +142,13 @@
               {{ profileState.isLoading.value ? "Saving…" : "Save changes" }}
             </AppButton>
           </div>
+          <p v-if="profileState.errorMessage.value" class="save-error" role="alert">{{ profileState.errorMessage.value }}</p>
         </section>
 
         <!-- Appearance -->
         <section v-show="activeSection === 'appearance'" id="appearance" class="s-card" data-guide="settings-appearance">
           <div class="s-card-head">
-            <h2 class="s-card-title">Appearance</h2>
+            <h2 class="s-card-title" tabindex="-1">Appearance</h2>
             <p class="muted">Choose how CRANE looks. Synced to your account.</p>
           </div>
           <div class="s-card-body">
@@ -141,8 +157,8 @@
                 <div class="s-label-t">Theme</div>
                 <div class="s-label-h">Applies instantly and is remembered across your devices.</div>
               </div>
-              <div class="s-control">
-                <div class="theme-seg">
+              <div class="s-control grow">
+                <div class="theme-seg" role="group" aria-label="Theme">
                   <button
                     v-for="opt in themeOptions"
                     :key="opt.value"
@@ -152,10 +168,14 @@
                     :aria-pressed="appStore.themeMode === opt.value"
                     @click="pickTheme(opt.value)"
                   >
-                    <span class="theme-sw" :class="opt.value" />
-                    <span class="theme-nm">{{ opt.label }}</span>
+                    <span class="theme-preview" :class="opt.value" aria-hidden="true">
+                      <span class="theme-preview-sidebar"><i /><i /><i /></span>
+                      <span class="theme-preview-content"><i /><span><i /><i /></span><i /><i /></span>
+                    </span>
+                    <span class="theme-caption"><span class="theme-nm">{{ opt.label }}</span><span class="theme-check" aria-hidden="true">{{ appStore.themeMode === opt.value ? '✓' : '' }}</span></span>
                   </button>
                 </div>
+                <p class="preview-note">Theme changes apply immediately. No save needed.</p>
               </div>
             </div>
           </div>
@@ -164,17 +184,17 @@
         <!-- Preferences -->
         <section v-show="activeSection === 'preferences'" id="preferences" class="s-card" data-guide="settings-preferences">
           <div class="s-card-head">
-            <h2 class="s-card-title">Preferences</h2>
+            <h2 class="s-card-title" tabindex="-1">Preferences</h2>
             <p class="muted">Regional formatting and where you start.</p>
           </div>
           <div class="s-card-body">
             <div class="s-row">
               <div class="s-label">
-                <div class="s-label-t">Timezone</div>
+                <label class="s-label-t" for="settings-timezone">Timezone</label>
                 <div class="s-label-h">Used to display dates and times.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="timezone" class="select" aria-label="Timezone">
+                <select id="settings-timezone" v-model="timezone" class="select" :disabled="prefsState.isLoading.value">
                   <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
                 </select>
               </div>
@@ -182,24 +202,24 @@
 
             <div class="s-row">
               <div class="s-label">
-                <div class="s-label-t">Date format</div>
+                <label class="s-label-t" for="settings-date-format">Date format</label>
                 <div class="s-label-h">How calendar dates are written.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="dateFormat" class="select" aria-label="Date format">
+                <select id="settings-date-format" v-model="dateFormat" class="select" :disabled="prefsState.isLoading.value" aria-describedby="date-preview">
                   <option v-for="fmt in dateFormatOptions" :key="fmt" :value="fmt">{{ fmt }}</option>
                 </select>
-                <div class="preview-note">Preview: <b>{{ datePreview }}</b></div>
+                <div id="date-preview" class="date-preview"><span>Example date</span><b>{{ datePreview }}</b></div>
               </div>
             </div>
 
             <div class="s-row">
               <div class="s-label">
-                <div class="s-label-t">Default landing page</div>
+                <label class="s-label-t" for="settings-landing-page">Default landing page</label>
                 <div class="s-label-h">The page you see right after signing in.</div>
               </div>
               <div class="s-control grow">
-                <select v-model="landingPage" class="select" aria-label="Default landing page">
+                <select id="settings-landing-page" v-model="landingPage" class="select" :disabled="prefsState.isLoading.value">
                   <option v-for="opt in landingOptions" :key="opt.name" :value="opt.name">
                     {{ opt.label }}
                   </option>
@@ -209,13 +229,15 @@
           </div>
 
           <div class="s-card-foot">
+            <span v-if="preferencesChanged" class="save-note" role="status"><span class="unsaved-dot" aria-hidden="true" />Unsaved changes</span>
             <Transition name="fade">
-              <span v-if="prefsSaved" class="saved-tag">
+              <span v-if="prefsSaved && !preferencesChanged" class="saved-tag" role="status">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Saved
               </span>
             </Transition>
             <span class="foot-spacer" />
+            <AppButton v-if="preferencesChanged" variant="secondary" size="sm" :disabled="prefsState.isLoading.value" @click="resetPreferences">Discard</AppButton>
             <AppButton
               variant="primary"
               size="sm"
@@ -225,12 +247,13 @@
               {{ prefsState.isLoading.value ? "Saving…" : "Save preferences" }}
             </AppButton>
           </div>
+          <p v-if="prefsState.errorMessage.value" class="save-error" role="alert">{{ prefsState.errorMessage.value }}</p>
         </section>
 
         <!-- Security -->
         <section v-show="activeSection === 'security'" id="security" class="s-card" data-guide="settings-security">
           <div class="s-card-head">
-            <h2 class="s-card-title">Security</h2>
+            <h2 class="s-card-title" tabindex="-1">Security</h2>
             <p class="muted">Password and active sessions.</p>
           </div>
           <div class="s-card-body">
@@ -271,7 +294,7 @@
         <!-- Vulnerability scanning -->
         <section v-if="isSystemAdmin" v-show="activeSection === 'vulnerability-scanning'" id="vulnerability-scanning" class="s-card" data-guide="settings-vulnerability-scanning">
           <div class="s-card-head">
-            <h2 class="s-card-title">Vulnerability scanning</h2>
+            <h2 class="s-card-title" tabindex="-1">Vulnerability scanning</h2>
             <p class="muted">Control CRANE's built-in OSV, Trivy, NVD, EPSS, and CISA KEV scanning.</p>
           </div>
           <div class="s-card-body">
@@ -298,7 +321,7 @@
 
         <section v-if="isSystemAdmin" v-show="activeSection === 'external-findings'" id="external-findings" class="s-card" data-guide="settings-external-tools">
           <div class="s-card-head">
-            <h2 class="s-card-title">Dependency-Track</h2>
+            <h2 class="s-card-title" tabindex="-1">Dependency-Track</h2>
             <p class="muted">Connect your project and keep its vulnerability findings up to date in CRANE.</p>
           </div>
           <div class="s-card-body">
@@ -347,7 +370,7 @@
         <!-- Jira -->
         <section v-show="activeSection === 'jira'" id="jira" class="s-card" data-guide="settings-jira">
           <div class="s-card-head">
-            <h2 class="s-card-title">Jira Cloud</h2>
+            <h2 class="s-card-title" tabindex="-1">Jira Cloud</h2>
             <p class="muted">Create Jira issues from CRANE tasks and synchronize their status and details.</p>
           </div>
           <div class="s-card-body">
@@ -431,7 +454,7 @@
         <!-- CRANE application updates -->
         <section v-if="isSystemAdmin" v-show="activeSection === 'system-updates'" id="system-updates" class="s-card" data-guide="settings-system-updates">
           <div class="s-card-head">
-            <h2 class="s-card-title">System updates</h2>
+            <h2 class="s-card-title" tabindex="-1">System updates</h2>
             <p class="muted">Receive verified CRANE releases and choose how this installation applies them.</p>
           </div>
           <div class="s-card-body update-settings">
@@ -506,7 +529,7 @@
         <!-- About -->
         <section v-show="activeSection === 'about'" id="about" class="s-card" data-guide="settings-about">
           <div class="s-card-head">
-            <h2 class="s-card-title">About CRANE</h2>
+            <h2 class="s-card-title" tabindex="-1">About CRANE</h2>
             <p class="muted">Application information, open-source licensing, and help resources.</p>
           </div>
           <div class="s-card-body">
@@ -687,6 +710,12 @@ const allNavItems = [
   { id: "about", label: "About", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>' },
 ];
 const navItems = computed(() => allNavItems.filter((item) => !item.adminOnly || isSystemAdmin.value));
+const navDescriptions: Record<string, string> = {
+  account: 'Profile & access', appearance: 'Light & dark themes', preferences: 'Region & start page',
+  security: 'Password & sessions', 'vulnerability-scanning': 'Built-in scanners',
+  'system-updates': 'Releases & installation', 'external-findings': 'Vulnerability sync',
+  jira: 'Tasks & workflow sync', about: 'Version & resources',
+};
 const navGroups = computed(() => [
   { label: 'Personal', ids: ['account', 'appearance', 'preferences', 'security'] },
   { label: 'Workspace', ids: ['vulnerability-scanning', 'system-updates'] },
@@ -699,9 +728,19 @@ const navGroups = computed(() => [
 
 const activeSection = ref("account");
 
+function sectionHasChanges(id: string): boolean {
+  return (id === 'account' && isLocalUser.value && fullNameDirty.value) || (id === 'preferences' && preferencesChanged.value);
+}
+
 function scrollTo(id: string): void {
   activeSection.value = id;
-  void nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  void nextTick(() => {
+    const section = document.getElementById(id);
+    section?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+    if (window.matchMedia('(max-width: 1100px)').matches) {
+      section?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+    }
+  });
 }
 
 function revealGuideSection(event: Event): void {
@@ -911,9 +950,16 @@ onBeforeUnmount(() => window.removeEventListener('crane-guide-reveal', revealGui
 /* ── Account ─────────────────────────────────── */
 const fullName = ref(authStore.userFullName);
 const accountSaved = ref(false);
+const fullNameDirty = computed(() => fullName.value.trim() !== authStore.userFullName);
 const fullNameChanged = computed(
-  () => fullName.value.trim().length > 0 && fullName.value.trim() !== authStore.userFullName,
+  () => fullName.value.trim().length > 0 && fullNameDirty.value,
 );
+
+function resetProfile(): void {
+  fullName.value = authStore.userFullName;
+  accountSaved.value = false;
+  profileState.errorMessage.value = '';
+}
 
 async function saveProfile(): Promise<void> {
   if (!isLocalUser.value || !fullNameChanged.value) return;
@@ -954,17 +1000,17 @@ const landingOptions = [
   { name: "product-data", label: "Product Data" },
 ];
 
-const timezones = (() => {
+const timezones = computed(() => {
   const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] };
   if (typeof intl.supportedValuesOf === "function") {
     try {
-      return intl.supportedValuesOf("timeZone");
+      return [...new Set(['UTC', authStore.preferences?.timezone ?? 'UTC', ...intl.supportedValuesOf("timeZone")])];
     } catch {
       /* fall through */
     }
   }
-  return ["UTC", "Europe/London", "Europe/Berlin", "Europe/Paris", "America/New_York", "America/Los_Angeles", "Asia/Tokyo"];
-})();
+  return [...new Set(["UTC", authStore.preferences?.timezone ?? 'UTC', "Europe/London", "Europe/Berlin", "Europe/Paris", "America/New_York", "America/Los_Angeles", "Asia/Tokyo"])];
+});
 
 const timezone = ref(authStore.preferences?.timezone ?? "UTC");
 const dateFormat = ref(authStore.preferences?.date_format ?? "YYYY-MM-DD");
@@ -981,6 +1027,14 @@ const preferencesChanged = computed(
     dateFormat.value !== (authStore.preferences?.date_format ?? "YYYY-MM-DD") ||
     landingPage.value !== (authStore.preferences?.default_landing_page ?? "dashboard"),
 );
+
+function resetPreferences(): void {
+  timezone.value = authStore.preferences?.timezone ?? 'UTC';
+  dateFormat.value = authStore.preferences?.date_format ?? 'YYYY-MM-DD';
+  landingPage.value = authStore.preferences?.default_landing_page ?? 'dashboard';
+  prefsSaved.value = false;
+  prefsState.errorMessage.value = '';
+}
 
 async function savePreferences(): Promise<void> {
   if (!preferencesChanged.value) return;
@@ -1090,6 +1144,7 @@ function flash(flag: { value: boolean }): void {
 .manual-update p { margin: .25rem 0 0; color: var(--color-text-muted); font-size: var(--text-xs); }
 .manual-update code { padding: .55rem .7rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-soft); }
 .update-empty { color: var(--color-text-muted); }
+.settings { max-width: 1180px; }
 .settings-sub {
   margin: 0.35rem 0 0;
   font-size: var(--text-sm);
@@ -1097,10 +1152,9 @@ function flash(flag: { value: boolean }): void {
 
 .settings-cols {
   display: grid;
-  grid-template-columns: 215px minmax(0, 1fr);
-  gap: 2.5rem;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: start;
-  max-width: 1120px;
   margin-top: 1.75rem;
 }
 
@@ -1110,10 +1164,17 @@ function flash(flag: { value: boolean }): void {
   top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  padding: 1rem .75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
 }
+.mobile-section-picker { display: none; }
 .snav-group { display: grid; gap: .25rem; min-width: 0; }
-.snav-about { padding-top: 1.25rem; border-top: 1px solid var(--color-border); margin-top: .5rem; }
+.snav-about { padding-top: 1rem; border-top: 1px solid var(--color-border); }
 #about .s-card-head { background: var(--color-surface-elevated); }
 .snav-group-title { margin: 0 0 .4rem; padding: 0 .8rem; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-text-muted); }
 .snav-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
@@ -1126,8 +1187,8 @@ function flash(flag: { value: boolean }): void {
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.75rem 0.8rem;
+  gap: 0.65rem;
+  padding: 0.7rem;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1143,7 +1204,13 @@ function flash(flag: { value: boolean }): void {
 .snav-link.active {
   background: var(--color-status-bg);
   color: var(--color-primary-2);
+  box-shadow: inset 3px 0 var(--color-primary);
 }
+.snav-text { flex: 1; min-width: 0; }
+.snav-text small { display: block; margin-top: .15rem; font-size: var(--text-xs); font-weight: 400; color: var(--color-text-muted); }
+.snav-ic { flex: none; }
+.snav-arrow { width: 14px; height: 14px; flex: none; }
+.unsaved-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-warning); flex: none; }
 
 .snav-ic :deep(svg) {
   width: 17px;
@@ -1168,8 +1235,9 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-card-head {
-  padding: 1.75rem 2rem 1.25rem;
+  padding: 1.5rem 1.75rem;
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
 }
 
 .s-card-title {
@@ -1177,6 +1245,8 @@ function flash(flag: { value: boolean }): void {
   font-size: var(--text-xl);
   font-weight: 700;
 }
+.s-card-title:focus { outline: none; }
+.s-card-title:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; border-radius: 2px; }
 
 .s-card-head .muted {
   margin: 0.3rem 0 0;
@@ -1184,8 +1254,9 @@ function flash(flag: { value: boolean }): void {
 }
 
 .s-card-body {
-  padding: 1.5rem 2rem;
+  padding: .5rem 1.75rem;
 }
+#external-findings .s-card-body, #jira .s-card-body, #system-updates .s-card-body, #about .s-card-body { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 
 /* ── Rows ────────────────────────────────────── */
 .s-row {
@@ -1193,8 +1264,14 @@ function flash(flag: { value: boolean }): void {
   flex-direction: column;
   align-items: flex-start;
   gap: .65rem;
-  padding: .8rem 0;
-  margin-bottom: .75rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--color-divider);
+}
+#account .s-row, #preferences .s-row, #security .s-row, #vulnerability-scanning .s-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  align-items: start;
+  gap: 1.5rem;
 }
 
 .s-row:first-child {
@@ -1230,7 +1307,6 @@ function flash(flag: { value: boolean }): void {
   flex: none;
   width: 100%;
   min-width: 0;
-  max-width: 480px;
   align-items: stretch;
 }
 
@@ -1241,7 +1317,16 @@ function flash(flag: { value: boolean }): void {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0.28rem 0.72rem;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
+.field-error, .save-error { color: var(--color-danger-text); font-size: var(--text-xs); }
+.field-error:empty { display: none; }
+.input[aria-invalid="true"] { border-color: var(--color-danger); }
+.save-error { margin: 0; padding: .85rem 1.75rem; background: var(--color-danger-bg); border-top: 1px solid var(--color-danger-border); }
+.save-note { display: inline-flex; align-items: center; gap: .5rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+.date-preview { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; padding: .65rem .85rem; border-radius: var(--radius-md); background: var(--color-surface-elevated); font-size: var(--text-xs); color: var(--color-text-muted); }
+.date-preview b { color: var(--color-text); font-weight: 600; }
 
 /* tighter inputs than the global default for settings rows */
 .s-control .input,
@@ -1274,7 +1359,12 @@ function flash(flag: { value: boolean }): void {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.6rem 0 0.4rem;
+  padding: 1rem;
+  margin: 1rem 0 .5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  flex-wrap: wrap;
 }
 
 .avatar {
@@ -1298,6 +1388,7 @@ function flash(flag: { value: boolean }): void {
 .who-name {
   font-size: var(--text-base);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .who-email {
@@ -1316,18 +1407,19 @@ function flash(flag: { value: boolean }): void {
 
 /* ── Theme segmented picker ──────────────────── */
 .theme-seg {
-  display: inline-flex;
-  gap: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
 }
 
 .theme-opt {
   appearance: none;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.85rem;
-  min-width: 116px;
+  display: grid;
+  gap: .75rem;
+  padding: .75rem;
+  min-width: 0;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--color-border);
   background: var(--color-surface-soft);
@@ -1343,22 +1435,20 @@ function flash(flag: { value: boolean }): void {
   border-color: var(--color-primary);
   background: var(--color-status-bg);
 }
-
-.theme-sw {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: 8px;
-  border: 1px solid var(--color-border-strong);
-}
-
-.theme-sw.light {
-  background: linear-gradient(135deg, #ffffff 50%, #e8efe9 50%);
-}
-
-.theme-sw.dark {
-  background: linear-gradient(135deg, #2b332e 50%, #14181d 50%);
-}
+.theme-opt:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.theme-preview { display: grid; grid-template-columns: 25% 1fr; height: 130px; border: 1px solid var(--preview-border); border-radius: 7px; overflow: hidden; background: var(--preview-bg); }
+.theme-preview.light { --preview-bg: #f4f7f2; --preview-surface: #fff; --preview-border: #dce5d7; --preview-line: #ced8c6; }
+.theme-preview.dark { --preview-bg: #080d08; --preview-surface: #182218; --preview-border: #2b3b25; --preview-line: #3d4d35; }
+.theme-preview-sidebar { display: grid; align-content: start; gap: 9px; padding: 15px 8px; border-right: 1px solid var(--preview-border); background: var(--preview-surface); }
+.theme-preview i { display: block; height: 5px; border-radius: 3px; background: var(--preview-line); }
+.theme-preview-sidebar i:first-child { height: 12px; margin-bottom: 8px; background: #70b917; }
+.theme-preview-content { display: grid; align-content: start; gap: 10px; padding: 16px 12px; }
+.theme-preview-content > i:first-child { width: 55%; height: 7px; }
+.theme-preview-content > span { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.theme-preview-content > span i { height: 34px; background: var(--preview-surface); border: 1px solid var(--preview-border); }
+.theme-caption { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.theme-check { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--color-border-strong); border-radius: 50%; font-size: .75rem; }
+.theme-opt.on .theme-check { color: var(--color-button-text); background: var(--color-primary); border-color: var(--color-primary); }
 
 .theme-nm {
   font-size: var(--text-sm);
@@ -1370,7 +1460,7 @@ function flash(flag: { value: boolean }): void {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem 2rem;
+  padding: 1rem 1.75rem;
   border-top: 1px solid var(--color-divider);
   background: var(--color-surface-soft);
 }
@@ -1512,7 +1602,7 @@ function flash(flag: { value: boolean }): void {
 }
 
 /* ── Responsive ──────────────────────────────── */
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
   .settings-cols {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -1520,13 +1610,13 @@ function flash(flag: { value: boolean }): void {
 
   .settings-nav {
     position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: .8rem;
+    padding: 1rem;
+    max-height: none;
+    overflow: visible;
   }
-  .snav-group { display: flex; flex-wrap: wrap; gap: .25rem; width: 100%; }
-  .snav-group-title { width: 100%; margin: 0; }
-  .snav-link { padding: .55rem .7rem; }
+  .snav-group { display: none; }
+  .mobile-section-picker { display: grid; gap: .5rem; font-size: var(--text-sm); font-weight: 600; }
+  .mobile-section-picker .select { width: 100%; min-height: 44px; }
   .s-card-head { padding: 1.25rem; }
   .s-card-body { padding: 1.25rem; }
   .settings-cols { gap: 1.25rem; }
@@ -1535,15 +1625,21 @@ function flash(flag: { value: boolean }): void {
     flex-direction: column;
     align-items: stretch;
   }
+  #account .s-row, #preferences .s-row, #security .s-row, #vulnerability-scanning .s-row { grid-template-columns: 1fr; gap: .75rem; }
 
   .s-control,
   .s-control.grow {
     align-items: stretch;
     max-width: none;
   }
+  .s-card-foot { padding: 1rem 1.25rem; flex-wrap: wrap; }
+  .s-card-foot .save-note, .s-card-foot .saved-tag { flex-basis: 100%; }
+  .s-card-foot :deep(.app-btn) { min-height: 40px; }
 
   .who-badges {
     margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .about-grid {
@@ -1553,5 +1649,8 @@ function flash(flag: { value: boolean }): void {
   .update-summary, .maintenance-fields { grid-template-columns: 1fr; }
   .available-update, .manual-update { display: flex; flex-direction: column; align-items: stretch; }
 
+}
+@media (prefers-reduced-motion: reduce) {
+  .snav-link, .theme-opt, .fade-enter-active, .fade-leave-active { transition: none; }
 }
 </style>

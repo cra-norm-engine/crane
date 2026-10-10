@@ -6,6 +6,8 @@ RUN npm ci --legacy-peer-deps
 COPY . .
 ARG VITE_APP_VERSION=dev
 ENV VITE_APP_VERSION=${VITE_APP_VERSION}
+ARG VITE_PUBLIC_DEMO=false
+ENV VITE_PUBLIC_DEMO=${VITE_PUBLIC_DEMO}
 ENV VITE_API_BASE_URL=/api/v1
 # ponytail: repository-wide type debt remains enforced by CI; keep image
 # packaging independent until `npm run type-check` is green again.
