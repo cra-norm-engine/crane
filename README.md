@@ -43,7 +43,9 @@ CRANE centralizes everything in a single, auditable workspace.
 
 # 📸 Dashboard
 
-![CRANE Dashboard](.github/assets/Main_dashboard.png)
+Track cybersecurity maturity, products, vulnerabilities, risk assessments, tasks, and lifecycle alerts from one dashboard.
+
+![CRANE dashboard with cybersecurity maturity, vulnerability pipeline, risk assessments, and lifecycle alerts](docs/screenshots/dashboard.png)
 
 ---
 
@@ -84,9 +86,28 @@ CRANE provides a complete workflow for the Cyber Resilience Act.
 
 # 📦 Product Inventory
 
-Comprehensive overview of products, releases, lifecycle, and CRA-related information.
+Catalogue products with their CRA scope, classification, obligations, conformity route, and support status.
 
-![Product Inventory](.github/assets/productInventory.png)
+![CRANE product inventory showing CRA scope, classification, obligations, conformity routes, and support status](docs/screenshots/product-inventory.png)
+
+## Product workspace
+
+Open a product to review its tasks, supply-chain traceability, releases, support periods, remote processing solutions, and activity timeline.
+
+<details>
+<summary>View the full product workspace screenshot</summary>
+
+![CRANE SmartLock Pro product workspace showing tasks, supplier traceability, support periods, releases, and remote processing solutions](docs/screenshots/product-details.png)
+
+</details>
+
+# 🛡️ Vulnerability and Incident Management
+
+Review vulnerability intake, priority findings, overdue remediation, disclosure policies, advisories, SBOM records, and the ENISA / CSIRT reporting queue.
+
+![CRANE vulnerability management overview showing priority findings, remediation work, intake lifecycle, and reporting queue](docs/screenshots/vulnerability-management.png)
+
+Explore these workflows in the [CRANE documentation](https://cra-norm-engine.github.io/crane/concepts.html).
 
 ---
 

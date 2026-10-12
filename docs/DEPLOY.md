@@ -6,7 +6,8 @@ This folder is a self-contained static documentation site — plain HTML/CSS/JS,
 - `index.html` … `contributing.html` — the ten documentation pages
 - `assets/docs.css` — design system (light + dark)
 - `assets/docs.js` — sidebar, topbar, theme toggle, search, on-page TOC
-- Product screenshots are referenced directly from the repo's `raw.githubusercontent.com` URLs, so nothing else needs copying.
+- Current dashboard, product inventory, product workspace, and vulnerability screenshots live in `screenshots/` and are shared with the repository README. Include that folder when deploying the site.
+- Older feature screenshots are referenced directly from the repo's `raw.githubusercontent.com` URLs.
 
 ## Option A — publish from a `/docs` folder (recommended, keeps it separate from the app)
 1. Create a `docs/` folder on your default branch and drop these files into it

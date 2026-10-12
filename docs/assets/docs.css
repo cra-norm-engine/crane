@@ -560,7 +560,7 @@ a.card:hover { text-decoration: none; border-color: var(--accent-border); box-sh
 /* figure / screenshot */
 .figure { margin: 8px 0 24px; }
 .figure img {
-  width: 100%; display: block;
+  width: 100%; height: auto; display: block;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
