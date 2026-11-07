@@ -33,6 +33,7 @@ from app.api.routes.cvd_policies import router as cvd_policies_router
 from app.api.routes.sbom_records import router as sbom_records_router
 from app.api.routes.security_advisories import router as security_advisories_router
 from app.api.routes.support_periods import router as support_periods_router
+from app.api.routes.support_advisor import router as support_advisor_router
 from app.api.routes.vulnerability_reports import router as vulnerability_reports_router
 from app.api.routes.incident_reports import router as incident_reports_router
 from app.api.routes.comments import router as comments_router
@@ -170,3 +171,5 @@ api_router.include_router(admin_router)
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(maturity_router, prefix="/maturity-assessments", tags=["maturity"])
 api_router.include_router(supplier_assessments_router, prefix="/supplier-assurance", tags=["supplier-assurance"])
+
+api_router.include_router(support_advisor_router)

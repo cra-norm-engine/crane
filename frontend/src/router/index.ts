@@ -81,6 +81,12 @@ const routes: RouteRecordRaw[] = [
         component: ProductsView,
       },
       {
+        path: "products/:productId/support-advisor",
+        name: "support-advisor",
+        component: () => import("@/views/SupportAdvisorView.vue"),
+        meta: { permissions: ["product_read", "release_read", "support_period_read", "supplier_assessment_read", "evidence_item_read", "risk_assessment_read", "vulnerability_report_read"] },
+      },
+      {
         path: "products/:productId",
         name: "product-detail",
         component: ProductDetailView,

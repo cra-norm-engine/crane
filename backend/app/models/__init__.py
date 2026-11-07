@@ -65,6 +65,7 @@ from app.models.supplier_assessment import (
     SupplierFinding,
     ThirdPartyComponent,
 )
+from app.models.support_assessment import SupportAssessment
 from app.models.support_period_record import SupportPeriodNotificationRecipient, SupportPeriodRecord
 from app.models.system_setting import SystemSetting
 from app.models.user import Role, User, UserRole
@@ -127,6 +128,7 @@ __all__ = [
     "SecurityAdvisory",
     "SecurityUpdate",
     "SupportPeriodRecord",
+    "SupportAssessment",
     "SupportPeriodNotificationRecipient",
     "Role",
     "User",

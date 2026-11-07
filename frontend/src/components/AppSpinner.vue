@@ -10,16 +10,16 @@
     AppSpinner — accessible loading indicator.
 
     Usage:
-      <!-- default medium size -->
+      Default medium size:
       <AppSpinner />
 
-      <!-- small, for use inside buttons -->
+      Small, for use inside buttons:
       <AppSpinner size="sm" />
 
-      <!-- large, for full-section loading states -->
+      Large, for full-section loading states:
       <AppSpinner size="lg" label="Loading products…" />
 
-      <!-- centred in a container -->
+      Centred in a container:
       <div class="spinner-center">
         <AppSpinner size="lg" />
         <span class="muted">Loading…</span>

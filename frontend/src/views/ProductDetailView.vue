@@ -571,6 +571,12 @@
               </div>
             </div>
 
+            <RouterLink v-if="authStore.hasPermission('support_period_read') && authStore.hasPermission('release_read') && authStore.hasPermission('supplier_assessment_read') && authStore.hasPermission('evidence_item_read') && authStore.hasPermission('risk_assessment_read') && authStore.hasPermission('vulnerability_report_read')" :to="{ name: 'support-advisor', params: { productId: product.id } }" class="support-advisor-entry">
+              <span class="support-advisor-entry-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M10 2 17 5v5c0 4-7 8-7 8S3 14 3 10V5l7-3Z"/><path d="m7 10 2 2 4-4"/></svg></span>
+              <span><strong>Support-Period Advisor</strong><small>Review supplier coverage and document your decision.</small></span>
+              <span aria-hidden="true">→</span>
+            </RouterLink>
+
             <!-- Per-release summary rows -->
             <div v-if="product.releases.length" class="support-summary">
               <div
@@ -3182,6 +3188,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.support-advisor-entry { display: flex; align-items: center; gap: 10px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--color-success-border); border-radius: 8px; background: var(--color-success-bg); color: var(--color-text); text-decoration: none; }
+.support-advisor-entry:hover { border-color: var(--color-primary); }
+.support-advisor-entry:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.support-advisor-entry-icon { color: var(--color-primary); flex-shrink: 0; }
+.support-advisor-entry > span:nth-child(2) { flex: 1; min-width: 0; }
+.support-advisor-entry strong { display: block; font-size: 12px; font-weight: 600; }
+.support-advisor-entry small { display: block; margin-top: 4px; color: var(--color-text-muted); font-size: 11px; line-height: 1.5; }
+
 .pd-guide-section {
   background: rgba(122, 204, 55, .10) !important;
   box-shadow: inset 4px 0 0 var(--color-primary) !important;
